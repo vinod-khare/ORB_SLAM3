@@ -33,7 +33,8 @@ using namespace std;
 namespace po = boost::program_options;
 
 void LoadImages(const string &strImagePath, const string &strPathTimes,
-                vector<string> &vstrImages, vector<double> &vTimeStamps);
+                vector<string> &vstrImages, vector<double> &vTimeStamps,
+                int frames_skip = 0, int frames_stride = 1, int frames_take = 0);
 
 double ttrack_tot = 0;
 int main(int argc, char **argv)
@@ -46,6 +47,9 @@ int main(int argc, char **argv)
             ("settings,s", po::value<string>()->required(), "Path to settings YAML file")
             ("sequence,d", po::value<vector<string>>()->required()->multitoken(), "Image directory and times file pairs (can be specified multiple times)")
             ("output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")
+            ("frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")
+            ("frames-stride", po::value<int>()->default_value(1), "Take every Nth frame (stride)")
+            ("frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")
             ;
 
         po::positional_options_description p;
@@ -102,13 +106,23 @@ int main(int argc, char **argv)
             cout << "Output filename: " << output_filename << endl;
         }
 
+        int frames_skip = vm["frames-skip"].as<int>();
+        int frames_stride = vm["frames-stride"].as<int>();
+        int frames_take = vm["frames-take"].as<int>();
+
+        if (frames_skip < 0 || frames_stride <= 0 || frames_take < 0) {
+            cerr << "ERROR: Invalid frame parameters (skip and take must be >= 0, stride must be > 0)" << endl;
+            return 1;
+        }
+
         int tot_images = 0;
         for (int seq = 0; seq < num_seq; seq++) {
             string image_dir = sequence_args[2 * seq];
             string times_file = sequence_args[2 * seq + 1];
             
             cout << "Loading sequence " << seq << ": " << image_dir << " with times from " << times_file << "...";
-            LoadImages(image_dir, times_file, vstrImageFilenames[seq], vTimestampsCam[seq]);
+            LoadImages(image_dir, times_file, vstrImageFilenames[seq], vTimestampsCam[seq], 
+                      frames_skip, frames_stride, frames_take);
             cout << "LOADED!" << endl;
 
             nImages[seq] = vstrImageFilenames[seq].size();
@@ -257,12 +271,17 @@ int main(int argc, char **argv)
 }
 
 void LoadImages(const string &strImagePath, const string &strPathTimes,
-                vector<string> &vstrImages, vector<double> &vTimeStamps)
+                vector<string> &vstrImages, vector<double> &vTimeStamps,
+                int frames_skip, int frames_stride, int frames_take)
 {
     ifstream fTimes;
     fTimes.open(strPathTimes.c_str());
-    vTimeStamps.reserve(5000);
-    vstrImages.reserve(5000);
+    vector<string> allImages;
+    vector<double> allTimestamps;
+    allTimestamps.reserve(5000);
+    allImages.reserve(5000);
+    
+    // Load all frames first
     while(!fTimes.eof())
     {
         string s;
@@ -276,11 +295,25 @@ void LoadImages(const string &strImagePath, const string &strPathTimes,
             int pos = s.find(' ');
             string item = s.substr(0, pos);
 
-            vstrImages.push_back(strImagePath + "/" + item + ".png");
+            allImages.push_back(strImagePath + "/" + item + ".png");
             double t = stod(item);
-            vTimeStamps.push_back(t/1e9);
+            allTimestamps.push_back(t/1e9);
         }
     }
+    
+    // Apply frame filtering
+    int start_idx = frames_skip;
+    int count = 0;
+    
+    for (int i = start_idx; i < (int)allImages.size(); i += frames_stride) {
+        if (frames_take > 0 && count >= frames_take) {
+            break;
+        }
+        vstrImages.push_back(allImages[i]);
+        vTimeStamps.push_back(allTimestamps[i]);
+        count++;
+    }
 }
+
 
 
