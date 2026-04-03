@@ -40,6 +40,7 @@ MESSAGE(${OpenCV_VERSION})
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(CURL REQUIRED)
+find_package(Boost REQUIRED COMPONENTS program_options)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -144,7 +145,6 @@ endif()
 # Build examples
 
 # RGB-D examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D)
 
 add_executable(rgbd_tum
         Examples/RGB-D/rgbd_tum.cc)
@@ -158,7 +158,6 @@ endif()
 
 
 # RGB-D inertial examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D-Inertial)
 
 if(realsense2_FOUND)
     add_executable(rgbd_inertial_realsense_D435i
@@ -167,7 +166,6 @@ if(realsense2_FOUND)
 endif()
 
 #Stereo examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo)
 
 add_executable(stereo_kitti
         Examples/Stereo/stereo_kitti.cc)
@@ -192,7 +190,6 @@ if(realsense2_FOUND)
 endif()
 
 #Monocular examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
 
 add_executable(mono_tum
         Examples/Monocular/mono_tum.cc)
@@ -208,7 +205,7 @@ target_link_libraries(mono_euroc ${PROJECT_NAME})
 
 add_executable(mono_tum_vi
         Examples/Monocular/mono_tum_vi.cc)
-target_link_libraries(mono_tum_vi ${PROJECT_NAME} CURL::libcurl curlpp)
+target_link_libraries(mono_tum_vi ${PROJECT_NAME} CURL::libcurl curlpp Boost::program_options)
 
 if(realsense2_FOUND)
     add_executable(mono_realsense_t265
@@ -221,7 +218,6 @@ if(realsense2_FOUND)
 endif()
 
 #Monocular inertial examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular-Inertial)
 
 add_executable(mono_inertial_euroc
         Examples/Monocular-Inertial/mono_inertial_euroc.cc)
@@ -242,7 +238,6 @@ if(realsense2_FOUND)
 endif()
 
 #Stereo Inertial examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo-Inertial)
 
 add_executable(stereo_inertial_euroc
         Examples/Stereo-Inertial/stereo_inertial_euroc.cc)
@@ -262,7 +257,6 @@ if(realsense2_FOUND)
     target_link_libraries(stereo_inertial_realsense_D435i ${PROJECT_NAME})
 endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Calibration)
 if(realsense2_FOUND)
     add_executable(recorder_realsense_D435i
             Examples/Calibration/recorder_realsense_D435i.cc)
@@ -276,7 +270,6 @@ endif()
 #Old examples
 
 # RGB-D examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples_old/RGB-D)
 
 add_executable(rgbd_tum_old
         Examples_old/RGB-D/rgbd_tum.cc)
@@ -290,7 +283,6 @@ endif()
 
 
 # RGB-D inertial examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples_old/RGB-D-Inertial)
 
 if(realsense2_FOUND)
     add_executable(rgbd_inertial_realsense_D435i_old
@@ -299,7 +291,6 @@ if(realsense2_FOUND)
 endif()
 
 #Stereo examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples_old/Stereo)
 
 add_executable(stereo_kitti_old
         Examples_old/Stereo/stereo_kitti.cc)
@@ -324,7 +315,6 @@ if(realsense2_FOUND)
 endif()
 
 #Monocular examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples_old/Monocular)
 
 add_executable(mono_tum_old
         Examples_old/Monocular/mono_tum.cc)
@@ -353,7 +343,6 @@ if(realsense2_FOUND)
 endif()
 
 #Monocular inertial examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples_old/Monocular-Inertial)
 
 add_executable(mono_inertial_euroc_old
         Examples_old/Monocular-Inertial/mono_inertial_euroc.cc)
@@ -374,7 +363,6 @@ if(realsense2_FOUND)
 endif()
 
 #Stereo Inertial examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples_old/Stereo-Inertial)
 
 add_executable(stereo_inertial_euroc_old
         Examples_old/Stereo-Inertial/stereo_inertial_euroc.cc)
