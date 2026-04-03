@@ -22,6 +22,7 @@
 #include<chrono>
 #include<iomanip>
 #include <unistd.h>
+#include <filesystem>
 
 #include<opencv2/core/core.hpp>
 #include<boost/program_options.hpp>
@@ -47,6 +48,7 @@ int main(int argc, char **argv)
             ("settings,s", po::value<string>()->required(), "Path to settings YAML file")
             ("sequence,d", po::value<vector<string>>()->required()->multitoken(), "Image directory and times file pairs (can be specified multiple times)")
             ("output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")
+            ("output-folder", po::value<string>(), "Folder to write trajectory files into (created if needed)")
             ("frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")
             ("frames-stride", po::value<int>()->default_value(1), "Take every Nth frame (stride)")
             ("frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")
@@ -97,6 +99,16 @@ int main(int argc, char **argv)
         vector<vector<string>> vstrImageFilenames(num_seq);
         vector<vector<double>> vTimestampsCam(num_seq);
         vector<int> nImages(num_seq);
+
+        string output_folder;
+        if (vm.count("output-folder")) {
+            output_folder = vm["output-folder"].as<string>();
+            if (!std::filesystem::exists(output_folder)) {
+                std::filesystem::create_directories(output_folder);
+                cout << "Created output folder: " << output_folder << endl;
+            }
+            output_folder += "/";
+        }
 
         string output_filename;
         bool bFileName = false;
@@ -242,13 +254,13 @@ int main(int argc, char **argv)
 
         // Save camera trajectory
         if (bFileName) {
-            const string kf_file = "kf_" + output_filename + ".txt";
-            const string f_file = "f_" + output_filename + ".txt";
+            const string kf_file = output_folder + "kf_" + output_filename + ".txt";
+            const string f_file = output_folder + "f_" + output_filename + ".txt";
             SLAM.SaveTrajectoryEuRoC(f_file);
             SLAM.SaveKeyFrameTrajectoryEuRoC(kf_file);
         } else {
-            SLAM.SaveTrajectoryEuRoC("CameraTrajectory.txt");
-            SLAM.SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory.txt");
+            SLAM.SaveTrajectoryEuRoC(output_folder + "CameraTrajectory.txt");
+            SLAM.SaveKeyFrameTrajectoryEuRoC(output_folder + "KeyFrameTrajectory.txt");
         }
 
         // Tracking time statistics
