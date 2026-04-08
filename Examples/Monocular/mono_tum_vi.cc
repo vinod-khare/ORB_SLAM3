@@ -46,6 +46,7 @@ int main(int argc, char **argv)
             ("output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")
             ("output-folder", po::value<string>(), "Folder to write trajectory files into (created if needed)")
             ("save-colmap", po::bool_switch()->default_value(false), "Save COLMAP-compatible sparse model output")
+            ("save-ply", po::bool_switch()->default_value(false), "Save map points as PLY point cloud")
             ("frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")
             ("frames-stride", po::value<int>()->default_value(1), "Take every Nth frame (stride)")
             ("frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")
@@ -136,6 +137,7 @@ int main(int argc, char **argv)
         int frames_stride = vm["frames-stride"].as<int>();
         int frames_take = vm["frames-take"].as<int>();
         bool save_colmap = vm["save-colmap"].as<bool>();
+        bool save_ply = vm["save-ply"].as<bool>();
 
         if (frames_skip < 0 || frames_stride <= 0 || frames_take < 0) {
             cerr << "ERROR: Invalid frame parameters (skip and take must be >= 0, stride must be > 0)" << endl;
@@ -288,6 +290,15 @@ int main(int argc, char **argv)
                  << "   ├─ Status: enabled (--save-colmap)\n"
                  << "   └─ Output: " << output_folder << "\n" << endl;
             SLAM.SaveCOLMAP(output_folder);
+        }
+
+        if (save_ply)
+        {
+            const string ply_output = output_folder + "pointcloud.ply";
+            cout << "\n☁️  PLY Export\n"
+                 << "   ├─ Status: enabled (--save-ply)\n"
+                 << "   └─ Base file: " << ply_output << "\n" << endl;
+            SLAM.SavePointCloudPLY(ply_output);
         }
 
         // Tracking time statistics

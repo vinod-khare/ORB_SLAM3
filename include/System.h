@@ -165,6 +165,12 @@ public:
     // Call after Shutdown().
     void SaveCOLMAP(const string &strDir);
 
+    // Export map points to ASCII PLY point cloud file(s).
+    // If multiple maps exist, files are suffixed with _map<id>.
+    // Example filename "pointcloud.ply" -> pointcloud_map0.ply, pointcloud_map1.ply
+    // Call after Shutdown().
+    void SavePointCloudPLY(const string &filename);
+
     // Save data used for initialization debug
     void SaveDebugData(const int &iniIdx);
 

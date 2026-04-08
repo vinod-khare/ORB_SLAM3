@@ -23,6 +23,7 @@
 #include <thread>
 #include <pangolin/pangolin.h>
 #include <iomanip>
+#include <cmath>
 #include <filesystem>
 #include <sstream>
 #include <openssl/md5.h>
@@ -1364,6 +1365,98 @@ void System::SaveCOLMAP(const string &strDir)
     Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/images.txt   (COLMAP Tcw, qw qx qy qz)", Verbose::VERBOSITY_NORMAL);
     Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/points3D.txt (empty, fill with point_triangulator)", Verbose::VERBOSITY_NORMAL);
     Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/poses_debug.csv (Twc, qx qy qz qw)", Verbose::VERBOSITY_NORMAL);
+}
+
+void System::SavePointCloudPLY(const string &filename)
+{
+    Verbose::PrintMess("", Verbose::VERBOSITY_NORMAL);
+    Verbose::PrintMess("☁️  [SavePointCloudPLY] Exporting map points to PLY", Verbose::VERBOSITY_NORMAL);
+
+    std::filesystem::path base_path(filename);
+    std::filesystem::path out_dir = base_path.parent_path();
+    std::string stem = base_path.stem().string();
+    std::string ext = base_path.extension().string();
+
+    if (stem.empty())
+        stem = "pointcloud";
+    if (ext.empty())
+        ext = ".ply";
+
+    if (!out_dir.empty())
+        std::filesystem::create_directories(out_dir);
+
+    vector<Map*> vpMapsAll = mpAtlas->GetAllMaps();
+    vector<Map*> vpMaps;
+    vpMaps.reserve(vpMapsAll.size());
+    for (Map* pMap : vpMapsAll)
+    {
+        if (pMap && !pMap->IsBad())
+            vpMaps.push_back(pMap);
+    }
+
+    if (vpMaps.empty())
+    {
+        Verbose::PrintMess("❌ [SavePointCloudPLY] No valid maps found. Nothing to export.", Verbose::VERBOSITY_NORMAL);
+        return;
+    }
+
+    const bool multi_map = vpMaps.size() > 1;
+    for (Map* pMap : vpMaps)
+    {
+        std::filesystem::path out_file;
+        if (multi_map)
+        {
+            std::ostringstream oss;
+            oss << stem << "_map" << pMap->GetId() << ext;
+            out_file = out_dir.empty() ? std::filesystem::path(oss.str()) : (out_dir / oss.str());
+        }
+        else
+        {
+            out_file = out_dir.empty() ? std::filesystem::path(stem + ext) : (out_dir / (stem + ext));
+        }
+
+        vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
+        vector<Eigen::Vector3f> points;
+        points.reserve(vpMPs.size());
+        for (MapPoint* pMP : vpMPs)
+        {
+            if (!pMP || pMP->isBad())
+                continue;
+
+            Eigen::Vector3f P = pMP->GetWorldPos();
+            if (!std::isfinite(P.x()) || !std::isfinite(P.y()) || !std::isfinite(P.z()))
+                continue;
+
+            points.push_back(P);
+        }
+
+        std::ofstream fply(out_file.string());
+        if (!fply.is_open())
+        {
+            Verbose::PrintMess("❌ [SavePointCloudPLY] Failed to open file: " + out_file.string(), Verbose::VERBOSITY_NORMAL);
+            continue;
+        }
+
+        fply << "ply\n";
+        fply << "format ascii 1.0\n";
+        fply << "comment ORB_SLAM3 map point cloud\n";
+        fply << "comment map_id " << pMap->GetId() << "\n";
+        fply << "element vertex " << points.size() << "\n";
+        fply << "property float x\n";
+        fply << "property float y\n";
+        fply << "property float z\n";
+        fply << "end_header\n";
+
+        fply << std::fixed << std::setprecision(6);
+        for (const Eigen::Vector3f &P : points)
+            fply << P.x() << " " << P.y() << " " << P.z() << "\n";
+
+        fply.close();
+
+        std::ostringstream ok;
+        ok << "✅ [SavePointCloudPLY] Wrote " << points.size() << " points to " << out_file.string();
+        Verbose::PrintMess(ok.str(), Verbose::VERBOSITY_NORMAL);
+    }
 }
 
 /*void System::SaveTrajectoryKITTI(const string &filename)
