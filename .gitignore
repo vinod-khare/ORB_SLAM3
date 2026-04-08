@@ -92,5 +92,5 @@ borrar/*
 
 */ExecMean.txt
 
-.build/
-.data/
+.build
+.data

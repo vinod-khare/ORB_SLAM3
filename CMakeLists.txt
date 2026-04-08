@@ -198,7 +198,8 @@ add_executable(mono_euroc
 target_link_libraries(mono_euroc ${PROJECT_NAME})
 
 add_executable(mono_tum_vi
-        Examples/Monocular/mono_tum_vi.cc)
+        Examples/Monocular/mono_tum_vi.cc
+        Examples/Monocular/folder_reader.cc)
 target_link_libraries(mono_tum_vi ${PROJECT_NAME} CURL::libcurl curlpp Boost::program_options)
 
 if(realsense2_FOUND)

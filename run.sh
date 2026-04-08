@@ -26,7 +26,7 @@ echo "Running mono_tum_vi on corridor1 dataset (positional arguments)..."
   Examples/Monocular/reaper.yaml \
   .data/reaper/2026_02_05/rosbags/opsys_test_2026_02_05_144901/camera/image \
   --output-folder .data/reaper/2026_02_05/rosbags/opsys_test_2026_02_05_144901/orbslam3 \
-  --frames-skip 0 \
+  --frames-skip 2000 \
   --frames-take 0 \
   --output trajectory
 

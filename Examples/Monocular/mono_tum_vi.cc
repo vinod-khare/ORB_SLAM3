@@ -18,10 +18,8 @@
 
 #include<iostream>
 #include<algorithm>
-#include<fstream>
 #include<chrono>
 #include<iomanip>
-#include<cctype>
 #include <unistd.h>
 #include <filesystem>
 
@@ -30,39 +28,10 @@
 
 #include"System.h"
 #include "Converter.h"
+#include "folder_reader.h"
 
 using namespace std;
 namespace po = boost::program_options;
-
-void LoadImages(const string &strImagePath, const string &strPathTimes,
-                vector<string> &vstrImages, vector<double> &vTimeStamps,
-                int frames_skip = 0, int frames_stride = 1, int frames_take = 0);
-
-bool IsAllDigits(const std::string &s)
-{
-    if (s.empty()) return false;
-
-    bool seen_digit = false;
-    bool seen_dot = false;
-    for (char c : s)
-    {
-        if (std::isdigit(static_cast<unsigned char>(c)))
-        {
-            seen_digit = true;
-            continue;
-        }
-
-        if (c == '.' && !seen_dot)
-        {
-            seen_dot = true;
-            continue;
-        }
-
-        return false;
-    }
-
-    return seen_digit;
-}
 
 double ttrack_tot = 0;
 int main(int argc, char **argv)
@@ -140,8 +109,8 @@ int main(int argc, char **argv)
         }
 
         int num_seq = static_cast<int>(sequences.size());
-        vector<vector<string>> vstrImageFilenames(num_seq);
-        vector<vector<double>> vTimestampsCam(num_seq);
+        vector<folder_reader> readers;
+        readers.reserve(num_seq);
         vector<int> nImages(num_seq);
 
         string output_folder;
@@ -180,11 +149,11 @@ int main(int argc, char **argv)
                 cout << "Loading sequence " << seq << ": " << image_dir << " with times from " << times_file << "...";
             else
                 cout << "Loading sequence " << seq << ": " << image_dir << " using filename nanoseconds as timestamps...";
-            LoadImages(image_dir, times_file, vstrImageFilenames[seq], vTimestampsCam[seq], 
-                      frames_skip, frames_stride, frames_take);
+
+            readers.emplace_back(image_dir, times_file, frames_skip, frames_stride, frames_take);
             cout << "LOADED!" << endl;
 
-            nImages[seq] = vstrImageFilenames[seq].size();
+            nImages[seq] = static_cast<int>(readers.back().size());
             tot_images += nImages[seq];
 
             if (nImages[seq] <= 0) {
@@ -220,7 +189,12 @@ int main(int argc, char **argv)
                 std::cout.flush();
 
                 // Read image from file
-                auto im = cv::imread(vstrImageFilenames[seq][ni], cv::IMREAD_GRAYSCALE);
+                auto im = readers[seq].read_image(ni);
+
+                if (im.empty()) {
+                    cerr << endl << "Failed to load image at: " << readers[seq].image_path(ni) << endl;
+                    return 1;
+                }
 
                 if (imageScale != 1.f) {
 #ifdef REGISTER_TIMES
@@ -247,12 +221,7 @@ int main(int argc, char **argv)
                 // clahe
                 clahe->apply(im, im);
 
-                double tframe = vTimestampsCam[seq][ni];
-
-                if (im.empty()) {
-                    cerr << endl << "Failed to load image at: " << vstrImageFilenames[seq][ni] << endl;
-                    return 1;
-                }
+                double tframe = readers[seq].timestamp(ni);
 
 #ifdef COMPILEDWITHC11
                 std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
@@ -261,7 +230,7 @@ int main(int argc, char **argv)
 #endif
 
                 // Pass the image to the SLAM system
-                SLAM.TrackMonocular(im, tframe, {}, vstrImageFilenames[seq][ni]);
+                SLAM.TrackMonocular(im, tframe, {}, readers[seq].image_path(ni));
 
 #ifdef COMPILEDWITHC11
                 std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -282,9 +251,9 @@ int main(int argc, char **argv)
                 // Wait to load the next frame
                 double T = 0;
                 if (ni < nImages[seq] - 1)
-                    T = vTimestampsCam[seq][ni + 1] - tframe;
+                    T = readers[seq].timestamp(ni + 1) - tframe;
                 else if (ni > 0)
-                    T = tframe - vTimestampsCam[seq][ni - 1];
+                    T = tframe - readers[seq].timestamp(ni - 1);
 
                 if (ttrack < T)
                     usleep((T - ttrack) * 1e6);
@@ -329,87 +298,6 @@ int main(int argc, char **argv)
     catch(exception& e) {
         cerr << "FATAL ERROR: " << e.what() << endl;
         return 1;
-    }
-}
-
-void LoadImages(const string &strImagePath, const string &strPathTimes,
-                vector<string> &vstrImages, vector<double> &vTimeStamps,
-                int frames_skip, int frames_stride, int frames_take)
-{
-    vector<string> allImages;
-    vector<double> allTimestamps;
-    allTimestamps.reserve(5000);
-    allImages.reserve(5000);
-
-    // Load with explicit timestamp file, if provided.
-    if(!strPathTimes.empty())
-    {
-        ifstream fTimes;
-        fTimes.open(strPathTimes.c_str());
-        while(!fTimes.eof())
-        {
-            string s;
-            getline(fTimes,s);
-
-            if(!s.empty())
-            {
-                if (s[0] == '#')
-                    continue;
-
-                int pos = s.find(' ');
-                string item = s.substr(0, pos);
-
-                allImages.push_back(strImagePath + "/" + item + ".png");
-                double t = stod(item);
-                allTimestamps.push_back(t/1e9);
-            }
-        }
-    }
-    else
-    {
-        // No timestamp file provided: infer from filename stem (nanoseconds).
-        vector<pair<double, string>> parsed;
-        for (const auto &entry : std::filesystem::directory_iterator(strImagePath))
-        {
-            if (!entry.is_regular_file())
-                continue;
-
-            const string ext = entry.path().extension().string();
-            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg")
-                continue;
-
-            const string stem = entry.path().stem().string();
-            if (!IsAllDigits(stem))
-                throw runtime_error("Invalid image filename for timestamp inference: " + entry.path().string() +
-                                   ". Expected numeric stem (integer or floating point). Provide times.txt or rename files.");
-
-            const double t_ns = stod(stem);
-            parsed.push_back({t_ns / 1e9, entry.path().string()});
-        }
-
-        sort(parsed.begin(), parsed.end(),
-             [](const pair<double, string> &a, const pair<double, string> &b) {
-                 return a.first < b.first;
-             });
-
-        for (const auto &item : parsed)
-        {
-            allTimestamps.push_back(item.first);
-            allImages.push_back(item.second);
-        }
-    }
-    
-    // Apply frame filtering
-    int start_idx = frames_skip;
-    int count = 0;
-    
-    for (int i = start_idx; i < (int)allImages.size(); i += frames_stride) {
-        if (frames_take > 0 && count >= frames_take) {
-            break;
-        }
-        vstrImages.push_back(allImages[i]);
-        vTimeStamps.push_back(allTimestamps[i]);
-        count++;
     }
 }
 
