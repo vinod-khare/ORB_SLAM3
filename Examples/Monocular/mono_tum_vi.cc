@@ -45,6 +45,7 @@ int main(int argc, char **argv)
             ("sequence,d", po::value<vector<string>>()->required()->multitoken(), "Sequence spec(s): image_dir [times_file]. If times_file is omitted, filename stems are used as timestamps")
             ("output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")
             ("output-folder", po::value<string>(), "Folder to write trajectory files into (created if needed)")
+            ("save-colmap", po::bool_switch()->default_value(false), "Save COLMAP-compatible sparse model output")
             ("frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")
             ("frames-stride", po::value<int>()->default_value(1), "Take every Nth frame (stride)")
             ("frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")
@@ -134,6 +135,7 @@ int main(int argc, char **argv)
         int frames_skip = vm["frames-skip"].as<int>();
         int frames_stride = vm["frames-stride"].as<int>();
         int frames_take = vm["frames-take"].as<int>();
+        bool save_colmap = vm["save-colmap"].as<bool>();
 
         if (frames_skip < 0 || frames_stride <= 0 || frames_take < 0) {
             cerr << "ERROR: Invalid frame parameters (skip and take must be >= 0, stride must be > 0)" << endl;
@@ -279,8 +281,14 @@ int main(int argc, char **argv)
             SLAM.SaveKeyFrameTrajectoryEuRoC(output_folder + "KeyFrameTrajectory.txt");
         }
 
-        // Save COLMAP-compatible sparse model
-        SLAM.SaveCOLMAP(output_folder);
+        if (save_colmap)
+        {
+            // Save COLMAP-compatible sparse model
+            cout << "\n📦 COLMAP Export\n"
+                 << "   ├─ Status: enabled (--save-colmap)\n"
+                 << "   └─ Output: " << output_folder << "\n" << endl;
+            SLAM.SaveCOLMAP(output_folder);
+        }
 
         // Tracking time statistics
         sort(vTimesTrack.begin(), vTimesTrack.end());
