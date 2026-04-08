@@ -21,6 +21,7 @@
 #include<fstream>
 #include<chrono>
 #include<iomanip>
+#include<cctype>
 #include <unistd.h>
 #include <filesystem>
 
@@ -37,6 +38,32 @@ void LoadImages(const string &strImagePath, const string &strPathTimes,
                 vector<string> &vstrImages, vector<double> &vTimeStamps,
                 int frames_skip = 0, int frames_stride = 1, int frames_take = 0);
 
+bool IsAllDigits(const std::string &s)
+{
+    if (s.empty()) return false;
+
+    bool seen_digit = false;
+    bool seen_dot = false;
+    for (char c : s)
+    {
+        if (std::isdigit(static_cast<unsigned char>(c)))
+        {
+            seen_digit = true;
+            continue;
+        }
+
+        if (c == '.' && !seen_dot)
+        {
+            seen_dot = true;
+            continue;
+        }
+
+        return false;
+    }
+
+    return seen_digit;
+}
+
 double ttrack_tot = 0;
 int main(int argc, char **argv)
 {
@@ -46,7 +73,7 @@ int main(int argc, char **argv)
             ("help,h", "Show this help message")
             ("vocab,v", po::value<string>()->required(), "Path to ORB vocabulary file")
             ("settings,s", po::value<string>()->required(), "Path to settings YAML file")
-            ("sequence,d", po::value<vector<string>>()->required()->multitoken(), "Image directory and times file pairs (can be specified multiple times)")
+            ("sequence,d", po::value<vector<string>>()->required()->multitoken(), "Sequence spec(s): image_dir [times_file]. If times_file is omitted, filename stems are used as timestamps")
             ("output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")
             ("output-folder", po::value<string>(), "Folder to write trajectory files into (created if needed)")
             ("frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")
@@ -70,8 +97,8 @@ int main(int argc, char **argv)
             
             if (vm.count("help")) {
                 cout << desc << "\nExample:\n"
-                     << "  " << argv[0] << " vocab.txt settings.yaml img_dir1 times1.txt img_dir2 times2.txt --output my_traj.txt\n"
-                     << "  " << argv[0] << " --vocab vocab.txt --settings settings.yaml --sequence img_dir1 times1.txt --sequence img_dir2 times2.txt\n"
+                     << "  " << argv[0] << " vocab.txt settings.yaml img_dir1 times1.txt img_dir2 --output my_traj.txt\n"
+                     << "  " << argv[0] << " --vocab vocab.txt --settings settings.yaml --sequence img_dir1 times1.txt --sequence img_dir2\n"
                      << endl;
                 return 0;
             }
@@ -80,7 +107,8 @@ int main(int argc, char **argv)
         }
         catch(po::error& e) {
             cerr << "ERROR: " << e.what() << endl << endl;
-            cerr << "Usage: " << argv[0] << " VOCABULARY_FILE SETTINGS_FILE IMAGE_DIR TIMES_FILE [IMAGE_DIR TIMES_FILE ...] [OPTIONS]\n\n";
+            cerr << "Usage: " << argv[0] << " VOCABULARY_FILE SETTINGS_FILE IMAGE_DIR [TIMES_FILE] [IMAGE_DIR [TIMES_FILE] ...] [OPTIONS]\n\n";
+            cerr << "If TIMES_FILE is omitted, image filename stems are interpreted as timestamps.\n\n";
             cerr << desc << endl;
             return 1;
         }
@@ -88,14 +116,30 @@ int main(int argc, char **argv)
         string vocab_path = vm["vocab"].as<string>();
         string settings_path = vm["settings"].as<string>();
         vector<string> sequence_args = vm["sequence"].as<vector<string>>();
-        
-        // Parse sequence pairs (each pair is: image_dir times_file)
-        if (sequence_args.size() % 2 != 0) {
-            cerr << "ERROR: Sequence arguments must come in pairs (image_directory times_file)" << endl;
-            return 1;
+
+        // Parse sequence specs. Each sequence can be either:
+        //   1) image_dir times_file
+        //   2) image_dir   (timestamps derived from filename nanoseconds)
+        vector<pair<string, string>> sequences;
+        for (size_t i = 0; i < sequence_args.size(); ++i)
+        {
+            string image_dir = sequence_args[i];
+            string times_file;
+
+            if (i + 1 < sequence_args.size())
+            {
+                const string &next_arg = sequence_args[i + 1];
+                if (std::filesystem::exists(next_arg) && std::filesystem::is_regular_file(next_arg))
+                {
+                    times_file = next_arg;
+                    ++i;
+                }
+            }
+
+            sequences.push_back({image_dir, times_file});
         }
 
-        int num_seq = sequence_args.size() / 2;
+        int num_seq = static_cast<int>(sequences.size());
         vector<vector<string>> vstrImageFilenames(num_seq);
         vector<vector<double>> vTimestampsCam(num_seq);
         vector<int> nImages(num_seq);
@@ -129,10 +173,13 @@ int main(int argc, char **argv)
 
         int tot_images = 0;
         for (int seq = 0; seq < num_seq; seq++) {
-            string image_dir = sequence_args[2 * seq];
-            string times_file = sequence_args[2 * seq + 1];
+            string image_dir = sequences[seq].first;
+            string times_file = sequences[seq].second;
             
-            cout << "Loading sequence " << seq << ": " << image_dir << " with times from " << times_file << "...";
+            if (!times_file.empty())
+                cout << "Loading sequence " << seq << ": " << image_dir << " with times from " << times_file << "...";
+            else
+                cout << "Loading sequence " << seq << ": " << image_dir << " using filename nanoseconds as timestamps...";
             LoadImages(image_dir, times_file, vstrImageFilenames[seq], vTimestampsCam[seq], 
                       frames_skip, frames_stride, frames_take);
             cout << "LOADED!" << endl;
@@ -165,7 +212,7 @@ int main(int argc, char **argv)
         int proccIm = 0;
         for (int seq = 0; seq < num_seq; seq++) {
             // Main loop
-            cv::Mat im;
+            // cv::Mat im{};
             proccIm = 0;
             cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
             for (int ni = 0; ni < nImages[seq]; ni++, proccIm++) {
@@ -173,7 +220,7 @@ int main(int argc, char **argv)
                 std::cout.flush();
 
                 // Read image from file
-                im = cv::imread(vstrImageFilenames[seq][ni], cv::IMREAD_GRAYSCALE);
+                auto im = cv::imread(vstrImageFilenames[seq][ni], cv::IMREAD_GRAYSCALE);
 
                 if (imageScale != 1.f) {
 #ifdef REGISTER_TIMES
@@ -214,7 +261,7 @@ int main(int argc, char **argv)
 #endif
 
                 // Pass the image to the SLAM system
-                SLAM.TrackMonocular(im, tframe);
+                SLAM.TrackMonocular(im, tframe, {}, vstrImageFilenames[seq][ni]);
 
 #ifdef COMPILEDWITHC11
                 std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -263,6 +310,9 @@ int main(int argc, char **argv)
             SLAM.SaveKeyFrameTrajectoryEuRoC(output_folder + "KeyFrameTrajectory.txt");
         }
 
+        // Save COLMAP-compatible sparse model
+        SLAM.SaveCOLMAP(output_folder);
+
         // Tracking time statistics
         sort(vTimesTrack.begin(), vTimesTrack.end());
         float totaltime = 0;
@@ -286,30 +336,66 @@ void LoadImages(const string &strImagePath, const string &strPathTimes,
                 vector<string> &vstrImages, vector<double> &vTimeStamps,
                 int frames_skip, int frames_stride, int frames_take)
 {
-    ifstream fTimes;
-    fTimes.open(strPathTimes.c_str());
     vector<string> allImages;
     vector<double> allTimestamps;
     allTimestamps.reserve(5000);
     allImages.reserve(5000);
-    
-    // Load all frames first
-    while(!fTimes.eof())
-    {
-        string s;
-        getline(fTimes,s);
 
-        if(!s.empty())
+    // Load with explicit timestamp file, if provided.
+    if(!strPathTimes.empty())
+    {
+        ifstream fTimes;
+        fTimes.open(strPathTimes.c_str());
+        while(!fTimes.eof())
         {
-            if (s[0] == '#')
+            string s;
+            getline(fTimes,s);
+
+            if(!s.empty())
+            {
+                if (s[0] == '#')
+                    continue;
+
+                int pos = s.find(' ');
+                string item = s.substr(0, pos);
+
+                allImages.push_back(strImagePath + "/" + item + ".png");
+                double t = stod(item);
+                allTimestamps.push_back(t/1e9);
+            }
+        }
+    }
+    else
+    {
+        // No timestamp file provided: infer from filename stem (nanoseconds).
+        vector<pair<double, string>> parsed;
+        for (const auto &entry : std::filesystem::directory_iterator(strImagePath))
+        {
+            if (!entry.is_regular_file())
                 continue;
 
-            int pos = s.find(' ');
-            string item = s.substr(0, pos);
+            const string ext = entry.path().extension().string();
+            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg")
+                continue;
 
-            allImages.push_back(strImagePath + "/" + item + ".png");
-            double t = stod(item);
-            allTimestamps.push_back(t/1e9);
+            const string stem = entry.path().stem().string();
+            if (!IsAllDigits(stem))
+                throw runtime_error("Invalid image filename for timestamp inference: " + entry.path().string() +
+                                   ". Expected numeric stem (integer or floating point). Provide times.txt or rename files.");
+
+            const double t_ns = stod(stem);
+            parsed.push_back({t_ns / 1e9, entry.path().string()});
+        }
+
+        sort(parsed.begin(), parsed.end(),
+             [](const pair<double, string> &a, const pair<double, string> &b) {
+                 return a.first < b.first;
+             });
+
+        for (const auto &item : parsed)
+        {
+            allTimestamps.push_back(item.first);
+            allImages.push_back(item.second);
         }
     }
     

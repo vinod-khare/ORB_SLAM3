@@ -25,6 +25,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string>
+#include<list>
 #include<thread>
 #include<opencv2/core/core.hpp>
 
@@ -158,6 +159,12 @@ public:
     void SaveTrajectoryEuRoC(const string &filename, Map* pMap);
     void SaveKeyFrameTrajectoryEuRoC(const string &filename, Map* pMap);
 
+    // Export a COLMAP-compatible sparse model (cameras.txt, images.txt, points3D.txt)
+    // plus a debug CSV (poses_debug.csv) into strDir.
+    // images.txt uses world-to-camera Tcw convention with quaternion order qw qx qy qz.
+    // Call after Shutdown().
+    void SaveCOLMAP(const string &strDir);
+
     // Save data used for initialization debug
     void SaveDebugData(const int &iniIdx);
 
@@ -193,6 +200,10 @@ public:
 #endif
 
 private:
+
+    // Keep filename history aligned with tracker frame-pose history in System,
+    // so Tracking remains unchanged.
+    void RegisterFrameFilenameForExport(const string &filename);
 
     void SaveAtlas(int type);
     bool LoadAtlas(int type);
@@ -254,6 +265,10 @@ private:
     std::vector<MapPoint*> mTrackedMapPoints;
     std::vector<cv::KeyPoint> mTrackedKeyPointsUn;
     std::mutex mMutexState;
+
+    // One filename per tracked frame pose entry (same cardinality as
+    // mpTracker->mlRelativeFramePoses when exported).
+    std::list<string> mlFrameFilenames{};
 
     //
     string mStrLoadAtlasFromFile;

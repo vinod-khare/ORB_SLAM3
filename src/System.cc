@@ -23,6 +23,8 @@
 #include <thread>
 #include <pangolin/pangolin.h>
 #include <iomanip>
+#include <filesystem>
+#include <sstream>
 #include <openssl/md5.h>
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/string.hpp>
@@ -241,6 +243,19 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
 }
 
+void System::RegisterFrameFilenameForExport(const string &filename)
+{
+    const size_t pose_count = mpTracker->mlRelativeFramePoses.size();
+
+    // Handle tracker resets/restarts: trim stale filenames.
+    while (mlFrameFilenames.size() > pose_count)
+        mlFrameFilenames.pop_back();
+
+    // Handle newly appended frame poses: mirror growth with current filename.
+    while (mlFrameFilenames.size() < pose_count)
+        mlFrameFilenames.push_back(filename);
+}
+
 Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<IMU::Point>& vImuMeas, string filename)
 {
     if(mSensor!=STEREO && mSensor!=IMU_STEREO)
@@ -314,6 +329,7 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
 
     // std::cout << "start GrabImageStereo" << std::endl;
     Sophus::SE3f Tcw = mpTracker->GrabImageStereo(imLeftToFeed,imRightToFeed,timestamp,filename);
+    RegisterFrameFilenameForExport(filename);
 
     // std::cout << "out grabber" << std::endl;
 
@@ -388,6 +404,7 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
             mpTracker->GrabImuData(vImuMeas[i_imu]);
 
     Sophus::SE3f Tcw = mpTracker->GrabImageRGBD(imToFeed,imDepthToFeed,timestamp,filename);
+    RegisterFrameFilenameForExport(filename);
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
@@ -464,6 +481,7 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
             mpTracker->GrabImuData(vImuMeas[i_imu]);
 
     Sophus::SE3f Tcw = mpTracker->GrabImageMonocular(imToFeed,timestamp,filename);
+    RegisterFrameFilenameForExport(filename);
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
@@ -1150,6 +1168,202 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, Map* pMap)
         }
     }
     f.close();
+}
+
+void System::SaveCOLMAP(const string &strDir)
+{
+    Verbose::PrintMess("", Verbose::VERBOSITY_NORMAL);
+    Verbose::PrintMess("✨ [SaveCOLMAP] Exporting COLMAP-compatible sparse model", Verbose::VERBOSITY_NORMAL);
+    Verbose::PrintMess("📁 [SaveCOLMAP] Output directory: " + strDir, Verbose::VERBOSITY_NORMAL);
+
+    // Locate the largest map (same logic as SaveTrajectoryEuRoC)
+    vector<Map*> vpMaps = mpAtlas->GetAllMaps();
+    Map* pBiggerMap = nullptr;
+    int numMaxKFs = 0;
+    for (Map* pMap : vpMaps) {
+        if ((int)pMap->GetAllKeyFrames().size() > numMaxKFs) {
+            numMaxKFs = pMap->GetAllKeyFrames().size();
+            pBiggerMap = pMap;
+        }
+    }
+    if (!pBiggerMap) {
+        Verbose::PrintMess("❌ [SaveCOLMAP] No map found. Nothing to export.", Verbose::VERBOSITY_NORMAL);
+        return;
+    }
+
+    std::filesystem::create_directories(strDir);
+
+    vector<KeyFrame*> vpKFs = pBiggerMap->GetAllKeyFrames();
+    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    // World origin anchored at the first KF (monocular)
+    Sophus::SE3f Twb = vpKFs[0]->GetPoseInverse();
+
+    // ------------------------------------------------------------------
+    // cameras.txt
+    // COLMAP model: PINHOLE -> fx fy cx cy
+    //               OPENCV_FISHEYE -> fx fy cx cy k1 k2 k3 k4
+    // ------------------------------------------------------------------
+    {
+        ofstream fc(strDir + "/cameras.txt");
+        fc << fixed << setprecision(9);
+        fc << "# Camera list with one line of data per camera:\n";
+        fc << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
+        fc << "# Number of cameras: 1\n";
+
+        int width  = settings_ ? settings_->newImSize().width  : 0;
+        int height = settings_ ? settings_->newImSize().height : 0;
+        GeometricCamera* cam = settings_ ? settings_->camera1() : nullptr;
+
+        if (cam) {
+            if (cam->GetType() == GeometricCamera::CAM_PINHOLE) {
+                // mvParameters: [fx, fy, cx, cy]
+                fc << "1 PINHOLE " << width << " " << height << " "
+                   << cam->getParameter(0) << " " << cam->getParameter(1) << " "
+                   << cam->getParameter(2) << " " << cam->getParameter(3) << "\n";
+            } else {
+                // KannalaBrandt8: [fx, fy, cx, cy, k1, k2, k3, k4]
+                fc << "1 OPENCV_FISHEYE " << width << " " << height << " "
+                   << cam->getParameter(0) << " " << cam->getParameter(1) << " "
+                   << cam->getParameter(2) << " " << cam->getParameter(3) << " "
+                   << cam->getParameter(4) << " " << cam->getParameter(5) << " "
+                   << cam->getParameter(6) << " " << cam->getParameter(7) << "\n";
+            }
+        } else {
+            fc << "# WARNING: camera calibration not available\n";
+        }
+        fc.close();
+    }
+
+    // ------------------------------------------------------------------
+    // points3D.txt  (empty - filled by COLMAP point_triangulator)
+    // ------------------------------------------------------------------
+    {
+        ofstream fp(strDir + "/points3D.txt");
+        fp << "# 3D point list with one line of data per point:\n";
+        fp << "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n";
+        fp << "# Number of points: 0\n";
+        fp.close();
+    }
+
+    // ------------------------------------------------------------------
+    // images.txt + poses_debug.csv
+    //
+    // ORB-SLAM3 native format: Twc (camera-to-world)
+    //   Twc.translation() = camera position in world frame
+    //   Twc.unit_quaternion() = rotation R_wc (world <- camera)
+    //
+    // COLMAP images.txt expects Tcw (world-to-camera):
+    //   LINE: IMAGE_ID QW QX QY QZ TX TY TZ CAMERA_ID NAME
+    //   where Tcw = Twc.inverse()
+    //   quaternion order: qw qx qy qz
+    //   translation (TX,TY,TZ) = Tcw.translation() = -R_cw * t_wc
+    // ------------------------------------------------------------------
+    ofstream fi(strDir + "/images.txt");
+    fi << fixed << setprecision(9);
+    fi << "# Image list with two lines of data per image:\n";
+    fi << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n";
+    fi << "#   POINTS2D[] as (X, Y, POINT3D_ID)\n";
+    fi << "# Pose convention: world-to-camera (Tcw). Quaternion order: qw qx qy qz.\n";
+    fi << "# To recover camera position in world frame: t_wc = -R_cw^T * Tcw.translation()\n";
+
+    ofstream fcsv(strDir + "/poses_debug.csv");
+    fcsv << fixed << setprecision(9);
+    // CSV stores Twc (camera-to-world) for easy inspection
+    fcsv << "# ORB-SLAM3 per-frame pose export (camera-to-world / Twc convention)\n";
+    fcsv << "# tx ty tz = camera position in world frame\n";
+    fcsv << "# qx qy qz qw = quaternion of R_wc (world <- camera), Eigen/ROS convention (w last)\n";
+    fcsv << "# COLMAP conversion: Tcw = Twc.inverse(); use qw qx qy qz and Tcw.translation()\n";
+    fcsv << "image_name,timestamp,tx,ty,tz,qx,qy,qz,qw,pose_convention\n";
+
+    list<ORB_SLAM3::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<double>::iterator               lT   = mpTracker->mlFrameTimes.begin();
+    list<bool>::iterator                 lbL  = mpTracker->mlbLost.begin();
+    list<string>::iterator               lF   = mlFrameFilenames.begin();
+
+    int image_id = 1;
+    int dropped  = 0;
+    int exported = 0;
+    Sophus::SE3f last_Tcw = Sophus::SE3f(); // Identity for first frame if needed
+
+    for (auto lit = mpTracker->mlRelativeFramePoses.begin(),
+              lend = mpTracker->mlRelativeFramePoses.end();
+         lit != lend; ++lit, ++lRit, ++lT, ++lbL)
+    {
+        // Always try to export this frame
+        Sophus::SE3f Tcw;
+        bool has_pose = false;
+
+        if (!*lbL && *lRit) {
+            KeyFrame* pKF = *lRit;
+            Sophus::SE3f Trw;
+            while (pKF->isBad()) {
+                Trw = Trw * pKF->mTcp;
+                pKF = pKF->GetParent();
+            }
+            if (pKF && pKF->GetMap() == pBiggerMap) {
+                Trw = Trw * pKF->GetPose() * Twb;
+                Tcw = (*lit) * Trw;    // world-to-camera
+                last_Tcw = Tcw;
+                has_pose = true;
+            }
+        }
+
+        if (!has_pose) {
+            // Use last known pose for dropped frames
+            Tcw = last_Tcw;
+            std::ostringstream oss;
+            oss << "⚠️  [SaveCOLMAP] Using last pose for dropped frame, ts=" << std::fixed << std::setprecision(6) << *lT;
+            Verbose::PrintMess(oss.str(), Verbose::VERBOSITY_VERBOSE);
+            ++dropped;
+        }
+
+        Sophus::SE3f Twc = Tcw.inverse();   // camera-to-world
+
+        // Recover image filename from stored path (basename only)
+        string img_name;
+        if (lF != mlFrameFilenames.end() && !lF->empty()) {
+            img_name = std::filesystem::path(*lF).filename().string();
+        } else {
+            // Fallback: reconstruct TUM-VI style name from timestamp (nanoseconds)
+            long long ns = llround(*lT * 1e9);
+            img_name = to_string(ns) + ".png";
+        }
+        if (lF != mlFrameFilenames.end())
+            ++lF;
+
+        // --- COLMAP images.txt row (world-to-camera, qw qx qy qz) ---
+        Eigen::Quaternionf q_cw = Tcw.unit_quaternion();
+        Eigen::Vector3f    t_cw = Tcw.translation();
+        fi << image_id << " "
+           << q_cw.w() << " " << q_cw.x() << " " << q_cw.y() << " " << q_cw.z() << " "
+           << t_cw(0)  << " " << t_cw(1)  << " " << t_cw(2)  << " "
+           << "1 " << img_name << "\n";
+        fi << "\n"; // empty 2D-point observations line
+
+        // --- debug CSV row (camera-to-world / Twc) ---
+        Eigen::Quaternionf q_wc = Twc.unit_quaternion();
+        Eigen::Vector3f    t_wc = Twc.translation();
+        fcsv << img_name << "," << *lT << ","
+             << t_wc(0) << "," << t_wc(1) << "," << t_wc(2) << ","
+             << q_wc.x() << "," << q_wc.y() << "," << q_wc.z() << "," << q_wc.w()
+             << ",camera_to_world\n";
+
+        ++image_id;
+        ++exported;
+    }
+
+    fi.close();
+    fcsv.close();
+
+    {
+        std::ostringstream oss;
+        oss << "✅ [SaveCOLMAP] Export complete. Frames exported: " << exported << ", with last-pose fallback for " << dropped << " dropped frames";
+        Verbose::PrintMess(oss.str(), Verbose::VERBOSITY_NORMAL);
+    }
+    Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/cameras.txt", Verbose::VERBOSITY_NORMAL);
+    Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/images.txt   (COLMAP Tcw, qw qx qy qz)", Verbose::VERBOSITY_NORMAL);
+    Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/points3D.txt (empty, fill with point_triangulator)", Verbose::VERBOSITY_NORMAL);
+    Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/poses_debug.csv (Twc, qx qy qz qw)", Verbose::VERBOSITY_NORMAL);
 }
 
 /*void System::SaveTrajectoryKITTI(const string &filename)

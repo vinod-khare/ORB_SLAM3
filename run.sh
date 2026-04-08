@@ -12,23 +12,30 @@ cd "$SCRIPT_DIR"
 # Option 1: Using positional arguments (original style)
 # ==============================================================================
 echo "Running mono_tum_vi on corridor1 dataset (positional arguments)..."
-./Examples/Monocular/mono_tum_vi \
-  Vocabulary/ORBvoc.txt \
-  Examples/Monocular/TUM-VI.yaml \
-  .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
-  Examples/Monocular/TUM_TimeStamps/dataset-corridor1_512.txt \
-  --output corridor1_trajectory
+# .build/Release/mono_tum_vi \
+#   Vocabulary/ORBvoc.txt \
+#   Examples/Monocular/TUM-VI.yaml \
+#   .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
+#   Examples/Monocular/TUM_TimeStamps/dataset-corridor1_512.txt \
+#   --output-folder .data/tumvi/dataset-corridor1_512_16/orbslam3 \
+#   --frames-take 0 \
+#   --output trajectory
 
-echo "Done! Trajectory saved to:"
-echo "  - f_corridor1_trajectory.txt (camera trajectory)"
-echo "  - kf_corridor1_trajectory.txt (keyframe trajectory)"
+.build/Release/mono_tum_vi \
+  Vocabulary/ORBvoc.txt \
+  Examples/Monocular/reaper.yaml \
+  .data/reaper/2026_02_05/rosbags/opsys_test_2026_02_05_144901/camera/image \
+  --output-folder .data/reaper/2026_02_05/rosbags/opsys_test_2026_02_05_144901/orbslam3 \
+  --frames-skip 0 \
+  --frames-take 0 \
+  --output trajectory
 
 # ==============================================================================
 # Option 2: Using named arguments
 # ==============================================================================
 # Uncomment to use named arguments instead:
 # echo "Running mono_tum_vi on corridor1 dataset (named arguments)..."
-# ./Examples/Monocular/mono_tum_vi \
+# .build/Release/mono_tum_vi \
 #   --vocab Vocabulary/ORBvoc.txt \
 #   --settings Examples/Monocular/TUM-VI.yaml \
 #   --sequence .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
@@ -40,7 +47,7 @@ echo "  - kf_corridor1_trajectory.txt (keyframe trajectory)"
 # ==============================================================================
 # Uncomment to run on both corridor sequences:
 # echo "Running mono_tum_vi on corridor1 + corridor2 datasets..."
-# ./Examples/Monocular/mono_tum_vi \
+# .build/Release/mono_tum_vi \
 #   Vocabulary/ORBvoc.txt \
 #   Examples/Monocular/TUM-VI.yaml \
 #   .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
