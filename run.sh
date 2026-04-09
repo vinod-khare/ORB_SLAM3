@@ -12,24 +12,26 @@ cd "$SCRIPT_DIR"
 # Option 1: Using positional arguments (original style)
 # ==============================================================================
 echo "Running mono_tum_vi on corridor1 dataset (positional arguments)..."
-.build/Release/mono_tum_vi \
-  Vocabulary/ORBvoc.txt \
-  Examples/Monocular/TUM-VI.yaml \
-  .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
-  Examples/Monocular/TUM_TimeStamps/dataset-corridor1_512.txt \
-  --output-folder .data/tumvi/dataset-corridor1_512_16/orbslam3 \
-  --frames-take 128 \
-  --output trajectory \
-  --save-ply
-
 # .build/Release/mono_tum_vi \
 #   Vocabulary/ORBvoc.txt \
-#   Examples/Monocular/reaper.yaml \
-#   .data/reaper/2026_02_05/rosbags/opsys_test_2026_02_05_144901/camera/image \
-#   --output-folder .data/reaper/2026_02_05/rosbags/opsys_test_2026_02_05_144901/orbslam3 \
-#   --frames-skip 2000 \
-#   --frames-take 0 \
-#   --output trajectory
+#   Examples/Monocular/TUM-VI.yaml \
+#   .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
+#   Examples/Monocular/TUM_TimeStamps/dataset-corridor1_512.txt \
+#   --output-folder .data/tumvi/dataset-corridor1_512_16/orbslam3 \
+#   --frames-take 128 \
+#   --output trajectory \
+#   --save-ply
+
+.build/Release/mono_tum_vi \
+  Vocabulary/ORBvoc.txt \
+  Examples/Monocular/reaper.yaml \
+  .data/reaper/Test_outdoor1/Test_outdoor1/test_outdoor1_cam \
+  .data/reaper/Test_outdoor1/Test_outdoor1/utc_timestamps.txt \
+  --output-folder .data/reaper/Test_outdoor1/orbslam3 \
+  --frames-skip 0 \
+  --frames-take 0 \
+  --output trajectory \
+  --save-ply
 
 # ==============================================================================
 # Option 2: Using named arguments

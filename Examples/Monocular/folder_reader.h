@@ -8,8 +8,20 @@
 class folder_reader
 {
 public:
+    enum class timestamps_type
+    {
+        auto_detect,
+        filename_ns,
+        timestamp_ns,
+        utc
+    };
+
     folder_reader(const std::string &strImagePath, const std::string &strPathTimes,
-                  int frames_skip = 0, int frames_stride = 1, int frames_take = 0);
+                  int frames_skip = 0, int frames_stride = 1, int frames_take = 0,
+                  timestamps_type type = timestamps_type::auto_detect);
+
+    static timestamps_type parse_timestamps_type(const std::string &value);
+    static std::string Trim(const std::string &s);
 
     size_t size() const;
     const std::string& image_path(size_t idx) const;

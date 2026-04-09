@@ -43,6 +43,7 @@ int main(int argc, char **argv)
             ("vocab,v", po::value<string>()->required(), "Path to ORB vocabulary file")
             ("settings,s", po::value<string>()->required(), "Path to settings YAML file")
             ("sequence,d", po::value<vector<string>>()->required()->multitoken(), "Sequence spec(s): image_dir [times_file]. If times_file is omitted, filename stems are used as timestamps")
+            ("timestamps-type", po::value<string>()->default_value("auto"), "Timestamps file format: auto, filename_ns, timestamp_ns, utc")
             ("output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")
             ("output-folder", po::value<string>(), "Folder to write trajectory files into (created if needed)")
             ("save-colmap", po::bool_switch()->default_value(false), "Save COLMAP-compatible sparse model output")
@@ -136,6 +137,7 @@ int main(int argc, char **argv)
         int frames_skip = vm["frames-skip"].as<int>();
         int frames_stride = vm["frames-stride"].as<int>();
         int frames_take = vm["frames-take"].as<int>();
+        folder_reader::timestamps_type timestamps_type = folder_reader::parse_timestamps_type(vm["timestamps-type"].as<string>());
         bool save_colmap = vm["save-colmap"].as<bool>();
         bool save_ply = vm["save-ply"].as<bool>();
 
@@ -154,7 +156,7 @@ int main(int argc, char **argv)
             else
                 cout << "Loading sequence " << seq << ": " << image_dir << " using filename nanoseconds as timestamps...";
 
-            readers.emplace_back(image_dir, times_file, frames_skip, frames_stride, frames_take);
+            readers.emplace_back(image_dir, times_file, frames_skip, frames_stride, frames_take, timestamps_type);
             cout << "LOADED!" << endl;
 
             nImages[seq] = static_cast<int>(readers.back().size());
