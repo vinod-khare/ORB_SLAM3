@@ -224,8 +224,12 @@ int main(int argc, char **argv)
 #endif
                 }
 
-                // clahe
+                // clahe: apply on grayscale copy; preserve original color for the viewer
+                cv::Mat im_color = im.clone();
+                if(im.channels() == 3)
+                    cv::cvtColor(im, im, cv::COLOR_BGR2GRAY);
                 clahe->apply(im, im);
+                SLAM.SetNextFrameColor(im_color);
 
                 double tframe = readers[seq].timestamp(ni);
 

@@ -416,6 +416,11 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
     return Tcw;
 }
 
+void System::SetNextFrameColor(const cv::Mat &im_color)
+{
+    mpTracker->mNextFrameColor = im_color.clone();
+}
+
 Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point>& vImuMeas, string filename)
 {
 

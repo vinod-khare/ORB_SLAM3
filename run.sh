@@ -22,26 +22,27 @@ echo "Running mono_tum_vi on corridor1 dataset (positional arguments)..."
 #   --output trajectory \
 #   --save-ply
 
-# .build/Release/mono_tum_vi \
-#   Vocabulary/ORBvoc.txt \
-#   Examples/Monocular/reaper.yaml \
-#   .data/reaper/testindoor4/testindoor4 \
-#   .data/reaper/testindoor4/utc_timestamps.txt \
-#   --output-folder .data/reaper/testindoor4/orbslam3 \
-#   --frames-skip 0 \
-#   --frames-take 0 \
-#   --output trajectory \
-#   --save-ply
-
 .build/Release/mono_tum_vi \
   Vocabulary/ORBvoc.txt \
-  Examples/Monocular/hilti.yaml \
-  .data/hilti/2022/exp21_outside_building/alphasense/cam0/image_raw \
-  --output-folder .data/hilti/2022/exp21_outside_building/orbslam3 \
+  Examples/Monocular/reaper.yaml \
+  .data/reaper/testoutdoor5/testoutdoor5 \
+  .data/reaper/testoutdoor5/utc_timestamps.txt \
+  --timestamps-type utc \
+  --output-folder .data/reaper/testoutdoor5/orbslam3 \
   --frames-skip 0 \
   --frames-take 0 \
   --output trajectory \
   --save-ply
+
+# .build/Release/mono_tum_vi \
+#   Vocabulary/ORBvoc.txt \
+#   Examples/Monocular/hilti.yaml \
+#   .data/hilti/2022/exp21_outside_building/alphasense/cam0/image_raw \
+#   --output-folder .data/hilti/2022/exp21_outside_building/orbslam3 \
+#   --frames-skip 0 \
+#   --frames-take 0 \
+#   --output trajectory \
+#   --save-ply
 
 # ==============================================================================
 # Option 2: Using named arguments

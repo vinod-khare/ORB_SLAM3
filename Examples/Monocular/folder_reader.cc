@@ -340,7 +340,7 @@ double folder_reader::timestamp(size_t idx) const
 
 cv::Mat folder_reader::read_image(size_t idx) const
 {
-    return cv::imread(mImages.at(idx), cv::IMREAD_GRAYSCALE);
+    return cv::imread(mImages.at(idx), cv::IMREAD_COLOR);
 }
 
 bool folder_reader::IsNumericStem(const std::string &s)

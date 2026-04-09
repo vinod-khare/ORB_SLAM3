@@ -121,6 +121,10 @@ public:
     // Returns the camera pose (empty if tracking fails).
     Sophus::SE3f TrackMonocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point>& vImuMeas = vector<IMU::Point>(), string filename="");
 
+    // Set a color (BGR) image to be used as the display frame for the next TrackMonocular call.
+    // Useful when CLAHE or other preprocessing converts the image to grayscale before tracking.
+    void SetNextFrameColor(const cv::Mat &im_color);
+
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();

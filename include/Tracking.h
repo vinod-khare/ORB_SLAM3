@@ -139,6 +139,8 @@ public:
     Frame mLastFrame;
 
     cv::Mat mImGray;
+    cv::Mat mImColor;       // Original color image (BGR) for display
+    cv::Mat mNextFrameColor; // Color override set externally before GrabImageMonocular
 
     // Initialization Variables (Monocular)
     std::vector<int> mvIniLastMatches;

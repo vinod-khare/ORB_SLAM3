@@ -1566,6 +1566,32 @@ Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, co
 Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp, string filename)
 {
     mImGray = im;
+
+    // Save color image (BGR) for display before grayscale conversion
+    if(!mNextFrameColor.empty())
+    {
+        mImColor = std::move(mNextFrameColor);
+        mNextFrameColor = cv::Mat();
+    }
+    else if(im.channels() == 3)
+    {
+        if(mbRGB)
+            cv::cvtColor(im, mImColor, cv::COLOR_RGB2BGR);
+        else
+            mImColor = im.clone();
+    }
+    else if(im.channels() == 4)
+    {
+        if(mbRGB)
+            cv::cvtColor(im, mImColor, cv::COLOR_RGBA2BGR);
+        else
+            cv::cvtColor(im, mImColor, cv::COLOR_BGRA2BGR);
+    }
+    else
+    {
+        cv::cvtColor(im, mImColor, cv::COLOR_GRAY2BGR);
+    }
+
     if(mImGray.channels()==3)
     {
         if(mbRGB)
@@ -1908,6 +1934,7 @@ void Tracking::Track()
         }
 
         //mpFrameDrawer->Update(this);
+        mpFrameDrawer->Update(this);
 
         if(mState!=OK) // If rightly initialized, mState=OK
         {
