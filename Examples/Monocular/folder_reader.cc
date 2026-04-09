@@ -11,8 +11,21 @@
 #include <utility>
 
 #include <opencv2/imgcodecs.hpp>
+#include <spdlog/spdlog.h>
 
 namespace {
+
+const char* timestamps_type_name(folder_reader::timestamps_type type)
+{
+    switch (type)
+    {
+        case folder_reader::timestamps_type::auto_detect: return "auto";
+        case folder_reader::timestamps_type::filename_ns: return "filename_ns";
+        case folder_reader::timestamps_type::timestamp_ns: return "timestamp_ns";
+        case folder_reader::timestamps_type::utc: return "utc";
+    }
+    return "unknown";
+}
 
 std::vector<std::string> collect_sorted_image_paths(const std::string &image_dir)
 {
@@ -115,6 +128,8 @@ std::string first_existing_image_path(const std::string &image_dir, const std::s
 folder_reader::folder_reader(const std::string &strImagePath, const std::string &strPathTimes,
                              int frames_skip, int frames_stride, int frames_take, timestamps_type type)
 {
+    spdlog::set_pattern("[%H:%M:%S] [%^%l%$] %v");
+
     std::vector<std::string> allImages;
     std::vector<double> allTimestamps;
     allTimestamps.reserve(5000);
@@ -138,6 +153,9 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
 
         if (lines.empty())
             throw std::runtime_error("Timestamps file is empty: " + strPathTimes);
+
+        spdlog::info("📄 [folder_reader] Loaded timestamps file: {}", strPathTimes);
+        spdlog::info("🔢 [folder_reader] Parsed timestamp lines: {}", lines.size());
 
         timestamps_type detected_type = type;
         if (detected_type == timestamps_type::auto_detect)
@@ -174,6 +192,8 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
             }
         }
 
+        spdlog::info("🧭 [folder_reader] Timestamp format: {}", timestamps_type_name(detected_type));
+
         if (detected_type == timestamps_type::filename_ns)
         {
             for (const std::string &line : lines)
@@ -195,7 +215,16 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
         {
             const std::vector<std::string> sorted_images = collect_sorted_image_paths(strImagePath);
             if (sorted_images.size() < lines.size())
+            {
+                spdlog::error("❌ [folder_reader] Image/timestamp mismatch detected");
+                spdlog::error("   ├─ Image directory : {}", strImagePath);
+                spdlog::error("   ├─ Number of images: {}", sorted_images.size());
+                spdlog::error("   ├─ Number of timestamps: {}", lines.size());
+                spdlog::error("   └─ Timestamps file : {}", strPathTimes);
                 throw std::runtime_error("Not enough images in directory for timestamps file: " + strImagePath);
+            }
+
+            spdlog::info("🖼️  [folder_reader] Images found: {}", sorted_images.size());
 
             for (size_t i = 0; i < lines.size(); ++i)
             {
@@ -275,6 +304,9 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
         mTimeStamps.push_back(allTimestamps[i]);
         count++;
     }
+
+    spdlog::info("✅ [folder_reader] Final loaded frames: {} (skip={}, stride={}, take={})",
+                 mImages.size(), frames_skip, frames_stride, frames_take);
 }
 
 folder_reader::timestamps_type folder_reader::parse_timestamps_type(const std::string &value)

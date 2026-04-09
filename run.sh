@@ -25,9 +25,9 @@ echo "Running mono_tum_vi on corridor1 dataset (positional arguments)..."
 .build/Release/mono_tum_vi \
   Vocabulary/ORBvoc.txt \
   Examples/Monocular/reaper.yaml \
-  .data/reaper/Test_outdoor1/Test_outdoor1/test_outdoor1_cam \
-  .data/reaper/Test_outdoor1/Test_outdoor1/utc_timestamps.txt \
-  --output-folder .data/reaper/Test_outdoor1/orbslam3 \
+  .data/reaper/testindoor2/testindoor2 \
+  .data/reaper/testindoor2/testindoor2/utc_timestamps.txt \
+  --output-folder .data/reaper/testindoor2/orbslam3 \
   --frames-skip 0 \
   --frames-take 0 \
   --output trajectory \
