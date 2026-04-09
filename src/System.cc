@@ -26,6 +26,8 @@
 #include <cmath>
 #include <filesystem>
 #include <sstream>
+#include <unordered_map>
+#include <opencv2/imgcodecs.hpp>
 #include <openssl/md5.h>
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/string.hpp>
@@ -1416,8 +1418,18 @@ void System::SavePointCloudPLY(const string &filename)
         }
 
         vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
-        vector<Eigen::Vector3f> points;
+        struct ColoredPoint
+        {
+            Eigen::Vector3f pos;
+            unsigned char r;
+            unsigned char g;
+            unsigned char b;
+        };
+
+        vector<ColoredPoint> points;
         points.reserve(vpMPs.size());
+        std::unordered_map<std::string, cv::Mat> image_cache;
+
         for (MapPoint* pMP : vpMPs)
         {
             if (!pMP || pMP->isBad())
@@ -1427,7 +1439,57 @@ void System::SavePointCloudPLY(const string &filename)
             if (!std::isfinite(P.x()) || !std::isfinite(P.y()) || !std::isfinite(P.z()))
                 continue;
 
-            points.push_back(P);
+            unsigned char r = 255;
+            unsigned char g = 255;
+            unsigned char b = 255;
+
+            const map<KeyFrame*, tuple<int,int>> observations = pMP->GetObservations();
+            for (const auto &obs : observations)
+            {
+                KeyFrame* pKF = obs.first;
+                if (!pKF || pKF->isBad() || pKF->mNameFile.empty())
+                    continue;
+
+                int kp_index = get<0>(obs.second);
+                if (kp_index < 0)
+                    kp_index = get<1>(obs.second);
+                if (kp_index < 0 || kp_index >= static_cast<int>(pKF->mvKeys.size()))
+                    continue;
+
+                auto cache_it = image_cache.find(pKF->mNameFile);
+                if (cache_it == image_cache.end())
+                {
+                    cache_it = image_cache.emplace(pKF->mNameFile, cv::imread(pKF->mNameFile, cv::IMREAD_UNCHANGED)).first;
+                }
+
+                const cv::Mat &img = cache_it->second;
+                if (img.empty())
+                    continue;
+
+                const cv::Point2f &pt = pKF->mvKeys[kp_index].pt;
+                const int x = static_cast<int>(std::round(pt.x));
+                const int y = static_cast<int>(std::round(pt.y));
+                if (x < 0 || y < 0 || x >= img.cols || y >= img.rows)
+                    continue;
+
+                if (img.channels() == 1)
+                {
+                    const unsigned char v = img.at<unsigned char>(y, x);
+                    r = v;
+                    g = v;
+                    b = v;
+                }
+                else if (img.channels() >= 3)
+                {
+                    const cv::Vec3b pixel = img.at<cv::Vec3b>(y, x);
+                    b = pixel[0];
+                    g = pixel[1];
+                    r = pixel[2];
+                }
+                break;
+            }
+
+            points.push_back({P, r, g, b});
         }
 
         std::ofstream fply(out_file.string());
@@ -1445,11 +1507,15 @@ void System::SavePointCloudPLY(const string &filename)
         fply << "property float x\n";
         fply << "property float y\n";
         fply << "property float z\n";
+        fply << "property uchar red\n";
+        fply << "property uchar green\n";
+        fply << "property uchar blue\n";
         fply << "end_header\n";
 
         fply << std::fixed << std::setprecision(6);
-        for (const Eigen::Vector3f &P : points)
-            fply << P.x() << " " << P.y() << " " << P.z() << "\n";
+        for (const ColoredPoint &point : points)
+            fply << point.pos.x() << " " << point.pos.y() << " " << point.pos.z() << " "
+                 << static_cast<int>(point.r) << " " << static_cast<int>(point.g) << " " << static_cast<int>(point.b) << "\n";
 
         fply.close();
 
