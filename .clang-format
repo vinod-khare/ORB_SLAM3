@@ -1,0 +1,74 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+# ── Column width ─────────────────────────────────────────────────────────────
+ColumnLimit: 192
+
+# ── Include sorting & grouping ───────────────────────────────────────────────
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Group 1 — Project-local quoted headers ("System.h", "folder_reader.h", …)
+  - Regex:           '^"'
+    Priority:        1
+  # Group 2 — POSIX / C system headers (<unistd.h>, <cstdlib>, …)
+  - Regex:           '^<[a-z_]+\.h>'
+    Priority:        2
+  # Group 3 — C++ standard library (<algorithm>, <chrono>, <string>, …)
+  - Regex:           '^<(algorithm|any|array|atomic|barrier|bit|bitset|cassert|ccomplex|cctype|cerrno|cfenv|cfloat|charconv|chrono|cinttypes|climits|clocale|cmath|codecvt|compare|complex|concepts|condition_variable|coroutine|csetjmp|csignal|cstdarg|cstddef|cstdint|cstdio|cstdlib|cstring|ctime|cuchar|cwchar|cwctype|deque|exception|execution|expected|filesystem|format|forward_list|fstream|functional|future|initializer_list|iomanip|ios|iosfwd|iostream|istream|iterator|latch|limits|list|locale|map|mdspan|memory|memory_resource|mutex|new|numbers|numeric|optional|ostream|print|queue|random|ranges|ratio|regex|scoped_allocator|semaphore|set|shared_mutex|source_location|span|spanstream|sstream|stack|stdexcept|stdfloat|stop_token|streambuf|string|string_view|strstream|syncstream|system_error|thread|tuple|type_traits|typeindex|typeinfo|unordered_map|unordered_set|utility|valarray|variant|vector|version)>'
+    Priority:        3
+  # Group 4 — Boost  (<boost/…>)
+  - Regex:           '^<boost/'
+    Priority:        4
+  # Group 5 — OpenCV  (<opencv2/…>)
+  - Regex:           '^<opencv2/'
+    Priority:        5
+  # Group 6 — Any other third-party angle-bracket headers
+  - Regex:           '^<'
+    Priority:        6
+
+# ── Alignment options ───────────────────────────────────────────────────────
+
+# Align parameters / arguments after an opening bracket
+AlignAfterOpenBracket: Align
+
+# Align array-of-structs initializers (requires clang-format 13+)
+AlignArrayOfStructures: Right
+
+# Align consecutive macro definitions
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+
+# Align consecutive assignments (=), including compound operators
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCompound: true
+  PadOperators: true
+
+# Align consecutive bit-field widths
+AlignConsecutiveBitFields:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+
+# Align consecutive variable declarations
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+
+# Align the backslash of escaped newlines (Left = flush-left column)
+AlignEscapedNewlines: Left
+
+# Align binary/ternary operands
+AlignOperands: Align
+
+# Align trailing line comments
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 1

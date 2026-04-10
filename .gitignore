@@ -19,7 +19,7 @@ Examples/Monocular/mono_realsense_D435i
 Examples/Monocular/mono_euroc
 Examples/Monocular/mono_kitti
 Examples/Monocular/mono_tum
-Examples/Monocular/mono_tum_vi
+Examples/Monocular/orbslam3
 Examples/Monocular/mono_realsense_t265
 
 Examples/Stereo/stereo_euroc
