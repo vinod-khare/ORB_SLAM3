@@ -35,9 +35,9 @@ MESSAGE("OPENCV VERSION:")
 MESSAGE(${OpenCV_VERSION})
 
 find_package(Eigen3 3.1.0 REQUIRED)
-find_package(CURL REQUIRED)
-find_package(Boost REQUIRED COMPONENTS program_options)
-find_package(spdlog REQUIRED)
+find_package(Boost CONFIG REQUIRED COMPONENTS program_options)
+find_package(Pangolin CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -110,7 +110,6 @@ include/Settings.h)
 
 add_subdirectory(Thirdparty/g2o)
 add_subdirectory(Thirdparty/DBoW2)
-add_subdirectory(Thirdparty/Pangolin)
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
@@ -201,7 +200,7 @@ target_link_libraries(mono_euroc ${PROJECT_NAME})
 add_executable(orbslam3
         Examples/Monocular/orbslam3.cc
         Examples/Monocular/folder_reader.cc)
-target_link_libraries(orbslam3 ${PROJECT_NAME} CURL::libcurl curlpp Boost::program_options spdlog::spdlog)
+target_link_libraries(orbslam3 ${PROJECT_NAME} Boost::program_options spdlog::spdlog)
 
 if(realsense2_FOUND)
     add_executable(mono_realsense_t265
