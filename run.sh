@@ -11,16 +11,16 @@ cd "$SCRIPT_DIR"
 # ==============================================================================
 # Option 1: Using positional arguments (original style)
 # ==============================================================================
-echo "Running orbslam3 on corridor1 dataset (positional arguments)..."
-.build/Release/orbslam3 \
-  Vocabulary/ORBvoc.txt \
-  Examples/Monocular/TUM-VI.yaml \
-  .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
-  Examples/Monocular/TUM_TimeStamps/dataset-corridor1_512.txt \
-  --output-folder .data/tumvi/dataset-corridor1_512_16/orbslam3 \
-  --frames-take 0 \
-  --output trajectory \
-  --save-ply
+# echo "Running orbslam3 on corridor1 dataset (positional arguments)..."
+# .build/Release/orbslam3 \
+#   Vocabulary/ORBvoc.txt \
+#   Examples/Monocular/TUM-VI.yaml \
+#   .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
+#   Examples/Monocular/TUM_TimeStamps/dataset-corridor1_512.txt \
+#   --output-folder .data/tumvi/dataset-corridor1_512_16/orbslam3 \
+#   --frames-take 0 \
+#   --output trajectory \
+#   --save-ply
 
 # .build/Release/orbslam3 \
 #   Vocabulary/ORBvoc.txt \
@@ -48,13 +48,13 @@ echo "Running orbslam3 on corridor1 dataset (positional arguments)..."
 # Option 2: Using named arguments
 # ==============================================================================
 # Uncomment to use named arguments instead:
-# echo "Running orbslam3 on corridor1 dataset (named arguments)..."
-# .build/Release/orbslam3 \
-#   --vocab Vocabulary/ORBvoc.txt \
-#   --settings Examples/Monocular/TUM-VI.yaml \
-#   --sequence .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
-#   --sequence Examples/Monocular/TUM_TimeStamps/dataset-corridor1_512.txt \
-#   --output corridor1_trajectory
+echo "Running orbslam3 on corridor1 dataset (named arguments)..."
+.build/Debug/orbslam3 \
+  --vocab Vocabulary/ORBvoc.txt \
+  --settings Examples/Monocular/TUM-VI.yaml \
+  --sequence ./.data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
+  --sequence Examples/Monocular/TUM_TimeStamps/dataset-corridor1_512.txt \
+  --output corridor1_trajectory
 
 # ==============================================================================
 # Option 3: Running on multiple sequences (corridor1 + corridor2)

@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_map>
 #include <utility>
 
 #include <opencv2/imgcodecs.hpp>
@@ -44,6 +45,24 @@ std::vector<std::string> collect_sorted_image_paths(const std::string &image_dir
 
     std::sort(image_paths.begin(), image_paths.end());
     return image_paths;
+}
+
+// Build a map from stem to full path for fast lookups
+std::unordered_map<std::string, std::string> build_stem_to_path_map(const std::string &image_dir)
+{
+    std::unordered_map<std::string, std::string> stem_map;
+    for (const auto &entry : std::filesystem::directory_iterator(image_dir))
+    {
+        if (!entry.is_regular_file())
+            continue;
+
+        const std::string ext = entry.path().extension().string();
+        if (ext != ".png" && ext != ".jpg" && ext != ".jpeg")
+            continue;
+
+        stem_map[entry.path().stem().string()] = entry.path().string();
+    }
+    return stem_map;
 }
 
 bool parse_utc_timestamp_line(const std::string &line, double &timestamp_sec)
@@ -196,19 +215,31 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
 
         if (detected_type == timestamps_type::filename_ns)
         {
-            for (const std::string &line : lines)
+            spdlog::info("⏳ [folder_reader] Building image map (this may take a moment)...");
+            auto stem_map = build_stem_to_path_map(strImagePath);
+            spdlog::info("✓ [folder_reader] Found {} images in directory", stem_map.size());
+
+            spdlog::info("⏳ [folder_reader] Processing {} timestamp entries...", lines.size());
+            for (size_t idx = 0; idx < lines.size(); ++idx)
             {
+                const std::string &line = lines[idx];
                 std::istringstream iss(line);
                 std::string item;
                 iss >> item;
 
-                const std::string image_path = first_existing_image_path(strImagePath, item);
-                if (image_path.empty())
+                auto it = stem_map.find(item);
+                if (it == stem_map.end())
                     throw std::runtime_error("Timestamp-named image not found for entry: " + item);
 
-                allImages.push_back(image_path);
+                allImages.push_back(it->second);
                 double t = stod(item);
                 allTimestamps.push_back(t/1e9);
+
+                // Progress update every 500 images
+                if ((idx + 1) % 500 == 0)
+                {
+                    spdlog::info("⏳ [folder_reader] Processed {}/{} entries...", idx + 1, lines.size());
+                }
             }
         }
         else

@@ -150,7 +150,7 @@ int    main(int argc, char **argv) {
 
     int tot_images = 0;
     for (int seq = 0; seq < num_seq; seq++) {
-      string image_dir  = sequences[seq].first;
+      string image_dir  = std::filesystem::canonical(sequences[seq].first).string();
       string times_file = sequences[seq].second;
 
       if (!times_file.empty())
