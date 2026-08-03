@@ -1,6 +1,7 @@
 ---
 Language: Cpp
 BasedOnStyle: LLVM
+BreakBeforeBraces: Allman
 
 # ── Column width ─────────────────────────────────────────────────────────────
 ColumnLimit: 192
