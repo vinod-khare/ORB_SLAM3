@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 project(ORB_SLAM3)
 
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})

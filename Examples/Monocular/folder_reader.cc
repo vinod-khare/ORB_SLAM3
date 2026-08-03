@@ -129,7 +129,6 @@ bool file_exists_with_any_image_extension(const std::string &image_dir, const st
 
     return false;
 }
-
 } // namespace
 
 folder_reader::folder_reader(const std::string &strImagePath, const std::string &strPathTimes, int frames_skip, int frames_stride, int frames_take, timestamps_type type)
