@@ -1,5 +1,7 @@
 #pragma once
 
+#include "orbslam3/frame_mono.h"
+
 #include <string>
 #include <vector>
 
@@ -7,7 +9,7 @@
 
 class folder_reader
 {
-public:
+  public:
     enum class timestamps_type
     {
         auto_detect,
@@ -16,21 +18,23 @@ public:
         utc
     };
 
-    folder_reader(const std::string &strImagePath, const std::string &strPathTimes,
-                  int frames_skip = 0, int frames_stride = 1, int frames_take = 0,
+    folder_reader(const std::string &strImagePath, const std::string &strPathTimes, int frames_skip = 0, int frames_stride = 1, int frames_take = 0,
                   timestamps_type type = timestamps_type::auto_detect);
 
     static timestamps_type parse_timestamps_type(const std::string &value);
-    static std::string Trim(const std::string &s);
+    static std::string     Trim(const std::string &s);
 
-    size_t size() const;
-    const std::string& image_path(size_t idx) const;
-    double timestamp(size_t idx) const;
-    cv::Mat read_image(size_t idx) const;
+    size_t                 size() const;
+    const std::string     &image_path(size_t idx) const;
+    double                 timestamp(size_t idx) const;
+    cv::Mat                read_image(size_t idx) const;
 
-private:
-    static bool IsNumericStem(const std::string &s);
+    orbslam3::frame_mono   read() const;
+
+  private:
+    static bool              IsNumericStem(const std::string &s);
 
     std::vector<std::string> mImages;
-    std::vector<double> mTimeStamps;
+    std::vector<double>      mTimeStamps;
+    mutable size_t           _index = 0;
 };

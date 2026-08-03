@@ -2,6 +2,7 @@
 Language: Cpp
 BasedOnStyle: LLVM
 BreakBeforeBraces: Allman
+IndentWidth: 4
 
 # ── Column width ─────────────────────────────────────────────────────────────
 ColumnLimit: 192

@@ -8,11 +8,20 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+BUILD_TYPE=Release
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --build-type) BUILD_TYPE="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+BIN=".build/${BUILD_TYPE}/orbslam3"
+
 # ==============================================================================
 # Option 1: Using positional arguments (original style)
 # ==============================================================================
 # echo "Running orbslam3 on corridor1 dataset (positional arguments)..."
-# .build/Release/orbslam3 \
+# $BIN \
 #   Vocabulary/ORBvoc.txt \
 #   Examples/Monocular/TUM-VI.yaml \
 #   .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
@@ -22,7 +31,7 @@ cd "$SCRIPT_DIR"
 #   --output trajectory \
 #   --save-ply
 
-# .build/Release/orbslam3 \
+# $BIN \
 #   Vocabulary/ORBvoc.txt \
 #   Examples/Monocular/reaper.yaml \
 #   .data/reaper/testoutdoor5/testoutdoor5 \
@@ -34,7 +43,7 @@ cd "$SCRIPT_DIR"
 #   --output trajectory \
 #   --save-ply
 
-# .build/Release/orbslam3 \
+# $BIN \
 #   Vocabulary/ORBvoc.txt \
 #   Examples/Monocular/hilti.yaml \
 #   .data/hilti/2022/exp21_outside_building/alphasense/cam0/image_raw \
@@ -49,7 +58,7 @@ cd "$SCRIPT_DIR"
 # ==============================================================================
 # Uncomment to use named arguments instead:
 echo "Running orbslam3 on corridor1 dataset (named arguments)..."
-.build/Debug/orbslam3 \
+$BIN \
   --vocab Vocabulary/ORBvoc.txt \
   --settings Examples/Monocular/TUM-VI.yaml \
   --sequence ./.data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
@@ -61,7 +70,7 @@ echo "Running orbslam3 on corridor1 dataset (named arguments)..."
 # ==============================================================================
 # Uncomment to run on both corridor sequences:
 # echo "Running orbslam3 on corridor1 + corridor2 datasets..."
-# .build/Release/orbslam3 \
+# $BIN \
 #   Vocabulary/ORBvoc.txt \
 #   Examples/Monocular/TUM-VI.yaml \
 #   .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \

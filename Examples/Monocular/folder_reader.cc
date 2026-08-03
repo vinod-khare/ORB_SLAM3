@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <cctype>
-#include <ctime>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -12,18 +12,24 @@
 #include <utility>
 
 #include <opencv2/imgcodecs.hpp>
+
 #include <spdlog/spdlog.h>
 
-namespace {
+namespace
+{
 
-const char* timestamps_type_name(folder_reader::timestamps_type type)
+const char *timestamps_type_name(folder_reader::timestamps_type type)
 {
     switch (type)
     {
-        case folder_reader::timestamps_type::auto_detect: return "auto";
-        case folder_reader::timestamps_type::filename_ns: return "filename_ns";
-        case folder_reader::timestamps_type::timestamp_ns: return "timestamp_ns";
-        case folder_reader::timestamps_type::utc: return "utc";
+    case folder_reader::timestamps_type::auto_detect:
+        return "auto";
+    case folder_reader::timestamps_type::filename_ns:
+        return "filename_ns";
+    case folder_reader::timestamps_type::timestamp_ns:
+        return "timestamp_ns";
+    case folder_reader::timestamps_type::utc:
+        return "utc";
     }
     return "unknown";
 }
@@ -71,27 +77,22 @@ bool parse_utc_timestamp_line(const std::string &line, double &timestamp_sec)
     if (value.size() < 19)
         return false;
 
-    if (!(std::isdigit(static_cast<unsigned char>(value[0])) &&
-          std::isdigit(static_cast<unsigned char>(value[1])) &&
-          std::isdigit(static_cast<unsigned char>(value[2])) &&
-          std::isdigit(static_cast<unsigned char>(value[3])) &&
-          value[4] == '-' && value[7] == '-' &&
-          (value[10] == ' ' || value[10] == 'T') &&
-          value[13] == ':' && value[16] == ':'))
+    if (!(std::isdigit(static_cast<unsigned char>(value[0])) && std::isdigit(static_cast<unsigned char>(value[1])) && std::isdigit(static_cast<unsigned char>(value[2])) &&
+          std::isdigit(static_cast<unsigned char>(value[3])) && value[4] == '-' && value[7] == '-' && (value[10] == ' ' || value[10] == 'T') && value[13] == ':' && value[16] == ':'))
     {
         return false;
     }
 
     std::tm time_info = {};
     time_info.tm_year = std::stoi(value.substr(0, 4)) - 1900;
-    time_info.tm_mon = std::stoi(value.substr(5, 2)) - 1;
+    time_info.tm_mon  = std::stoi(value.substr(5, 2)) - 1;
     time_info.tm_mday = std::stoi(value.substr(8, 2));
     time_info.tm_hour = std::stoi(value.substr(11, 2));
-    time_info.tm_min = std::stoi(value.substr(14, 2));
-    time_info.tm_sec = std::stoi(value.substr(17, 2));
+    time_info.tm_min  = std::stoi(value.substr(14, 2));
+    time_info.tm_sec  = std::stoi(value.substr(17, 2));
 
     double fractional = 0.0;
-    size_t pos = 19;
+    size_t pos        = 19;
     if (pos < value.size() && value[pos] == '.')
     {
         size_t frac_end = pos + 1;
@@ -113,14 +114,14 @@ bool parse_utc_timestamp_line(const std::string &line, double &timestamp_sec)
     }
 
     const time_t epoch = timegm(&time_info);
-    timestamp_sec = static_cast<double>(epoch) + fractional;
+    timestamp_sec      = static_cast<double>(epoch) + fractional;
     return true;
 }
 
 bool file_exists_with_any_image_extension(const std::string &image_dir, const std::string &stem)
 {
-    static const char* exts[] = { ".png", ".jpg", ".jpeg" };
-    for (const char* ext : exts)
+    static const char *exts[] = {".png", ".jpg", ".jpeg"};
+    for (const char *ext : exts)
     {
         if (std::filesystem::exists(std::filesystem::path(image_dir) / (stem + ext)))
             return true;
@@ -129,39 +130,25 @@ bool file_exists_with_any_image_extension(const std::string &image_dir, const st
     return false;
 }
 
-std::string first_existing_image_path(const std::string &image_dir, const std::string &stem)
-{
-    static const char* exts[] = { ".png", ".jpg", ".jpeg" };
-    for (const char* ext : exts)
-    {
-        const std::filesystem::path candidate = std::filesystem::path(image_dir) / (stem + ext);
-        if (std::filesystem::exists(candidate))
-            return candidate.string();
-    }
-
-    return {};
-}
-
 } // namespace
 
-folder_reader::folder_reader(const std::string &strImagePath, const std::string &strPathTimes,
-                             int frames_skip, int frames_stride, int frames_take, timestamps_type type)
+folder_reader::folder_reader(const std::string &strImagePath, const std::string &strPathTimes, int frames_skip, int frames_stride, int frames_take, timestamps_type type)
 {
     spdlog::set_pattern("[%H:%M:%S] [%^%l%$] %v");
 
     std::vector<std::string> allImages;
-    std::vector<double> allTimestamps;
+    std::vector<double>      allTimestamps;
     allTimestamps.reserve(5000);
     allImages.reserve(5000);
 
-    if(!strPathTimes.empty())
+    if (!strPathTimes.empty())
     {
         std::ifstream fTimes(strPathTimes.c_str());
         if (!fTimes.is_open())
             throw std::runtime_error("Failed to open timestamps file: " + strPathTimes);
 
         std::vector<std::string> lines;
-        std::string s;
+        std::string              s;
         while (std::getline(fTimes, s))
         {
             s = Trim(s);
@@ -180,7 +167,7 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
         if (detected_type == timestamps_type::auto_detect)
         {
             const std::string &sample = lines.front();
-            double utc_ts = 0.0;
+            double             utc_ts = 0.0;
             if (parse_utc_timestamp_line(sample, utc_ts))
             {
                 detected_type = timestamps_type::utc;
@@ -188,15 +175,13 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
             else
             {
                 std::istringstream iss(sample);
-                std::string first;
-                std::string second;
+                std::string        first;
+                std::string        second;
                 iss >> first >> second;
 
                 if (IsNumericStem(first))
                 {
-                    detected_type = file_exists_with_any_image_extension(strImagePath, first)
-                        ? timestamps_type::filename_ns
-                        : timestamps_type::timestamp_ns;
+                    detected_type = file_exists_with_any_image_extension(strImagePath, first) ? timestamps_type::filename_ns : timestamps_type::timestamp_ns;
                 }
                 else if (!first.empty() && IsNumericStem(second))
                 {
@@ -204,9 +189,8 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
                 }
                 else
                 {
-                    throw std::runtime_error(
-                        "Could not auto-detect timestamps file format for: " + strPathTimes +
-                        ". Use --timestamps-type to specify one of: auto, filename_ns, timestamp_ns, utc");
+                    throw std::runtime_error("Could not auto-detect timestamps file format for: " + strPathTimes +
+                                             ". Use --timestamps-type to specify one of: auto, filename_ns, timestamp_ns, utc");
                 }
             }
         }
@@ -224,7 +208,7 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
             {
                 const std::string &line = lines[idx];
                 std::istringstream iss(line);
-                std::string item;
+                std::string        item;
                 iss >> item;
 
                 auto it = stem_map.find(item);
@@ -233,7 +217,7 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
 
                 allImages.push_back(it->second);
                 double t = stod(item);
-                allTimestamps.push_back(t/1e9);
+                allTimestamps.push_back(t / 1e9);
 
                 // Progress update every 500 images
                 if ((idx + 1) % 500 == 0)
@@ -259,8 +243,8 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
 
             for (size_t i = 0; i < lines.size(); ++i)
             {
-                const std::string &line = lines[i];
-                double timestamp_sec = 0.0;
+                const std::string &line          = lines[i];
+                double             timestamp_sec = 0.0;
 
                 if (detected_type == timestamps_type::utc)
                 {
@@ -270,8 +254,8 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
                 else if (detected_type == timestamps_type::timestamp_ns)
                 {
                     std::istringstream iss(line);
-                    std::string first;
-                    std::string second;
+                    std::string        first;
+                    std::string        second;
                     iss >> first >> second;
 
                     const std::string token = IsNumericStem(first) ? first : second;
@@ -311,10 +295,7 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
             parsed.push_back({t_ns / 1e9, entry.path().string()});
         }
 
-        std::sort(parsed.begin(), parsed.end(),
-                 [](const std::pair<double, std::string> &a, const std::pair<double, std::string> &b) {
-                     return a.first < b.first;
-                 });
+        std::sort(parsed.begin(), parsed.end(), [](const std::pair<double, std::string> &a, const std::pair<double, std::string> &b) { return a.first < b.first; });
 
         for (const auto &item : parsed)
         {
@@ -336,8 +317,7 @@ folder_reader::folder_reader(const std::string &strImagePath, const std::string 
         count++;
     }
 
-    spdlog::info("✅ [folder_reader] Final loaded frames: {} (skip={}, stride={}, take={})",
-                 mImages.size(), frames_skip, frames_stride, frames_take);
+    spdlog::info("✅ [folder_reader] Final loaded frames: {} (skip={}, stride={}, take={})", mImages.size(), frames_skip, frames_stride, frames_take);
 }
 
 folder_reader::timestamps_type folder_reader::parse_timestamps_type(const std::string &value)
@@ -354,32 +334,32 @@ folder_reader::timestamps_type folder_reader::parse_timestamps_type(const std::s
     throw std::runtime_error("Invalid timestamps type: " + value + ". Expected one of: auto, filename_ns, timestamp_ns, utc");
 }
 
-size_t folder_reader::size() const
-{
-    return mImages.size();
-}
+size_t               folder_reader::size() const { return mImages.size(); }
 
-const std::string& folder_reader::image_path(size_t idx) const
-{
-    return mImages.at(idx);
-}
+const std::string   &folder_reader::image_path(size_t idx) const { return mImages.at(idx); }
 
-double folder_reader::timestamp(size_t idx) const
-{
-    return mTimeStamps.at(idx);
-}
+double               folder_reader::timestamp(size_t idx) const { return mTimeStamps.at(idx); }
 
-cv::Mat folder_reader::read_image(size_t idx) const
+cv::Mat              folder_reader::read_image(size_t idx) const { return cv::imread(mImages.at(idx), cv::IMREAD_COLOR); }
+
+orbslam3::frame_mono folder_reader::read() const
 {
-    return cv::imread(mImages.at(idx), cv::IMREAD_COLOR);
+    if (_index >= mImages.size())
+        throw std::out_of_range("No more frames available in folder_reader::read()");
+
+    orbslam3::frame_mono frame{.timestamp = mTimeStamps[_index], .image = cv::imread(mImages[_index], cv::IMREAD_COLOR)};
+
+    ++_index;
+    return frame;
 }
 
 bool folder_reader::IsNumericStem(const std::string &s)
 {
-    if (s.empty()) return false;
+    if (s.empty())
+        return false;
 
     bool seen_digit = false;
-    bool seen_dot = false;
+    bool seen_dot   = false;
     for (char c : s)
     {
         if (std::isdigit(static_cast<unsigned char>(c)))

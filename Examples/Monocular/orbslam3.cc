@@ -198,6 +198,7 @@ int    main(int argc, char **argv) {
 
         // Read image from file
         auto im = readers[seq].read_image(ni);
+        double tframe = readers[seq].timestamp(ni);
 
         if (im.empty()) {
           cerr << endl << "Failed to load image at: " << readers[seq].image_path(ni) << endl;
@@ -234,7 +235,6 @@ int    main(int argc, char **argv) {
         clahe->apply(im, im);
         SLAM.SetNextFrameColor(im_color);
 
-        double tframe = readers[seq].timestamp(ni);
 
 #ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
