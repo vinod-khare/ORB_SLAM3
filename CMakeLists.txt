@@ -197,11 +197,14 @@ add_executable(mono_euroc
         Examples/Monocular/mono_euroc.cc)
 target_link_libraries(mono_euroc ${PROJECT_NAME})
 
+# packages for orbslam3 executable
+find_package(rapidcsv CONFIG REQUIRED)
+
 add_executable(orbslam3
         Examples/Monocular/orbslam3.cc
         Examples/Monocular/folder_reader.cc)
 target_include_directories(orbslam3 PRIVATE ${PROJECT_SOURCE_DIR}/Examples/Monocular/include)
-target_link_libraries(orbslam3 ${PROJECT_NAME} Boost::program_options spdlog::spdlog)
+target_link_libraries(orbslam3 ${PROJECT_NAME} Boost::program_options rapidcsv::rapidcsv spdlog::spdlog)
 
 if(realsense2_FOUND)
     add_executable(mono_realsense_t265
