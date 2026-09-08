@@ -25,7 +25,6 @@ $BIN \
   Vocabulary/ORBvoc.txt \
   Examples/Monocular/TUM-VI.yaml \
   .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
-  Examples/Monocular/TUM_TimeStamps/dataset-corridor1_512.txt \
   --output-folder .data/tumvi/dataset-corridor1_512_16/orbslam3 \
   --frames-take 0 \
   --output trajectory \

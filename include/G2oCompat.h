@@ -5,8 +5,8 @@
 
 namespace g2o
 {
-using Vector7d = Vector7;
+using Vector7d          = Vector7;
 using VertexSBAPointXYZ = VertexPointXYZ;
-}
+} // namespace g2o
 
 #endif
