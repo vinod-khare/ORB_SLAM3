@@ -39,6 +39,16 @@ find_package(Boost CONFIG REQUIRED COMPONENTS program_options)
 find_package(Pangolin CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
+set(G2O_LIBS
+g2o_core
+g2o_stuff
+g2o_types_sba
+g2o_types_slam3d
+g2o_types_sim3
+g2o_solver_dense
+g2o_solver_eigen
+)
+
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/include
@@ -108,7 +118,6 @@ include/SerializationUtils.h
 include/Config.h
 include/Settings.h)
 
-add_subdirectory(Thirdparty/g2o)
 add_subdirectory(Thirdparty/DBoW2)
 
 target_link_libraries(${PROJECT_NAME}
@@ -116,7 +125,7 @@ ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
 ${Pangolin_LIBRARIES}
 DBoW2
-g2o
+${G2O_LIBS}
 pango_core
 pango_display
 pango_plot
@@ -202,7 +211,8 @@ find_package(rapidcsv CONFIG REQUIRED)
 
 add_executable(orbslam3
         Examples/Monocular/orbslam3.cc
-        Examples/Monocular/folder_reader.cc)
+        Examples/Monocular/folder_reader.cc
+        include/G2oCompat.h)
 target_include_directories(orbslam3 PRIVATE ${PROJECT_SOURCE_DIR}/Examples/Monocular/include)
 target_link_libraries(orbslam3 ${PROJECT_NAME} Boost::program_options rapidcsv::rapidcsv spdlog::spdlog)
 

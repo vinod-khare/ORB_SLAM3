@@ -54,7 +54,13 @@ ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
 ${Pangolin_LIBRARIES}
 ${PROJECT_SOURCE_DIR}/../../../Thirdparty/DBoW2/lib/libDBoW2.so
-${PROJECT_SOURCE_DIR}/../../../Thirdparty/g2o/lib/libg2o.so
+g2o_core
+g2o_stuff
+g2o_types_sba
+g2o_types_slam3d
+g2o_types_sim3
+g2o_solver_dense
+g2o_solver_eigen
 ${PROJECT_SOURCE_DIR}/../../../lib/libORB_SLAM3.so
 -lboost_system
 )
