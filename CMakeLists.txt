@@ -65,8 +65,8 @@ add_library(${PROJECT_NAME} SHARED
         src/TwoViewReconstruction.cc
         src/Config.cc
         src/Settings.cc
-        Thirdparty/DBoW2/DUtils/Random.cpp
-        Thirdparty/DBoW2/DUtils/Timestamp.cpp)
+        src/DUtils/Random.cpp
+        src/DUtils/Timestamp.cpp)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
         ${PROJECT_SOURCE_DIR}
