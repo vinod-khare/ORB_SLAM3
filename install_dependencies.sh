@@ -8,4 +8,4 @@ sudo apt install libboost-all-dev
 sudo apt install libspdlog-dev
 
 # install dependencies from vcpkg
-./.vcpkg/vcpkg install pangolin
+./.vcpkg/vcpkg install pangolin yaml-cpp

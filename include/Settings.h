@@ -55,7 +55,7 @@ namespace ORB_SLAM3 {
         /*
          * Constructor from file
          */
-        Settings(const std::string &configFile, const int& sensor);
+        Settings(const std::string &config_file, const int& sensor);
 
         /*
          * Ostream operator overloading to dump settings to the terminal
@@ -147,7 +147,7 @@ namespace ORB_SLAM3 {
         void readCamera1(cv::FileStorage& fSettings);
         void readCamera2(cv::FileStorage& fSettings);
         void readImageInfo(cv::FileStorage& fSettings);
-        void readIMU(cv::FileStorage& fSettings);
+        void read_imu(cv::FileStorage& settings, const std::string& config_file);
         void readRGBD(cv::FileStorage& fSettings);
         void readORB(cv::FileStorage& fSettings);
         void readViewer(cv::FileStorage& fSettings);

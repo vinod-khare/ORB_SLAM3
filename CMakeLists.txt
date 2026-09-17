@@ -28,6 +28,7 @@ find_package(Pangolin CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(DBoW2 CONFIG REQUIRED)
 find_package(Sophus CONFIG REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
 
 if(NOT DBoW2_INCLUDE_DIRS)
         get_filename_component(DBoW2_LIB_DIR ${DBoW2_LIBRARY} DIRECTORY)
@@ -121,6 +122,7 @@ target_link_libraries(${PROJECT_NAME}
         ${Pangolin_LIBRARIES}
         ${DBoW2_LIBRARIES}
         Sophus::Sophus
+        yaml-cpp::yaml-cpp
         ${G2O_LIBS}
         pango_core
         pango_display
