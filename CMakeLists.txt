@@ -26,6 +26,13 @@ find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Boost CONFIG REQUIRED COMPONENTS program_options)
 find_package(Pangolin CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
+find_package(DBoW2 CONFIG REQUIRED)
+find_package(Sophus CONFIG REQUIRED)
+
+if(NOT DBoW2_INCLUDE_DIRS)
+        get_filename_component(DBoW2_LIB_DIR ${DBoW2_LIBRARY} DIRECTORY)
+        set(DBoW2_INCLUDE_DIRS ${DBoW2_LIB_DIR}/../include)
+endif()
 
 set(G2O_LIBS
         g2o_core
@@ -41,9 +48,9 @@ include_directories(
         ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/include
         ${PROJECT_SOURCE_DIR}/include/CameraModels
-        ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus
         ${EIGEN3_INCLUDE_DIR}
         ${Pangolin_INCLUDE_DIRS}
+        ${DBoW2_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -75,6 +82,8 @@ add_library(${PROJECT_NAME} SHARED
         src/TwoViewReconstruction.cc
         src/Config.cc
         src/Settings.cc
+        Thirdparty/DBoW2/DUtils/Random.cpp
+        Thirdparty/DBoW2/DUtils/Timestamp.cpp
         include/System.h
         include/Tracking.h
         include/LocalMapping.h
@@ -106,13 +115,12 @@ add_library(${PROJECT_NAME} SHARED
         include/Config.h
         include/Settings.h)
 
-add_subdirectory(Thirdparty/DBoW2)
-
 target_link_libraries(${PROJECT_NAME}
         ${OpenCV_LIBS}
         ${EIGEN3_LIBS}
         ${Pangolin_LIBRARIES}
-        DBoW2
+        ${DBoW2_LIBRARIES}
+        Sophus::Sophus
         ${G2O_LIBS}
         pango_core
         pango_display

@@ -20,8 +20,8 @@
 #define CONVERTER_H
 
 #include "G2oCompat.h"
-#include "Thirdparty/Sophus/sophus/geometry.hpp"
-#include "Thirdparty/Sophus/sophus/sim3.hpp"
+#include <sophus/geometry.hpp>
+#include <sophus/sim3.hpp>
 
 #include <opencv2/core/core.hpp>
 
