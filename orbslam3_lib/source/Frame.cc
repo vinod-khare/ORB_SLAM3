@@ -18,6 +18,8 @@
 
 #include "Frame.h"
 
+#include "CameraModels/KannalaBrandt8.h"
+#include "CameraModels/Pinhole.h"
 #include "Converter.h"
 #include "G2oTypes.h"
 #include "GeometricCamera.h"
@@ -27,9 +29,6 @@
 #include "ORBmatcher.h"
 
 #include <thread>
-
-#include <include/CameraModels/KannalaBrandt8.h>
-#include <include/CameraModels/Pinhole.h>
 
 namespace ORB_SLAM3
 {
