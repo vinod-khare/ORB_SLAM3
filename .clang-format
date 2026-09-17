@@ -4,6 +4,9 @@ BasedOnStyle: LLVM
 BreakBeforeBraces: Allman
 IndentWidth: 4
 
+# Add braces to unbraced if, else, for, while, and do statements (clang-format 15+)
+InsertBraces: true
+
 # ── Column width ─────────────────────────────────────────────────────────────
 ColumnLimit: 192
 

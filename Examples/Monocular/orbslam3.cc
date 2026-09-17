@@ -36,7 +36,32 @@
 #include <opencv2/core/core.hpp>
 
 using namespace std;
-namespace po      = boost::program_options;
+namespace po = boost::program_options;
+
+namespace
+{
+std::string read_imu_csv_path(const std::string &settings_path)
+{
+    cv::FileStorage settings(settings_path, cv::FileStorage::READ);
+    if (!settings.isOpened())
+    {
+        throw std::runtime_error("Failed to open settings file: " + settings_path);
+    }
+
+    const cv::FileNode node = settings["IMU.csv"];
+    if (node.empty() || !node.isString())
+    {
+        throw std::runtime_error("Mono-inertial mode requires a string IMU.csv entry in the settings YAML");
+    }
+
+    std::filesystem::path csv_path(static_cast<std::string>(node));
+    if (csv_path.is_relative())
+    {
+        csv_path = std::filesystem::absolute(settings_path).parent_path() / csv_path;
+    }
+    return csv_path.lexically_normal().string();
+}
+} // namespace
 
 double ttrack_tot = 0;
 int    main(int argc, char **argv)
@@ -48,10 +73,11 @@ int    main(int argc, char **argv)
             "settings,s", po::value<string>()->required(), "Path to settings YAML file")("image-dir,d", po::value<string>()->required(), "Path to image directory")(
             "times-file,t", po::value<string>(), "Optional timestamps file. If omitted, filename stems are used as timestamps")("timestamps-type", po::value<string>()->default_value("auto"),
                                                                                                                                 "Timestamps file format: auto, filename_ns, timestamp_ns, utc")(
-            "output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")("output-folder", po::value<string>(),
-                                                                                                               "Folder to write trajectory files into (created if needed)")(
-            "save-colmap", po::bool_switch()->default_value(false), "Save COLMAP-compatible sparse model output")("save-ply", po::bool_switch()->default_value(false),
-                                                                                                                  "Save map points as PLY point cloud")(
+            "output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")(
+            "output-folder", po::value<string>(), "Folder to write trajectory files into (created if needed)")("save-colmap", po::bool_switch()->default_value(false),
+                                                                                                               "Save COLMAP-compatible sparse model output")(
+            "save-ply", po::bool_switch()->default_value(false), "Save map points as PLY point cloud")("slam-type", po::value<string>()->default_value("mono"),
+                                                                                                       "SLAM sensor type: mono or mono-inertial")(
             "frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")("frames-stride", po::value<int>()->default_value(1),
                                                                                                             "Take every Nth frame (stride)")("frames-take", po::value<int>()->default_value(0),
                                                                                                                                              "Maximum number of frames to process (0 = all)");
@@ -94,7 +120,9 @@ int    main(int argc, char **argv)
         string image_dir     = std::filesystem::canonical(vm["image-dir"].as<string>()).string();
         string times_file;
         if (vm.count("times-file"))
+        {
             times_file = vm["times-file"].as<string>();
+        }
 
         string output_folder;
         if (vm.count("output-folder"))
@@ -123,6 +151,15 @@ int    main(int argc, char **argv)
         folder_reader::timestamps_type timestamps_type = folder_reader::parse_timestamps_type(vm["timestamps-type"].as<string>());
         bool                           save_colmap     = vm["save-colmap"].as<bool>();
         bool                           save_ply        = vm["save-ply"].as<bool>();
+        const string                   slam_type       = vm["slam-type"].as<string>();
+
+        if (slam_type != "mono" && slam_type != "mono-inertial")
+        {
+            cerr << "ERROR: Invalid slam type: " << slam_type << ". Expected mono or mono-inertial" << endl;
+            return 1;
+        }
+        const bool   mono_inertial = slam_type == "mono-inertial";
+        const string imu_csv_path  = mono_inertial ? read_imu_csv_path(settings_path) : string{};
 
         if (frames_skip < 0 || frames_stride <= 0 || frames_take < 0)
         {
@@ -133,11 +170,15 @@ int    main(int argc, char **argv)
         }
 
         if (!times_file.empty())
+        {
             cout << "Loading sequence: " << image_dir << " with times from " << times_file << "...";
+        }
         else
+        {
             cout << "Loading sequence: " << image_dir << " using filename nanoseconds as timestamps...";
+        }
 
-        folder_reader reader(image_dir, times_file, frames_skip, frames_stride, frames_take, timestamps_type);
+        folder_reader reader(image_dir, times_file, frames_skip, frames_stride, frames_take, timestamps_type, imu_csv_path);
         cout << "LOADED!" << endl;
 
         const int nImages = static_cast<int>(reader.size());
@@ -155,22 +196,39 @@ int    main(int argc, char **argv)
         cout.precision(17);
 
         // Create SLAM system
-        ORB_SLAM3::System  SLAM(vocab_path, settings_path, ORB_SLAM3::System::MONOCULAR, true, 0, output_filename);
-        float              imageScale = SLAM.GetImageScale();
+        const ORB_SLAM3::System::eSensor sensor = mono_inertial ? ORB_SLAM3::System::IMU_MONOCULAR : ORB_SLAM3::System::MONOCULAR;
+        ORB_SLAM3::System                SLAM(vocab_path, settings_path, sensor, true, 0, output_filename);
+        float                            imageScale = SLAM.GetImageScale();
 
-        int                proccIm    = 0;
+        int                              proccIm    = 0;
         // Main loop
         // cv::Mat im{};
-        cv::Ptr<cv::CLAHE> clahe      = cv::createCLAHE(3.0, cv::Size(8, 8));
+        cv::Ptr<cv::CLAHE>               clahe      = cv::createCLAHE(3.0, cv::Size(8, 8));
         for (int ni = 0; ni < nImages; ni++, proccIm++)
         {
             std::cout << "Image: " << ni << "/" << nImages << "\r";
             std::cout.flush();
 
             // Read image/timestamp pair from sequence cursor
-            const auto frame  = reader.read();
-            auto       im     = frame.image;
-            double     tframe = frame.timestamp;
+            cv::Mat                       image;
+            double                        timestamp;
+            vector<ORB_SLAM3::IMU::Point> imu_measurements;
+            if (mono_inertial)
+            {
+                auto frame       = reader.read_mono_inertial();
+                image            = frame.image;
+                timestamp        = frame.timestamp;
+                imu_measurements = std::move(frame.imu);
+            }
+            else
+            {
+                auto frame = reader.read();
+                image      = frame.image;
+                timestamp  = frame.timestamp;
+            }
+
+            auto  &im     = image;
+            double tframe = timestamp;
 
             if (im.empty())
             {
@@ -189,14 +247,16 @@ int    main(int argc, char **argv)
             // viewer
             cv::Mat im_color = im.clone();
             if (im.channels() == 3)
+            {
                 cv::cvtColor(im, im, cv::COLOR_BGR2GRAY);
+            }
             clahe->apply(im, im);
             SLAM.SetNextFrameColor(im_color);
 
             std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
             // Pass the image to the SLAM system
-            SLAM.TrackMonocular(im, tframe, {}, reader.image_path(ni));
+            SLAM.TrackMonocular(im, tframe, imu_measurements, reader.image_path(ni));
 
             std::chrono::steady_clock::time_point t2      = std::chrono::steady_clock::now();
 
@@ -208,12 +268,18 @@ int    main(int argc, char **argv)
             // Wait to load the next frame
             double T                                      = 0;
             if (ni < nImages - 1)
+            {
                 T = reader.timestamp(ni + 1) - tframe;
+            }
             else if (ni > 0)
+            {
                 T = tframe - reader.timestamp(ni - 1);
+            }
 
             if (ttrack < T)
+            {
                 usleep((T - ttrack) * 1e6);
+            }
         }
 
         // Stop all threads
