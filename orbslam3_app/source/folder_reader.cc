@@ -459,64 +459,13 @@ folder_reader::timestamps_type folder_reader::parse_timestamps_type(const std::s
     throw std::runtime_error("Invalid timestamps type: " + value + ". Expected one of: auto, filename_ns, timestamp_ns, utc");
 }
 
-size_t               folder_reader::size() const { return _images.size(); }
+size_t                             folder_reader::size() const { return _images.size(); }
 
-const std::string   &folder_reader::image_path(size_t idx) const { return _images.at(idx); }
+const std::string                 &folder_reader::image_path(size_t idx) const { return _images.at(idx); }
 
-double               folder_reader::timestamp(size_t idx) const { return _time_stamps.at(idx); }
+double                             folder_reader::timestamp(size_t idx) const { return _time_stamps.at(idx); }
 
-cv::Mat              folder_reader::read_image(size_t idx) const { return cv::imread(_images.at(idx), cv::IMREAD_COLOR); }
-
-orbslam3::frame_mono folder_reader::read() const
-{
-    if (_index >= _images.size())
-    {
-        throw std::out_of_range("No more frames available in folder_reader::read()");
-    }
-
-    orbslam3::frame_mono frame{.timestamp = _time_stamps[_index], .image = cv::imread(_images[_index], cv::IMREAD_COLOR)};
-
-    ++_index;
-    return frame;
-}
-
-orbslam3::frame_mono_inertial folder_reader::read_mono_inertial() const
-{
-    if (_imu_measurements.empty())
-    {
-        throw std::runtime_error("Cannot read a mono-inertial frame without IMU measurements");
-    }
-
-    const bool                    is_first_frame = _index == 0;
-    orbslam3::frame_mono_inertial frame{read(), {}};
-    frame.imu = collect_imu(frame.timestamp, is_first_frame);
-    return frame;
-}
-
-orbslam3::frame_stereo folder_reader::read_stereo() const
-{
-    if (_right_images.empty())
-    {
-        throw std::runtime_error("Cannot read a stereo frame without right images");
-    }
-
-    const size_t               index = _index;
-    const orbslam3::frame_mono left  = read();
-    return orbslam3::frame_stereo{.timestamp = left.timestamp, .image_left = left.image, .image_right = cv::imread(_right_images[index], cv::IMREAD_COLOR)};
-}
-
-orbslam3::frame_stereo_inertial folder_reader::read_stereo_inertial() const
-{
-    if (_imu_measurements.empty())
-    {
-        throw std::runtime_error("Cannot read a stereo-inertial frame without IMU measurements");
-    }
-
-    const bool                      is_first_frame = _index == 0;
-    orbslam3::frame_stereo_inertial frame{read_stereo(), {}};
-    frame.imu = collect_imu(frame.timestamp, is_first_frame);
-    return frame;
-}
+cv::Mat                            folder_reader::read_image(size_t idx) const { return cv::imread(_images.at(idx), cv::IMREAD_COLOR); }
 
 std::vector<ORB_SLAM3::IMU::Point> folder_reader::collect_imu(double timestamp, bool is_first_frame) const
 {

@@ -238,7 +238,7 @@ int    main(int argc, char **argv)
             vector<ORB_SLAM3::IMU::Point> imu_measurements;
             if (stereo && inertial)
             {
-                auto frame       = reader.read_stereo_inertial();
+                auto frame       = reader.read<orbslam3::frame_stereo_inertial>();
                 image            = frame.image_left;
                 image_right      = frame.image_right;
                 timestamp        = frame.timestamp;
@@ -246,21 +246,21 @@ int    main(int argc, char **argv)
             }
             else if (stereo)
             {
-                auto frame  = reader.read_stereo();
+                auto frame  = reader.read<orbslam3::frame_stereo>();
                 image       = frame.image_left;
                 image_right = frame.image_right;
                 timestamp   = frame.timestamp;
             }
             else if (inertial)
             {
-                auto frame       = reader.read_mono_inertial();
+                auto frame       = reader.read<orbslam3::frame_mono_inertial>();
                 image            = frame.image;
                 timestamp        = frame.timestamp;
                 imu_measurements = std::move(frame.imu);
             }
             else
             {
-                auto frame = reader.read();
+                auto frame = reader.read<orbslam3::frame_mono>();
                 image      = frame.image;
                 timestamp  = frame.timestamp;
             }
