@@ -39,6 +39,7 @@ class folder_reader
     {
         constexpr bool stereo   = std::is_same_v<Frame, orbslam3::frame_stereo> || std::is_same_v<Frame, orbslam3::frame_stereo_inertial>;
         constexpr bool inertial = std::is_same_v<Frame, orbslam3::frame_mono_inertial> || std::is_same_v<Frame, orbslam3::frame_stereo_inertial>;
+        
         static_assert(std::is_same_v<Frame, orbslam3::frame_mono> || stereo || inertial, "Unsupported folder_reader frame type");
 
         if constexpr (stereo)
@@ -81,7 +82,7 @@ class folder_reader
         }
 
         ++_index;
-        
+
         return frame;
     }
 
