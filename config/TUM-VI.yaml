@@ -18,6 +18,36 @@ Camera1.k1: 0.003482389402
 Camera1.k2: 0.000715034845
 Camera1.k3: -0.002053236141
 Camera1.k4: 0.000202936736
+
+# Stereo-only parameters below are ignored in monocular modes
+Camera1.overlappingBegin: 0
+Camera1.overlappingEnd: 511
+
+Camera2.fx: 190.442369694
+Camera2.fy: 190.434438472
+Camera2.cx: 252.599497168
+Camera2.cy: 254.917230646
+
+Camera2.k1: 0.003400317079
+Camera2.k2: 0.001766278153
+Camera2.k3: -0.002663125698
+Camera2.k4: 0.000329951742
+
+Camera2.overlappingBegin: 0
+Camera2.overlappingEnd: 511
+
+# Transform from right camera to left camera (inverse of camchain cam1.T_cn_cnm1)
+Stereo.T_c1_c2: !!opencv-matrix
+  rows: 4
+  cols: 4
+  dt: f
+  data: [0.999999445773495, 0.000791687752817, 0.000694034010224, 0.101063427414195,
+         -0.000823363992158, 0.998899461915676, 0.046895490788701, 0.001946204678584,
+         -0.000656143613644, -0.046896036240590, 0.998899560146305, 0.001015350132563,
+         0.0, 0.0, 0.0, 1.0]
+
+# Close/Far threshold. Baseline times.
+Stereo.ThDepth: 40.0
     
 # Camera resolution
 Camera.width: 512

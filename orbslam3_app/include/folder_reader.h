@@ -2,6 +2,8 @@
 
 #include "orbslam3/frame_mono.h"
 #include "orbslam3/frame_mono_inertial.h"
+#include "orbslam3/frame_stereo.h"
+#include "orbslam3/frame_stereo_inertial.h"
 
 #include <string>
 #include <vector>
@@ -20,23 +22,27 @@ class folder_reader
     };
 
     folder_reader(const std::string &image_path, const std::string &times_path, int frames_skip = 0, int frames_stride = 1, int frames_take = 0,
-                  timestamps_type type = timestamps_type::auto_detect, const std::string &imu_path = {});
+                  timestamps_type type = timestamps_type::auto_detect, const std::string &imu_path = {}, const std::string &right_image_path = {});
 
-    static timestamps_type        parse_timestamps_type(const std::string &value);
-    static std::string            trim(const std::string &s);
+    static timestamps_type          parse_timestamps_type(const std::string &value);
+    static std::string              trim(const std::string &s);
 
-    size_t                        size() const;
-    const std::string            &image_path(size_t idx) const;
-    double                        timestamp(size_t idx) const;
-    cv::Mat                       read_image(size_t idx) const;
+    size_t                          size() const;
+    const std::string              &image_path(size_t idx) const;
+    double                          timestamp(size_t idx) const;
+    cv::Mat                         read_image(size_t idx) const;
 
-    orbslam3::frame_mono          read() const;
-    orbslam3::frame_mono_inertial read_mono_inertial() const;
+    orbslam3::frame_mono            read() const;
+    orbslam3::frame_mono_inertial   read_mono_inertial() const;
+    orbslam3::frame_stereo          read_stereo() const;
+    orbslam3::frame_stereo_inertial read_stereo_inertial() const;
 
   private:
     static bool                        is_numeric_stem(const std::string &s);
+    std::vector<ORB_SLAM3::IMU::Point> collect_imu(double timestamp, bool is_first_frame) const;
 
     std::vector<std::string>           _images;
+    std::vector<std::string>           _right_images;
     std::vector<double>                _time_stamps;
     std::vector<ORB_SLAM3::IMU::Point> _imu_measurements;
     mutable size_t                     _index     = 0;
