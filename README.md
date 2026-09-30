@@ -111,6 +111,33 @@ Directory `Examples` contains several demo programs and calibration files to run
 ./Examples/Stereo-Inertial/stereo_inertial_realsense_D435i Vocabulary/ORBvoc.txt ./Examples/Stereo-Inertial/RealSense_D435i.yaml
 ```
 
+## Keypoint detectors
+
+The keypoint detector can be selected in the settings YAML. Only detection changes; descriptors are always ORB, so the ORB matcher and `ORBvoc.txt` vocabulary are used unchanged.
+
+```
+# FAST (default), AGAST, GFTT, ORB, BRISK, SIFT, AKAZE (case-insensitive)
+ORBextractor.detector: "SIFT"
+```
+
+- **FAST, AGAST**: original per-cell grid detection using `ORBextractor.iniThFAST` / `ORBextractor.minThFAST`.
+- **GFTT, ORB, BRISK, SIFT, AKAZE**: run on each level of the ORB-SLAM image pyramid (single-scale where OpenCV allows; SIFT still searches its own scales). ORB and BRISK use `iniThFAST` as their corner threshold; GFTT, SIFT and AKAZE use OpenCV defaults.
+- All detectors share the octree distribution, orientation, and per-level feature budget from `ORBextractor.nFeatures`.
+
+Smoke-test results on TUM-VI `dataset-corridor1_512_16`, stereo mode, first 300 frames, `config/TUM-VI.yaml` (1500 features, 8 levels, scale 1.2), Release build:
+
+| Detector | Points in initial map | Median tracking time |
+| -------- | --------------------- | -------------------- |
+| FAST     | 364                   | 27 ms                |
+| AGAST    | 385                   | 24 ms                |
+| GFTT     | 442                   | 29 ms                |
+| ORB      | 423                   | 23 ms                |
+| BRISK    | 489                   | 37 ms                |
+| AKAZE    | 569                   | 69 ms                |
+| SIFT     | 503                   | 81 ms                |
+
+These are single runs that only confirm each detector initializes and tracks without errors; trajectory accuracy was not evaluated.
+
 # 5. EuRoC Examples
 [EuRoC dataset](http://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets) was recorded with two pinhole cameras and an inertial sensor. We provide an example script to launch EuRoC sequences in all the sensor configurations.
 

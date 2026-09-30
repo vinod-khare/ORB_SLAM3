@@ -92,6 +92,10 @@ ORBextractor.nLevels: 8
 ORBextractor.iniThFAST: 20
 ORBextractor.minThFAST: 7
 
+# Keypoint detector (descriptors are always ORB): FAST (default), AGAST, GFTT, ORB, BRISK, SIFT, AKAZE
+# FAST/AGAST use the grid thresholds above; ORB/BRISK use iniThFAST as their corner threshold.
+ORBextractor.detector: "FAST"
+
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
 #--------------------------------------------------------------------------------------------

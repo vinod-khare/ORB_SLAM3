@@ -29,6 +29,7 @@
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/core/persistence.hpp>
 
+#include <magic_enum/magic_enum.hpp>
 #include <yaml-cpp/yaml.h>
 
 using namespace std;
@@ -558,11 +559,29 @@ void Settings::readORB(cv::FileStorage &fSettings)
 {
     bool found;
 
-    nFeatures_   = readParameter<int>(fSettings, "ORBextractor.nFeatures", found);
-    scaleFactor_ = readParameter<float>(fSettings, "ORBextractor.scaleFactor", found);
-    nLevels_     = readParameter<int>(fSettings, "ORBextractor.nLevels", found);
-    initThFAST_  = readParameter<int>(fSettings, "ORBextractor.iniThFAST", found);
-    minThFAST_   = readParameter<int>(fSettings, "ORBextractor.minThFAST", found);
+    nFeatures_            = readParameter<int>(fSettings, "ORBextractor.nFeatures", found);
+    scaleFactor_          = readParameter<float>(fSettings, "ORBextractor.scaleFactor", found);
+    nLevels_              = readParameter<int>(fSettings, "ORBextractor.nLevels", found);
+    initThFAST_           = readParameter<int>(fSettings, "ORBextractor.iniThFAST", found);
+    minThFAST_            = readParameter<int>(fSettings, "ORBextractor.minThFAST", found);
+
+    const string detector = readParameter<string>(fSettings, "ORBextractor.detector", found, false);
+    _keypoint_detector    = keypoint_detector_type::fast;
+    if (found)
+    {
+        const auto parsed = magic_enum::enum_cast<keypoint_detector_type>(detector, magic_enum::case_insensitive);
+        if (!parsed)
+        {
+            std::cerr << "ORBextractor.detector: unknown keypoint detector '" << detector << "', expected one of:";
+            for (const auto name : magic_enum::enum_names<keypoint_detector_type>())
+            {
+                std::cerr << " " << name;
+            }
+            std::cerr << ", aborting..." << std::endl;
+            exit(-1);
+        }
+        _keypoint_detector = *parsed;
+    }
 }
 
 void Settings::readViewer(cv::FileStorage &fSettings)
@@ -770,6 +789,7 @@ ostream &operator<<(std::ostream &output, const Settings &settings)
     output << "\t-ORB number of scales: " << settings.nLevels_ << endl;
     output << "\t-Initial FAST threshold: " << settings.initThFAST_ << endl;
     output << "\t-Min FAST threshold: " << settings.minThFAST_ << endl;
+    output << "\t-Keypoint detector: " << magic_enum::enum_name(settings._keypoint_detector) << endl;
 
     return output;
 }

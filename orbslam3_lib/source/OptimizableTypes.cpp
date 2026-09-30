@@ -23,12 +23,8 @@ namespace ORB_SLAM3 {
         for (int i=0; i<2; i++){
             is >> _measurement[i];
         }
-        for (int i=0; i<2; i++)
-            for (int j=i; j<2; j++) {
-                is >> information()(i,j);
-                if (i!=j)
-                    information()(j,i)=information()(i,j);
-            }
+        is >> information()(0, 0) >> information()(0, 1) >> information()(1, 1);
+        information()(1, 0) = information()(0, 1);
         return true;
     }
 
@@ -147,7 +143,8 @@ namespace ORB_SLAM3 {
         double y = xyz_trans[1];
         double z = xyz_trans[2];
 
-        auto projectJac = -pCamera->projectJac(xyz_trans);
+        // Materialize: `auto` would keep an Eigen expression referencing a destroyed temporary.
+        const Eigen::Matrix<double, 2, 3> projectJac = -pCamera->projectJac(xyz_trans);
 
         _jacobianOplusXi =  projectJac * T.rotation().toRotationMatrix();
 

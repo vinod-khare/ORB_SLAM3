@@ -266,9 +266,10 @@ public:
         Rwg=Rwg*ExpSO3(pu[0],pu[1],0.0);
     }
 
-    Eigen::Matrix3d Rwg, Rgw;
+    Eigen::Matrix3d Rwg = Eigen::Matrix3d::Identity();
+    Eigen::Matrix3d Rgw = Eigen::Matrix3d::Identity();
 
-    int its;
+    int its = 0;
 };
 
 class VertexGDir : public g2o::BaseVertex<2,GDirection>

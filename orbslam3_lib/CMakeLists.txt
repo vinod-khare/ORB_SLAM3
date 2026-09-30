@@ -10,6 +10,8 @@ find_package(OpenSSL REQUIRED)
 find_package(Pangolin CONFIG REQUIRED)
 find_package(Sophus CONFIG REQUIRED)
 find_package(g2o CONFIG REQUIRED)
+find_package(magic_enum CONFIG REQUIRED)
+find_package(Microsoft.GSL CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 
 if(NOT DBoW2_INCLUDE_DIRS)
@@ -86,4 +88,4 @@ target_link_libraries(ORB_SLAM3 PUBLIC
         OpenSSL::Crypto
 )
 
-target_link_libraries(ORB_SLAM3 PRIVATE yaml-cpp::yaml-cpp)
+target_link_libraries(ORB_SLAM3 PRIVATE yaml-cpp::yaml-cpp magic_enum::magic_enum Microsoft.GSL::GSL)

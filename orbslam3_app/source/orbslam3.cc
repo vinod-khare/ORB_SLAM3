@@ -68,6 +68,7 @@ int    main(int argc, char **argv)
 {
     try
     {
+        // TODO: refactor options parsing into a separate class
         po::options_description desc("ORB-SLAM3 TUM-VI Example - Monocular / Stereo Modes\n\nUsage options");
         desc.add_options()("help,h", "Show this help message")("vocab,v", po::value<string>()->required(), "Path to ORB vocabulary file")(
             "settings,s", po::value<string>()->required(), "Path to settings YAML file")("image-dir,d", po::value<string>()->required(), "Path to image directory")(
