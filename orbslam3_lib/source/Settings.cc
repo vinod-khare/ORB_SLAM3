@@ -582,6 +582,28 @@ void Settings::readORB(cv::FileStorage &fSettings)
         }
         _keypoint_detector = *parsed;
     }
+
+    const cv::FileNode optical_flow_node = fSettings["Tracking.useOpticalFlow"];
+    int                use_optical_flow  = 0;
+
+    if (!optical_flow_node.empty())
+    {
+        if (!optical_flow_node.isInt())
+        {
+            std::cerr << "Tracking.useOpticalFlow must be 0 or 1, aborting..." << std::endl;
+            exit(-1);
+        }
+
+        use_optical_flow = optical_flow_node.operator int();
+
+        if (use_optical_flow != 0 && use_optical_flow != 1)
+        {
+            std::cerr << "Tracking.useOpticalFlow must be 0 or 1, aborting..." << std::endl;
+            exit(-1);
+        }
+    }
+
+    _use_optical_flow = use_optical_flow == 1;
 }
 
 void Settings::readViewer(cv::FileStorage &fSettings)

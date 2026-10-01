@@ -96,6 +96,9 @@ ORBextractor.minThFAST: 7
 # FAST/AGAST use the grid thresholds above; ORB/BRISK use iniThFAST as their corner threshold.
 ORBextractor.detector: "FAST"
 
+# Sparse LK temporal associations for non-inertial monocular tracking (0: off, 1: on)
+Tracking.useOpticalFlow: 1
+
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
 #--------------------------------------------------------------------------------------------

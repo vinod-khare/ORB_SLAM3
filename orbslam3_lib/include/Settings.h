@@ -104,6 +104,7 @@ class Settings
     float                  minThFAST() { return minThFAST_; }
     float                  scaleFactor() { return scaleFactor_; }
     keypoint_detector_type keypoint_detector() const { return _keypoint_detector; }
+    bool                   use_optical_flow() const { return _use_optical_flow; }
 
     float                  keyFrameSize() { return keyFrameSize_; }
     float                  keyFrameLineWidth() { return keyFrameLineWidth_; }
@@ -214,6 +215,7 @@ class Settings
     int                    nLevels_;
     int                    initThFAST_, minThFAST_;
     keypoint_detector_type _keypoint_detector;
+    bool                   _use_optical_flow{false};
 
     /*
      * Viewer stuff

@@ -5,10 +5,11 @@ project(ORB_SLAM3 LANGUAGES C CXX)
 find_package(Boost CONFIG REQUIRED COMPONENTS serialization)
 find_package(DBoW2 CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
-find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d calib3d imgcodecs highgui)
+find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d calib3d imgcodecs highgui video)
 find_package(OpenSSL REQUIRED)
 find_package(Pangolin CONFIG REQUIRED)
 find_package(Sophus CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 find_package(g2o CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(Microsoft.GSL CONFIG REQUIRED)
@@ -73,6 +74,7 @@ target_link_libraries(ORB_SLAM3 PUBLIC
         opencv_calib3d
         opencv_imgcodecs
         opencv_highgui
+        opencv_video
         Eigen3::Eigen
         pango_display
         DBoW2::DBoW2
@@ -88,4 +90,4 @@ target_link_libraries(ORB_SLAM3 PUBLIC
         OpenSSL::Crypto
 )
 
-target_link_libraries(ORB_SLAM3 PRIVATE yaml-cpp::yaml-cpp magic_enum::magic_enum Microsoft.GSL::GSL)
+target_link_libraries(ORB_SLAM3 PRIVATE yaml-cpp::yaml-cpp magic_enum::magic_enum Microsoft.GSL::GSL spdlog::spdlog)

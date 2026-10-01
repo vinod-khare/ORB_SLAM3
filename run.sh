@@ -23,7 +23,7 @@ $BIN \
   config/TUM-VI.yaml \
   .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
   --right-image-dir .data/tumvi/dataset-corridor1_512_16/mav0/cam1/data \
-  --slam-type stereo-inertial \
+  --slam-type mono \
   --output-folder .data/tumvi/dataset-corridor1_512_16/orbslam3 \
   --frames-take 0 \
   --output trajectory \

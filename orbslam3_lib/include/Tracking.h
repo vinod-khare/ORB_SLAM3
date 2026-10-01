@@ -37,6 +37,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_set>
+#include <utility>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
@@ -205,6 +206,7 @@ class Tracking
     bool                          TrackReferenceKeyFrame();
     void                          UpdateLastFrame();
     bool                          TrackWithMotionModel();
+    int                           track_with_optical_flow(std::vector<std::pair<std::size_t, MapPoint *>> &flow_associations);
     bool                          PredictStateIMU();
 
     bool                          Relocalization();
@@ -327,6 +329,10 @@ class Tracking
     // Motion Model
     bool                          mbVelocity{false};
     Sophus::SE3f                  mVelocity;
+
+    bool                          _use_optical_flow{false};
+    cv::Mat                       _previous_gray;
+    unsigned int                  _previous_gray_frame_id{0};
 
     // Color order (true RGB, false BGR, ignored if grayscale)
     bool                          mbRGB;
