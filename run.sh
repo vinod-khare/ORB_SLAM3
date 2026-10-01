@@ -17,12 +17,10 @@ while [[ $# -gt 0 ]]; do
 done
 BIN=".build/${BUILD_TYPE}/orbslam3_app/orbslam3_app"
 
-echo "Running orbslam3 on corridor1 dataset (positional arguments)..."
+echo "Running orbslam3 on corridor1 dataset..."
 $BIN \
   vocab/ORBvoc.txt \
   config/TUM-VI.yaml \
-  .data/tumvi/dataset-corridor1_512_16/mav0/cam0/data \
-  --right-image-dir .data/tumvi/dataset-corridor1_512_16/mav0/cam1/data \
   --slam-type mono \
   --output-folder .data/tumvi/dataset-corridor1_512_16/orbslam3 \
   --frames-take 0 \

@@ -40,7 +40,44 @@ namespace po = boost::program_options;
 
 namespace
 {
-std::string read_imu_csv_path(const std::string &settings_path)
+struct data_paths
+{
+    std::string left;
+    std::string right;
+    std::string imu;
+};
+
+std::string read_data_setting(const cv::FileStorage &settings, const std::string &name)
+{
+    const cv::FileNode data = settings["data"];
+    if (data.empty())
+    {
+        return {};
+    }
+    if (!data.isMap())
+    {
+        throw std::runtime_error("Settings entry data must be a map");
+    }
+
+    const cv::FileNode node = data[name];
+    if (node.empty())
+    {
+        return {};
+    }
+    if (!node.isString())
+    {
+        throw std::runtime_error("Settings entry data." + name + " must be a string");
+    }
+    return static_cast<std::string>(node);
+}
+
+std::filesystem::path resolve_path(const std::filesystem::path &root, const std::string &value)
+{
+    const std::filesystem::path path(value);
+    return (path.is_absolute() ? path : root / path).lexically_normal();
+}
+
+data_paths read_data_paths(const std::string &settings_path, const po::variables_map &options, bool stereo, bool inertial)
 {
     cv::FileStorage settings(settings_path, cv::FileStorage::READ);
     if (!settings.isOpened())
@@ -48,18 +85,45 @@ std::string read_imu_csv_path(const std::string &settings_path)
         throw std::runtime_error("Failed to open settings file: " + settings_path);
     }
 
-    const cv::FileNode node = settings["IMU.csv"];
-    if (node.empty() || !node.isString())
+    const std::filesystem::path settings_directory = std::filesystem::absolute(settings_path).parent_path();
+    const bool                  root_from_cli       = options.count("data.root") != 0;
+    const std::string root_value = root_from_cli ? options["data.root"].as<std::string>() : read_data_setting(settings, "root");
+    const std::filesystem::path root = root_value.empty() ? settings_directory
+                                                         : resolve_path(root_from_cli ? std::filesystem::current_path() : settings_directory, root_value);
+
+    const auto read_path = [&](const std::string &name)
     {
-        throw std::runtime_error("Inertial modes require a string IMU.csv entry in the settings YAML");
+        const std::string option_name = "data." + name;
+        if (options.count(option_name))
+        {
+            return options[option_name].as<std::string>();
+        }
+
+        return read_data_setting(settings, name);
+    };
+
+    const std::string left_value  = read_path("left");
+    const std::string right_value = read_path("right");
+    const std::string imu_value   = read_path("imu");
+
+    if (left_value.empty())
+    {
+        throw std::runtime_error("A left image folder is required; set data.left in the settings YAML or pass --data.left");
     }
 
-    std::filesystem::path csv_path(static_cast<std::string>(node));
-    if (csv_path.is_relative())
+    if (stereo && right_value.empty())
     {
-        csv_path = std::filesystem::absolute(settings_path).parent_path() / csv_path;
+        throw std::runtime_error("Stereo modes require data.right in the settings YAML or --data.right");
     }
-    return csv_path.lexically_normal().string();
+
+    if (inertial && imu_value.empty())
+    {
+        throw std::runtime_error("Inertial modes require data.imu in the settings YAML or --data.imu");
+    }
+
+    return {std::filesystem::canonical(resolve_path(root, left_value)).string(),
+            stereo ? std::filesystem::canonical(resolve_path(root, right_value)).string() : std::string{},
+            inertial ? resolve_path(root, imu_value).string() : std::string{}};
 }
 } // namespace
 
@@ -71,8 +135,10 @@ int    main(int argc, char **argv)
         // TODO: refactor options parsing into a separate class
         po::options_description desc("ORB-SLAM3 TUM-VI Example - Monocular / Stereo Modes\n\nUsage options");
         desc.add_options()("help,h", "Show this help message")("vocab,v", po::value<string>()->required(), "Path to ORB vocabulary file")(
-            "settings,s", po::value<string>()->required(), "Path to settings YAML file")("image-dir,d", po::value<string>()->required(), "Path to image directory")(
-            "right-image-dir,r", po::value<string>(), "Path to right camera image directory (required for stereo modes; images paired by filename)")(
+            "settings,s", po::value<string>()->required(), "Path to settings YAML file")("data.root", po::value<string>(), "Dataset root folder")(
+            "data.left", po::value<string>(), "Left image folder, absolute or relative to data.root")(
+            "data.right", po::value<string>(), "Right image folder, absolute or relative to data.root")(
+            "data.imu", po::value<string>(), "IMU CSV file, absolute or relative to data.root")(
             "times-file,t", po::value<string>(), "Optional timestamps file. If omitted, filename stems are used as timestamps")("timestamps-type", po::value<string>()->default_value("auto"),
                                                                                                                                 "Timestamps file format: auto, filename_ns, timestamp_ns, utc")(
             "output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")(
@@ -87,7 +153,6 @@ int    main(int argc, char **argv)
         po::positional_options_description p;
         p.add("vocab", 1);
         p.add("settings", 1);
-        p.add("image-dir", 1);
         p.add("times-file", 1);
 
         po::variables_map vm;
@@ -99,8 +164,8 @@ int    main(int argc, char **argv)
             if (vm.count("help"))
             {
                 cout << desc << "\nExample:\n"
-                     << "  " << argv[0] << " vocab.txt settings.yaml img_dir times.txt --output my_traj.txt\n"
-                     << "  " << argv[0] << " --vocab vocab.txt --settings settings.yaml --image-dir img_dir --times-file times.txt\n"
+                     << "  " << argv[0] << " vocab.txt settings.yaml\n"
+                     << "  " << argv[0] << " --vocab vocab.txt --settings settings.yaml --data.root dataset --data.left cam0/data\n"
                      << endl;
                 return 0;
             }
@@ -110,7 +175,7 @@ int    main(int argc, char **argv)
         catch (po::error &e)
         {
             cerr << "ERROR: " << e.what() << endl << endl;
-            cerr << "Usage: " << argv[0] << " VOCABULARY_FILE SETTINGS_FILE IMAGE_DIR [TIMES_FILE] [OPTIONS]\n\n";
+            cerr << "Usage: " << argv[0] << " VOCABULARY_FILE SETTINGS_FILE [TIMES_FILE] [OPTIONS]\n\n";
             cerr << "If TIMES_FILE is omitted, image filename stems are interpreted "
                     "as timestamps.\n\n";
             cerr << desc << endl;
@@ -119,7 +184,6 @@ int    main(int argc, char **argv)
 
         string vocab_path    = vm["vocab"].as<string>();
         string settings_path = vm["settings"].as<string>();
-        string image_dir     = std::filesystem::canonical(vm["image-dir"].as<string>()).string();
         string times_file;
         if (vm.count("times-file"))
         {
@@ -160,20 +224,12 @@ int    main(int argc, char **argv)
             cerr << "ERROR: Invalid slam type: " << slam_type << ". Expected mono, mono-inertial, stereo or stereo-inertial" << endl;
             return 1;
         }
-        const bool   stereo       = slam_type == "stereo" || slam_type == "stereo-inertial";
-        const bool   inertial     = slam_type == "mono-inertial" || slam_type == "stereo-inertial";
-        const string imu_csv_path = inertial ? read_imu_csv_path(settings_path) : string{};
-
-        string       right_image_dir;
-        if (stereo)
-        {
-            if (!vm.count("right-image-dir"))
-            {
-                cerr << "ERROR: --right-image-dir is required for slam type " << slam_type << endl;
-                return 1;
-            }
-            right_image_dir = std::filesystem::canonical(vm["right-image-dir"].as<string>()).string();
-        }
+        const bool       stereo         = slam_type == "stereo" || slam_type == "stereo-inertial";
+        const bool       inertial       = slam_type == "mono-inertial" || slam_type == "stereo-inertial";
+        const data_paths paths          = read_data_paths(settings_path, vm, stereo, inertial);
+        const string    &image_dir      = paths.left;
+        const string    &right_image_dir = paths.right;
+        const string    &imu_csv_path   = paths.imu;
 
         if (frames_skip < 0 || frames_stride <= 0 || frames_take < 0)
         {

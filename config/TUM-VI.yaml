@@ -5,6 +5,13 @@
 #--------------------------------------------------------------------------------------------
 File.version: "1.0"
 
+# Dataset paths (child paths may also be absolute)
+data:
+  root:  "../.data/tumvi/dataset-corridor1_512_16/mav0"
+  left:  "cam0/data"
+  right: "cam1/data"
+  imu:   "imu0/data.csv"
+
 Camera.type: "KannalaBrandt8"
 
 # Camera calibration and distortion parameters (OpenCV) 
@@ -58,9 +65,6 @@ Camera.fps: 20
 
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 1
-
-# Mono-inertial input (relative paths are resolved from this file)
-IMU.csv: "../.data/tumvi/dataset-corridor1_512_16/mav0/imu0/data.csv"
 
 # Dataset cam0.T_cam_imu calibration; inverted internally to ORB-SLAM3 Tbc
 # (relative paths are resolved from this file)

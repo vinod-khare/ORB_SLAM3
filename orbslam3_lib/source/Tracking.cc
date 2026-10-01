@@ -3060,6 +3060,7 @@ bool Tracking::TrackWithMotionModel()
     UpdateLastFrame();
 
     const bool imu_prediction = mpAtlas->isImuInitialized() && (mCurrentFrame.mnId > mnLastRelocFrameId + mnFramesToResetIMU);
+    
     if (imu_prediction)
     {
         // Predict state with IMU if it is initialized and it doesnt need reset
@@ -3186,6 +3187,7 @@ int Tracking::track_with_optical_flow(std::vector<std::pair<std::size_t, MapPoin
 
     const std::size_t previous_left_count = mLastFrame.mvKeys.size();
     const std::size_t current_left_count  = mCurrentFrame.mvKeys.size();
+    
     if ((mLastFrame.Nleft >= 0 && previous_left_count != static_cast<std::size_t>(mLastFrame.Nleft)) ||
         (mCurrentFrame.Nleft >= 0 && current_left_count != static_cast<std::size_t>(mCurrentFrame.Nleft)) ||
         (mLastFrame.Nleft < 0 && previous_left_count != static_cast<std::size_t>(mLastFrame.N)) ||
