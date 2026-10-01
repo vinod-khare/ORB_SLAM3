@@ -98,7 +98,7 @@ ORBextractor.minThFAST: 7
 
 # Keypoint detector (descriptors are always ORB): FAST (default), AGAST, GFTT, ORB, BRISK, SIFT, AKAZE
 # FAST/AGAST use the grid thresholds above; ORB/BRISK use iniThFAST as their corner threshold.
-ORBextractor.detector: "FAST"
+ORBextractor.detector: "GFTT"
 
 # Sparse LK temporal associations for monocular, stereo, and inertial tracking (0: off, 1: on)
 Tracking.useOpticalFlow: 1

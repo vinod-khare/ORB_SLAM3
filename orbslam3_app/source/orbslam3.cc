@@ -86,14 +86,14 @@ data_paths read_data_paths(const std::string &settings_path, const po::variables
     }
 
     const std::filesystem::path settings_directory = std::filesystem::absolute(settings_path).parent_path();
-    const bool                  root_from_cli       = options.count("data.root") != 0;
-    const std::string root_value = root_from_cli ? options["data.root"].as<std::string>() : read_data_setting(settings, "root");
-    const std::filesystem::path root = root_value.empty() ? settings_directory
-                                                         : resolve_path(root_from_cli ? std::filesystem::current_path() : settings_directory, root_value);
+    const bool                  root_from_cli      = options.count("data.root") != 0;
+    const std::string           root_value         = root_from_cli ? options["data.root"].as<std::string>() : read_data_setting(settings, "root");
+    const std::filesystem::path root               = root_value.empty() ? settings_directory : resolve_path(root_from_cli ? std::filesystem::current_path() : settings_directory, root_value);
 
-    const auto read_path = [&](const std::string &name)
+    const auto                  read_path          = [&](const std::string &name)
     {
         const std::string option_name = "data." + name;
+
         if (options.count(option_name))
         {
             return options[option_name].as<std::string>();
@@ -121,8 +121,7 @@ data_paths read_data_paths(const std::string &settings_path, const po::variables
         throw std::runtime_error("Inertial modes require data.imu in the settings YAML or --data.imu");
     }
 
-    return {std::filesystem::canonical(resolve_path(root, left_value)).string(),
-            stereo ? std::filesystem::canonical(resolve_path(root, right_value)).string() : std::string{},
+    return {std::filesystem::canonical(resolve_path(root, left_value)).string(), stereo ? std::filesystem::canonical(resolve_path(root, right_value)).string() : std::string{},
             inertial ? resolve_path(root, imu_value).string() : std::string{}};
 }
 } // namespace
@@ -134,11 +133,10 @@ int    main(int argc, char **argv)
     {
         // TODO: refactor options parsing into a separate class
         po::options_description desc("ORB-SLAM3 TUM-VI Example - Monocular / Stereo Modes\n\nUsage options");
-        desc.add_options()("help,h", "Show this help message")("vocab,v", po::value<string>()->required(), "Path to ORB vocabulary file")(
-            "settings,s", po::value<string>()->required(), "Path to settings YAML file")("data.root", po::value<string>(), "Dataset root folder")(
-            "data.left", po::value<string>(), "Left image folder, absolute or relative to data.root")(
-            "data.right", po::value<string>(), "Right image folder, absolute or relative to data.root")(
-            "data.imu", po::value<string>(), "IMU CSV file, absolute or relative to data.root")(
+        desc.add_options()("help,h", "Show this help message")("vocab,v", po::value<string>()->required(), "Path to ORB vocabulary file")("settings,s", po::value<string>()->required(),
+                                                                                                                                          "Path to settings YAML file")(
+            "data.root", po::value<string>(), "Dataset root folder")("data.left", po::value<string>(), "Left image folder, absolute or relative to data.root")(
+            "data.right", po::value<string>(), "Right image folder, absolute or relative to data.root")("data.imu", po::value<string>(), "IMU CSV file, absolute or relative to data.root")(
             "times-file,t", po::value<string>(), "Optional timestamps file. If omitted, filename stems are used as timestamps")("timestamps-type", po::value<string>()->default_value("auto"),
                                                                                                                                 "Timestamps file format: auto, filename_ns, timestamp_ns, utc")(
             "output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")(
@@ -224,12 +222,12 @@ int    main(int argc, char **argv)
             cerr << "ERROR: Invalid slam type: " << slam_type << ". Expected mono, mono-inertial, stereo or stereo-inertial" << endl;
             return 1;
         }
-        const bool       stereo         = slam_type == "stereo" || slam_type == "stereo-inertial";
-        const bool       inertial       = slam_type == "mono-inertial" || slam_type == "stereo-inertial";
-        const data_paths paths          = read_data_paths(settings_path, vm, stereo, inertial);
-        const string    &image_dir      = paths.left;
+        const bool       stereo          = slam_type == "stereo" || slam_type == "stereo-inertial";
+        const bool       inertial        = slam_type == "mono-inertial" || slam_type == "stereo-inertial";
+        const data_paths paths           = read_data_paths(settings_path, vm, stereo, inertial);
+        const string    &left_image_dir  = paths.left;
         const string    &right_image_dir = paths.right;
-        const string    &imu_csv_path   = paths.imu;
+        const string    &imu_csv_path    = paths.imu;
 
         if (frames_skip < 0 || frames_stride <= 0 || frames_take < 0)
         {
@@ -241,14 +239,15 @@ int    main(int argc, char **argv)
 
         if (!times_file.empty())
         {
-            cout << "Loading sequence: " << image_dir << " with times from " << times_file << "...";
+            cout << "Loading sequence: " << left_image_dir << " with times from " << times_file << "...";
         }
         else
         {
-            cout << "Loading sequence: " << image_dir << " using filename nanoseconds as timestamps...";
+            cout << "Loading sequence: " << left_image_dir << " using filename nanoseconds as timestamps...";
         }
 
-        folder_reader reader(image_dir, times_file, frames_skip, frames_stride, frames_take, timestamps_type, imu_csv_path, right_image_dir);
+        const folder_reader::settings reader_settings{left_image_dir, right_image_dir, times_file, frames_skip, frames_stride, frames_take, timestamps_type, imu_csv_path};
+        folder_reader                 reader(reader_settings);
         cout << "LOADED!" << endl;
 
         const int nImages = static_cast<int>(reader.size());

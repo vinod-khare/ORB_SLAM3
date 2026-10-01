@@ -149,9 +149,17 @@ bool file_exists_with_any_image_extension(const std::string &image_dir, const st
 }
 } // namespace
 
-folder_reader::folder_reader(const std::string &image_path, const std::string &times_path, int frames_skip, int frames_stride, int frames_take, timestamps_type type,
-                             const std::string &imu_path, const std::string &right_image_path)
+folder_reader::folder_reader(const settings &reader_settings)
 {
+    const std::string    &left_image_path  = reader_settings.left_image_path;
+    const std::string    &right_image_path = reader_settings.right_image_path;
+    const std::string    &times_path       = reader_settings.times_path;
+    int                   frames_skip      = reader_settings.frames_skip;
+    const int             frames_stride    = reader_settings.frames_stride;
+    const int             frames_take      = reader_settings.frames_take;
+    const timestamps_type type             = reader_settings.type;
+    const std::string    &imu_path         = reader_settings.imu_path;
+
     spdlog::set_pattern("[%H:%M:%S] [%^%l%$] %v");
 
     std::vector<std::string> allImages;
@@ -205,7 +213,7 @@ folder_reader::folder_reader(const std::string &image_path, const std::string &t
 
                 if (is_numeric_stem(first))
                 {
-                    detected_type = file_exists_with_any_image_extension(image_path, first) ? timestamps_type::filename_ns : timestamps_type::timestamp_ns;
+                    detected_type = file_exists_with_any_image_extension(left_image_path, first) ? timestamps_type::filename_ns : timestamps_type::timestamp_ns;
                 }
                 else if (!first.empty() && is_numeric_stem(second))
                 {
@@ -224,7 +232,7 @@ folder_reader::folder_reader(const std::string &image_path, const std::string &t
         if (detected_type == timestamps_type::filename_ns)
         {
             spdlog::info("⏳ [folder_reader] Building image map (this may take a moment)...");
-            auto stem_map = build_stem_to_path_map(image_path);
+            auto stem_map = build_stem_to_path_map(left_image_path);
             spdlog::info("✓ [folder_reader] Found {} images in directory", stem_map.size());
 
             spdlog::info("⏳ [folder_reader] Processing {} timestamp entries...", lines.size());
@@ -254,15 +262,15 @@ folder_reader::folder_reader(const std::string &image_path, const std::string &t
         }
         else
         {
-            const std::vector<std::string> sorted_images = collect_sorted_image_paths(image_path);
+            const std::vector<std::string> sorted_images = collect_sorted_image_paths(left_image_path);
             if (sorted_images.size() < lines.size())
             {
                 spdlog::error("❌ [folder_reader] Image/timestamp mismatch detected");
-                spdlog::error("   ├─ Image directory : {}", image_path);
+                spdlog::error("   ├─ Image directory : {}", left_image_path);
                 spdlog::error("   ├─ Number of images: {}", sorted_images.size());
                 spdlog::error("   ├─ Number of timestamps: {}", lines.size());
                 spdlog::error("   └─ Timestamps file : {}", times_path);
-                throw std::runtime_error("Not enough images in directory for timestamps file: " + image_path);
+                throw std::runtime_error("Not enough images in directory for timestamps file: " + left_image_path);
             }
 
             spdlog::info("🖼️  [folder_reader] Images found: {}", sorted_images.size());
@@ -307,7 +315,7 @@ folder_reader::folder_reader(const std::string &image_path, const std::string &t
     else
     {
         std::vector<std::pair<double, std::string>> parsed;
-        for (const auto &entry : std::filesystem::directory_iterator(image_path))
+        for (const auto &entry : std::filesystem::directory_iterator(left_image_path))
         {
             if (!entry.is_regular_file())
             {

@@ -24,8 +24,19 @@ class folder_reader
         utc
     };
 
-    folder_reader(const std::string &image_path, const std::string &times_path, int frames_skip = 0, int frames_stride = 1, int frames_take = 0,
-                  timestamps_type type = timestamps_type::auto_detect, const std::string &imu_path = {}, const std::string &right_image_path = {});
+    struct settings
+    {
+        std::string     left_image_path;
+        std::string     right_image_path;
+        std::string     times_path;
+        int             frames_skip   = 0;
+        int             frames_stride = 1;
+        int             frames_take   = 0;
+        timestamps_type type          = timestamps_type::auto_detect;
+        std::string     imu_path;
+    };
+
+    explicit folder_reader(const settings &reader_settings);
 
     static timestamps_type          parse_timestamps_type(const std::string &value);
     static std::string              trim(const std::string &s);
@@ -39,7 +50,7 @@ class folder_reader
     {
         constexpr bool stereo   = std::is_same_v<Frame, orbslam3::frame_stereo> || std::is_same_v<Frame, orbslam3::frame_stereo_inertial>;
         constexpr bool inertial = std::is_same_v<Frame, orbslam3::frame_mono_inertial> || std::is_same_v<Frame, orbslam3::frame_stereo_inertial>;
-        
+
         static_assert(std::is_same_v<Frame, orbslam3::frame_mono> || stereo || inertial, "Unsupported folder_reader frame type");
 
         if constexpr (stereo)
