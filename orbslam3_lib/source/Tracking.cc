@@ -604,7 +604,7 @@ void Tracking::newParameterLoader(Settings *settings)
     int                          fMinThFAST   = settings->minThFAST();
     float                        fScaleFactor = settings->scaleFactor();
     const keypoint_detector_type detector     = settings->keypoint_detector();
-    _use_optical_flow                         = settings->use_optical_flow() && mSensor == System::MONOCULAR;
+    _use_optical_flow                         = settings->use_optical_flow() && mSensor != System::RGBD && mSensor != System::IMU_RGBD;
 
     cout << "- Sparse Optical Flow: " << (_use_optical_flow ? "enabled" : "disabled") << endl;
 
@@ -645,7 +645,7 @@ bool Tracking::ParseCamParamFile(cv::FileStorage &fSettings)
     string sCameraName   = fSettings["Camera.type"];
     if (sCameraName == "PinHole")
     {
-        float fx, fy, cx, cy;
+        float fx = 0, fy = 0, cx = 0, cy = 0;
         mImageScale       = 1.f;
 
         // Camera calibration parameters
@@ -802,8 +802,8 @@ bool Tracking::ParseCamParamFile(cv::FileStorage &fSettings)
     }
     else if (sCameraName == "KannalaBrandt8")
     {
-        float fx, fy, cx, cy;
-        float k1, k2, k3, k4;
+        float fx = 0, fy = 0, cx = 0, cy = 0;
+        float k1 = 0, k2 = 0, k3 = 0, k4 = 0;
         mImageScale       = 1.f;
 
         // Camera calibration parameters
@@ -1242,8 +1242,8 @@ bool Tracking::ParseCamParamFile(cv::FileStorage &fSettings)
 bool Tracking::ParseORBParamFile(cv::FileStorage &fSettings)
 {
     bool         b_miss_params = false;
-    int          nFeatures, nLevels, fIniThFAST, fMinThFAST;
-    float        fScaleFactor;
+    int          nFeatures = 0, nLevels = 0, fIniThFAST = 0, fMinThFAST = 0;
+    float        fScaleFactor = 0;
 
     cv::FileNode node = fSettings["ORBextractor.nFeatures"];
     if (!node.empty() && node.isInt())
@@ -1335,7 +1335,7 @@ bool Tracking::ParseORBParamFile(cv::FileStorage &fSettings)
             return false;
         }
 
-        _use_optical_flow = node.operator int() == 1 && mSensor == System::MONOCULAR;
+        _use_optical_flow = node.operator int() == 1 && mSensor != System::RGBD && mSensor != System::IMU_RGBD;
     }
 
     mpORBextractorLeft = std::make_unique<ORBextractor>(nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, detector);
@@ -1399,7 +1399,7 @@ bool Tracking::ParseIMUParamFile(cv::FileStorage &fSettings)
         cout << "Do not insert keyframes when lost visual tracking " << endl;
     }
 
-    float Ng, Na, Ngw, Naw;
+    float Ng = 0, Na = 0, Ngw = 0, Naw = 0;
 
     node = fSettings["IMU.Frequency"];
     if (!node.empty() && node.isInt())
@@ -1571,6 +1571,16 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
     Track();
     // cout << "Tracking end" << endl;
 
+    if (_use_optical_flow && mLastFrame.mnId == mCurrentFrame.mnId && !mImGray.empty())
+    {
+        _previous_gray          = mImGray.clone();
+        _previous_gray_frame_id = mCurrentFrame.mnId;
+    }
+    else
+    {
+        _previous_gray.release();
+    }
+
     return mCurrentFrame.GetPose();
 }
 
@@ -1726,7 +1736,7 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &times
     lastID = mCurrentFrame.mnId;
     Track();
 
-    if (mLastFrame.mnId == mCurrentFrame.mnId && !mImGray.empty())
+    if (_use_optical_flow && mLastFrame.mnId == mCurrentFrame.mnId && !mImGray.empty())
     {
         _previous_gray          = mImGray.clone();
         _previous_gray_frame_id = mCurrentFrame.mnId;
@@ -2049,7 +2059,7 @@ void Tracking::Track()
     else
     {
         // System is initialized. Track Frame.
-        bool bOK;
+        bool bOK = false;
 
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_StartPosePred = std::chrono::steady_clock::now();
@@ -2308,7 +2318,7 @@ void Tracking::Track()
         }
 
         // Save frame if recent relocalization, since they are used for IMU reset (as we are making copy, it shluld be once mCurrFrame is completely modified)
-        if ((mCurrentFrame.mnId < (mnLastRelocFrameId + mnFramesToResetIMU)) && (mCurrentFrame.mnId > mnFramesToResetIMU) &&
+        if ((mCurrentFrame.mnId < (mnLastRelocFrameId + mnFramesToResetIMU)) && (mCurrentFrame.mnId > static_cast<unsigned int>(mnFramesToResetIMU)) &&
             (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && pCurrentMap->isImuInitialized())
         {
             // TODO check this situation
@@ -3049,11 +3059,11 @@ bool Tracking::TrackWithMotionModel()
     // Create "visual odometry" points if in Localization Mode
     UpdateLastFrame();
 
-    if (mpAtlas->isImuInitialized() && (mCurrentFrame.mnId > mnLastRelocFrameId + mnFramesToResetIMU))
+    const bool imu_prediction = mpAtlas->isImuInitialized() && (mCurrentFrame.mnId > mnLastRelocFrameId + mnFramesToResetIMU);
+    if (imu_prediction)
     {
         // Predict state with IMU if it is initialized and it doesnt need reset
         PredictStateIMU();
-        return true;
     }
     else
     {
@@ -3064,9 +3074,14 @@ bool Tracking::TrackWithMotionModel()
     std::vector<std::pair<std::size_t, MapPoint *>> flow_associations;
     const int                                       flow_matches = track_with_optical_flow(flow_associations);
 
-    if (_use_optical_flow && mSensor == System::MONOCULAR)
+    if (_use_optical_flow)
     {
         spdlog::info("Frame {}: tracked {} points using optical flow", mCurrentFrame.mnId, flow_matches);
+    }
+
+    if (imu_prediction)
+    {
+        return true;
     }
 
     // Project points seen in previous frame
@@ -3163,14 +3178,19 @@ bool Tracking::TrackWithMotionModel()
 int Tracking::track_with_optical_flow(std::vector<std::pair<std::size_t, MapPoint *>> &flow_associations)
 {
     flow_associations.clear();
-    if (!_use_optical_flow || mSensor != System::MONOCULAR || _previous_gray.empty() || mImGray.empty() || _previous_gray_frame_id != mLastFrame.mnId ||
+    if (!_use_optical_flow || _previous_gray.empty() || mImGray.empty() || _previous_gray_frame_id != mLastFrame.mnId ||
         _previous_gray.size() != mImGray.size() || mImGray.type() != CV_8UC1)
     {
         return 0;
     }
 
-    if (mLastFrame.N != static_cast<int>(mLastFrame.mvKeys.size()) || mLastFrame.N != static_cast<int>(mLastFrame.mvpMapPoints.size()) ||
-        mLastFrame.N != static_cast<int>(mLastFrame.mvbOutlier.size()) || mCurrentFrame.N != static_cast<int>(mCurrentFrame.mvKeys.size()) ||
+    const std::size_t previous_left_count = mLastFrame.mvKeys.size();
+    const std::size_t current_left_count  = mCurrentFrame.mvKeys.size();
+    if ((mLastFrame.Nleft >= 0 && previous_left_count != static_cast<std::size_t>(mLastFrame.Nleft)) ||
+        (mCurrentFrame.Nleft >= 0 && current_left_count != static_cast<std::size_t>(mCurrentFrame.Nleft)) ||
+        (mLastFrame.Nleft < 0 && previous_left_count != static_cast<std::size_t>(mLastFrame.N)) ||
+        (mCurrentFrame.Nleft < 0 && current_left_count != static_cast<std::size_t>(mCurrentFrame.N)) ||
+        mLastFrame.N != static_cast<int>(mLastFrame.mvpMapPoints.size()) || mLastFrame.N != static_cast<int>(mLastFrame.mvbOutlier.size()) ||
         mCurrentFrame.N != static_cast<int>(mCurrentFrame.mvpMapPoints.size()))
     {
         return 0;
@@ -3347,7 +3367,6 @@ bool Tracking::TrackLocalMap()
         }
     }
 
-    int inliers;
     if (!mpAtlas->isImuInitialized())
     {
         Optimizer::PoseOptimization(&mCurrentFrame);
@@ -3365,12 +3384,12 @@ bool Tracking::TrackLocalMap()
             if (!mbMapUpdated) //  && (mnMatchesInliers>30))
             {
                 Verbose::PrintMess("TLM: PoseInertialOptimizationLastFrame ", Verbose::VERBOSITY_DEBUG);
-                inliers = Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
+                Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
             }
             else
             {
                 Verbose::PrintMess("TLM: PoseInertialOptimizationLastKeyFrame ", Verbose::VERBOSITY_DEBUG);
-                inliers = Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
+                Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
             }
         }
     }
@@ -3884,7 +3903,7 @@ void Tracking::SearchLocalPoints()
             th = 15;                                   // 15
         }
 
-        int matches = matcher.SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
+        matcher.SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
     }
 }
 
@@ -4495,7 +4514,6 @@ void Tracking::InformOnlyTracking(const bool &flag) { mbOnlyTracking = flag; }
 void Tracking::UpdateFrameIMU(const float s, const IMU::Bias &b, KeyFrame *pCurrentKeyFrame)
 {
     Map                                  *pMap  = pCurrentKeyFrame->GetMap();
-    unsigned int                          index = mnFirstFrameId;
     list<ORB_SLAM3::KeyFrame *>::iterator lRit  = mlpReferences.begin();
     list<bool>::iterator                  lbL   = mlbLost.begin();
     for (auto lit = mlRelativeFramePoses.begin(), lend = mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lbL++)
