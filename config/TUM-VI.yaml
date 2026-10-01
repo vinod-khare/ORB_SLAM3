@@ -1,10 +1,5 @@
 %YAML:1.0
 
-#--------------------------------------------------------------------------------------------
-# Camera Parameters. Adjust them!
-#--------------------------------------------------------------------------------------------
-File.version: "1.0"
-
 # Dataset paths (child paths may also be absolute)
 data:
   root:  "../.data/tumvi/dataset-corridor1_512_16/mav0"
@@ -12,53 +7,13 @@ data:
   right: "cam1/data"
   imu:   "imu0/data.csv"
 
-Camera.type: "KannalaBrandt8"
-
-# Camera calibration and distortion parameters (OpenCV) 
-Camera1.fx: 190.978477
-Camera1.fy: 190.973307
-Camera1.cx: 254.931706
-Camera1.cy: 256.897442
-
-# Equidistant distortion 0.0034823894022493434, 0.0007150348452162257, -0.0020532361418706202, 0.00020293673591811182
-Camera1.k1: 0.003482389402
-Camera1.k2: 0.000715034845
-Camera1.k3: -0.002053236141
-Camera1.k4: 0.000202936736
-
-# Stereo-only parameters below are ignored in monocular modes
-Camera1.overlappingBegin: 0
-Camera1.overlappingEnd: 511
-
-Camera2.fx: 190.442369694
-Camera2.fy: 190.434438472
-Camera2.cx: 252.599497168
-Camera2.cy: 254.917230646
-
-Camera2.k1: 0.003400317079
-Camera2.k2: 0.001766278153
-Camera2.k3: -0.002663125698
-Camera2.k4: 0.000329951742
-
-Camera2.overlappingBegin: 0
-Camera2.overlappingEnd: 511
-
-# Transform from right camera to left camera (inverse of camchain cam1.T_cn_cnm1)
-Stereo.T_c1_c2: !!opencv-matrix
-  rows: 4
-  cols: 4
-  dt: f
-  data: [0.999999445773495, 0.000791687752817, 0.000694034010224, 0.101063427414195,
-         -0.000823363992158, 0.998899461915676, 0.046895490788701, 0.001946204678584,
-         -0.000656143613644, -0.046896036240590, 0.998899560146305, 0.001015350132563,
-         0.0, 0.0, 0.0, 1.0]
+# Kalibr camchain file providing intrinsics, distortion, resolution, cam0->cam1 and IMU->cam0 extrinsics
+# (relative paths are resolved from this file)
+calibration:
+  file: "../.data/tumvi/dataset-corridor1_512_16/dso/camchain.yaml"
 
 # Close/Far threshold. Baseline times.
 Stereo.ThDepth: 40.0
-    
-# Camera resolution
-Camera.width: 512
-Camera.height: 512
 
 # Camera frames per second 
 Camera.fps: 20
@@ -66,10 +21,9 @@ Camera.fps: 20
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 1
 
-# Dataset cam0.T_cam_imu calibration; inverted internally to ORB-SLAM3 Tbc
-# (relative paths are resolved from this file)
-IMU.CalibrationFile: "../.data/tumvi/dataset-corridor1_512_16/dso/camchain.yaml"
-
+#--------------------------------------------------------------------------------------------
+# IMU Parameters
+#--------------------------------------------------------------------------------------------
 IMU.NoiseGyro: 0.00016
 IMU.NoiseAcc: 0.0028
 IMU.GyroWalk: 0.000022

@@ -29,6 +29,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <filesystem>
+#include <memory>
 #include <string>
 
 namespace ORB_SLAM3
@@ -47,7 +49,6 @@ class Settings
     enum CameraType
     {
         PinHole       = 0,
-        Rectified     = 1,
         KannalaBrandt = 2
     };
 
@@ -73,7 +74,7 @@ class Settings
     GeometricCamera       *camera1() { return calibration1_; }
     GeometricCamera       *camera2() { return calibration2_; }
     cv::Mat                camera1DistortionCoef() { return cv::Mat(vPinHoleDistorsion1_.size(), 1, CV_32F, vPinHoleDistorsion1_.data()); }
-    cv::Mat                camera2DistortionCoef() { return cv::Mat(vPinHoleDistorsion2_.size(), 1, CV_32F, vPinHoleDistorsion1_.data()); }
+    cv::Mat                camera2DistortionCoef() { return cv::Mat(vPinHoleDistorsion2_.size(), 1, CV_32F, vPinHoleDistorsion2_.data()); }
 
     Sophus::SE3f           Tlr() { return Tlr_; }
     float                  bf() { return bf_; }
@@ -153,91 +154,91 @@ class Settings
         }
     }
 
-    void                   readCamera1(cv::FileStorage &fSettings);
-    void                   readCamera2(cv::FileStorage &fSettings);
-    void                   readImageInfo(cv::FileStorage &fSettings);
-    void                   read_imu(cv::FileStorage &settings, const std::string &config_file);
-    void                   readRGBD(cv::FileStorage &fSettings);
-    void                   readORB(cv::FileStorage &fSettings);
-    void                   readViewer(cv::FileStorage &fSettings);
-    void                   readLoadAndSave(cv::FileStorage &fSettings);
-    void                   readOtherParameters(cv::FileStorage &fSettings);
+    void                             read_cameras(cv::FileStorage &settings);
+    void                             readImageInfo(cv::FileStorage &fSettings);
+    void                             read_imu(cv::FileStorage &settings);
+    void                             readRGBD(cv::FileStorage &fSettings);
+    void                             readORB(cv::FileStorage &fSettings);
+    void                             readViewer(cv::FileStorage &fSettings);
+    void                             readLoadAndSave(cv::FileStorage &fSettings);
+    void                             readOtherParameters(cv::FileStorage &fSettings);
 
-    void                   precomputeRectificationMaps();
+    void                             precomputeRectificationMaps();
 
-    int                    sensor_;
-    CameraType             cameraType_; // Camera type
+    int                              sensor_;
+    std::filesystem::path            _calibration_file; // Kalibr camchain file
+    CameraType                       cameraType_;       // Camera type
 
     /*
      * Visual stuff
      */
-    GeometricCamera       *calibration1_, *calibration2_; // Camera calibration
-    GeometricCamera       *originalCalib1_, *originalCalib2_;
-    std::vector<float>     vPinHoleDistorsion1_, vPinHoleDistorsion2_;
+    GeometricCamera                 *calibration1_{}, *calibration2_{}; // Camera calibration
+    std::unique_ptr<GeometricCamera> originalCalib1_, originalCalib2_;
+    std::vector<float>               vPinHoleDistorsion1_, vPinHoleDistorsion2_;
 
-    cv::Size               originalImSize_, newImSize_;
-    float                  fps_;
-    bool                   bRGB_;
+    cv::Size                         originalImSize_, newImSize_;
+    float                            fps_;
+    bool                             bRGB_;
 
-    bool                   bNeedToUndistort_;
-    bool                   bNeedToRectify_;
-    bool                   bNeedToResize1_, bNeedToResize2_;
+    bool                             bNeedToUndistort_;
+    bool                             bNeedToRectify_;
+    bool                             bNeedToResize1_, bNeedToResize2_;
 
-    Sophus::SE3f           Tlr_;
-    float                  thDepth_;
-    float                  bf_, b_;
+    Sophus::SE3f                     Tlr_;
+    float                            thDepth_;
+    float                            bf_, b_;
 
     /*
      * Rectification stuff
      */
-    cv::Mat                M1l_, M2l_;
-    cv::Mat                M1r_, M2r_;
+    cv::Mat                          M1l_, M2l_;
+    cv::Mat                          M1r_, M2r_;
 
     /*
      * Inertial stuff
      */
-    float                  noiseGyro_, noiseAcc_;
-    float                  gyroWalk_, accWalk_;
-    float                  imuFrequency_;
-    Sophus::SE3f           Tbc_;
-    bool                   insertKFsWhenLost_;
+    float                            noiseGyro_, noiseAcc_;
+    float                            gyroWalk_, accWalk_;
+    float                            imuFrequency_;
+    Sophus::SE3f                     Tbc_;
+    bool                             insertKFsWhenLost_;
 
     /*
      * RGBD stuff
      */
-    float                  depthMapFactor_;
+    float                            depthMapFactor_;
 
     /*
      * ORB stuff
      */
-    int                    nFeatures_;
-    float                  scaleFactor_;
-    int                    nLevels_;
-    int                    initThFAST_, minThFAST_;
-    keypoint_detector_type _keypoint_detector;
-    bool                   _use_optical_flow{false};
+    int                              nFeatures_;
+    float                            scaleFactor_;
+    int                              nLevels_;
+    int                              initThFAST_, minThFAST_;
+    keypoint_detector_type           _keypoint_detector;
+    bool                             _use_optical_flow{false};
 
     /*
      * Viewer stuff
      */
-    float                  keyFrameSize_;
-    float                  keyFrameLineWidth_;
-    float                  graphLineWidth_;
-    float                  pointSize_;
-    float                  cameraSize_;
-    float                  cameraLineWidth_;
-    float                  viewPointX_, viewPointY_, viewPointZ_, viewPointF_;
-    float                  imageViewerScale_;
+    float                            keyFrameSize_;
+    float                            keyFrameLineWidth_;
+    float                            graphLineWidth_;
+    float                            pointSize_;
+    float                            cameraSize_;
+    float                            cameraLineWidth_;
+    float                            viewPointX_, viewPointY_, viewPointZ_, viewPointF_;
+    float                            imageViewerScale_;
 
     /*
      * Save & load maps
      */
-    std::string            sLoadFrom_, sSaveto_;
+    std::string                      sLoadFrom_, sSaveto_;
 
     /*
      * Other stuff
      */
-    float                  thFarPoints_;
+    float                            thFarPoints_;
 };
 }; // namespace ORB_SLAM3
 

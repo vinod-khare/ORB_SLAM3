@@ -36,43 +36,123 @@ using namespace std;
 
 namespace
 {
-Sophus::SE3f read_tbc_from_calibration(const std::filesystem::path &calibration_path)
+struct kalibr_camera
 {
-    YAML::Node transform;
+    ORB_SLAM3::Settings::CameraType type;
+    std::vector<float>              parameters; // ORB-SLAM3 camera model parameters
+    std::vector<float>              distortion; // OpenCV radtan coefficients, empty if none
+    cv::Size                        resolution;
+};
+
+YAML::Node load_calibration(const std::filesystem::path &calibration_path)
+{
     try
     {
-        transform = YAML::LoadFile(calibration_path.string())["cam0"]["T_cam_imu"];
+        return YAML::LoadFile(calibration_path.string());
     }
     catch (const YAML::Exception &error)
     {
-        throw std::runtime_error("Failed to read TUM-VI calibration file " + calibration_path.string() + ": " + error.what());
+        throw std::runtime_error("Failed to read Kalibr calibration file " + calibration_path.string() + ": " + error.what());
+    }
+}
+
+template <typename T> std::vector<T> read_values(const YAML::Node &node, const std::string &name, const std::size_t count, const std::filesystem::path &calibration_path)
+{
+    if (!node || !node.IsSequence() || node.size() != count)
+    {
+        throw std::runtime_error(name + " must contain " + std::to_string(count) + " values in calibration file: " + calibration_path.string());
     }
 
+    std::vector<T> values;
+    values.reserve(count);
+
+    for (const YAML::Node &value : node)
+    {
+        values.push_back(value.as<T>());
+    }
+
+    return values;
+}
+
+Sophus::SE3f read_transform(const YAML::Node &transform, const std::string &name, const std::filesystem::path &calibration_path)
+{
     if (!transform || !transform.IsSequence() || transform.size() != 4)
     {
-        throw std::runtime_error("cam0.T_cam_imu must be a 4x4 matrix in calibration file: " + calibration_path.string());
+        throw std::runtime_error(name + " must be a 4x4 matrix in calibration file: " + calibration_path.string());
     }
 
-    Eigen::Matrix4f t_cam_imu;
-    for (size_t row = 0; row < 4; ++row)
+    Eigen::Matrix4d matrix;
+    for (std::size_t row = 0; row < 4; ++row)
     {
-        if (!transform[row].IsSequence() || transform[row].size() != 4)
+        const std::vector<double> values = read_values<double>(transform[row], name, 4, calibration_path);
+        for (std::size_t column = 0; column < 4; ++column)
         {
-            throw std::runtime_error("cam0.T_cam_imu must be a 4x4 matrix in calibration file: " + calibration_path.string());
-        }
-
-        for (size_t column = 0; column < 4; ++column)
-        {
-            t_cam_imu(row, column) = transform[row][column].as<float>();
+            matrix(static_cast<Eigen::Index>(row), static_cast<Eigen::Index>(column)) = values[column];
         }
     }
 
-    if (!t_cam_imu.allFinite() || !t_cam_imu.row(3).isApprox(Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f).transpose()))
+    if (!matrix.allFinite() || !matrix.row(3).isApprox(Eigen::RowVector4d(0.0, 0.0, 0.0, 1.0)))
     {
-        throw std::runtime_error("cam0.T_cam_imu is not a valid homogeneous transform in calibration file: " + calibration_path.string());
+        throw std::runtime_error(name + " is not a valid homogeneous transform in calibration file: " + calibration_path.string());
     }
 
-    return Sophus::SE3f(t_cam_imu).inverse();
+    return Sophus::SE3d(matrix).cast<float>();
+}
+
+kalibr_camera read_kalibr_camera(const YAML::Node &calibration, const std::string &name, const std::filesystem::path &calibration_path)
+{
+    const YAML::Node camera = calibration[name];
+
+    if (!camera || !camera.IsMap())
+    {
+        throw std::runtime_error("Camera " + name + " not found in calibration file: " + calibration_path.string());
+    }
+
+    const std::string camera_model     = camera["camera_model"].as<std::string>("");
+    const std::string distortion_model = camera["distortion_model"].as<std::string>("none");
+
+    if (camera_model != "pinhole")
+    {
+        throw std::runtime_error(name + ".camera_model '" + camera_model + "' is not supported (expected pinhole) in calibration file: " + calibration_path.string());
+    }
+
+    kalibr_camera result;
+    const auto    resolution = read_values<int>(camera["resolution"], name + ".resolution", 2, calibration_path);
+    result.resolution        = cv::Size(resolution[0], resolution[1]);
+    result.parameters        = read_values<float>(camera["intrinsics"], name + ".intrinsics", 4, calibration_path);
+
+    if (distortion_model == "equidistant")
+    {
+        result.type                   = ORB_SLAM3::Settings::KannalaBrandt;
+        const std::vector<float> k1k4 = read_values<float>(camera["distortion_coeffs"], name + ".distortion_coeffs", 4, calibration_path);
+        result.parameters.insert(result.parameters.end(), k1k4.begin(), k1k4.end());
+    }
+    else if (distortion_model == "radtan")
+    {
+        result.type       = ORB_SLAM3::Settings::PinHole;
+        result.distortion = read_values<float>(camera["distortion_coeffs"], name + ".distortion_coeffs", 4, calibration_path);
+    }
+    else if (distortion_model == "none")
+    {
+        result.type = ORB_SLAM3::Settings::PinHole;
+    }
+    else
+    {
+        throw std::runtime_error(name + ".distortion_model '" + distortion_model +
+                                 "' is not supported (expected equidistant, radtan or none) in calibration file: " + calibration_path.string());
+    }
+
+    return result;
+}
+
+ORB_SLAM3::GeometricCamera *make_camera(const kalibr_camera &camera)
+{
+    if (camera.type == ORB_SLAM3::Settings::KannalaBrandt)
+    {
+        return new ORB_SLAM3::KannalaBrandt8(camera.parameters);
+    }
+
+    return new ORB_SLAM3::Pinhole(camera.parameters);
 }
 } // namespace
 
@@ -208,16 +288,20 @@ Settings::Settings(const std::string &config_file, const int &sensor) : bNeedToU
         cout << "Loading settings from " << config_file << endl;
     }
 
-    // Read first camera
-    readCamera1(fSettings);
-    cout << "\t-Loaded camera 1" << endl;
-
-    // Read second camera if stereo (not rectified)
-    if (sensor_ == System::STEREO || sensor_ == System::IMU_STEREO)
+    const cv::FileNode calibration = fSettings["calibration"];
+    if (!calibration.isMap() || !calibration["file"].isString())
     {
-        readCamera2(fSettings);
-        cout << "\t-Loaded camera 2" << endl;
+        throw std::runtime_error("Settings entry calibration.file (Kalibr camchain YAML) is required in " + config_file);
     }
+    _calibration_file = calibration["file"].string();
+    if (_calibration_file.is_relative())
+    {
+        _calibration_file = std::filesystem::absolute(config_file).parent_path() / _calibration_file;
+    }
+    _calibration_file = _calibration_file.lexically_normal();
+
+    read_cameras(fSettings);
+    cout << "\t-Loaded camera calibration from " << _calibration_file.string() << endl;
 
     // Read image info
     readImageInfo(fSettings);
@@ -225,7 +309,7 @@ Settings::Settings(const std::string &config_file, const int &sensor) : bNeedToU
 
     if (sensor_ == System::IMU_MONOCULAR || sensor_ == System::IMU_STEREO || sensor_ == System::IMU_RGBD)
     {
-        read_imu(fSettings, config_file);
+        read_imu(fSettings);
         cout << "\t-Loaded IMU calibration" << endl;
     }
 
@@ -253,203 +337,70 @@ Settings::Settings(const std::string &config_file, const int &sensor) : bNeedToU
     cout << "----------------------------------" << endl;
 }
 
-void Settings::readCamera1(cv::FileStorage &fSettings)
+void Settings::read_cameras(cv::FileStorage &settings)
 {
-    bool          found;
+    const YAML::Node    calibration = load_calibration(_calibration_file);
+    const kalibr_camera camera1     = read_kalibr_camera(calibration, "cam0", _calibration_file);
 
-    // Read camera model
-    string        cameraModel = readParameter<string>(fSettings, "Camera.type", found);
+    cameraType_                     = camera1.type;
+    originalImSize_                 = camera1.resolution;
+    calibration1_                   = make_camera(camera1);
+    originalCalib1_.reset(make_camera(camera1));
+    vPinHoleDistorsion1_ = camera1.distortion;
 
-    vector<float> vCalibration;
-    if (cameraModel == "PinHole")
+    if ((sensor_ == System::MONOCULAR || sensor_ == System::IMU_MONOCULAR) && !vPinHoleDistorsion1_.empty())
     {
-        cameraType_     = PinHole;
-
-        // Read intrinsic parameters
-        float fx        = readParameter<float>(fSettings, "Camera1.fx", found);
-        float fy        = readParameter<float>(fSettings, "Camera1.fy", found);
-        float cx        = readParameter<float>(fSettings, "Camera1.cx", found);
-        float cy        = readParameter<float>(fSettings, "Camera1.cy", found);
-
-        vCalibration    = {fx, fy, cx, cy};
-
-        calibration1_   = new Pinhole(vCalibration);
-        originalCalib1_ = new Pinhole(vCalibration);
-
-        // Check if it is a distorted PinHole
-        readParameter<float>(fSettings, "Camera1.k1", found, false);
-        if (found)
-        {
-            readParameter<float>(fSettings, "Camera1.k3", found, false);
-            if (found)
-            {
-                vPinHoleDistorsion1_.resize(5);
-                vPinHoleDistorsion1_[4] = readParameter<float>(fSettings, "Camera1.k3", found);
-            }
-            else
-            {
-                vPinHoleDistorsion1_.resize(4);
-            }
-            vPinHoleDistorsion1_[0] = readParameter<float>(fSettings, "Camera1.k1", found);
-            vPinHoleDistorsion1_[1] = readParameter<float>(fSettings, "Camera1.k2", found);
-            vPinHoleDistorsion1_[2] = readParameter<float>(fSettings, "Camera1.p1", found);
-            vPinHoleDistorsion1_[3] = readParameter<float>(fSettings, "Camera1.p2", found);
-        }
-
-        // Check if we need to correct distortion from the images
-        if ((sensor_ == System::MONOCULAR || sensor_ == System::IMU_MONOCULAR) && vPinHoleDistorsion1_.size() != 0)
-        {
-            bNeedToUndistort_ = true;
-        }
+        bNeedToUndistort_ = true;
     }
-    else if (cameraModel == "Rectified")
+
+    if (sensor_ != System::STEREO && sensor_ != System::IMU_STEREO)
     {
-        cameraType_     = Rectified;
-
-        // Read intrinsic parameters
-        float fx        = readParameter<float>(fSettings, "Camera1.fx", found);
-        float fy        = readParameter<float>(fSettings, "Camera1.fy", found);
-        float cx        = readParameter<float>(fSettings, "Camera1.cx", found);
-        float cy        = readParameter<float>(fSettings, "Camera1.cy", found);
-
-        vCalibration    = {fx, fy, cx, cy};
-
-        calibration1_   = new Pinhole(vCalibration);
-        originalCalib1_ = new Pinhole(vCalibration);
-
-        // Rectified images are assumed to be ideal PinHole images (no distortion)
+        return;
     }
-    else if (cameraModel == "KannalaBrandt8")
+
+    const kalibr_camera camera2 = read_kalibr_camera(calibration, "cam1", _calibration_file);
+
+    if (camera2.type != cameraType_ || camera2.resolution != originalImSize_)
     {
-        cameraType_     = KannalaBrandt;
-
-        // Read intrinsic parameters
-        float fx        = readParameter<float>(fSettings, "Camera1.fx", found);
-        float fy        = readParameter<float>(fSettings, "Camera1.fy", found);
-        float cx        = readParameter<float>(fSettings, "Camera1.cx", found);
-        float cy        = readParameter<float>(fSettings, "Camera1.cy", found);
-
-        float k0        = readParameter<float>(fSettings, "Camera1.k1", found);
-        float k1        = readParameter<float>(fSettings, "Camera1.k2", found);
-        float k2        = readParameter<float>(fSettings, "Camera1.k3", found);
-        float k3        = readParameter<float>(fSettings, "Camera1.k4", found);
-
-        vCalibration    = {fx, fy, cx, cy, k0, k1, k2, k3};
-
-        calibration1_   = new KannalaBrandt8(vCalibration);
-        originalCalib1_ = new KannalaBrandt8(vCalibration);
-
-        if (sensor_ == System::STEREO || sensor_ == System::IMU_STEREO)
-        {
-            int         colBegin                                        = readParameter<int>(fSettings, "Camera1.overlappingBegin", found);
-            int         colEnd                                          = readParameter<int>(fSettings, "Camera1.overlappingEnd", found);
-            vector<int> vOverlapping                                    = {colBegin, colEnd};
-
-            static_cast<KannalaBrandt8 *>(calibration1_)->mvLappingArea = vOverlapping;
-        }
+        throw std::runtime_error("cam0 and cam1 must share distortion model and resolution in calibration file: " + _calibration_file.string());
     }
-    else
-    {
-        cerr << "Error: " << cameraModel << " not known" << endl;
-        exit(-1);
-    }
-}
 
-void Settings::readCamera2(cv::FileStorage &fSettings)
-{
-    bool          found;
-    vector<float> vCalibration;
+    calibration2_ = make_camera(camera2);
+    originalCalib2_.reset(make_camera(camera2));
+    vPinHoleDistorsion2_ = camera2.distortion;
+
     if (cameraType_ == PinHole)
     {
         bNeedToRectify_ = true;
-
-        // Read intrinsic parameters
-        float fx        = readParameter<float>(fSettings, "Camera2.fx", found);
-        float fy        = readParameter<float>(fSettings, "Camera2.fy", found);
-        float cx        = readParameter<float>(fSettings, "Camera2.cx", found);
-        float cy        = readParameter<float>(fSettings, "Camera2.cy", found);
-
-        vCalibration    = {fx, fy, cx, cy};
-
-        calibration2_   = new Pinhole(vCalibration);
-        originalCalib2_ = new Pinhole(vCalibration);
-
-        // Check if it is a distorted PinHole
-        readParameter<float>(fSettings, "Camera2.k1", found, false);
-        if (found)
-        {
-            readParameter<float>(fSettings, "Camera2.k3", found, false);
-            if (found)
-            {
-                vPinHoleDistorsion2_.resize(5);
-                vPinHoleDistorsion2_[4] = readParameter<float>(fSettings, "Camera2.k3", found);
-            }
-            else
-            {
-                vPinHoleDistorsion2_.resize(4);
-            }
-            vPinHoleDistorsion2_[0] = readParameter<float>(fSettings, "Camera2.k1", found);
-            vPinHoleDistorsion2_[1] = readParameter<float>(fSettings, "Camera2.k2", found);
-            vPinHoleDistorsion2_[2] = readParameter<float>(fSettings, "Camera2.p1", found);
-            vPinHoleDistorsion2_[3] = readParameter<float>(fSettings, "Camera2.p2", found);
-        }
-    }
-    else if (cameraType_ == KannalaBrandt)
-    {
-        // Read intrinsic parameters
-        float fx                                                    = readParameter<float>(fSettings, "Camera2.fx", found);
-        float fy                                                    = readParameter<float>(fSettings, "Camera2.fy", found);
-        float cx                                                    = readParameter<float>(fSettings, "Camera2.cx", found);
-        float cy                                                    = readParameter<float>(fSettings, "Camera2.cy", found);
-
-        float k0                                                    = readParameter<float>(fSettings, "Camera2.k1", found);
-        float k1                                                    = readParameter<float>(fSettings, "Camera2.k2", found);
-        float k2                                                    = readParameter<float>(fSettings, "Camera2.k3", found);
-        float k3                                                    = readParameter<float>(fSettings, "Camera2.k4", found);
-
-        vCalibration                                                = {fx, fy, cx, cy, k0, k1, k2, k3};
-
-        calibration2_                                               = new KannalaBrandt8(vCalibration);
-        originalCalib2_                                             = new KannalaBrandt8(vCalibration);
-
-        int         colBegin                                        = readParameter<int>(fSettings, "Camera2.overlappingBegin", found);
-        int         colEnd                                          = readParameter<int>(fSettings, "Camera2.overlappingEnd", found);
-        vector<int> vOverlapping                                    = {colBegin, colEnd};
-
-        static_cast<KannalaBrandt8 *>(calibration2_)->mvLappingArea = vOverlapping;
-    }
-
-    // Load stereo extrinsic calibration
-    if (cameraType_ == Rectified)
-    {
-        b_  = readParameter<float>(fSettings, "Stereo.b", found);
-        bf_ = b_ * calibration1_->getParameter(0);
     }
     else
     {
-        cv::Mat cvTlr = readParameter<cv::Mat>(fSettings, "Stereo.T_c1_c2", found);
-        Tlr_          = Converter::toSophus(cvTlr);
+        bool       found;
+        const auto read_overlap = [&](const std::string &name, const int default_value)
+        {
+            const int value = readParameter<int>(settings, name, found, false);
+            return found ? value : default_value;
+        };
 
-        // TODO: also search for Trl and invert if necessary
-
-        b_            = Tlr_.translation().norm();
-        bf_           = b_ * calibration1_->getParameter(0);
+        const int last_column                                       = originalImSize_.width - 1;
+        static_cast<KannalaBrandt8 *>(calibration1_)->mvLappingArea = {read_overlap("Camera1.overlappingBegin", 0), read_overlap("Camera1.overlappingEnd", last_column)};
+        static_cast<KannalaBrandt8 *>(calibration2_)->mvLappingArea = {read_overlap("Camera2.overlappingBegin", 0), read_overlap("Camera2.overlappingEnd", last_column)};
     }
 
-    thDepth_ = readParameter<float>(fSettings, "Stereo.ThDepth", found);
+    // Kalibr T_cn_cnm1 maps cam0 points into cam1, so Tlr is its inverse.
+    Tlr_ = read_transform(calibration["cam1"]["T_cn_cnm1"], "cam1.T_cn_cnm1", _calibration_file).inverse();
+    b_   = Tlr_.translation().norm();
+    bf_  = b_ * calibration1_->getParameter(0);
+
+    bool found;
+    thDepth_ = readParameter<float>(settings, "Stereo.ThDepth", found);
 }
 
 void Settings::readImageInfo(cv::FileStorage &fSettings)
 {
     bool found;
-    // Read original and desired image dimensions
-    int  originalRows      = readParameter<int>(fSettings, "Camera.height", found);
-    int  originalCols      = readParameter<int>(fSettings, "Camera.width", found);
-    originalImSize_.width  = originalCols;
-    originalImSize_.height = originalRows;
-
-    newImSize_             = originalImSize_;
-    int newHeigh           = readParameter<int>(fSettings, "Camera.newHeight", found, false);
+    newImSize_   = originalImSize_;
+    int newHeigh = readParameter<int>(fSettings, "Camera.newHeight", found, false);
     if (found)
     {
         bNeedToResize1_   = true;
@@ -462,7 +413,7 @@ void Settings::readImageInfo(cv::FileStorage &fSettings)
             calibration1_->setParameter(calibration1_->getParameter(1) * scaleRowFactor, 1);
             calibration1_->setParameter(calibration1_->getParameter(3) * scaleRowFactor, 3);
 
-            if ((sensor_ == System::STEREO || sensor_ == System::IMU_STEREO) && cameraType_ != Rectified)
+            if (sensor_ == System::STEREO || sensor_ == System::IMU_STEREO)
             {
                 calibration2_->setParameter(calibration2_->getParameter(1) * scaleRowFactor, 1);
                 calibration2_->setParameter(calibration2_->getParameter(3) * scaleRowFactor, 3);
@@ -483,7 +434,7 @@ void Settings::readImageInfo(cv::FileStorage &fSettings)
             calibration1_->setParameter(calibration1_->getParameter(0) * scaleColFactor, 0);
             calibration1_->setParameter(calibration1_->getParameter(2) * scaleColFactor, 2);
 
-            if ((sensor_ == System::STEREO || sensor_ == System::IMU_STEREO) && cameraType_ != Rectified)
+            if (sensor_ == System::STEREO || sensor_ == System::IMU_STEREO)
             {
                 calibration2_->setParameter(calibration2_->getParameter(0) * scaleColFactor, 0);
                 calibration2_->setParameter(calibration2_->getParameter(2) * scaleColFactor, 2);
@@ -504,35 +455,17 @@ void Settings::readImageInfo(cv::FileStorage &fSettings)
     bRGB_ = (bool)readParameter<int>(fSettings, "Camera.RGB", found);
 }
 
-void Settings::read_imu(cv::FileStorage &settings, const std::string &config_file)
+void Settings::read_imu(cv::FileStorage &settings)
 {
     bool found;
-    noiseGyro_                          = readParameter<float>(settings, "IMU.NoiseGyro", found);
-    noiseAcc_                           = readParameter<float>(settings, "IMU.NoiseAcc", found);
-    gyroWalk_                           = readParameter<float>(settings, "IMU.GyroWalk", found);
-    accWalk_                            = readParameter<float>(settings, "IMU.AccWalk", found);
-    imuFrequency_                       = readParameter<float>(settings, "IMU.Frequency", found);
+    noiseGyro_    = readParameter<float>(settings, "IMU.NoiseGyro", found);
+    noiseAcc_     = readParameter<float>(settings, "IMU.NoiseAcc", found);
+    gyroWalk_     = readParameter<float>(settings, "IMU.GyroWalk", found);
+    accWalk_      = readParameter<float>(settings, "IMU.AccWalk", found);
+    imuFrequency_ = readParameter<float>(settings, "IMU.Frequency", found);
 
-    const cv::FileNode calibration_file = settings["IMU.CalibrationFile"];
-    if (!calibration_file.empty())
-    {
-        if (!calibration_file.isString())
-        {
-            throw std::runtime_error("IMU.CalibrationFile must be a string");
-        }
-
-        std::filesystem::path calibration_path = calibration_file.string();
-        if (calibration_path.is_relative())
-        {
-            calibration_path = std::filesystem::absolute(config_file).parent_path() / calibration_path;
-        }
-        Tbc_ = read_tbc_from_calibration(calibration_path.lexically_normal());
-    }
-    else
-    {
-        cv::Mat cvTbc = readParameter<cv::Mat>(settings, "IMU.T_b_c1", found);
-        Tbc_          = Converter::toSophus(cvTbc);
-    }
+    // Kalibr T_cam_imu maps IMU points into cam0, so Tbc is its inverse.
+    Tbc_          = read_transform(load_calibration(_calibration_file)["cam0"]["T_cam_imu"], "cam0.T_cam_imu", _calibration_file).inverse();
 
     readParameter<int>(settings, "IMU.InsertKFsWhenLost", found, false);
     if (found)
@@ -687,9 +620,10 @@ void Settings::precomputeRectificationMaps()
 ostream &operator<<(std::ostream &output, const Settings &settings)
 {
     output << "SLAM settings: " << endl;
+    output << "\t-Calibration file: " << settings._calibration_file.string() << endl;
 
     output << "\t-Camera 1 parameters (";
-    if (settings.cameraType_ == Settings::PinHole || settings.cameraType_ == Settings::Rectified)
+    if (settings.cameraType_ == Settings::PinHole)
     {
         output << "Pinhole";
     }
@@ -717,7 +651,7 @@ ostream &operator<<(std::ostream &output, const Settings &settings)
     if (settings.sensor_ == System::STEREO || settings.sensor_ == System::IMU_STEREO)
     {
         output << "\t-Camera 2 parameters (";
-        if (settings.cameraType_ == Settings::PinHole || settings.cameraType_ == Settings::Rectified)
+        if (settings.cameraType_ == Settings::PinHole)
         {
             output << "Pinhole";
         }
