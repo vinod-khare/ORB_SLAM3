@@ -66,6 +66,7 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--output NAME` | Set the trajectory basename. Without this option, trajectory files are `CameraTrajectory.txt` and `KeyFrameTrajectory.txt`; with it, files are `f_NAME.txt` and `kf_NAME.txt`. |
 | `--save-ply` | Export map points to `pointcloud.ply` in the output folder. |
 | `--save-colmap` | Export a COLMAP-compatible sparse model into the output folder. |
+| `--no-viewer` | Run headless without the Pangolin viewer. |
 
 ## Features Available in This App
 
@@ -80,3 +81,22 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 - Median and mean tracking-time summary after each run.
 
 The executable currently does not provide live-camera, RGB-D, or ROS input. Those capabilities described in the upstream ORB-SLAM3 documentation are outside this app's current input interface.
+
+## Accuracy Regression Test
+
+[`orbslam3_tests/regression/regression.py`](../orbslam3_tests/regression/regression.py) runs stereo SLAM headless on TUM-VI corridor1, aligns the trajectory to the mocap ground truth with evo, and fails if ATE RMSE or the tracked-frame ratio is worse than [`baseline.yaml`](../orbslam3_tests/regression/baseline.yaml) beyond its tolerance.
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install -r orbslam3_tests/regression/requirements.txt
+source .venv/bin/activate
+cmake -S . -B .build/Release -DORBSLAM3_REGRESSION_TEST=ON
+cmake --build .build/Release -j20
+ctest --test-dir .build/Release -L regression --output-on-failure   # regression only
+ctest --test-dir .build/Release -LE regression                      # unit tests only
+```
+
+After an intentional accuracy change, refresh the baseline and commit it:
+
+```sh
+.venv/bin/python orbslam3_tests/regression/regression.py --output-folder .build/Release/regression/stereo --skip-run --update-baseline
+```
