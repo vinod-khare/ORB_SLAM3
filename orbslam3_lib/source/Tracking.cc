@@ -2327,12 +2327,14 @@ int Tracking::track_with_optical_flow(std::vector<std::pair<std::size_t, MapPoin
     std::vector<float>         forward_error;
     const cv::Size             window_size(21, 21);
     const cv::TermCriteria     criteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
-    cv::calcOpticalFlowPyrLK(_previous_gray, mImGray, previous_points, current_points, forward_status, forward_error, window_size, 3, criteria);
+    const auto                &previous_pyramid = mLastFrame.get_optical_flow_pyramid(_previous_gray);
+    const auto                &current_pyramid  = mCurrentFrame.get_optical_flow_pyramid(mImGray);
+    cv::calcOpticalFlowPyrLK(previous_pyramid, current_pyramid, previous_points, current_points, forward_status, forward_error, window_size, 3, criteria);
 
     std::vector<cv::Point2f>   backward_points;
     std::vector<unsigned char> backward_status;
     std::vector<float>         backward_error;
-    cv::calcOpticalFlowPyrLK(mImGray, _previous_gray, current_points, backward_points, backward_status, backward_error, window_size, 3, criteria);
+    cv::calcOpticalFlowPyrLK(current_pyramid, previous_pyramid, current_points, backward_points, backward_status, backward_error, window_size, 3, criteria);
 
     struct FlowCandidate
     {
@@ -2820,7 +2822,7 @@ void Tracking::CreateNewKeyFrame()
         mpImuPreintegratedFromLastKF = new IMU::Preintegrated(pKF->GetImuBias(), pKF->mImuCalib);
     }
 
-    if (mSensor != System::MONOCULAR && mSensor != System::IMU_MONOCULAR) // TODO check if incluide imu_stereo
+    if (mSensor != System::MONOCULAR && mSensor != System::IMU_MONOCULAR) // TODO check if include imu_stereo
     {
         mCurrentFrame.UpdatePoseMatrices();
         // cout << "create new MPs" << endl;

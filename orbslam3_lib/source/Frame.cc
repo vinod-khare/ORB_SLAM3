@@ -55,16 +55,17 @@ Frame::Frame()
 // Copy Constructor
 Frame::Frame(const Frame &frame)
     : mpcpi(frame.mpcpi), mTcw(frame.mTcw), mbHasPose(false), mTlr(frame.mTlr), mTrl(frame.mTrl), mRlr(frame.mRlr), mtlr(frame.mtlr), mbHasVelocity(false),
-      mpORBvocabulary(frame.mpORBvocabulary), mpORBextractorLeft(frame.mpORBextractorLeft), mpORBextractorRight(frame.mpORBextractorRight), mTimeStamp(frame.mTimeStamp), mK(frame.mK.clone()),
-      mK_(Converter::toMatrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()), mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys),
-      mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn), mvpMapPoints(frame.mvpMapPoints), mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec),
-      mFeatVec(frame.mFeatVec), mDescriptors(frame.mDescriptors.clone()), mDescriptorsRight(frame.mDescriptorsRight.clone()), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs),
-      mImuBias(frame.mImuBias), mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated), mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame),
-      mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame), mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor),
-      mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2),
-      mvInvLevelSigma2(frame.mvInvLevelSigma2), mNameFile(frame.mNameFile), mnDataset(frame.mnDataset), mbIsSet(frame.mbIsSet), mbImuPreintegrated(frame.mbImuPreintegrated),
-      mpMutexImu(frame.mpMutexImu), mpCamera(frame.mpCamera), mpCamera2(frame.mpCamera2), Nleft(frame.Nleft), Nright(frame.Nright), monoLeft(frame.monoLeft), monoRight(frame.monoRight),
-      mvLeftToRightMatch(frame.mvLeftToRightMatch), mvRightToLeftMatch(frame.mvRightToLeftMatch), mvStereo3Dpoints(frame.mvStereo3Dpoints)
+      mpORBvocabulary(frame.mpORBvocabulary), mpORBextractorLeft(frame.mpORBextractorLeft), mpORBextractorRight(frame.mpORBextractorRight), mTimeStamp(frame.mTimeStamp),
+      optical_flow_pyramid(frame.optical_flow_pyramid), mK(frame.mK.clone()), mK_(Converter::toMatrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()), mbf(frame.mbf), mb(frame.mb),
+      mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys), mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn), mvpMapPoints(frame.mvpMapPoints), mvuRight(frame.mvuRight),
+      mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mDescriptors(frame.mDescriptors.clone()), mDescriptorsRight(frame.mDescriptorsRight.clone()),
+      mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias), mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated),
+      mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame), mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame), mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF),
+      mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors),
+      mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2), mNameFile(frame.mNameFile), mnDataset(frame.mnDataset),
+      mbIsSet(frame.mbIsSet), mbImuPreintegrated(frame.mbImuPreintegrated), mpMutexImu(frame.mpMutexImu), mpCamera(frame.mpCamera), mpCamera2(frame.mpCamera2), Nleft(frame.Nleft),
+      Nright(frame.Nright), monoLeft(frame.monoLeft), monoRight(frame.monoRight), mvLeftToRightMatch(frame.mvLeftToRightMatch), mvRightToLeftMatch(frame.mvRightToLeftMatch),
+      mvStereo3Dpoints(frame.mvStereo3Dpoints)
 {
     for (int i = 0; i < FRAME_GRID_COLS; i++)
     {
@@ -95,6 +96,16 @@ Frame::Frame(const Frame &frame)
     mTimeStereoMatch = frame.mTimeStereoMatch;
     mTimeORB_Ext     = frame.mTimeORB_Ext;
 #endif
+}
+
+const std::vector<cv::Mat> &Frame::get_optical_flow_pyramid(const cv::Mat &image)
+{
+    if (optical_flow_pyramid.empty())
+    {
+        cv::buildOpticalFlowPyramid(image, optical_flow_pyramid, cv::Size(21, 21), 3, true, cv::BORDER_REFLECT_101, cv::BORDER_CONSTANT, false);
+    }
+
+    return optical_flow_pyramid;
 }
 
 Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor *extractorLeft, ORBextractor *extractorRight, ORBVocabulary *voc, cv::Mat &K,

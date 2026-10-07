@@ -1,7 +1,8 @@
 find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(orbslam3_tests
-    timestamp_test.cpp)
+    timestamp_test.cpp
+    optical_flow_test.cpp)
 
 target_link_libraries(orbslam3_tests PRIVATE ORB_SLAM3 Catch2::Catch2WithMain)
 
