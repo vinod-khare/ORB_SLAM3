@@ -23,6 +23,7 @@
 #include "ORBmatcher.h"
 
 #include <cmath>
+#include <limits>
 #include <vector>
 
 #include <opencv2/core/core.hpp>
@@ -193,7 +194,10 @@ Eigen::Matrix4f Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool>
             vAvailableIndices.pop_back();
         }
 
-        ComputeSim3(P3Dc1i, P3Dc2i);
+        if (!ComputeSim3(P3Dc1i, P3Dc2i))
+        {
+            continue;
+        }
 
         CheckInliers();
 
@@ -272,7 +276,10 @@ Eigen::Matrix4f Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool>
             vAvailableIndices.pop_back();
         }
 
-        ComputeSim3(P3Dc1i, P3Dc2i);
+        if (!ComputeSim3(P3Dc1i, P3Dc2i))
+        {
+            continue;
+        }
 
         CheckInliers();
 
@@ -329,7 +336,7 @@ void Sim3Solver::ComputeCentroid(Eigen::Matrix3f &P, Eigen::Matrix3f &Pr, Eigen:
     }
 }
 
-void Sim3Solver::ComputeSim3(Eigen::Matrix3f &P1, Eigen::Matrix3f &P2)
+bool Sim3Solver::ComputeSim3(Eigen::Matrix3f &P1, Eigen::Matrix3f &P2)
 {
     // Custom implementation of:
     // Horn 1987, Closed-form solution of absolute orientataion using unit quaternions
@@ -376,13 +383,15 @@ void Sim3Solver::ComputeSim3(Eigen::Matrix3f &P1, Eigen::Matrix3f &P2)
     int             maxIndex;                               // should be zero
     eval.maxCoeff(&maxIndex);
 
-    Eigen::Vector3f vec = evec.block<3, 1>(1, maxIndex); // extract imaginary part of the quaternion (sin*axis)
-
-    // Rotation angle. sin is the norm of the imaginary part, cos is the real part
-    double          ang = atan2(vec.norm(), evec(0, maxIndex));
-
-    vec                 = 2 * ang * vec / vec.norm(); // Angle-axis representation. quaternion angle is the half
-    mR12i               = Sophus::SO3f::exp(vec).matrix();
+    // Building R from the quaternion directly avoids 0/0 in the angle-axis form for identity rotations.
+    Eigen::Quaternionf q(evec(0, maxIndex), evec(1, maxIndex), evec(2, maxIndex), evec(3, maxIndex));
+    const float        q_norm = q.norm();
+    if (!std::isfinite(q_norm) || q_norm < std::numeric_limits<float>::epsilon())
+    {
+        return false;
+    }
+    q.coeffs()         /= q_norm;
+    mR12i               = q.toRotationMatrix();
 
     // Step 5: Rotate set 2
     Eigen::Matrix3f P3  = mR12i * Pr2;
@@ -408,6 +417,11 @@ void Sim3Solver::ComputeSim3(Eigen::Matrix3f &P1, Eigen::Matrix3f &P2)
         ms12i = 1.0f;
     }
 
+    if (!std::isfinite(ms12i) || ms12i <= 0.0f)
+    {
+        return false;
+    }
+
     // Step 7: Translation
     mt12i = O1 - ms12i * mR12i * O2;
 
@@ -429,6 +443,7 @@ void Sim3Solver::ComputeSim3(Eigen::Matrix3f &P1, Eigen::Matrix3f &P2)
 
     Eigen::Vector3f tinv    = -sRinv * mt12i;
     mT21i.block<3, 1>(0, 3) = tinv;
+    return true;
 }
 
 void Sim3Solver::CheckInliers()

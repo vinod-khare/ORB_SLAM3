@@ -139,11 +139,12 @@ int    main(int argc, char **argv)
             "data.right", po::value<string>(), "Right image folder, absolute or relative to data.root")("data.imu", po::value<string>(), "IMU CSV file, absolute or relative to data.root")(
             "times-file,t", po::value<string>(), "Optional timestamps file. If omitted, filename stems are used as timestamps")("timestamps-type", po::value<string>()->default_value("auto"),
                                                                                                                                 "Timestamps file format: auto, filename_ns, timestamp_ns, utc")(
-            "output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")(
-            "output-folder", po::value<string>(), "Folder to write trajectory files into (created if needed)")("save-colmap", po::bool_switch()->default_value(false),
-                                                                                                               "Save COLMAP-compatible sparse model output")(
-            "save-ply", po::bool_switch()->default_value(false), "Save map points as PLY point cloud")("slam-type", po::value<string>()->default_value("mono"),
-                                                                                                       "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
+            "output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")("output-folder", po::value<string>(),
+                                                                                                               "Folder to write trajectory files into (created if needed)")(
+            "save-colmap", po::bool_switch()->default_value(false), "Save COLMAP-compatible sparse model output")("save-ply", po::bool_switch()->default_value(false),
+                                                                                                                  "Save map points as PLY point cloud")(
+            "no-viewer", po::bool_switch()->default_value(false), "Run headless without the Pangolin viewer")("slam-type", po::value<string>()->default_value("mono"),
+                                                                                                              "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
             "frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")("frames-stride", po::value<int>()->default_value(1),
                                                                                                             "Take every Nth frame (stride)")("frames-take", po::value<int>()->default_value(0),
                                                                                                                                              "Maximum number of frames to process (0 = all)");
@@ -215,6 +216,7 @@ int    main(int argc, char **argv)
         folder_reader::timestamps_type timestamps_type = folder_reader::parse_timestamps_type(vm["timestamps-type"].as<string>());
         bool                           save_colmap     = vm["save-colmap"].as<bool>();
         bool                           save_ply        = vm["save-ply"].as<bool>();
+        const bool                     use_viewer      = !vm["no-viewer"].as<bool>();
         const string                   slam_type       = vm["slam-type"].as<string>();
 
         if (slam_type != "mono" && slam_type != "mono-inertial" && slam_type != "stereo" && slam_type != "stereo-inertial")
@@ -267,7 +269,7 @@ int    main(int argc, char **argv)
         // Create SLAM system
         const ORB_SLAM3::System::eSensor sensor =
             stereo ? (inertial ? ORB_SLAM3::System::IMU_STEREO : ORB_SLAM3::System::STEREO) : (inertial ? ORB_SLAM3::System::IMU_MONOCULAR : ORB_SLAM3::System::MONOCULAR);
-        ORB_SLAM3::System  SLAM(vocab_path, settings_path, sensor, true, 0, output_filename);
+        ORB_SLAM3::System  SLAM(vocab_path, settings_path, sensor, use_viewer, 0, output_filename);
         float              imageScale    = SLAM.GetImageScale();
 
         int                proccIm       = 0;
