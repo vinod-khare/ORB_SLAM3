@@ -23,8 +23,6 @@
 #include "System.h"
 #include "folder_reader.h"
 
-#include <unistd.h>
-
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
@@ -374,22 +372,6 @@ int    main(int argc, char **argv)
             ttrack_tot                                   += ttrack;
 
             vTimesTrack[ni]                               = ttrack;
-
-            // Wait to load the next frame
-            double T                                      = 0;
-            if (ni < nImages - 1)
-            {
-                T = reader.timestamp(ni + 1) - tframe;
-            }
-            else if (ni > 0)
-            {
-                T = tframe - reader.timestamp(ni - 1);
-            }
-
-            if (ttrack < T)
-            {
-                usleep((T - ttrack) * 1e6);
-            }
         }
 
         // Stop all threads
