@@ -1,0 +1,137 @@
+#include "frame_prefetcher.h"
+
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+
+#include <opencv2/imgproc.hpp>
+
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+
+namespace
+{
+struct image_sequence
+{
+    std::filesystem::path directory = std::filesystem::temp_directory_path() / ("orbslam3_prefetch_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+
+    image_sequence()
+    {
+        std::filesystem::create_directories(directory / "left");
+        std::filesystem::create_directories(directory / "right");
+        for (int index = 0; index < 8; ++index)
+        {
+            const std::string filename = std::to_string(1000000000LL + index * 50000000LL) + ".png";
+            const cv::Mat     image(64, 64, CV_8UC3, cv::Scalar(index * 20, 80, 160));
+            cv::imwrite((directory / "left" / filename).string(), image);
+            cv::imwrite((directory / "right" / filename).string(), image);
+        }
+        std::ofstream imu(directory / "imu.csv");
+        for (int index = 0; index < 41; ++index)
+        {
+            imu << 950000000LL + index * 10000000LL << ",1,2,3,4,5,6\n";
+        }
+    }
+
+    ~image_sequence()
+    {
+        std::error_code error;
+        std::filesystem::remove_all(directory, error);
+    }
+
+    folder_reader::settings settings(bool stereo, bool inertial) const
+    {
+        folder_reader::settings result;
+        result.left_image_path  = (directory / "left").string();
+        result.right_image_path = stereo ? (directory / "right").string() : "";
+        result.imu_path         = inertial ? (directory / "imu.csv").string() : "";
+        return result;
+    }
+};
+} // namespace
+
+TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
+{
+    const bool           stereo      = GENERATE(false, true);
+    const bool           inertial    = GENERATE(false, true);
+    const float          image_scale = GENERATE(1.f, 0.5f);
+    const bool           sampled     = GENERATE(false, true);
+    const image_sequence sequence;
+    auto                 settings = sequence.settings(stereo, inertial);
+    if (sampled)
+    {
+        settings.frames_skip   = 1;
+        settings.frames_stride = 2;
+        settings.frames_take   = 2;
+    }
+    folder_reader    reader(settings);
+    folder_reader    reference(settings);
+    frame_prefetcher prefetch(reader, stereo, inertial, image_scale);
+    const auto       clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+
+    for (std::size_t index = 0; index < reference.size(); ++index)
+    {
+        const auto prepared = prefetch.read();
+        REQUIRE(prepared.filename == reference.image_path(index));
+        REQUIRE(prepared.timestamp == reference.timestamp(index));
+
+        cv::Mat expected_color = reference.read_image(index);
+        if (image_scale != 1.f)
+        {
+            cv::resize(expected_color, expected_color, cv::Size(32, 32));
+        }
+        cv::Mat expected_gray;
+        cv::cvtColor(expected_color, expected_gray, cv::COLOR_BGR2GRAY);
+        clahe->apply(expected_gray, expected_gray);
+        REQUIRE(cv::norm(prepared.image, expected_gray, cv::NORM_INF) == 0);
+        if (stereo)
+        {
+            REQUIRE(prepared.color.empty());
+            REQUIRE(cv::norm(prepared.image_right, expected_gray, cv::NORM_INF) == 0);
+        }
+        else
+        {
+            REQUIRE(prepared.image_right.empty());
+            REQUIRE(cv::norm(prepared.color, expected_color, cv::NORM_INF) == 0);
+        }
+
+        if (inertial)
+        {
+            const auto expected_imu = stereo ? reference.read<orbslam3::frame_stereo_inertial>().imu : reference.read<orbslam3::frame_mono_inertial>().imu;
+            REQUIRE(prepared.imu.size() == expected_imu.size());
+            for (std::size_t imu_index = 0; imu_index < expected_imu.size(); ++imu_index)
+            {
+                REQUIRE(prepared.imu[imu_index].t == expected_imu[imu_index].t);
+                REQUIRE(prepared.imu[imu_index].a == expected_imu[imu_index].a);
+                REQUIRE(prepared.imu[imu_index].w == expected_imu[imu_index].w);
+            }
+        }
+        else
+        {
+            REQUIRE(prepared.imu.empty());
+        }
+    }
+    REQUIRE_THROWS_AS(prefetch.read(), std::out_of_range);
+}
+
+TEST_CASE("Prefetch propagates decoding errors after preceding frames")
+{
+    const image_sequence sequence;
+    folder_reader        reader(sequence.settings(true, false));
+    std::filesystem::remove(sequence.directory / "right" / "1100000000.png");
+    frame_prefetcher prefetch(reader, true, false, 1.f);
+    REQUIRE(prefetch.read().timestamp == 1.0);
+    REQUIRE(prefetch.read().timestamp == 1.05);
+    REQUIRE_THROWS_AS(prefetch.read(), std::runtime_error);
+}
+
+TEST_CASE("Prefetch joins its worker when the consumer stops early")
+{
+    const image_sequence sequence;
+    for (int iteration = 0; iteration < 16; ++iteration)
+    {
+        folder_reader    reader(sequence.settings(false, false));
+        frame_prefetcher prefetch(reader, false, false, 1.f);
+        REQUIRE(prefetch.read().timestamp == 1.0);
+    }
+}

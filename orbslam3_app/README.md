@@ -2,6 +2,8 @@
 
 `orbslam3_app` replays image sequences from folders through the ORB-SLAM3 library. It supports monocular and stereo input, optionally paired with IMU measurements. It is an offline dataset runner, not a live-camera or RGB-D application.
 
+Playback is unpaced. A persistent worker reads, resizes, and applies grayscale/CLAHE preprocessing ahead of tracking, with at most three prepared frames queued. Tracking remains sequential, preserving image order, timestamps, and IMU associations; input failures are reported on the main thread.
+
 ## Build
 
 Install the dependencies used by the project (see [`install_dependencies.sh`](../install_dependencies.sh)), then configure and build from the repository root:

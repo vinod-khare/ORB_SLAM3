@@ -41,7 +41,7 @@ class Converter
     static g2o::SE3Quat                toSE3Quat(const Sophus::SE3f &T);
     static g2o::SE3Quat                toSE3Quat(const g2o::Sim3 &gSim3);
 
-    // TODO templetize these functions
+    // TODO: templetize these functions
     static cv::Mat                     toCvMat(const g2o::SE3Quat &SE3);
     static cv::Mat                     toCvMat(const g2o::Sim3 &Sim3);
     static cv::Mat                     toCvMat(const Eigen::Matrix<double, 4, 4> &m);

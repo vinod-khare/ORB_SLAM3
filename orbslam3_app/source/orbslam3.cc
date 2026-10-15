@@ -21,7 +21,7 @@
 
 #include "Converter.h"
 #include "System.h"
-#include "folder_reader.h"
+#include "frame_prefetcher.h"
 
 #include <algorithm>
 #include <chrono>
@@ -267,111 +267,44 @@ int    main(int argc, char **argv)
         // Create SLAM system
         const ORB_SLAM3::System::eSensor sensor =
             stereo ? (inertial ? ORB_SLAM3::System::IMU_STEREO : ORB_SLAM3::System::STEREO) : (inertial ? ORB_SLAM3::System::IMU_MONOCULAR : ORB_SLAM3::System::MONOCULAR);
-        ORB_SLAM3::System  SLAM(vocab_path, settings_path, sensor, use_viewer, 0, output_filename);
-        float              imageScale    = SLAM.GetImageScale();
+        ORB_SLAM3::System SLAM(vocab_path, settings_path, sensor, use_viewer, 0, output_filename);
+        const float       image_scale = SLAM.GetImageScale();
 
-        int                proccIm       = 0;
-        // Main loop
-        // cv::Mat im{};
-        cv::Ptr<cv::CLAHE> clahe         = cv::createCLAHE(3.0, cv::Size(8, 8));
-        const auto         to_gray_clahe = [&clahe](cv::Mat &img)
+        int               proccIm     = 0;
+        try
         {
-            if (img.channels() == 3)
+            frame_prefetcher prefetch(reader, stereo, inertial, image_scale);
+            for (int ni = 0; ni < nImages; ni++, proccIm++)
             {
-                cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
-            }
-            clahe->apply(img, img);
-        };
-        for (int ni = 0; ni < nImages; ni++, proccIm++)
-        {
-            std::cout << "Image: " << ni << "/" << nImages << "\r";
-            std::cout.flush();
+                std::cout << "Image: " << ni << "/" << nImages << "\r";
+                std::cout.flush();
 
-            // Read image/timestamp pair from sequence cursor
-            cv::Mat                       image;
-            cv::Mat                       image_right;
-            double                        timestamp;
-            vector<ORB_SLAM3::IMU::Point> imu_measurements;
-            if (stereo && inertial)
-            {
-                auto frame       = reader.read<orbslam3::frame_stereo_inertial>();
-                image            = frame.image_left;
-                image_right      = frame.image_right;
-                timestamp        = frame.timestamp;
-                imu_measurements = std::move(frame.imu);
-            }
-            else if (stereo)
-            {
-                auto frame  = reader.read<orbslam3::frame_stereo>();
-                image       = frame.image_left;
-                image_right = frame.image_right;
-                timestamp   = frame.timestamp;
-            }
-            else if (inertial)
-            {
-                auto frame       = reader.read<orbslam3::frame_mono_inertial>();
-                image            = frame.image;
-                timestamp        = frame.timestamp;
-                imu_measurements = std::move(frame.imu);
-            }
-            else
-            {
-                auto frame = reader.read<orbslam3::frame_mono>();
-                image      = frame.image;
-                timestamp  = frame.timestamp;
-            }
+                const auto frame = prefetch.read();
+                if (!stereo)
+                {
+                    SLAM.SetNextFrameColor(frame.color);
+                }
 
-            auto  &im     = image;
-            double tframe = timestamp;
-
-            if (im.empty() || (stereo && image_right.empty()))
-            {
-                cerr << endl << "Failed to load image at: " << reader.image_path(ni) << (stereo ? " (or its right pair)" : "") << endl;
-                return 1;
-            }
-
-            if (imageScale != 1.f)
-            {
-                int width  = im.cols * imageScale;
-                int height = im.rows * imageScale;
-                cv::resize(im, im, cv::Size(width, height));
+                const auto tracking_start = std::chrono::steady_clock::now();
                 if (stereo)
                 {
-                    cv::resize(image_right, image_right, cv::Size(width, height));
+                    SLAM.TrackStereo(frame.image, frame.image_right, frame.timestamp, frame.imu, frame.filename);
                 }
+                else
+                {
+                    SLAM.TrackMonocular(frame.image, frame.timestamp, frame.imu, frame.filename);
+                }
+                const auto   tracking_end  = std::chrono::steady_clock::now();
+
+                const double ttrack        = std::chrono::duration<double>(tracking_end - tracking_start).count();
+                ttrack_tot                += ttrack;
+                vTimesTrack[ni]            = ttrack;
             }
-
-            // Stereo tracking does not consume the color override, so only mono sets it.
-            if (stereo)
-            {
-                to_gray_clahe(im);
-                to_gray_clahe(image_right);
-            }
-            else
-            {
-                cv::Mat im_color = im.clone();
-                to_gray_clahe(im);
-                SLAM.SetNextFrameColor(im_color);
-            }
-
-            std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
-            // Pass the image to the SLAM system
-            if (stereo)
-            {
-                SLAM.TrackStereo(im, image_right, tframe, imu_measurements, reader.image_path(ni));
-            }
-            else
-            {
-                SLAM.TrackMonocular(im, tframe, imu_measurements, reader.image_path(ni));
-            }
-
-            std::chrono::steady_clock::time_point t2      = std::chrono::steady_clock::now();
-
-            double                                ttrack  = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
-            ttrack_tot                                   += ttrack;
-
-            vTimesTrack[ni]                               = ttrack;
+        }
+        catch (...)
+        {
+            SLAM.Shutdown();
+            throw;
         }
 
         // Stop all threads
