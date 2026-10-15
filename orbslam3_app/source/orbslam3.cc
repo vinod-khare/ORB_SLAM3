@@ -273,13 +273,14 @@ int    main(int argc, char **argv)
         int               proccIm     = 0;
         try
         {
-            frame_prefetcher prefetch(reader, stereo, inertial, image_scale);
+            frame_prefetcher prefetch(reader, stereo, inertial, image_scale, SLAM.can_precompute_optical_flow_pyramid());
             for (int ni = 0; ni < nImages; ni++, proccIm++)
             {
                 std::cout << "Image: " << ni << "/" << nImages << "\r";
                 std::cout.flush();
 
-                const auto frame = prefetch.read();
+                auto frame = prefetch.read();
+                SLAM.set_next_optical_flow_pyramid(std::move(frame.optical_flow_pyramid));
                 if (!stereo)
                 {
                     SLAM.SetNextFrameColor(frame.color);

@@ -73,6 +73,7 @@ class Frame
     void                        ExtractORB(int flag, const cv::Mat &im, const int x0, const int x1);
 
     const std::vector<cv::Mat> &get_optical_flow_pyramid(const cv::Mat &image);
+    static std::vector<cv::Mat> build_optical_flow_pyramid(const cv::Mat &image);
 
     // Compute Bag of Words representation.
     void                        ComputeBoW();
@@ -311,7 +312,7 @@ class Frame
     std::mutex *mpMutexImu;
 
   public:
-    GeometricCamera             *mpCamera, *mpCamera2;
+    GeometricCamera             *mpCamera, *mpCamera2; // TODO: do we need references for camera
 
     // Number of KeyPoints extracted in the left and right images
     int                          Nleft, Nright;

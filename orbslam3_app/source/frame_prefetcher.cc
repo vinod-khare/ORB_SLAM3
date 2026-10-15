@@ -1,11 +1,35 @@
 #include "frame_prefetcher.h"
 
+#include "Frame.h"
+
+#include <optional>
 #include <utility>
 
 #include <opencv2/imgproc.hpp>
 
-frame_prefetcher::frame_prefetcher(folder_reader &reader, bool stereo, bool inertial, float image_scale)
-    : _reader(reader), _stereo(stereo), _inertial(inertial), _image_scale(image_scale), _worker([this](std::stop_token stop_token) { run(stop_token); })
+namespace
+{
+void preprocess_image(cv::Mat &image, const cv::Size &size, cv::CLAHE &clahe, bool resize, cv::Mat *color = nullptr)
+{
+    if (resize)
+    {
+        cv::resize(image, image, size);
+    }
+    if (color)
+    {
+        *color = image.clone();
+    }
+    if (image.channels() == 3)
+    {
+        cv::cvtColor(image, image, cv::COLOR_BGR2GRAY);
+    }
+    clahe.apply(image, image);
+}
+} // namespace
+
+frame_prefetcher::frame_prefetcher(folder_reader &reader, bool stereo, bool inertial, float image_scale, bool precompute_optical_flow)
+    : _reader(reader), _stereo(stereo), _inertial(inertial), _image_scale(image_scale), _precompute_optical_flow(precompute_optical_flow),
+      _worker([this](std::stop_token stop_token) { run(stop_token); })
 {
 }
 
@@ -38,15 +62,71 @@ void frame_prefetcher::run(std::stop_token stop_token)
 {
     try
     {
-        cv::Ptr<cv::CLAHE> clahe         = cv::createCLAHE(3.0, cv::Size(8, 8));
-        const auto         to_gray_clahe = [&clahe](cv::Mat &image)
+        cv::Ptr<cv::CLAHE>      clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+        std::deque<cv::Mat>     right_images;
+        std::optional<cv::Size> right_size;
+        std::exception_ptr      right_error;
+        bool                    right_finished = false;
+        std::jthread            right_worker;
+        if (_stereo)
         {
-            if (image.channels() == 3)
-            {
-                cv::cvtColor(image, image, cv::COLOR_BGR2GRAY);
-            }
-            clahe->apply(image, image);
-        };
+            right_worker = std::jthread(
+                [this, &right_images, &right_size, &right_error, &right_finished](std::stop_token right_stop)
+                {
+                    try
+                    {
+                        const auto right_clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+                        for (std::size_t index = 0; index < _reader.size(); ++index)
+                        {
+                            {
+                                std::unique_lock<std::mutex> lock(_mutex);
+                                if (!_ready.wait(lock, right_stop, [&right_images] { return right_images.empty(); }))
+                                {
+                                    return;
+                                }
+                            }
+
+                            const auto &filename = _reader.right_image_path(index);
+                            cv::Mat     image    = cv::imread(filename, cv::IMREAD_COLOR);
+                            if (image.empty())
+                            {
+                                throw std::runtime_error("Failed to load image at: " + filename);
+                            }
+                            cv::Size size;
+                            {
+                                std::unique_lock<std::mutex> lock(_mutex);
+                                if (!_ready.wait(lock, right_stop, [&right_size] { return right_size.has_value(); }))
+                                {
+                                    return;
+                                }
+                                size = *right_size;
+                                right_size.reset();
+                            }
+                            preprocess_image(image, size, *right_clahe, _image_scale != 1.f);
+
+                            {
+                                std::lock_guard<std::mutex> lock(_mutex);
+                                if (right_stop.stop_requested())
+                                {
+                                    return;
+                                }
+                                right_images.push_back(std::move(image));
+                            }
+                            _ready.notify_all();
+                        }
+                    }
+                    catch (...)
+                    {
+                        std::lock_guard<std::mutex> lock(_mutex);
+                        right_error = std::current_exception();
+                    }
+                    {
+                        std::lock_guard<std::mutex> lock(_mutex);
+                        right_finished = true;
+                    }
+                    _ready.notify_all();
+                });
+        }
 
         for (std::size_t index = 0; index < _reader.size(); ++index)
         {
@@ -60,22 +140,7 @@ void frame_prefetcher::run(std::stop_token stop_token)
 
             frame prepared;
             prepared.filename = _reader.image_path(index);
-            if (_stereo && _inertial)
-            {
-                auto input           = _reader.read<orbslam3::frame_stereo_inertial>();
-                prepared.image       = std::move(input.image_left);
-                prepared.image_right = std::move(input.image_right);
-                prepared.timestamp   = input.timestamp;
-                prepared.imu         = std::move(input.imu);
-            }
-            else if (_stereo)
-            {
-                auto input           = _reader.read<orbslam3::frame_stereo>();
-                prepared.image       = std::move(input.image_left);
-                prepared.image_right = std::move(input.image_right);
-                prepared.timestamp   = input.timestamp;
-            }
-            else if (_inertial)
+            if (_inertial)
             {
                 auto input         = _reader.read<orbslam3::frame_mono_inertial>();
                 prepared.image     = std::move(input.image);
@@ -89,31 +154,48 @@ void frame_prefetcher::run(std::stop_token stop_token)
                 prepared.timestamp = input.timestamp;
             }
 
-            if (prepared.image.empty() || (_stereo && prepared.image_right.empty()))
+            if (prepared.image.empty())
             {
-                throw std::runtime_error("Failed to load image at: " + prepared.filename + (_stereo ? " (or its right pair)" : ""));
+                throw std::runtime_error("Failed to load image at: " + prepared.filename);
             }
 
+            cv::Size size;
             if (_image_scale != 1.f)
             {
-                const cv::Size size(static_cast<int>(prepared.image.cols * _image_scale), static_cast<int>(prepared.image.rows * _image_scale));
-                cv::resize(prepared.image, prepared.image, size);
-                if (_stereo)
-                {
-                    cv::resize(prepared.image_right, prepared.image_right, size);
-                }
+                size = cv::Size(static_cast<int>(prepared.image.cols * _image_scale), static_cast<int>(prepared.image.rows * _image_scale));
             }
-
-            if (!_stereo)
-            {
-                prepared.color = prepared.image.clone();
-            }
-
-            to_gray_clahe(prepared.image);
-
             if (_stereo)
             {
-                to_gray_clahe(prepared.image_right);
+                {
+                    std::lock_guard<std::mutex> lock(_mutex);
+                    right_size = size;
+                }
+                _ready.notify_all();
+            }
+            preprocess_image(prepared.image, size, *clahe, _image_scale != 1.f, _stereo ? nullptr : &prepared.color);
+            if (_precompute_optical_flow)
+            {
+                prepared.optical_flow_pyramid = ORB_SLAM3::Frame::build_optical_flow_pyramid(prepared.image);
+            }
+            if (_stereo)
+            {
+                std::unique_lock<std::mutex> lock(_mutex);
+                if (!_ready.wait(lock, stop_token, [&right_images, &right_finished] { return !right_images.empty() || right_finished; }))
+                {
+                    return;
+                }
+                if (right_images.empty())
+                {
+                    if (right_error)
+                    {
+                        std::rethrow_exception(right_error);
+                    }
+                    throw std::runtime_error("Right image stream ended before the left image stream");
+                }
+                prepared.image_right = std::move(right_images.front());
+                right_images.pop_front();
+                lock.unlock();
+                _ready.notify_all();
             }
 
             {
@@ -138,6 +220,6 @@ void frame_prefetcher::run(std::stop_token stop_token)
         std::lock_guard<std::mutex> lock(_mutex);
         _finished = true;
     }
-    
+
     _ready.notify_all();
 }

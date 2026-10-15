@@ -43,6 +43,7 @@ class folder_reader
 
     size_t                          size() const;
     const std::string              &image_path(size_t idx) const;
+    const std::string              &right_image_path(size_t index) const { return _right_images.at(index); }
     double                          timestamp(size_t idx) const;
     cv::Mat                         read_image(size_t idx) const;
 

@@ -671,6 +671,7 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
 #endif
 
     // cout << "Tracking start" << endl;
+    mCurrentFrame.optical_flow_pyramid.swap(next_optical_flow_pyramid);
     Track();
     // cout << "Tracking end" << endl;
 
@@ -837,6 +838,7 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &times
 #endif
 
     lastID = mCurrentFrame.mnId;
+    mCurrentFrame.optical_flow_pyramid.swap(next_optical_flow_pyramid);
     Track();
 
     if (_use_optical_flow && mLastFrame.mnId == mCurrentFrame.mnId && !mImGray.empty())

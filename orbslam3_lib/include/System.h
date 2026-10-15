@@ -124,6 +124,8 @@ class System
     // Set a color (BGR) image to be used as the display frame for the next TrackMonocular call.
     // Useful when CLAHE or other preprocessing converts the image to grayscale before tracking.
     void         SetNextFrameColor(const cv::Mat &im_color);
+    bool         can_precompute_optical_flow_pyramid() const;
+    void         set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid);
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void         ActivateLocalizationMode();

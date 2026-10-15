@@ -17,12 +17,13 @@ class frame_prefetcher
         cv::Mat                            image;
         cv::Mat                            image_right;
         cv::Mat                            color;
+        std::vector<cv::Mat>               optical_flow_pyramid;
         double                             timestamp{};
         std::vector<ORB_SLAM3::IMU::Point> imu;
         std::string                        filename;
     };
 
-    frame_prefetcher(folder_reader &reader, bool stereo, bool inertial, float image_scale);
+    frame_prefetcher(folder_reader &reader, bool stereo, bool inertial, float image_scale, bool precompute_optical_flow = false);
     ~frame_prefetcher();
 
     frame read();
@@ -34,6 +35,7 @@ class frame_prefetcher
     const bool                   _stereo;
     const bool                   _inertial;
     const float                  _image_scale;
+    const bool                   _precompute_optical_flow;
     static constexpr std::size_t _capacity = 3;
     std::mutex                   _mutex;
     std::condition_variable_any  _ready;

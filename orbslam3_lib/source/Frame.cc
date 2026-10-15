@@ -102,10 +102,17 @@ const std::vector<cv::Mat> &Frame::get_optical_flow_pyramid(const cv::Mat &image
 {
     if (optical_flow_pyramid.empty())
     {
-        cv::buildOpticalFlowPyramid(image, optical_flow_pyramid, cv::Size(21, 21), 3, true, cv::BORDER_REFLECT_101, cv::BORDER_CONSTANT, false);
+        optical_flow_pyramid = build_optical_flow_pyramid(image);
     }
 
     return optical_flow_pyramid;
+}
+
+std::vector<cv::Mat> Frame::build_optical_flow_pyramid(const cv::Mat &image)
+{
+    std::vector<cv::Mat> pyramid;
+    cv::buildOpticalFlowPyramid(image, pyramid, cv::Size(21, 21), 3, true, cv::BORDER_REFLECT_101, cv::BORDER_CONSTANT, false);
+    return pyramid;
 }
 
 Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor *extractorLeft, ORBextractor *extractorRight, ORBVocabulary *voc, cv::Mat &K,

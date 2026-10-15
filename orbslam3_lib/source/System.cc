@@ -422,7 +422,23 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
     return Tcw;
 }
 
-void         System::SetNextFrameColor(const cv::Mat &im_color) { mpTracker->mNextFrameColor = im_color.clone(); }
+void System::SetNextFrameColor(const cv::Mat &im_color) { mpTracker->mNextFrameColor = im_color.clone(); }
+
+bool System::can_precompute_optical_flow_pyramid() const
+{
+    const bool stereo = mSensor == STEREO || mSensor == IMU_STEREO;
+    const bool mono   = mSensor == MONOCULAR || mSensor == IMU_MONOCULAR;
+    return settings_->use_optical_flow() && (stereo || mono) && !settings_->needToResize() && (!stereo || !settings_->needToRectify());
+}
+
+void System::set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid)
+{
+    if (!can_precompute_optical_flow_pyramid())
+    {
+        pyramid.clear();
+    }
+    mpTracker->next_optical_flow_pyramid = std::move(pyramid);
+}
 
 Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
 {

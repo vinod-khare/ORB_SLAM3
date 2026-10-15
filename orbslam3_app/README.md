@@ -4,6 +4,10 @@
 
 Playback is unpaced. A persistent worker reads, resizes, and applies grayscale/CLAHE preprocessing ahead of tracking, with at most three prepared frames queued. Tracking remains sequential, preserving image order, timestamps, and IMU associations; input failures are reported on the main thread.
 
+Stereo input uses an additional persistent right-camera worker, overlapping left/right decoding and preprocessing with separate CLAHE instances. A single-image right-camera handoff keeps buffering bounded. Monocular input does not start this additional worker.
+
+When optical flow is enabled, the prefetch worker also builds the left-image PyrLK pyramid, including derivatives, after CLAHE. Tracking reuses it in both flow directions and on the next frame. If SLAM must resize or rectify the input internally, pyramid construction remains lazy inside tracking so it uses the transformed image.
+
 ## Build
 
 Install the dependencies used by the project (see [`install_dependencies.sh`](../install_dependencies.sh)), then configure and build from the repository root:
