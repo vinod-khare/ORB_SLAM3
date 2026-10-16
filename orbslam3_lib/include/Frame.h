@@ -312,7 +312,7 @@ class Frame
     std::mutex *mpMutexImu;
 
   public:
-    GeometricCamera             *mpCamera, *mpCamera2; // TODO: do we need references for camera
+    GeometricCamera             *mpCamera, *mpCamera2; // TODO: do we need references to the cameras in the frame class?
 
     // Number of KeyPoints extracted in the left and right images
     int                          Nleft, Nright;

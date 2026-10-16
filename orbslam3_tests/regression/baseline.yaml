@@ -1,0 +1,8 @@
+tolerance:
+  ate_rel: 0.25
+  tracked_abs: 0.05
+metrics:
+  stereo:
+    ate_rmse_m: 0.09018277318066922
+    tracked_ratio: 1.0
+    matched_poses: 1039
