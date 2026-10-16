@@ -8,6 +8,19 @@ Stereo input uses an additional persistent right-camera worker, overlapping left
 
 When optical flow is enabled, the prefetch worker also builds the left-image PyrLK pyramid, including derivatives, after CLAHE. Tracking reuses it in both flow directions and on the next frame. If SLAM must resize or rectify the input internally, pyramid construction remains lazy inside tracking so it uses the transformed image.
 
+## Optical-flow tracking
+
+Set `Tracking.useOpticalFlow: 1` to use a flow-first frontend in monocular/stereo SLAM, including inertial modes. Setting it to `0` retains descriptor-based tracking. RGB-D and localization-only mode retain descriptor-based tracking.
+
+- Healthy ordinary frames track existing mapped left-camera observations directly with pyramidal LK. They do **not** detect features, compute ORB descriptors, snap endpoints to newly detected features, or run temporal/local-map descriptor searches.
+- Motion/IMU prediction seeds LK when the camera projection is in the input image's coordinate system. Forward/backward consistency and photometric checks reject unreliable tracks. Up to 40 unique map points per cell of a 4-by-4 image grid are tracked (640 total).
+- At least 60% of sampled tracks must survive LK validation. Pose optimization then validates geometry before accepting flow: at least 50 inliers, a 60% inlier ratio, and coverage of at least six grid cells are required, including after local-map pose/inertial optimization.
+- Weak flow or local-map tracking triggers current-image ORB extraction and descriptor recovery. Initialization and relocalization also use descriptors. Frames refresh features at least every `max(2, Camera.fps / 4)` frames (integer division), even when flow remains healthy, to replenish observations and acquire stereo depth.
+- A flow frame selected for keyframe insertion is first promoted to a fully extracted frame and revalidated against the map. Keyframes always contain current-image descriptors and, for stereo, fresh stereo correspondences/depth. Ordinary stereo flow frames use existing 2D–3D map correspondences, not newly triangulated depth.
+- Keyframe selection compares flow inliers against the sampled left-camera population, rather than treating the deliberately bounded track count as a loss of the full stereo feature population.
+
+Shutdown reports flow-only frames, feature-extracted frames, and flow recovery attempts. The app also reports playback throughput including input/prefetch waits; the existing median/mean tracking times exclude those waits. Compare both timing measures and trajectory accuracy on the same sequence before drawing performance conclusions.
+
 ## Build
 
 Install the dependencies used by the project (see [`install_dependencies.sh`](../install_dependencies.sh)), then configure and build from the repository root:
@@ -83,7 +96,7 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 - Pangolin SLAM visualization and camera/keyframe trajectory exports.
 - Optional map-point PLY and COLMAP-compatible sparse-model exports.
 - Configurable feature detector in the settings YAML: FAST, AGAST, GFTT, ORB, BRISK, SIFT, and AKAZE. The detector changes keypoint detection; descriptors remain ORB.
-- Optional sparse LK optical-flow associations through `Tracking.useOpticalFlow` in the settings YAML.
+- Optional flow-first tracking with descriptor recovery through `Tracking.useOpticalFlow` in the settings YAML.
 - Median and mean tracking-time summary after each run.
 
 The executable currently does not provide live-camera, RGB-D, or ROS input. Those capabilities described in the upstream ORB-SLAM3 documentation are outside this app's current input interface.

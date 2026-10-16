@@ -29,6 +29,7 @@
 #include "Pinhole.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -639,9 +640,14 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
         }
     }
 
+    mImRight = imGrayRight;
     // cout << "Incoming frame creation" << endl;
     // TODO: why does Frame class need the extractor object? I think the extractor can be external to the frame. This will reduce coupling and potentially improve performance.
-    if (mSensor == System::STEREO && !mpCamera2)
+    if (can_defer_features(timestamp))
+    {
+        mCurrentFrame = Frame(mLastFrame, timestamp);
+    }
+    else if (mSensor == System::STEREO && !mpCamera2)
     {
         mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, mpORBextractorLeft.get(), mpORBextractorRight.get(), mpORBVocabulary, mK, mDistCoef, mbf, mThDepth, mpCamera);
     }
@@ -672,7 +678,16 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
 
     // cout << "Tracking start" << endl;
     mCurrentFrame.optical_flow_pyramid.swap(next_optical_flow_pyramid);
+    if (!mCurrentFrame.flow_only)
+    {
+        last_feature_frame_id_ = mCurrentFrame.mnId;
+        ++feature_frames_;
+    }
     Track();
+    if (mCurrentFrame.flow_only && mState == OK)
+    {
+        ++flow_frames_;
+    }
     // cout << "Tracking end" << endl;
 
     if (_use_optical_flow && mLastFrame.mnId == mCurrentFrame.mnId && !mImGray.empty())
@@ -802,7 +817,11 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &times
         }
     }
 
-    if (mSensor == System::MONOCULAR)
+    if (can_defer_features(timestamp))
+    {
+        mCurrentFrame = Frame(mLastFrame, timestamp);
+    }
+    else if (mSensor == System::MONOCULAR)
     {
         if (mState == NOT_INITIALIZED || mState == NO_IMAGES_YET || (lastID - initID) < mMaxFrames)
         {
@@ -839,7 +858,16 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &times
 
     lastID = mCurrentFrame.mnId;
     mCurrentFrame.optical_flow_pyramid.swap(next_optical_flow_pyramid);
+    if (!mCurrentFrame.flow_only)
+    {
+        last_feature_frame_id_ = mCurrentFrame.mnId;
+        ++feature_frames_;
+    }
     Track();
+    if (mCurrentFrame.flow_only && mState == OK)
+    {
+        ++flow_frames_;
+    }
 
     if (_use_optical_flow && mLastFrame.mnId == mCurrentFrame.mnId && !mImGray.empty())
     {
@@ -1389,6 +1417,18 @@ void Tracking::Track()
             // a local map and therefore we do not perform TrackLocalMap(). Once the system relocalizes
             // the camera we will use the local map again.
             if (bOK && !mbVO)
+            {
+                bOK = TrackLocalMap();
+            }
+        }
+
+        if (mCurrentFrame.flow_only && !bOK)
+        {
+            ++flow_recoveries_;
+            spdlog::debug("Frame {}: extracting features for local-map recovery", mCurrentFrame.mnId);
+            extract_current_features();
+            bOK = TrackWithMotionModel();
+            if (bOK)
             {
                 bOK = TrackLocalMap();
             }
@@ -2006,6 +2046,7 @@ void Tracking::CheckReplacedInLastFrame()
 
 bool Tracking::TrackReferenceKeyFrame()
 {
+    extract_current_features();
     // Compute Bag of Words vector
     mCurrentFrame.ComputeBoW();
 
@@ -2176,15 +2217,26 @@ bool Tracking::TrackWithMotionModel()
         mCurrentFrame.SetPose(mVelocity * mLastFrame.GetPose());
     }
 
-    fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
-    std::vector<std::pair<std::size_t, MapPoint *>> flow_associations;
-    const int                                       flow_matches = track_with_optical_flow(flow_associations);
-
-    if (_use_optical_flow)
+    if (mCurrentFrame.flow_only)
     {
-        spdlog::info("Frame {}: tracked {} points using optical flow", mCurrentFrame.mnId, flow_matches);
+        const auto predicted_pose = mCurrentFrame.GetPose();
+        const int  flow_matches   = track_with_optical_flow();
+        if (flow_matches >= 50)
+        {
+            Optimizer::PoseOptimization(&mCurrentFrame);
+            if (mCurrentFrame.reliable_flow_inliers(mImGray.size()))
+            {
+                spdlog::debug("Frame {}: flow-only tracking, {} observations", mCurrentFrame.mnId, flow_matches);
+                return true;
+            }
+        }
+        spdlog::debug("Frame {}: optical flow weak; extracting features for descriptor recovery", mCurrentFrame.mnId);
+        ++flow_recoveries_;
+        extract_current_features();
+        mCurrentFrame.SetPose(predicted_pose);
     }
 
+    fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
     if (imu_prediction)
     {
         return true;
@@ -2202,7 +2254,7 @@ bool Tracking::TrackWithMotionModel()
         th = 15;
     }
 
-    int nmatches = flow_matches + matcher.SearchByProjection(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
+    int nmatches = matcher.SearchByProjection(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
 
     // If few matches, uses a wider window search
     if (nmatches < 20)
@@ -2210,12 +2262,7 @@ bool Tracking::TrackWithMotionModel()
         Verbose::PrintMess("Not enough matches, wider window search!!", Verbose::VERBOSITY_NORMAL);
         fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
 
-        for (const std::pair<std::size_t, MapPoint *> &association : flow_associations)
-        {
-            mCurrentFrame.mvpMapPoints[association.first] = association.second;
-        }
-
-        nmatches = flow_matches + matcher.SearchByProjection(mCurrentFrame, mLastFrame, 2 * th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
+        nmatches = matcher.SearchByProjection(mCurrentFrame, mLastFrame, 2 * th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
         Verbose::PrintMess("Matches with wider search: " + to_string(nmatches), Verbose::VERBOSITY_NORMAL);
     }
 
@@ -2281,9 +2328,36 @@ bool Tracking::TrackWithMotionModel()
     }
 }
 
-int Tracking::track_with_optical_flow(std::vector<std::pair<std::size_t, MapPoint *>> &flow_associations)
+bool Tracking::can_defer_features(double timestamp) const
 {
-    flow_associations.clear();
+    // Localization-only mode also needs fresh stereo depth for temporary VO points.
+    return _use_optical_flow && !mbOnlyTracking && mState == OK && mbVelocity && !Frame::mbInitialComputations && Frame::nNextId > mnLastRelocFrameId + 2 &&
+           Frame::nNextId - last_feature_frame_id_ < static_cast<unsigned long>(std::max(2, mMaxFrames / 4)) && timestamp > mLastFrame.mTimeStamp && timestamp - mLastFrame.mTimeStamp < 1.0 &&
+           !_previous_gray.empty() && _previous_gray_frame_id == mLastFrame.mnId && _previous_gray.size() == mImGray.size() && mImGray.type() == CV_8UC1;
+}
+
+void Tracking::extract_current_features()
+{
+    if (!mCurrentFrame.flow_only)
+    {
+        return;
+    }
+    mCurrentFrame.extract_features(mImGray, (mSensor == System::STEREO || mSensor == System::IMU_STEREO) ? mImRight : cv::Mat());
+    last_feature_frame_id_ = mCurrentFrame.mnId;
+    ++feature_frames_;
+}
+
+void Tracking::report_flow_statistics() const
+{
+    if (_use_optical_flow)
+    {
+        spdlog::info("Optical flow: {} flow-only frames, {} feature-extracted frames, {} recovery attempts", flow_frames_, feature_frames_, flow_recoveries_);
+    }
+}
+
+int Tracking::track_with_optical_flow()
+{
+    flow_reference_matches_ = 0;
     if (!_use_optical_flow || _previous_gray.empty() || mImGray.empty() || _previous_gray_frame_id != mLastFrame.mnId || _previous_gray.size() != mImGray.size() || mImGray.type() != CV_8UC1)
     {
         return 0;
@@ -2301,8 +2375,12 @@ int Tracking::track_with_optical_flow(std::vector<std::pair<std::size_t, MapPoin
         return 0;
     }
 
-    std::vector<cv::Point2f> previous_points;
-    std::vector<MapPoint *>  map_points;
+    std::vector<cv::Point2f>       previous_points;
+    std::vector<cv::Point2f>       current_points;
+    std::vector<cv::KeyPoint>      previous_keys;
+    std::vector<MapPoint *>        map_points;
+    std::array<int, 16>            cell_counts{};
+    std::unordered_set<MapPoint *> selected_points;
     previous_points.reserve(mLastFrame.mvKeys.size());
     map_points.reserve(mLastFrame.mvKeys.size());
 
@@ -2315,38 +2393,62 @@ int Tracking::track_with_optical_flow(std::vector<std::pair<std::size_t, MapPoin
             continue;
         }
 
-        previous_points.push_back(mLastFrame.mvKeys[index].pt);
+        const auto &key = mLastFrame.mvKeys[index];
+        if (!std::isfinite(key.pt.x) || !std::isfinite(key.pt.y) || key.pt.x < 0 || key.pt.y < 0 || key.pt.x >= mImGray.cols || key.pt.y >= mImGray.rows)
+        {
+            continue;
+        }
+        const int x          = static_cast<int>(key.pt.x * 4 / mImGray.cols);
+        const int y          = static_cast<int>(key.pt.y * 4 / mImGray.rows);
+        auto     &cell_count = cell_counts[static_cast<std::size_t>(y * 4 + x)];
+        if (cell_count >= 40 || !selected_points.insert(map_point).second)
+        {
+            continue;
+        }
+        ++cell_count;
+        previous_points.push_back(key.pt);
+        previous_keys.push_back(key);
         map_points.push_back(map_point);
+        cv::Point2f prediction = key.pt;
+        // Camera-model projections are in LK coordinates except for distorted pinhole input.
+        if (mpCamera2 || mDistCoef.at<float>(0) == 0.0f)
+        {
+            const Eigen::Vector3f position = mCurrentFrame.GetPose() * map_point->GetWorldPos();
+            if (position.z() > 0)
+            {
+                const Eigen::Vector2f projected = mpCamera->project(position);
+                if (projected.allFinite() && projected.x() >= 0 && projected.y() >= 0 && projected.x() < mImGray.cols && projected.y() < mImGray.rows)
+                {
+                    prediction = cv::Point2f(projected.x(), projected.y());
+                }
+            }
+        }
+        current_points.push_back(prediction);
     }
 
     if (previous_points.empty())
     {
         return 0;
     }
+    flow_reference_matches_ = static_cast<int>(previous_points.size());
 
-    std::vector<cv::Point2f>   current_points;
     std::vector<unsigned char> forward_status;
     std::vector<float>         forward_error;
     const cv::Size             window_size(21, 21);
     const cv::TermCriteria     criteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
     const auto                &previous_pyramid = mLastFrame.get_optical_flow_pyramid(_previous_gray);
     const auto                &current_pyramid  = mCurrentFrame.get_optical_flow_pyramid(mImGray);
-    cv::calcOpticalFlowPyrLK(previous_pyramid, current_pyramid, previous_points, current_points, forward_status, forward_error, window_size, 3, criteria);
+    cv::calcOpticalFlowPyrLK(previous_pyramid, current_pyramid, previous_points, current_points, forward_status, forward_error, window_size, 3, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
 
     std::vector<cv::Point2f>   backward_points;
     std::vector<unsigned char> backward_status;
     std::vector<float>         backward_error;
     cv::calcOpticalFlowPyrLK(current_pyramid, previous_pyramid, current_points, backward_points, backward_status, backward_error, window_size, 3, criteria);
 
-    struct FlowCandidate
-    {
-        cv::Point2f point;
-        MapPoint   *map_point;
-        float       consistency_error;
-    };
-
-    std::vector<FlowCandidate> candidates;
-    candidates.reserve(previous_points.size());
+    std::vector<cv::KeyPoint> tracked_keys;
+    std::vector<MapPoint *>   tracked_points;
+    tracked_keys.reserve(previous_points.size());
+    tracked_points.reserve(previous_points.size());
 
     for (std::size_t index = 0; index < previous_points.size(); ++index)
     {
@@ -2371,83 +2473,14 @@ int Tracking::track_with_optical_flow(std::vector<std::pair<std::size_t, MapPoin
             continue;
         }
 
-        candidates.push_back({point, map_points[index], consistency_error});
+        auto key = previous_keys[index];
+        key.pt   = point;
+        tracked_keys.push_back(key);
+        tracked_points.push_back(map_points[index]);
     }
 
-    std::sort(candidates.begin(), candidates.end(), [](const FlowCandidate &left, const FlowCandidate &right) { return left.consistency_error < right.consistency_error; });
-
-    constexpr int                         cell_size      = 16;
-    constexpr float                       feature_radius = 3.0f;
-    const int                             grid_columns   = (mImGray.cols + cell_size - 1) / cell_size;
-    const int                             grid_rows      = (mImGray.rows + cell_size - 1) / cell_size;
-
-    std::vector<std::vector<std::size_t>> feature_grid(static_cast<std::size_t>(grid_columns * grid_rows));
-    for (std::size_t index = 0; index < mCurrentFrame.mvKeys.size(); ++index)
-    {
-        const cv::Point2f &point = mCurrentFrame.mvKeys[index].pt;
-        if (point.x >= 0.0f && point.x < mImGray.cols && point.y >= 0.0f && point.y < mImGray.rows)
-        {
-            const int cell_x = static_cast<int>(point.x) / cell_size;
-            const int cell_y = static_cast<int>(point.y) / cell_size;
-            feature_grid[static_cast<std::size_t>(cell_y * grid_columns + cell_x)].push_back(index);
-        }
-    }
-
-    std::vector<bool>              assigned_features(mCurrentFrame.mvKeys.size(), false);
-    std::unordered_set<MapPoint *> assigned_map_points;
-
-    for (const FlowCandidate &candidate : candidates)
-    {
-        if (assigned_map_points.count(candidate.map_point) != 0)
-        {
-            continue;
-        }
-
-        const int   min_cell_x            = std::max(0, static_cast<int>(std::floor((candidate.point.x - feature_radius) / cell_size)));
-        const int   max_cell_x            = std::min(grid_columns - 1, static_cast<int>(std::floor((candidate.point.x + feature_radius) / cell_size)));
-        const int   min_cell_y            = std::max(0, static_cast<int>(std::floor((candidate.point.y - feature_radius) / cell_size)));
-        const int   max_cell_y            = std::min(grid_rows - 1, static_cast<int>(std::floor((candidate.point.y + feature_radius) / cell_size)));
-
-        float       best_distance_squared = feature_radius * feature_radius;
-        std::size_t best_feature          = mCurrentFrame.mvKeys.size();
-
-        for (int cell_y = min_cell_y; cell_y <= max_cell_y; ++cell_y)
-        {
-            for (int cell_x = min_cell_x; cell_x <= max_cell_x; ++cell_x)
-            {
-                const std::vector<std::size_t> &cell_features = feature_grid[static_cast<std::size_t>(cell_y * grid_columns + cell_x)];
-
-                for (const std::size_t feature_index : cell_features)
-                {
-                    if (assigned_features[feature_index])
-                    {
-                        continue;
-                    }
-
-                    const cv::Point2f &feature_point    = mCurrentFrame.mvKeys[feature_index].pt;
-                    const float        delta_x          = feature_point.x - candidate.point.x;
-                    const float        delta_y          = feature_point.y - candidate.point.y;
-                    const float        distance_squared = delta_x * delta_x + delta_y * delta_y;
-
-                    if (distance_squared < best_distance_squared)
-                    {
-                        best_distance_squared = distance_squared;
-                        best_feature          = feature_index;
-                    }
-                }
-            }
-        }
-
-        if (best_feature < mCurrentFrame.mvKeys.size())
-        {
-            assigned_features[best_feature] = true;
-            assigned_map_points.insert(candidate.map_point);
-            mCurrentFrame.mvpMapPoints[best_feature] = candidate.map_point;
-            flow_associations.emplace_back(best_feature, candidate.map_point);
-        }
-    }
-
-    return static_cast<int>(flow_associations.size());
+    mCurrentFrame.set_tracked_features(std::move(tracked_keys), std::move(tracked_points));
+    return mCurrentFrame.N >= 0.6 * flow_reference_matches_ ? mCurrentFrame.N : 0;
 }
 
 bool Tracking::TrackLocalMap()
@@ -2487,8 +2520,10 @@ bool Tracking::TrackLocalMap()
         }
         else
         {
-            // if(!mbMapUpdated && mState == OK) //  && (mnMatchesInliers>30))
-            if (!mbMapUpdated) //  && (mnMatchesInliers>30))
+            // A flow recovery can reoptimize this frame after the last-frame prior was consumed.
+            delete mCurrentFrame.mpcpi;
+            mCurrentFrame.mpcpi = nullptr;
+            if (!mbMapUpdated && mLastFrame.mpcpi)
             {
                 Verbose::PrintMess("TLM: PoseInertialOptimizationLastFrame ", Verbose::VERBOSITY_DEBUG);
                 Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
@@ -2546,6 +2581,10 @@ bool Tracking::TrackLocalMap()
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
     mpLocalMapper->mnMatchesInliers = mnMatchesInliers;
+    if (mCurrentFrame.flow_only && !mCurrentFrame.reliable_flow_inliers(mImGray.size()))
+    {
+        return false;
+    }
     if (mCurrentFrame.mnId < mnLastRelocFrameId + mMaxFrames && mnMatchesInliers < 50)
     {
         return false;
@@ -2638,7 +2677,12 @@ bool Tracking::NeedNewKeyFrame()
     {
         nMinObs = 2;
     }
-    int  nRefMatches       = mpReferenceKF->TrackedMapPoints(nMinObs);
+    int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);
+    // Flow tracks a bounded left-camera subset, not all ORB observations in both cameras.
+    if (mCurrentFrame.flow_only)
+    {
+        nRefMatches = std::min(nRefMatches, flow_reference_matches_);
+    }
 
     // Local Mapping accept keyframes?
     bool bLocalMappingIdle = mpLocalMapper->AcceptKeyFrames();
@@ -2790,6 +2834,28 @@ void Tracking::CreateNewKeyFrame()
     if (mpLocalMapper->IsInitializing() && !mpAtlas->isImuInitialized())
     {
         return;
+    }
+    if (mCurrentFrame.flow_only)
+    {
+        const Frame flow_frame(mCurrentFrame);
+        extract_current_features();
+        ORBmatcher matcher(0.9, true);
+        matcher.SearchByProjection(mCurrentFrame, mLastFrame, mSensor == System::STEREO ? 7 : 15, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
+        SearchLocalPoints();
+        const int inliers = Optimizer::PoseOptimization(&mCurrentFrame);
+        if (inliers < 50)
+        {
+            spdlog::warn("Frame {}: postponing keyframe; only {} descriptor inliers after feature refresh", mCurrentFrame.mnId, inliers);
+            mCurrentFrame = flow_frame;
+            return;
+        }
+        mnMatchesInliers = inliers;
+        mVelocity        = mCurrentFrame.GetPose() * mLastFrame.GetPose().inverse();
+        mpFrameDrawer->Update(this);
+        if (!NeedNewKeyFrame())
+        {
+            return;
+        }
     }
 
     if (!mpLocalMapper->SetNotStop(true))
@@ -2946,6 +3012,11 @@ void Tracking::SearchLocalPoints()
                 pMP->mbTrackInViewR  = false;
             }
         }
+    }
+
+    if (mCurrentFrame.flow_only)
+    {
+        return;
     }
 
     int nToMatch = 0;
@@ -3222,6 +3293,7 @@ void Tracking::UpdateLocalKeyFrames()
 
 bool Tracking::Relocalization()
 {
+    extract_current_features();
     Verbose::PrintMess("Starting relocalization", Verbose::VERBOSITY_NORMAL);
     // Compute Bag of Words Vector
     mCurrentFrame.ComputeBoW();

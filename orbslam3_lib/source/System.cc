@@ -572,6 +572,7 @@ void System::Shutdown()
     }
 
     cout << "Shutdown" << endl;
+    mpTracker->report_flow_statistics();
 
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();

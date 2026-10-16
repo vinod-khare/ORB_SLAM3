@@ -95,6 +95,7 @@ class Tracking
     void         SaveSubTrajectory(string strNameFile_frames, string strNameFile_kf, Map *pMap);
 
     float        GetImageScale();
+    void         report_flow_statistics() const;
 
 #ifdef REGISTER_LOOP
     void RequestStop();
@@ -198,7 +199,9 @@ class Tracking
     bool                          TrackReferenceKeyFrame();
     void                          UpdateLastFrame();
     bool                          TrackWithMotionModel();
-    int                           track_with_optical_flow(std::vector<std::pair<std::size_t, MapPoint *>> &flow_associations);
+    bool                          can_defer_features(double timestamp) const;
+    void                          extract_current_features();
+    int                           track_with_optical_flow();
     bool                          PredictStateIMU();
 
     bool                          Relocalization();
@@ -325,6 +328,11 @@ class Tracking
     bool                          _use_optical_flow{false};
     cv::Mat                       _previous_gray;
     unsigned int                  _previous_gray_frame_id{0};
+    unsigned long                 last_feature_frame_id_{0};
+    int                           flow_reference_matches_{0};
+    std::size_t                   flow_frames_{0};
+    std::size_t                   feature_frames_{0};
+    std::size_t                   flow_recoveries_{0};
 
     // Color order (true RGB, false BGR, ignored if grayscale)
     bool                          mbRGB;

@@ -33,6 +33,8 @@
 
 #include <opencv2/core/core.hpp>
 
+#include <spdlog/spdlog.h>
+
 using namespace std;
 namespace po = boost::program_options;
 
@@ -268,9 +270,10 @@ int    main(int argc, char **argv)
         const ORB_SLAM3::System::eSensor sensor =
             stereo ? (inertial ? ORB_SLAM3::System::IMU_STEREO : ORB_SLAM3::System::STEREO) : (inertial ? ORB_SLAM3::System::IMU_MONOCULAR : ORB_SLAM3::System::MONOCULAR);
         ORB_SLAM3::System SLAM(vocab_path, settings_path, sensor, use_viewer, 0, output_filename);
-        const float       image_scale = SLAM.GetImageScale();
+        const float       image_scale    = SLAM.GetImageScale();
 
-        int               proccIm     = 0;
+        int               proccIm        = 0;
+        const auto        playback_start = std::chrono::steady_clock::now();
         try
         {
             frame_prefetcher prefetch(reader, stereo, inertial, image_scale, SLAM.can_precompute_optical_flow_pyramid());
@@ -307,6 +310,8 @@ int    main(int argc, char **argv)
             SLAM.Shutdown();
             throw;
         }
+        const double playback_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - playback_start).count();
+        spdlog::info("Playback: {} frames in {:.3f} s ({:.1f} frames/s), including input/prefetch waits", proccIm, playback_seconds, proccIm / playback_seconds);
 
         // Stop all threads
         SLAM.Shutdown();

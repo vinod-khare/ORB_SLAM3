@@ -54,6 +54,13 @@ class Frame
     // Copy constructor.
     Frame(const Frame &frame);
 
+    // Calibration/state for a new image, without detecting or describing features.
+    Frame(Frame &previous, double timestamp);
+    void extract_features(const cv::Mat &left, const cv::Mat &right = cv::Mat());
+    void set_tracked_features(std::vector<cv::KeyPoint> keys, std::vector<MapPoint *> points);
+    bool reliable_flow_inliers(const cv::Size &image_size) const;
+    bool flow_only{false};
+
     // Constructor for stereo cameras.
     Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor *extractorLeft, ORBextractor *extractorRight, ORBVocabulary *voc, cv::Mat &K, cv::Mat &distCoef,
           const float &bf, const float &thDepth, GeometricCamera *pCamera, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
