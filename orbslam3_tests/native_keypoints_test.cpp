@@ -107,3 +107,41 @@ TEST_CASE("Display keypoints retain detector metadata without changing ORB keypo
     REQUIRE(repeated_keys.empty());
     REQUIRE(extractor.get_display_keypoints().empty());
 }
+
+TEST_CASE("Keypoint extraction supports portrait images", "[native_keypoints]")
+{
+    ORB_SLAM3::ORBextractor extractor(400, 1.2f, 1, 20, 7);
+    cv::Mat                 image(900, 320, CV_8UC1);
+    cv::RNG                 random(71);
+    random.fill(image, cv::RNG::UNIFORM, 0, 256);
+    cv::GaussianBlur(image, image, cv::Size(3, 3), 0.7);
+
+    std::vector<int>          overlap{0, 0};
+    std::vector<cv::KeyPoint> keypoints;
+    cv::Mat                   descriptors;
+
+    extractor(image, cv::noArray(), keypoints, descriptors, overlap);
+
+    REQUIRE_FALSE(keypoints.empty());
+    REQUIRE(descriptors.rows == static_cast<int>(keypoints.size()));
+    REQUIRE(descriptors.cols == 32);
+}
+
+TEST_CASE("Keypoint extraction handles small pyramid levels", "[native_keypoints]")
+{
+    ORB_SLAM3::ORBextractor extractor(400, 1.2f, 2, 20, 7);
+    cv::Mat                 image(70, 70, CV_8UC1);
+    cv::RNG                 random(71);
+    random.fill(image, cv::RNG::UNIFORM, 0, 256);
+    cv::GaussianBlur(image, image, cv::Size(3, 3), 0.7);
+
+    std::vector<int>          overlap{0, 0};
+    std::vector<cv::KeyPoint> keypoints;
+    cv::Mat                   descriptors;
+
+    extractor(image, cv::noArray(), keypoints, descriptors, overlap);
+
+    REQUIRE_FALSE(keypoints.empty());
+    REQUIRE(descriptors.rows == static_cast<int>(keypoints.size()));
+    REQUIRE(descriptors.cols == 32);
+}

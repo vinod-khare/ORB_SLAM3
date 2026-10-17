@@ -53,7 +53,7 @@
 
 #include "ORBextractor.h"
 
-#include <iostream>
+#include <algorithm>
 #include <vector>
 
 #include <opencv2/core/core.hpp>
@@ -82,7 +82,7 @@ static float IC_Angle(const Mat &image, Point2f pt, const vector<int> &u_max)
         m_10 += u * center[u];
     }
 
-    // Go line by line in the circuI853lar patch
+    // Go line by line in the circular patch
     int step = (int)image.step1();
     for (int v = 1; v <= HALF_PATCH_SIZE; ++v)
     {
@@ -600,7 +600,7 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint> 
                                                      const int &level)
 {
     // Compute how many initial nodes
-    const int               nIni = round(static_cast<float>(maxX - minX) / (maxY - minY));
+    const int               nIni = std::max(1, cvRound(static_cast<float>(maxX - minX) / (maxY - minY)));
 
     const float             hX   = static_cast<float>(maxX - minX) / nIni;
 
@@ -808,22 +808,10 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint> 
     // Retain the best point in each node
     vector<cv::KeyPoint> vResultKeys;
     vResultKeys.reserve(nfeatures);
-    for (list<ExtractorNode>::iterator lit = lNodes.begin(); lit != lNodes.end(); lit++)
+    for (const ExtractorNode &node : lNodes)
     {
-        vector<cv::KeyPoint> &vNodeKeys   = lit->vKeys;
-        cv::KeyPoint         *pKP         = &vNodeKeys[0];
-        float                 maxResponse = pKP->response;
-
-        for (size_t k = 1; k < vNodeKeys.size(); k++)
-        {
-            if (vNodeKeys[k].response > maxResponse)
-            {
-                pKP         = &vNodeKeys[k];
-                maxResponse = vNodeKeys[k].response;
-            }
-        }
-
-        vResultKeys.push_back(*pKP);
+        const auto bestKey = std::max_element(node.vKeys.begin(), node.vKeys.end(), [](const cv::KeyPoint &left, const cv::KeyPoint &right) { return left.response < right.response; });
+        vResultKeys.push_back(*bestKey);
     }
 
     return vResultKeys;
@@ -906,10 +894,15 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint>> &allKeypoint
         const float width  = (maxBorderX - minBorderX);
         const float height = (maxBorderY - minBorderY);
 
-        const int   nCols  = width / W;
-        const int   nRows  = height / W;
-        const int   wCell  = ceil(width / nCols);
-        const int   hCell  = ceil(height / nRows);
+        if (width <= 0 || height <= 0)
+        {
+            continue;
+        }
+
+        const int nCols = std::max(1, static_cast<int>(width / W));
+        const int nRows = std::max(1, static_cast<int>(height / W));
+        const int wCell = ceil(width / nCols);
+        const int hCell = ceil(height / nRows);
 
         for (int i = 0; i < nRows; i++)
         {
@@ -929,10 +922,12 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint>> &allKeypoint
             {
                 const float iniX = minBorderX + j * wCell;
                 float       maxX = iniX + wCell + 6;
+
                 if (iniX >= maxBorderX - 6)
                 {
                     continue;
                 }
+
                 if (maxX > maxBorderX)
                 {
                     maxX = maxBorderX;
@@ -942,34 +937,9 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint>> &allKeypoint
 
                 detect_corners_in_cell(mvImagePyramid[level].rowRange(iniY, maxY).colRange(iniX, maxX), vKeysCell, iniThFAST);
 
-                /*if(bRight && j <= 13){
-                    FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
-                         vKeysCell,10,true);
-                }
-                else if(!bRight && j >= 16){
-                    FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
-                         vKeysCell,10,true);
-                }
-                else{
-                    FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
-                         vKeysCell,iniThFAST,true);
-                }*/
-
                 if (vKeysCell.empty())
                 {
                     detect_corners_in_cell(mvImagePyramid[level].rowRange(iniY, maxY).colRange(iniX, maxX), vKeysCell, minThFAST);
-                    /*if(bRight && j <= 13){
-                        FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
-                             vKeysCell,5,true);
-                    }
-                    else if(!bRight && j >= 16){
-                        FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
-                             vKeysCell,5,true);
-                    }
-                    else{
-                        FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
-                             vKeysCell,minThFAST,true);
-                    }*/
                 }
 
                 if (!vKeysCell.empty())
@@ -1256,12 +1226,12 @@ int ORBextractor::operator()(InputArray _image, InputArray _mask, vector<KeyPoin
         }
 
         // preprocess the resized image
-        Mat workingMat = mvImagePyramid[level].clone();
-        GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
+        Mat workingMat;
+        GaussianBlur(mvImagePyramid[level], workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101 | BORDER_ISOLATED);
 
         // Compute the descriptors
         // Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
-        Mat desc = cv::Mat(nkeypointsLevel, 32, CV_8U);
+        Mat desc;
         computeDescriptors(workingMat, keypoints, desc, pattern);
 
         offset      += nkeypointsLevel;
