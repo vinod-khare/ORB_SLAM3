@@ -19,7 +19,6 @@
 #include "Tracking.h"
 
 #include "Converter.h"
-#include "FrameDrawer.h"
 #include "G2oTypes.h"
 #include "GeometricTools.h"
 #include "KannalaBrandt8.h"
@@ -45,10 +44,10 @@ using namespace std;
 namespace ORB_SLAM3
 {
 
-Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings,
+Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings,
                    const string &_nameSeq)
     : mState(NO_IMAGES_YET), mSensor(sensor), mTrackedFr(0), mbStep(false), mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
-      mbReadyToInitializate(false), mpSystem(pSys), mpViewer(nullptr), mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), bStepByStep(false), mpAtlas(pAtlas), mpLastKeyFrame(nullptr),
+      mbReadyToInitializate(false), mpSystem(pSys), bStepByStep(false), mpAtlas(pAtlas), mpLastKeyFrame(nullptr),
       mnLastRelocFrameId(0), time_recently_lost(5.0), mnFirstFrameId(0), mnInitialFrameId(0), mbCreatedMap(false), mpCamera2(nullptr)
 {
     newParameterLoader(settings);
@@ -527,7 +526,6 @@ void Tracking::newParameterLoader(Settings *settings)
 
         mTlr                = settings->Tlr();
 
-        mpFrameDrawer->both = true;
     }
 
     if (mSensor == System::STEREO || mSensor == System::RGBD || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
@@ -597,7 +595,11 @@ void         Tracking::SetLocalMapper(LocalMapping *pLocalMapper) { mpLocalMappe
 
 void         Tracking::SetLoopClosing(LoopClosing *pLoopClosing) { mpLoopClosing = pLoopClosing; }
 
-void         Tracking::SetViewer(Viewer *pViewer) { mpViewer = pViewer; }
+void Tracking::SetResetHooks(std::function<void()> on_reset_start, std::function<void()> on_reset_complete)
+{
+    mOnResetStart    = std::move(on_reset_start);
+    mOnResetComplete = std::move(on_reset_complete);
+}
 
 void         Tracking::SetStepByStep(bool bSet) { bStepByStep = bSet; }
 
@@ -1175,9 +1177,6 @@ void Tracking::Track()
             MonocularInitialization();
         }
 
-        // mpFrameDrawer->Update(this);
-        mpFrameDrawer->Update(this);
-
         if (mState != OK) // If rightly initialized, mState=OK
         {
             mLastFrame = Frame(mCurrentFrame);
@@ -1498,13 +1497,6 @@ void Tracking::Track()
         vdLMTrack_ms.push_back(timeLMTrack);
 #endif
 
-        // Update drawer
-        mpFrameDrawer->Update(this);
-        if (mCurrentFrame.isSet())
-        {
-            mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
-        }
-
         if (bOK || mState == RECENTLY_LOST)
         {
             // Update motion model
@@ -1517,11 +1509,6 @@ void Tracking::Track()
             else
             {
                 mbVelocity = false;
-            }
-
-            if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
-            {
-                mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
             }
 
             // Clean VO matches
@@ -1758,8 +1745,6 @@ void Tracking::StereoInitialization()
 
         mpAtlas->GetCurrentMap()->mvpKeyFrameOrigins.push_back(pKFini);
 
-        mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
-
         mState = OK;
     }
 }
@@ -1971,8 +1956,6 @@ void Tracking::CreateInitialMapMonocular()
     mLastFrame                   = Frame(mCurrentFrame);
 
     mpAtlas->SetReferenceMapPoints(mvpLocalMapPoints);
-
-    mpMapDrawer->SetCurrentCameraPose(pKFcur->GetPose());
 
     mpAtlas->GetCurrentMap()->mvpKeyFrameOrigins.push_back(pKFini);
 
@@ -2858,7 +2841,6 @@ void Tracking::CreateNewKeyFrame()
         }
         mnMatchesInliers = inliers;
         mVelocity        = mCurrentFrame.GetPose() * mLastFrame.GetPose().inverse();
-        mpFrameDrawer->Update(this);
         if (!NeedNewKeyFrame())
         {
             return;
@@ -3491,14 +3473,9 @@ bool Tracking::Relocalization()
 void Tracking::Reset(bool bLocMap)
 {
     Verbose::PrintMess("System Reseting", Verbose::VERBOSITY_NORMAL);
-
-    if (mpViewer)
+    if (mOnResetStart)
     {
-        mpViewer->RequestStop();
-        while (!mpViewer->isStopped())
-        {
-            usleep(3000);
-        }
+        mOnResetStart();
     }
 
     // Reset Local Mapping
@@ -3547,26 +3524,20 @@ void Tracking::Reset(bool bLocMap)
     mpLastKeyFrame = static_cast<KeyFrame *>(NULL);
     mvIniMatches.clear();
 
-    if (mpViewer)
+    if (mOnResetComplete)
     {
-        mpViewer->Release();
+        mOnResetComplete();
     }
-
     Verbose::PrintMess("   End reseting! ", Verbose::VERBOSITY_NORMAL);
 }
 
 void Tracking::ResetActiveMap(bool bLocMap)
 {
     Verbose::PrintMess("Active map Reseting", Verbose::VERBOSITY_NORMAL);
-    if (mpViewer)
+    if (mOnResetStart)
     {
-        mpViewer->RequestStop();
-        while (!mpViewer->isStopped())
-        {
-            usleep(3000);
-        }
+        mOnResetStart();
     }
-
     Map *pMap = mpAtlas->GetCurrentMap();
 
     if (!bLocMap)
@@ -3646,11 +3617,10 @@ void Tracking::ResetActiveMap(bool bLocMap)
 
     mbVelocity = false;
 
-    if (mpViewer)
+    if (mOnResetComplete)
     {
-        mpViewer->Release();
+        mOnResetComplete();
     }
-
     Verbose::PrintMess("   End reseting! ", Verbose::VERBOSITY_NORMAL);
 }
 

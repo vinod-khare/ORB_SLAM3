@@ -20,14 +20,20 @@
  */
 
 #include "Converter.h"
+#include "FrameDrawer.h"
+#include "MapDrawer.h"
 #include "System.h"
 #include "frame_prefetcher.h"
+#include "Viewer.h"
+#include "viewer_settings.h"
 
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <memory>
+#include <thread>
 
 #include <boost/program_options.hpp>
 
@@ -269,8 +275,46 @@ int    main(int argc, char **argv)
         // Create SLAM system
         const ORB_SLAM3::System::eSensor sensor =
             stereo ? (inertial ? ORB_SLAM3::System::IMU_STEREO : ORB_SLAM3::System::STEREO) : (inertial ? ORB_SLAM3::System::IMU_MONOCULAR : ORB_SLAM3::System::MONOCULAR);
-        ORB_SLAM3::System SLAM(vocab_path, settings_path, sensor, use_viewer, 0, output_filename);
+        std::unique_ptr<ORB_SLAM3::viewer_settings> ui_settings;
+        if (use_viewer)
+        {
+            ui_settings = std::make_unique<ORB_SLAM3::viewer_settings>(ORB_SLAM3::read_viewer_settings(settings_path));
+        }
+        ORB_SLAM3::System SLAM(vocab_path, settings_path, sensor, 0, output_filename);
         const float       image_scale    = SLAM.GetImageScale();
+
+        std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
+        std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
+        std::unique_ptr<ORB_SLAM3::Viewer>      viewer;
+        std::thread                             viewer_thread;
+        if (use_viewer)
+        {
+            frame_drawer       = std::make_unique<ORB_SLAM3::FrameDrawer>(SLAM.GetAtlas());
+            frame_drawer->both = stereo;
+            map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(SLAM.GetAtlas(), *ui_settings);
+            viewer             = std::make_unique<ORB_SLAM3::Viewer>(&SLAM, frame_drawer.get(), map_drawer.get(), SLAM.GetTracker(), *ui_settings);
+            viewer->both      = stereo;
+            SLAM.GetTracker()->SetResetHooks(
+                [&viewer]
+                {
+                    viewer->RequestStop();
+                    while (!viewer->isStopped())
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                    }
+                },
+                [&viewer] { viewer->Release(); });
+            viewer_thread = std::thread(&ORB_SLAM3::Viewer::Run, viewer.get());
+        }
+
+        const auto stop_viewer = [&]
+        {
+            if (viewer_thread.joinable())
+            {
+                viewer->RequestFinish();
+                viewer_thread.join();
+            }
+        };
 
         int               proccIm        = 0;
         const auto        playback_start = std::chrono::steady_clock::now();
@@ -298,6 +342,15 @@ int    main(int argc, char **argv)
                 {
                     SLAM.TrackMonocular(frame.image, frame.timestamp, frame.imu, frame.filename);
                 }
+                if (viewer)
+                {
+                    auto *tracker = SLAM.GetTracker();
+                    frame_drawer->Update(tracker);
+                    if (tracker->mCurrentFrame.isSet())
+                    {
+                        map_drawer->SetCurrentCameraPose(tracker->mCurrentFrame.GetPose());
+                    }
+                }
                 const auto   tracking_end  = std::chrono::steady_clock::now();
 
                 const double ttrack        = std::chrono::duration<double>(tracking_end - tracking_start).count();
@@ -307,6 +360,7 @@ int    main(int argc, char **argv)
         }
         catch (...)
         {
+            stop_viewer();
             SLAM.Shutdown();
             throw;
         }
@@ -314,6 +368,7 @@ int    main(int argc, char **argv)
         spdlog::info("Playback: {} frames in {:.3f} s ({:.1f} frames/s), including input/prefetch waits", proccIm, playback_seconds, proccIm / playback_seconds);
 
         // Stop all threads
+        stop_viewer();
         SLAM.Shutdown();
 
         // Save camera trajectory

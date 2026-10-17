@@ -40,15 +40,14 @@
 
 #include <openssl/evp.h>
 #include <openssl/md5.h>
-#include <pangolin/pangolin.h>
 
 namespace ORB_SLAM3
 {
 
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const bool bUseViewer, const int initFr, const string &strSequence)
-    : mSensor(sensor), mpViewer(static_cast<Viewer *>(NULL)), mbReset(false), mbResetActiveMap(false), mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false), mbShutDown(false)
+System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr, const string &strSequence)
+    : mSensor(sensor), mbReset(false), mbResetActiveMap(false), mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false), mbShutDown(false)
 {
     // Output welcome message
     cout << endl
@@ -180,14 +179,10 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         mpAtlas->SetInertialSensor();
     }
 
-    // Create Drawers. These are used by the Viewer
-    mpFrameDrawer = new FrameDrawer(mpAtlas);
-    mpMapDrawer   = new MapDrawer(mpAtlas, settings_.get());
-
     // Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     cout << "Seq. Name: " << strSequence << endl;
-    mpTracker       = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer, mpAtlas, mpKeyFrameDatabase, mSensor, settings_.get(), strSequence);
+    mpTracker       = new Tracking(this, mpVocabulary, mpAtlas, mpKeyFrameDatabase, mSensor, settings_.get(), strSequence);
 
     // Initialize the Local Mapping thread and launch
     mpLocalMapper   = new LocalMapping(this, mpAtlas, mSensor == MONOCULAR || mSensor == IMU_MONOCULAR, mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD, strSequence);
@@ -220,17 +215,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
 
     // usleep(10*1000*1000);
-
-    // Initialize the Viewer thread and launch
-    if (bUseViewer)
-    // if(false) // TODO
-    {
-        mpViewer  = new Viewer(this, mpFrameDrawer, mpMapDrawer, mpTracker, settings_.get());
-        mptViewer = new thread(&Viewer::Run, mpViewer);
-        mpTracker->SetViewer(mpViewer);
-        mpLoopCloser->mpViewer = mpViewer;
-        mpViewer->both         = mpFrameDrawer->both;
-    }
 
     // Fix verbosity
     Verbose::SetTh(Verbose::VERBOSITY_QUIET);
@@ -576,18 +560,6 @@ void System::Shutdown()
 
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
-    if (mpViewer)
-    {
-        mpViewer->RequestFinish();
-        while (!mpViewer->isFinished())
-        {
-            usleep(5000);
-        }
-        if (mptViewer && mptViewer->joinable())
-        {
-            mptViewer->join();
-        }
-    }
 
     // Wait until all thread have effectively stopped
     /*while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() || mpLoopCloser->isRunningGBA())
@@ -609,9 +581,6 @@ void System::Shutdown()
         Verbose::PrintMess("Atlas saving to file " + mStrSaveAtlasToFile, Verbose::VERBOSITY_NORMAL);
         SaveAtlas(FileType::BINARY_FILE);
     }
-
-    /*if(mpViewer)
-        pangolin::BindToContext("ORB-SLAM2: Map Viewer");*/
 
 #ifdef REGISTER_TIMES
     mpTracker->PrintTimeStats();
@@ -1849,6 +1818,12 @@ void System::ChangeDataset()
 }
 
 float System::GetImageScale() { return mpTracker->GetImageScale(); }
+
+Atlas *System::GetAtlas() const { return mpAtlas; }
+
+Tracking *System::GetTracker() const { return mpTracker; }
+
+float System::GetCameraFrameRate() const { return settings_->fps(); }
 
 #ifdef REGISTER_TIMES
 void System::InsertRectTime(double &time) { mpTracker->vdRectStereo_ms.push_back(time); }

@@ -24,7 +24,6 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d.hpp>
-#include <opencv2/highgui/highgui.hpp>
 
 namespace ORB_SLAM3
 {

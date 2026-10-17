@@ -25,7 +25,6 @@
 
 #include <chrono>
 #include <mutex>
-#include <unordered_set>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
@@ -34,7 +33,6 @@ namespace ORB_SLAM3
 {
 
 class Tracking;
-class Viewer;
 
 class FrameDrawer
 {

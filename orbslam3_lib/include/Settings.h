@@ -107,18 +107,6 @@ class Settings
     keypoint_detector_type keypoint_detector() const { return _keypoint_detector; }
     bool                   use_optical_flow() const { return _use_optical_flow; }
 
-    float                  keyFrameSize() { return keyFrameSize_; }
-    float                  keyFrameLineWidth() { return keyFrameLineWidth_; }
-    float                  graphLineWidth() { return graphLineWidth_; }
-    float                  pointSize() { return pointSize_; }
-    float                  cameraSize() { return cameraSize_; }
-    float                  cameraLineWidth() { return cameraLineWidth_; }
-    float                  viewPointX() { return viewPointX_; }
-    float                  viewPointY() { return viewPointY_; }
-    float                  viewPointZ() { return viewPointZ_; }
-    float                  viewPointF() { return viewPointF_; }
-    float                  imageViewerScale() { return imageViewerScale_; }
-
     std::string            atlasLoadFile() { return sLoadFrom_; }
     std::string            atlasSaveFile() { return sSaveto_; }
 
@@ -159,7 +147,6 @@ class Settings
     void                             read_imu(cv::FileStorage &settings);
     void                             readRGBD(cv::FileStorage &fSettings);
     void                             readORB(cv::FileStorage &fSettings);
-    void                             readViewer(cv::FileStorage &fSettings);
     void                             readLoadAndSave(cv::FileStorage &fSettings);
     void                             readOtherParameters(cv::FileStorage &fSettings);
 
@@ -217,18 +204,6 @@ class Settings
     int                              initThFAST_, minThFAST_;
     keypoint_detector_type           _keypoint_detector;
     bool                             _use_optical_flow{false};
-
-    /*
-     * Viewer stuff
-     */
-    float                            keyFrameSize_;
-    float                            keyFrameLineWidth_;
-    float                            graphLineWidth_;
-    float                            pointSize_;
-    float                            cameraSize_;
-    float                            cameraLineWidth_;
-    float                            viewPointX_, viewPointY_, viewPointZ_, viewPointF_;
-    float                            imageViewerScale_;
 
     /*
      * Save & load maps

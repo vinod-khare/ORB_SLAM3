@@ -7,7 +7,7 @@ add_executable(orbslam3_tests
     native_keypoints_test.cpp
     frame_prefetcher_test.cpp)
 
-target_link_libraries(orbslam3_tests PRIVATE orbslam3_input Catch2::Catch2WithMain)
+target_link_libraries(orbslam3_tests PRIVATE orbslam3_input orbslam3_ui Catch2::Catch2WithMain)
 
 include(Catch)
 catch_discover_tests(orbslam3_tests)

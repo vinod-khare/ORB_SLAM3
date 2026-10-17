@@ -5,9 +5,8 @@ project(ORB_SLAM3 LANGUAGES C CXX)
 find_package(Boost CONFIG REQUIRED COMPONENTS serialization)
 find_package(DBoW2 CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
-find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d calib3d imgcodecs highgui video)
+find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d calib3d imgcodecs video)
 find_package(OpenSSL REQUIRED)
-find_package(Pangolin CONFIG REQUIRED)
 find_package(Sophus CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(g2o CONFIG REQUIRED)
@@ -33,18 +32,15 @@ add_library(ORB_SLAM3 SHARED
         source/LoopClosing.cc
         source/ORBextractor.cc
         source/ORBmatcher.cc
-        source/FrameDrawer.cc
         source/Converter.cc
         source/MapPoint.cc
         source/KeyFrame.cc
         source/Atlas.cc
         source/Map.cc
-        source/MapDrawer.cc
         source/Optimizer.cc
         source/Frame.cc
         source/KeyFrameDatabase.cc
         source/Sim3Solver.cc
-        source/Viewer.cc
         source/ImuTypes.cc
         source/G2oTypes.cc
         source/CameraModels/Pinhole.cpp
@@ -72,10 +68,8 @@ target_link_libraries(ORB_SLAM3 PUBLIC
         opencv_features2d
         opencv_calib3d
         opencv_imgcodecs
-        opencv_highgui
         opencv_video
         Eigen3::Eigen
-        pango_display
         DBoW2::DBoW2
         Sophus::Sophus
         g2o::core

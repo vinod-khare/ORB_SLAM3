@@ -28,16 +28,16 @@
 namespace ORB_SLAM3
 {
 
-MapDrawer::MapDrawer(Atlas *pAtlas, Settings *settings) : mpAtlas(pAtlas) { newParameterLoader(settings); }
+MapDrawer::MapDrawer(Atlas *pAtlas, const viewer_settings &settings) : mpAtlas(pAtlas) { newParameterLoader(settings); }
 
-void MapDrawer::newParameterLoader(Settings *settings)
+void MapDrawer::newParameterLoader(const viewer_settings &settings)
 {
-    mKeyFrameSize      = settings->keyFrameSize();
-    mKeyFrameLineWidth = settings->keyFrameLineWidth();
-    mGraphLineWidth    = settings->graphLineWidth();
-    mPointSize         = settings->pointSize();
-    mCameraSize        = settings->cameraSize();
-    mCameraLineWidth   = settings->cameraLineWidth();
+    mKeyFrameSize      = settings.key_frame_size;
+    mKeyFrameLineWidth = settings.key_frame_line_width;
+    mGraphLineWidth    = settings.graph_line_width;
+    mPointSize         = settings.point_size;
+    mCameraSize        = settings.camera_size;
+    mCameraLineWidth   = settings.camera_line_width;
 }
 
 void MapDrawer::DrawMapPoints()

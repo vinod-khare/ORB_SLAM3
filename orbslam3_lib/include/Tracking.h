@@ -21,20 +21,18 @@
 
 #include "Atlas.h"
 #include "Frame.h"
-#include "FrameDrawer.h"
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
 #include "KeyFrameDatabase.h"
 #include "LocalMapping.h"
 #include "LoopClosing.h"
-#include "MapDrawer.h"
 #include "ORBVocabulary.h"
 #include "ORBextractor.h"
 #include "Settings.h"
 #include "System.h"
-#include "Viewer.h"
 
 #include <memory>
+#include <functional>
 #include <mutex>
 #include <unordered_set>
 #include <utility>
@@ -45,8 +43,6 @@
 namespace ORB_SLAM3
 {
 
-class Viewer;
-class FrameDrawer;
 class Atlas;
 class LocalMapping;
 class LoopClosing;
@@ -58,7 +54,7 @@ class Tracking
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings,
+    Tracking(System *pSys, ORBVocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings,
              const string &_nameSeq = std::string());
 
     ~Tracking();
@@ -72,7 +68,7 @@ class Tracking
 
     void         SetLocalMapper(LocalMapping *pLocalMapper);
     void         SetLoopClosing(LoopClosing *pLoopClosing);
-    void         SetViewer(Viewer *pViewer);
+    void         SetResetHooks(std::function<void()> on_reset_start, std::function<void()> on_reset_complete);
     void         SetStepByStep(bool bSet);
     bool         GetStepByStep();
 
@@ -269,11 +265,9 @@ class Tracking
 
     // System
     System                       *mpSystem;
+    std::function<void()>         mOnResetStart;
+    std::function<void()>         mOnResetComplete;
 
-    // Drawers
-    Viewer                       *mpViewer;
-    FrameDrawer                  *mpFrameDrawer;
-    MapDrawer                    *mpMapDrawer;
     bool                          bStepByStep;
 
     // Atlas

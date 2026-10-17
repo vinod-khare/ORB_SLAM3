@@ -22,7 +22,7 @@
 #include "Atlas.h"
 #include "KeyFrame.h"
 #include "MapPoint.h"
-#include "Settings.h"
+#include "viewer_settings.h"
 
 #include <mutex>
 
@@ -31,15 +31,13 @@
 namespace ORB_SLAM3
 {
 
-class Settings;
-
 class MapDrawer
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    MapDrawer(Atlas *pAtlas, Settings *settings);
+    MapDrawer(Atlas *pAtlas, const viewer_settings &settings);
 
-    void   newParameterLoader(Settings *settings);
+    void   newParameterLoader(const viewer_settings &settings);
 
     Atlas *mpAtlas;
 

@@ -28,11 +28,6 @@
 namespace ORB_SLAM3
 {
 
-class ViewerConfig
-{
-
-};
-
 class CameraConfig
 {
 
@@ -55,7 +50,6 @@ public:
 
 private:
 
-    ViewerConfig mViewerConfig;
     CameraConfig mCameraConfig;
     ORBExtractorConfig mORBConfig;
     IMUConfig mIMUConfig;

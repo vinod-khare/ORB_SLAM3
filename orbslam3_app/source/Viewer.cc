@@ -18,6 +18,11 @@
 
 #include "Viewer.h"
 
+#include "FrameDrawer.h"
+#include "MapDrawer.h"
+#include "System.h"
+#include "Tracking.h"
+
 #include <mutex>
 
 #include <pangolin/pangolin.h>
@@ -25,35 +30,28 @@
 namespace ORB_SLAM3
 {
 
-Viewer::Viewer(System *pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, Settings *settings)
+Viewer::Viewer(System *pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, const viewer_settings &settings)
     : both(false), mpSystem(pSystem), mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpTracker(pTracking), mbFinishRequested(false), mbFinished(true), mbStopped(true),
       mbStopRequested(false)
 {
     newParameterLoader(settings);
+    float fps = pSystem->GetCameraFrameRate();
+    if (fps < 1.f)
+    {
+        fps = 30.f;
+    }
+    mT = 1e3 / fps;
 
     mbStopTrack = false;
 }
 
-void Viewer::newParameterLoader(Settings *settings)
+void Viewer::newParameterLoader(const viewer_settings &settings)
 {
-    mImageViewerScale = 1.f;
-
-    float fps         = settings->fps();
-    if (fps < 1)
-    {
-        fps = 30;
-    }
-    mT                = 1e3 / fps;
-
-    cv::Size imSize   = settings->newImSize();
-    mImageHeight      = imSize.height;
-    mImageWidth       = imSize.width;
-
-    mImageViewerScale = settings->imageViewerScale();
-    mViewpointX       = settings->viewPointX();
-    mViewpointY       = settings->viewPointY();
-    mViewpointZ       = settings->viewPointZ();
-    mViewpointF       = settings->viewPointF();
+    mImageViewerScale = settings.image_view_scale;
+    mViewpointX       = settings.viewpoint_x;
+    mViewpointY       = settings.viewpoint_y;
+    mViewpointZ       = settings.viewpoint_z;
+    mViewpointF       = settings.viewpoint_f;
 }
 
 void Viewer::Run()

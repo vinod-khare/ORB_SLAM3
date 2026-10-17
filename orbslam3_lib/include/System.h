@@ -20,16 +20,13 @@
 #define SYSTEM_H
 
 #include "Atlas.h"
-#include "FrameDrawer.h"
 #include "ImuTypes.h"
 #include "KeyFrameDatabase.h"
 #include "LocalMapping.h"
 #include "LoopClosing.h"
-#include "MapDrawer.h"
 #include "ORBVocabulary.h"
 #include "Settings.h"
 #include "Tracking.h"
-#include "Viewer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,9 +67,6 @@ class Verbose
     static void SetTh(eLevel _th) { th = _th; }
 };
 
-class Viewer;
-class FrameDrawer;
-class MapDrawer;
 class Atlas;
 class Tracking;
 class LocalMapping;
@@ -102,8 +96,8 @@ class System
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    // Initialize the SLAM system. It launches the Local Mapping, Loop Closing and Viewer threads.
-    System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const bool bUseViewer = true, const int initFr = 0, const string &strSequence = std::string());
+    // Initialize the SLAM system. It launches the Local Mapping and Loop Closing threads.
+    System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr = 0, const string &strSequence = std::string());
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
@@ -203,6 +197,9 @@ class System
     void                      ChangeDataset();
 
     float                     GetImageScale();
+    Atlas                    *GetAtlas() const;
+    Tracking                 *GetTracker() const;
+    float                     GetCameraFrameRate() const;
 
 #ifdef REGISTER_TIMES
     void InsertRectTime(double &time);
@@ -245,17 +242,10 @@ class System
     // a pose graph optimization and full bundle adjustment (in a new thread) afterwards.
     LoopClosing              *mpLoopCloser;
 
-    // The viewer draws the map and the current camera pose. It uses Pangolin.
-    Viewer                   *mpViewer;
-
-    FrameDrawer              *mpFrameDrawer;
-    MapDrawer                *mpMapDrawer;
-
-    // System threads: Local Mapping, Loop Closing, Viewer.
+    // System threads: Local Mapping and Loop Closing.
     // The Tracking thread "lives" in the main execution thread that creates the System object.
     std::thread              *mptLocalMapping;
     std::thread              *mptLoopClosing;
-    std::thread              *mptViewer;
 
     // Reset flag
     std::mutex                mMutexReset;

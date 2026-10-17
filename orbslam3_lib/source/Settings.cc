@@ -321,8 +321,6 @@ Settings::Settings(const std::string &config_file, const int &sensor) : bNeedToU
 
     readORB(fSettings);
     cout << "\t-Loaded ORB settings" << endl;
-    readViewer(fSettings);
-    cout << "\t-Loaded viewer settings" << endl;
     readLoadAndSave(fSettings);
     cout << "\t-Loaded Atlas settings" << endl;
     readOtherParameters(fSettings);
@@ -537,28 +535,6 @@ void Settings::readORB(cv::FileStorage &fSettings)
     }
 
     _use_optical_flow = use_optical_flow == 1;
-}
-
-void Settings::readViewer(cv::FileStorage &fSettings)
-{
-    bool found;
-
-    keyFrameSize_      = readParameter<float>(fSettings, "Viewer.KeyFrameSize", found);
-    keyFrameLineWidth_ = readParameter<float>(fSettings, "Viewer.KeyFrameLineWidth", found);
-    graphLineWidth_    = readParameter<float>(fSettings, "Viewer.GraphLineWidth", found);
-    pointSize_         = readParameter<float>(fSettings, "Viewer.PointSize", found);
-    cameraSize_        = readParameter<float>(fSettings, "Viewer.CameraSize", found);
-    cameraLineWidth_   = readParameter<float>(fSettings, "Viewer.CameraLineWidth", found);
-    viewPointX_        = readParameter<float>(fSettings, "Viewer.ViewpointX", found);
-    viewPointY_        = readParameter<float>(fSettings, "Viewer.ViewpointY", found);
-    viewPointZ_        = readParameter<float>(fSettings, "Viewer.ViewpointZ", found);
-    viewPointF_        = readParameter<float>(fSettings, "Viewer.ViewpointF", found);
-    imageViewerScale_  = readParameter<float>(fSettings, "Viewer.imageViewScale", found, false);
-
-    if (!found)
-    {
-        imageViewerScale_ = 1.0f;
-    }
 }
 
 void Settings::readLoadAndSave(cv::FileStorage &fSettings)
