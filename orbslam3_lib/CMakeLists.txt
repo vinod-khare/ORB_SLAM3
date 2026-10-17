@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.25)
 
 project(ORB_SLAM3 LANGUAGES C CXX)
 
