@@ -862,9 +862,10 @@ void ORBextractor::detect_keypoints_in_level(int level, int min_x, int max_x, in
     }
 }
 
-void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint>> &allKeypoints)
+void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint>> &allKeypoints, vector<vector<KeyPoint>> &display_keypoints)
 {
     allKeypoints.resize(nlevels);
+    display_keypoints.resize(nlevels);
 
     const float W = 35;
 
@@ -886,10 +887,11 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint>> &allKeypoint
             const int scaledPatchSize   = PATCH_SIZE * mvScaleFactor[level];
             for (KeyPoint &kp : keypoints)
             {
-                kp.pt.x   += minBorderX;
-                kp.pt.y   += minBorderY;
-                kp.octave  = level;
-                kp.size    = scaledPatchSize;
+                kp.pt.x += minBorderX;
+                kp.pt.y += minBorderY;
+                display_keypoints[level].push_back(kp);
+                kp.octave = level;
+                kp.size   = scaledPatchSize;
             }
             continue;
         }
@@ -994,10 +996,11 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint>> &allKeypoint
         const int nkps            = keypoints.size();
         for (int i = 0; i < nkps; i++)
         {
-            keypoints[i].pt.x   += minBorderX;
-            keypoints[i].pt.y   += minBorderY;
-            keypoints[i].octave  = level;
-            keypoints[i].size    = scaledPatchSize;
+            keypoints[i].pt.x += minBorderX;
+            keypoints[i].pt.y += minBorderY;
+            display_keypoints[level].push_back(keypoints[i]);
+            keypoints[i].octave = level;
+            keypoints[i].size   = scaledPatchSize;
         }
     }
 
@@ -1200,6 +1203,7 @@ static void computeDescriptors(const Mat &image, vector<KeyPoint> &keypoints, Ma
 
 int ORBextractor::operator()(InputArray _image, InputArray _mask, vector<KeyPoint> &_keypoints, OutputArray _descriptors, std::vector<int> &vLappingArea)
 {
+    display_keypoints_.clear();
     // cout << "[ORBextractor]: Max Features: " << nfeatures << endl;
     if (_image.empty())
     {
@@ -1213,7 +1217,8 @@ int ORBextractor::operator()(InputArray _image, InputArray _mask, vector<KeyPoin
     ComputePyramid(image);
 
     vector<vector<KeyPoint>> allKeypoints;
-    ComputeKeyPointsOctTree(allKeypoints);
+    vector<vector<KeyPoint>> display_keypoints;
+    ComputeKeyPointsOctTree(allKeypoints, display_keypoints);
     // ComputeKeyPointsOld(allKeypoints);
 
     Mat descriptors;
@@ -1235,7 +1240,8 @@ int ORBextractor::operator()(InputArray _image, InputArray _mask, vector<KeyPoin
 
     //_keypoints.clear();
     //_keypoints.reserve(nkeypoints);
-    _keypoints    = vector<cv::KeyPoint>(nkeypoints);
+    _keypoints = vector<cv::KeyPoint>(nkeypoints);
+    display_keypoints_.resize(nkeypoints);
 
     int offset    = 0;
     // Modified for speeding up stereo fisheye matching
@@ -1265,6 +1271,9 @@ int ORBextractor::operator()(InputArray _image, InputArray _mask, vector<KeyPoin
         int   i      = 0;
         for (vector<KeyPoint>::iterator keypoint = keypoints.begin(), keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
         {
+            auto display_key  = display_keypoints[level][i];
+            display_key.pt   *= scale;
+            display_key.size *= scale;
 
             // Scale keypoint coordinates
             if (level != 0)
@@ -1274,13 +1283,15 @@ int ORBextractor::operator()(InputArray _image, InputArray _mask, vector<KeyPoin
 
             if (keypoint->pt.x >= vLappingArea[0] && keypoint->pt.x <= vLappingArea[1])
             {
-                _keypoints.at(stereoIndex) = (*keypoint);
+                _keypoints.at(stereoIndex)         = (*keypoint);
+                display_keypoints_.at(stereoIndex) = display_key;
                 desc.row(i).copyTo(descriptors.row(stereoIndex));
                 stereoIndex--;
             }
             else
             {
-                _keypoints.at(monoIndex) = (*keypoint);
+                _keypoints.at(monoIndex)         = (*keypoint);
+                display_keypoints_.at(monoIndex) = display_key;
                 desc.row(i).copyTo(descriptors.row(monoIndex));
                 monoIndex++;
             }

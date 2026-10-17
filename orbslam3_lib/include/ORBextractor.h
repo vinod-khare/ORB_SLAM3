@@ -83,13 +83,16 @@ class ORBextractor
 
     std::vector<float> inline GetInverseScaleSigmaSquares() { return mvInvLevelSigma2; }
 
-    keypoint_detector_type get_detector_type() const { return _detector_type; }
+    keypoint_detector_type           get_detector_type() const { return _detector_type; }
 
-    std::vector<cv::Mat>   mvImagePyramid;
+    // Native detector metadata in input-image coordinates, ordered like the last extraction's ORB keypoints.
+    const std::vector<cv::KeyPoint> &get_display_keypoints() const { return display_keypoints_; }
+
+    std::vector<cv::Mat>             mvImagePyramid;
 
   protected:
     void                      ComputePyramid(cv::Mat image);
-    void                      ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint>> &allKeypoints);
+    void                      ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint>> &allKeypoints, std::vector<std::vector<cv::KeyPoint>> &display_keypoints);
     std::vector<cv::KeyPoint> DistributeOctTree(const std::vector<cv::KeyPoint> &vToDistributeKeys, const int &minX, const int &maxX, const int &minY, const int &maxY, const int &nFeatures,
                                                 const int &level);
 
@@ -112,11 +115,12 @@ class ORBextractor
     std::vector<float>        mvInvLevelSigma2;
 
   private:
-    void                   detect_corners_in_cell(const cv::Mat &cell, std::vector<cv::KeyPoint> &keypoints, int threshold) const;
-    void                   detect_keypoints_in_level(int level, int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints);
+    void                      detect_corners_in_cell(const cv::Mat &cell, std::vector<cv::KeyPoint> &keypoints, int threshold) const;
+    void                      detect_keypoints_in_level(int level, int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints);
 
-    keypoint_detector_type _detector_type;
-    cv::Ptr<cv::Feature2D> _detector;
+    keypoint_detector_type    _detector_type;
+    cv::Ptr<cv::Feature2D>    _detector;
+    std::vector<cv::KeyPoint> display_keypoints_;
 };
 
 } // namespace ORB_SLAM3

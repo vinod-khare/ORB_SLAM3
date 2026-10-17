@@ -2378,9 +2378,11 @@ int Tracking::track_with_optical_flow()
     std::vector<cv::Point2f>       previous_points;
     std::vector<cv::Point2f>       current_points;
     std::vector<cv::KeyPoint>      previous_keys;
+    std::vector<cv::KeyPoint>      previous_display_keys;
     std::vector<MapPoint *>        map_points;
     std::array<int, 16>            cell_counts{};
     std::unordered_set<MapPoint *> selected_points;
+    CV_Assert(mLastFrame.display_keys.size() == mLastFrame.mvKeys.size());
     previous_points.reserve(mLastFrame.mvKeys.size());
     map_points.reserve(mLastFrame.mvKeys.size());
 
@@ -2408,6 +2410,7 @@ int Tracking::track_with_optical_flow()
         ++cell_count;
         previous_points.push_back(key.pt);
         previous_keys.push_back(key);
+        previous_display_keys.push_back(mLastFrame.display_keys[index]);
         map_points.push_back(map_point);
         cv::Point2f prediction = key.pt;
         // Camera-model projections are in LK coordinates except for distorted pinhole input.
@@ -2446,6 +2449,7 @@ int Tracking::track_with_optical_flow()
     cv::calcOpticalFlowPyrLK(current_pyramid, previous_pyramid, current_points, backward_points, backward_status, backward_error, window_size, 3, criteria);
 
     std::vector<cv::KeyPoint> tracked_keys;
+    std::vector<cv::KeyPoint> tracked_display_keys;
     std::vector<MapPoint *>   tracked_points;
     tracked_keys.reserve(previous_points.size());
     tracked_points.reserve(previous_points.size());
@@ -2476,10 +2480,13 @@ int Tracking::track_with_optical_flow()
         auto key = previous_keys[index];
         key.pt   = point;
         tracked_keys.push_back(key);
+        auto display_key = previous_display_keys[index];
+        display_key.pt   = point;
+        tracked_display_keys.push_back(display_key);
         tracked_points.push_back(map_points[index]);
     }
 
-    mCurrentFrame.set_tracked_features(std::move(tracked_keys), std::move(tracked_points));
+    mCurrentFrame.set_tracked_features(std::move(tracked_keys), std::move(tracked_points), std::move(tracked_display_keys));
     return mCurrentFrame.N >= 0.6 * flow_reference_matches_ ? mCurrentFrame.N : 0;
 }
 

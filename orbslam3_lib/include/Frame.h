@@ -57,7 +57,7 @@ class Frame
     // Calibration/state for a new image, without detecting or describing features.
     Frame(Frame &previous, double timestamp);
     void extract_features(const cv::Mat &left, const cv::Mat &right = cv::Mat());
-    void set_tracked_features(std::vector<cv::KeyPoint> keys, std::vector<MapPoint *> points);
+    void set_tracked_features(std::vector<cv::KeyPoint> keys, std::vector<MapPoint *> points, std::vector<cv::KeyPoint> native_keys = {});
     bool reliable_flow_inliers(const cv::Size &image_size) const;
     bool flow_only{false};
 
@@ -224,6 +224,9 @@ class Frame
     // In the RGB-D case, RGB images can be distorted.
     std::vector<cv::KeyPoint>           mvKeys, mvKeysRight;
     std::vector<cv::KeyPoint>           mvKeysUn;
+
+    // Display-only detector metadata, aligned with mvKeys/mvKeysRight; never used for matching.
+    std::vector<cv::KeyPoint>           display_keys, display_keys_right;
 
     // Corresponding stereo coordinate and depth for each keypoint.
     std::vector<MapPoint *>             mvpMapPoints;

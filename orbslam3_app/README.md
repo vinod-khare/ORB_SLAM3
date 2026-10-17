@@ -21,6 +21,12 @@ Set `Tracking.useOpticalFlow: 1` to use a flow-first frontend in monocular/stere
 
 Shutdown reports flow-only frames, feature-extracted frames, and flow recovery attempts. The app also reports playback throughput including input/prefetch waits; the existing median/mean tracking times exclude those waits. Compare both timing measures and trajectory accuracy on the same sequence before drawing performance conclusions.
 
+## Viewer keypoints
+
+The **ORB-SLAM3: Current Frame** window displays tracked features using OpenCV's rich keypoint style: circles show feature size and radial lines show orientation (when available). Green marks map-point matches; blue marks visual-odometry matches. Both camera views use this style, with keypoint positions and sizes scaled together. Initialization correspondence lines and tracking statistics are unchanged.
+
+The viewer preserves the selected detector's native size and orientation, separately from the ORB patch sizes and orientations used for descriptors and matching. Sizes are converted from pyramid-level to input-image coordinates. Detectors that do not report orientation (such as FAST, AGAST, and GFTT) display circles without orientation lines. OpenCV does not assign a separate symbol to each detector type. Flow-only frames move the last detected markers to their tracked positions; their size and orientation remain from the last detection until features are refreshed.
+
 ## Build
 
 Install the dependencies used by the project (see [`install_dependencies.sh`](../install_dependencies.sh)), then configure and build from the repository root:

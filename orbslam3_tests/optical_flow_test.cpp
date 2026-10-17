@@ -76,18 +76,24 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
 {
     const int  camera_kind = GENERATE(0, 1, 2, 3); // monocular, rectified stereo, fisheye stereo, distorted monocular
     const bool stereo      = camera_kind == 1 || camera_kind == 2;
+
     cv::Mat    image(256, 256, CV_8UC1);
     cv::RNG    random(17);
+
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
+
     ORB_SLAM3::ORBextractor   left_extractor(400, 1.2f, 4, 20, 7);
     ORB_SLAM3::ORBextractor   right_extractor(400, 1.2f, 4, 20, 7);
     ORB_SLAM3::Pinhole        pinhole({200, 200, 128, 128});
     ORB_SLAM3::KannalaBrandt8 left_camera({200, 200, 128, 128, 0, 0, 0, 0});
     ORB_SLAM3::KannalaBrandt8 right_camera({200, 200, 128, 128, 0, 0, 0, 0});
+
     left_camera.mvLappingArea  = {0, 256};
     right_camera.mvLappingArea = {0, 256};
+
     auto    calibration        = pinhole.toK();
     cv::Mat distortion         = cv::Mat::zeros(4, 1, CV_32F);
+    
     if (camera_kind == 3)
     {
         distortion.at<float>(0) = -0.1f;
@@ -110,6 +116,13 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     previous.mpLastKeyFrame = nullptr;
     previous.mnDataset      = 0;
     REQUIRE(previous.N > 0);
+    REQUIRE(previous.display_keys.size() == previous.mvKeys.size());
+    REQUIRE(previous.display_keys_right.size() == previous.mvKeysRight.size());
+    REQUIRE(previous.display_keys.front().size == 7 * previous.mvScaleFactors[previous.mvKeys.front().octave]);
+    REQUIRE(previous.display_keys.front().angle == -1);
+    const ORB_SLAM3::Frame copied(previous);
+    REQUIRE(copied.display_keys.front().size == previous.display_keys.front().size);
+    REQUIRE(copied.display_keys_right.size() == previous.display_keys_right.size());
     REQUIRE_FALSE(previous.mDescriptors.empty());
     previous.get_optical_flow_pyramid(image);
     const auto       next_id = ORB_SLAM3::Frame::nNextId;
@@ -118,6 +131,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(ORB_SLAM3::Frame::nNextId == next_id + 1);
     REQUIRE(current.flow_only);
     REQUIRE(current.N == 0);
+    REQUIRE(current.display_keys.empty());
+    REQUIRE(current.display_keys_right.empty());
     REQUIRE(current.mDescriptors.empty());
     REQUIRE(current.mDescriptorsRight.empty());
     REQUIRE(current.optical_flow_pyramid.empty());
@@ -127,9 +142,15 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
 
     ORB_SLAM3::MapPoint point;
     cv::KeyPoint        tracked(73.25f, 81.75f, 31.0f);
-    current.set_tracked_features({tracked}, {&point});
+    const cv::KeyPoint  native_tracked(tracked.pt, 7.f, -1.f);
+    current.set_tracked_features({tracked}, {&point}, {native_tracked});
     REQUIRE(current.N == 1);
     REQUIRE(current.mvKeys.front().pt == tracked.pt);
+    REQUIRE(current.display_keys.front().pt == tracked.pt);
+    REQUIRE(current.display_keys.front().size == 7.f);
+    REQUIRE(current.display_keys.front().angle == -1.f);
+    REQUIRE(current.mvKeys.front().size == 31.f);
+    REQUIRE(current.display_keys_right.empty());
     std::vector<cv::Point2f> expected_undistorted;
     cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected_undistorted, calibration, distortion, cv::noArray(), calibration);
     REQUIRE(cv::norm(current.mvKeysUn.front().pt - expected_undistorted.front()) < 0.001);
@@ -174,6 +195,10 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(std::all_of(current.mvpMapPoints.begin(), current.mvpMapPoints.end(), [](const auto *entry) { return entry == nullptr; }));
     REQUIRE(current.mvKeys.size() == previous.mvKeys.size());
     REQUIRE(current.mvKeysRight.size() == previous.mvKeysRight.size());
+    REQUIRE(current.display_keys.size() == previous.display_keys.size());
+    REQUIRE(current.display_keys_right.size() == previous.display_keys_right.size());
+    REQUIRE(current.display_keys.front().size == previous.display_keys.front().size);
+    REQUIRE(current.display_keys.front().angle == previous.display_keys.front().angle);
     REQUIRE(current.mvLeftToRightMatch == previous.mvLeftToRightMatch);
     REQUIRE(current.mvDepth == previous.mvDepth);
     REQUIRE(current.mBowVec.empty());
