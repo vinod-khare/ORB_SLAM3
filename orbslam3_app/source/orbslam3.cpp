@@ -24,6 +24,7 @@
 #include "MapDrawer.h"
 #include "System.h"
 #include "Viewer.h"
+#include "command_line_options.h"
 #include "frame_prefetcher.h"
 #include "viewer_settings.h"
 
@@ -35,14 +36,11 @@
 #include <memory>
 #include <thread>
 
-#include <boost/program_options.hpp>
-
 #include <opencv2/core/core.hpp>
 
 #include <spdlog/spdlog.h>
 
 using namespace std;
-namespace po = boost::program_options;
 
 namespace
 {
@@ -83,7 +81,7 @@ std::filesystem::path resolve_path(const std::filesystem::path &root, const std:
     return (path.is_absolute() ? path : root / path).lexically_normal();
 }
 
-data_paths read_data_paths(const std::string &settings_path, const po::variables_map &options, bool stereo, bool inertial)
+data_paths read_data_paths(const std::string &settings_path, const command_line_options &options, bool stereo, bool inertial)
 {
     cv::FileStorage settings(settings_path, cv::FileStorage::READ);
     if (!settings.isOpened())
@@ -92,25 +90,15 @@ data_paths read_data_paths(const std::string &settings_path, const po::variables
     }
 
     const std::filesystem::path settings_directory = std::filesystem::absolute(settings_path).parent_path();
-    const bool                  root_from_cli      = options.count("data.root") != 0;
-    const std::string           root_value         = root_from_cli ? options["data.root"].as<std::string>() : read_data_setting(settings, "root");
+    const bool                  root_from_cli      = options.data_root.has_value();
+    const std::string           root_value         = root_from_cli ? *options.data_root : read_data_setting(settings, "root");
     const std::filesystem::path root               = root_value.empty() ? settings_directory : resolve_path(root_from_cli ? std::filesystem::current_path() : settings_directory, root_value);
 
-    const auto                  read_path          = [&](const std::string &name)
-    {
-        const std::string option_name = "data." + name;
+    const auto                  read_path = [&](const std::optional<std::string> &option, const std::string &name) { return option.has_value() ? *option : read_data_setting(settings, name); };
 
-        if (options.count(option_name))
-        {
-            return options[option_name].as<std::string>();
-        }
-
-        return read_data_setting(settings, name);
-    };
-
-    const std::string left_value  = read_path("left");
-    const std::string right_value = read_path("right");
-    const std::string imu_value   = read_path("imu");
+    const std::string           left_value  = read_path(options.data_left, "left");
+    const std::string           right_value = read_path(options.data_right, "right");
+    const std::string           imu_value   = read_path(options.data_imu, "imu");
 
     if (left_value.empty())
     {
@@ -137,71 +125,20 @@ int    main(int argc, char **argv)
 {
     try
     {
-        // TODO: refactor options parsing into a separate class
-        po::options_description desc("ORB-SLAM3 TUM-VI Example - Monocular / Stereo Modes\n\nUsage options");
-        desc.add_options()("help,h", "Show this help message")("vocab,v", po::value<string>()->required(), "Path to ORB vocabulary file")("settings,s", po::value<string>()->required(),
-                                                                                                                                          "Path to settings YAML file")(
-            "data.root", po::value<string>(), "Dataset root folder")("data.left", po::value<string>(), "Left image folder, absolute or relative to data.root")(
-            "data.right", po::value<string>(), "Right image folder, absolute or relative to data.root")("data.imu", po::value<string>(), "IMU CSV file, absolute or relative to data.root")(
-            "times-file,t", po::value<string>(), "Optional timestamps file. If omitted, filename stems are used as timestamps")("timestamps-type", po::value<string>()->default_value("auto"),
-                                                                                                                                "Timestamps file format: auto, filename_ns, timestamp_ns, utc")(
-            "output,o", po::value<string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")("output-folder", po::value<string>(),
-                                                                                                               "Folder to write trajectory files into (created if needed)")(
-            "save-colmap", po::bool_switch()->default_value(false), "Save COLMAP-compatible sparse model output")("save-ply", po::bool_switch()->default_value(false),
-                                                                                                                  "Save map points as PLY point cloud")(
-            "no-viewer", po::bool_switch()->default_value(false), "Run headless without the Pangolin viewer")("slam-type", po::value<string>()->default_value("mono"),
-                                                                                                              "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
-            "frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")("frames-stride", po::value<int>()->default_value(1),
-                                                                                                            "Take every Nth frame (stride)")(
-            "frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")("keypoint_detector.type", po::value<string>(),
-                                                                                                                "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze)")(
-            "keypoint_descriptor.type", po::value<string>(), "Keypoint descriptor (orb, sift, brisk)")("descriptor_matcher.type", po::value<string>(),
-                                                                                                       "Descriptor matcher (brute_force, flann)");
-
-        po::positional_options_description p;
-        p.add("vocab", 1);
-        p.add("settings", 1);
-        p.add("times-file", 1);
-
-        po::variables_map vm;
-
-        try
+        const command_line_options options(argc, argv);
+        if (options.exit_code.has_value())
         {
-            po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
-
-            if (vm.count("help"))
-            {
-                cout << desc << "\nExample:\n"
-                     << "  " << argv[0] << " vocab.txt settings.yaml\n"
-                     << "  " << argv[0] << " --vocab vocab.txt --settings settings.yaml --data.root dataset --data.left cam0/data\n"
-                     << endl;
-                return 0;
-            }
-
-            po::notify(vm);
-        }
-        catch (po::error &e)
-        {
-            cerr << "ERROR: " << e.what() << endl << endl;
-            cerr << "Usage: " << argv[0] << " VOCABULARY_FILE SETTINGS_FILE [TIMES_FILE] [OPTIONS]\n\n";
-            cerr << "If TIMES_FILE is omitted, image filename stems are interpreted "
-                    "as timestamps.\n\n";
-            cerr << desc << endl;
-            return 1;
+            return *options.exit_code;
         }
 
-        string vocab_path    = vm["vocab"].as<string>();
-        string settings_path = vm["settings"].as<string>();
-        string times_file;
-        if (vm.count("times-file"))
-        {
-            times_file = vm["times-file"].as<string>();
-        }
+        const string &vocab_path    = options.vocab_path;
+        const string &settings_path = options.settings_path;
+        const string  times_file    = options.times_file.value_or(string{});
 
-        string output_folder;
-        if (vm.count("output-folder"))
+        string        output_folder;
+        if (options.output_folder.has_value())
         {
-            output_folder = vm["output-folder"].as<string>();
+            output_folder = *options.output_folder;
             if (!std::filesystem::exists(output_folder))
             {
                 std::filesystem::create_directories(output_folder);
@@ -210,23 +147,21 @@ int    main(int argc, char **argv)
             output_folder += "/";
         }
 
-        string output_filename;
-        bool   bFileName = false;
-        if (vm.count("output"))
+        const string output_filename = options.output_filename.value_or(string{});
+        const bool   bFileName       = options.output_filename.has_value();
+        if (bFileName)
         {
-            output_filename = vm["output"].as<string>();
-            bFileName       = true;
             cout << "Output filename: " << output_filename << endl;
         }
 
-        int                            frames_skip     = vm["frames-skip"].as<int>();
-        int                            frames_stride   = vm["frames-stride"].as<int>();
-        int                            frames_take     = vm["frames-take"].as<int>();
-        folder_reader::timestamps_type timestamps_type = folder_reader::parse_timestamps_type(vm["timestamps-type"].as<string>());
-        bool                           save_colmap     = vm["save-colmap"].as<bool>();
-        bool                           save_ply        = vm["save-ply"].as<bool>();
-        const bool                     use_viewer      = !vm["no-viewer"].as<bool>();
-        const string                   slam_type       = vm["slam-type"].as<string>();
+        const int                            frames_skip     = options.frames_skip;
+        const int                            frames_stride   = options.frames_stride;
+        const int                            frames_take     = options.frames_take;
+        const folder_reader::timestamps_type timestamps_type = options.timestamps_type;
+        const bool                           save_colmap     = options.save_colmap;
+        const bool                           save_ply        = options.save_ply;
+        const bool                           use_viewer      = options.use_viewer;
+        const string                        &slam_type       = options.slam_type;
 
         if (slam_type != "mono" && slam_type != "mono-inertial" && slam_type != "stereo" && slam_type != "stereo-inertial")
         {
@@ -235,7 +170,7 @@ int    main(int argc, char **argv)
         }
         const bool       stereo          = slam_type == "stereo" || slam_type == "stereo-inertial";
         const bool       inertial        = slam_type == "mono-inertial" || slam_type == "stereo-inertial";
-        const data_paths paths           = read_data_paths(settings_path, vm, stereo, inertial);
+        const data_paths paths           = read_data_paths(settings_path, options, stereo, inertial);
         const string    &left_image_dir  = paths.left;
         const string    &right_image_dir = paths.right;
         const string    &imu_csv_path    = paths.imu;
@@ -283,9 +218,7 @@ int    main(int argc, char **argv)
         {
             ui_settings = std::make_unique<ORB_SLAM3::viewer_settings>(ORB_SLAM3::read_viewer_settings(settings_path));
         }
-        const ORB_SLAM3::feature_overrides      overrides{vm.count("keypoint_detector.type") ? vm["keypoint_detector.type"].as<string>() : string(),
-                                                          vm.count("keypoint_descriptor.type") ? vm["keypoint_descriptor.type"].as<string>() : string(),
-                                                          vm.count("descriptor_matcher.type") ? vm["descriptor_matcher.type"].as<string>() : string()};
+        const ORB_SLAM3::feature_overrides      overrides = options.overrides;
         ORB_SLAM3::System                       SLAM(vocab_path, settings_path, sensor, 0, output_filename, overrides);
         const float                             image_scale = SLAM.GetImageScale();
 

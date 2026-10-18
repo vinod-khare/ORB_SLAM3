@@ -26,31 +26,31 @@ if(NOT TARGET DBoW2::DBoW2)
 endif()
 
 add_library(ORB_SLAM3 SHARED
-        source/System.cc
-        source/Tracking.cc
-        source/LocalMapping.cc
-        source/LoopClosing.cc
-        source/keypoint_extractor.cc
-        source/descriptor_matcher.cc
-        source/Converter.cc
-        source/MapPoint.cc
-        source/KeyFrame.cc
-        source/Atlas.cc
-        source/Map.cc
-        source/Optimizer.cc
-        source/Frame.cc
-        source/KeyFrameDatabase.cc
-        source/Sim3Solver.cc
-        source/ImuTypes.cc
-        source/G2oTypes.cc
+        source/System.cpp
+        source/Tracking.cpp
+        source/LocalMapping.cpp
+        source/LoopClosing.cpp
+        source/keypoint_extractor.cpp
+        source/descriptor_matcher.cpp
+        source/Converter.cpp
+        source/MapPoint.cpp
+        source/KeyFrame.cpp
+        source/Atlas.cpp
+        source/Map.cpp
+        source/Optimizer.cpp
+        source/Frame.cpp
+        source/KeyFrameDatabase.cpp
+        source/Sim3Solver.cpp
+        source/ImuTypes.cpp
+        source/G2oTypes.cpp
         source/CameraModels/Pinhole.cpp
         source/CameraModels/KannalaBrandt8.cpp
         source/OptimizableTypes.cpp
         source/MLPnPsolver.cpp
-        source/GeometricTools.cc
-        source/TwoViewReconstruction.cc
-        source/Config.cc
-        source/Settings.cc
+        source/GeometricTools.cpp
+        source/TwoViewReconstruction.cpp
+        source/Config.cpp
+        source/Settings.cpp
         source/DUtils/Random.cpp
         source/DUtils/Timestamp.cpp)
 
