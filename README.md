@@ -116,8 +116,11 @@ The keypoint detector can be selected in the settings YAML. Only detection chang
 
 ```
 # FAST (default), AGAST, GFTT, ORB, BRISK, SIFT, AKAZE (case-insensitive)
-ORBextractor.detector: "SIFT"
+orb_extractor:
+  detector: "SIFT"
 ```
+
+The command line overrides the YAML: `orbslam3_app ... --orb_extractor.detector sift`.
 
 - **FAST, AGAST**: original per-cell grid detection using `ORBextractor.iniThFAST` / `ORBextractor.minThFAST`.
 - **GFTT, ORB, BRISK, SIFT, AKAZE**: run on each level of the ORB-SLAM image pyramid (single-scale where OpenCV allows; SIFT still searches its own scales). ORB and BRISK use `iniThFAST` as their corner threshold; GFTT, SIFT and AKAZE use OpenCV defaults.

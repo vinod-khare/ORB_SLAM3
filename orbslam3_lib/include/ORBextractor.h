@@ -116,7 +116,7 @@ class ORBextractor
 
   private:
     void                      detect_corners_in_cell(const cv::Mat &cell, std::vector<cv::KeyPoint> &keypoints, int threshold) const;
-    void                      detect_keypoints_in_level(int level, int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints);
+    void                      detect_keypoints(int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints);
 
     keypoint_detector_type    _detector_type;
     cv::Ptr<cv::Feature2D>    _detector;

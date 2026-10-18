@@ -23,8 +23,8 @@
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
 #include "System.h"
-#include "frame_prefetcher.h"
 #include "Viewer.h"
+#include "frame_prefetcher.h"
 #include "viewer_settings.h"
 
 #include <algorithm>
@@ -153,7 +153,8 @@ int    main(int argc, char **argv)
                                                                                                               "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
             "frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")("frames-stride", po::value<int>()->default_value(1),
                                                                                                             "Take every Nth frame (stride)")("frames-take", po::value<int>()->default_value(0),
-                                                                                                                                             "Maximum number of frames to process (0 = all)");
+                                                                                                                                             "Maximum number of frames to process (0 = all)")(
+            "orb_extractor.detector", po::value<string>(), "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze); overrides the settings YAML");
 
         po::positional_options_description p;
         p.add("vocab", 1);
@@ -280,8 +281,8 @@ int    main(int argc, char **argv)
         {
             ui_settings = std::make_unique<ORB_SLAM3::viewer_settings>(ORB_SLAM3::read_viewer_settings(settings_path));
         }
-        ORB_SLAM3::System SLAM(vocab_path, settings_path, sensor, 0, output_filename);
-        const float       image_scale    = SLAM.GetImageScale();
+        ORB_SLAM3::System SLAM(vocab_path, settings_path, sensor, 0, output_filename, vm.count("orb_extractor.detector") ? vm["orb_extractor.detector"].as<string>() : string());
+        const float       image_scale = SLAM.GetImageScale();
 
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
@@ -293,7 +294,7 @@ int    main(int argc, char **argv)
             frame_drawer->both = stereo;
             map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(SLAM.GetAtlas(), *ui_settings);
             viewer             = std::make_unique<ORB_SLAM3::Viewer>(&SLAM, frame_drawer.get(), map_drawer.get(), SLAM.GetTracker(), *ui_settings);
-            viewer->both      = stereo;
+            viewer->both       = stereo;
             SLAM.GetTracker()->SetResetHooks(
                 [&viewer]
                 {
@@ -316,8 +317,8 @@ int    main(int argc, char **argv)
             }
         };
 
-        int               proccIm        = 0;
-        const auto        playback_start = std::chrono::steady_clock::now();
+        int        proccIm        = 0;
+        const auto playback_start = std::chrono::steady_clock::now();
         try
         {
             frame_prefetcher prefetch(reader, stereo, inertial, image_scale, SLAM.can_precompute_optical_flow_pyramid());
