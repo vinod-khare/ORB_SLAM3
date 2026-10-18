@@ -60,7 +60,7 @@ class Settings
     /*
      * Constructor from file
      */
-    Settings(const std::string &config_file, const int &sensor);
+    Settings(const std::string &config_file, const int &sensor, const std::string &keypoint_detector_override = {});
 
     /*
      * Ostream operator overloading to dump settings to the terminal
@@ -146,7 +146,7 @@ class Settings
     void                             readImageInfo(cv::FileStorage &fSettings);
     void                             read_imu(cv::FileStorage &settings);
     void                             readRGBD(cv::FileStorage &fSettings);
-    void                             readORB(cv::FileStorage &fSettings);
+    void                             readORB(cv::FileStorage &fSettings, const std::string &keypoint_detector_override);
     void                             readLoadAndSave(cv::FileStorage &fSettings);
     void                             readOtherParameters(cv::FileStorage &fSettings);
 

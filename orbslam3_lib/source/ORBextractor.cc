@@ -829,10 +829,10 @@ void ORBextractor::detect_corners_in_cell(const cv::Mat &cell, std::vector<cv::K
     }
 }
 
-void ORBextractor::detect_keypoints_in_level(int level, int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints)
+void ORBextractor::detect_keypoints(int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints)
 {
     vector<cv::KeyPoint> detected;
-    _detector->detect(mvImagePyramid[level], detected);
+    _detector->detect(mvImagePyramid[0], detected);
 
     // Keep points far enough from the border for the ORB descriptor, relative to (min_x, min_y).
     const float width  = static_cast<float>(max_x - min_x);
@@ -856,33 +856,33 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint>> &allKeypoint
 
     const float W = 35;
 
+    if (_detector)
+    {
+        // OpenCV detectors handle scale themselves; all keypoints are placed on level 0.
+        const int            minBorderX = EDGE_THRESHOLD;
+        const int            minBorderY = minBorderX;
+        const int            maxBorderX = mvImagePyramid[0].cols - EDGE_THRESHOLD;
+        const int            maxBorderY = mvImagePyramid[0].rows - EDGE_THRESHOLD;
+
+        vector<cv::KeyPoint> vToDistributeKeys;
+        detect_keypoints(minBorderX, maxBorderX, minBorderY, maxBorderY, vToDistributeKeys);
+
+        vector<KeyPoint> &keypoints = allKeypoints[0];
+        keypoints                   = DistributeOctTree(vToDistributeKeys, minBorderX, maxBorderX, minBorderY, maxBorderY, nfeatures, 0);
+        for (KeyPoint &kp : keypoints)
+        {
+            kp.pt.x += minBorderX;
+            kp.pt.y += minBorderY;
+            display_keypoints[0].push_back(kp);
+            kp.octave = 0;
+            kp.size   = PATCH_SIZE;
+        }
+        computeOrientation(mvImagePyramid[0], keypoints, umax);
+        return;
+    }
+
     for (int level = 0; level < nlevels; ++level)
     {
-        if (_detector)
-        {
-            const int            minBorderX = EDGE_THRESHOLD;
-            const int            minBorderY = minBorderX;
-            const int            maxBorderX = mvImagePyramid[level].cols - EDGE_THRESHOLD;
-            const int            maxBorderY = mvImagePyramid[level].rows - EDGE_THRESHOLD;
-
-            vector<cv::KeyPoint> vToDistributeKeys;
-            detect_keypoints_in_level(level, minBorderX, maxBorderX, minBorderY, maxBorderY, vToDistributeKeys);
-
-            vector<KeyPoint> &keypoints = allKeypoints[level];
-            keypoints                   = DistributeOctTree(vToDistributeKeys, minBorderX, maxBorderX, minBorderY, maxBorderY, mnFeaturesPerLevel[level], level);
-
-            const int scaledPatchSize   = PATCH_SIZE * mvScaleFactor[level];
-            for (KeyPoint &kp : keypoints)
-            {
-                kp.pt.x += minBorderX;
-                kp.pt.y += minBorderY;
-                display_keypoints[level].push_back(kp);
-                kp.octave = level;
-                kp.size   = scaledPatchSize;
-            }
-            continue;
-        }
-
         const int            minBorderX = EDGE_THRESHOLD - 3;
         const int            minBorderY = minBorderX;
         const int            maxBorderX = mvImagePyramid[level].cols - EDGE_THRESHOLD + 3;

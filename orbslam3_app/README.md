@@ -80,20 +80,21 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 
 ## Options
 
-| Option | Description |
-| --- | --- |
-| `--vocab`, `--settings` | Required ORB vocabulary and settings YAML paths. These may also be supplied as the first two positional arguments. |
-| `--slam-type` | `mono` (default), `mono-inertial`, `stereo`, or `stereo-inertial`. |
-| `--data.root`, `--data.left`, `--data.right`, `--data.imu` | Dataset root and sensor data paths; command-line values override corresponding YAML values. |
-| `--times-file`, `--timestamps-type` | Optional timestamp list and its format. |
-| `--frames-skip N` | Skip the first N image frames. |
-| `--frames-stride N` | Process every Nth frame; default is 1. |
-| `--frames-take N` | Maximum number of frames; 0 (default) processes all remaining frames. |
-| `--output-folder DIR` | Write output files into this directory; it is created if missing. |
-| `--output NAME` | Set the trajectory basename. Without this option, trajectory files are `CameraTrajectory.txt` and `KeyFrameTrajectory.txt`; with it, files are `f_NAME.txt` and `kf_NAME.txt`. |
-| `--save-ply` | Export map points to `pointcloud.ply` in the output folder. |
-| `--save-colmap` | Export a COLMAP-compatible sparse model into the output folder. |
-| `--no-viewer` | Run headless without the Pangolin viewer. |
+| Option                                                     | Description                                                                                                                                                                    |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--vocab`, `--settings`                                    | Required ORB vocabulary and settings YAML paths. These may also be supplied as the first two positional arguments.                                                             |
+| `--slam-type`                                              | `mono` (default), `mono-inertial`, `stereo`, or `stereo-inertial`.                                                                                                             |
+| `--data.root`, `--data.left`, `--data.right`, `--data.imu` | Dataset root and sensor data paths; command-line values override corresponding YAML values.                                                                                    |
+| `--times-file`, `--timestamps-type`                        | Optional timestamp list and its format.                                                                                                                                        |
+| `--frames-skip N`                                          | Skip the first N image frames.                                                                                                                                                 |
+| `--frames-stride N`                                        | Process every Nth frame; default is 1.                                                                                                                                         |
+| `--frames-take N`                                          | Maximum number of frames; 0 (default) processes all remaining frames.                                                                                                          |
+| `--output-folder DIR`                                      | Write output files into this directory; it is created if missing.                                                                                                              |
+| `--output NAME`                                            | Set the trajectory basename. Without this option, trajectory files are `CameraTrajectory.txt` and `KeyFrameTrajectory.txt`; with it, files are `f_NAME.txt` and `kf_NAME.txt`. |
+| `--save-ply`                                               | Export map points to `pointcloud.ply` in the output folder.                                                                                                                    |
+| `--save-colmap`                                            | Export a COLMAP-compatible sparse model into the output folder.                                                                                                                |
+| `--orb_extractor.detector`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`); overrides `orb_extractor.detector` in the settings YAML.                                         |
+| `--no-viewer`                                              | Run headless without the Pangolin viewer.                                                                                                                                      |
 
 ## Features Available in This App
 
@@ -127,3 +128,28 @@ After an intentional accuracy change, refresh the baseline and commit it:
 ```sh
 .venv/bin/python orbslam3_tests/regression/regression.py --output-folder .build/Release/regression/stereo --skip-run --update-baseline
 ```
+## Keypoint Detector Benchmark
+
+[`orbslam3_tests/benchmark/detector_benchmark.py`](../orbslam3_tests/benchmark/detector_benchmark.py) runs `orbslam3_app` headless once per detector (selected with `--orb_extractor.detector`, or `orb_extractor: { detector: ... }` in the settings YAML), scores each trajectory against mocap ground truth using the regression test's evaluation, and prints a Markdown table.
+
+```sh
+.venv/bin/python orbslam3_tests/benchmark/detector_benchmark.py \
+  --benchmark.detectors fast,agast,gftt,orb,brisk,sift,akaze \
+  --benchmark.slam_type stereo
+```
+
+Other options: `--benchmark.output_folder DIR` and `--benchmark.skip_run` (re-evaluate existing trajectories). Per-detector logs and trajectories are written under `.data/benchmark/<detector>/`.
+
+Results: TUM-VI corridor1 (512_16), stereo, `config/TUM-VI.yaml` with optical flow enabled, Release build, one run per detector (the tracker is multithreaded, so results vary slightly between runs). ATE RMSE is measured only where mocap exists (start/end of the sequence); track times exclude input waits, playback fps includes them.
+
+| Detector | ATE RMSE (m) | Tracked ratio | Mean track (ms) | Median track (ms) | Playback (frames/s) |
+| -------- | -----------: | ------------: | --------------: | ----------------: | ------------------: |
+| fast     |       0.0935 |         1.000 |            8.87 |              4.65 |                55.8 |
+| agast    |       0.0689 |         1.000 |            7.73 |              4.70 |                56.8 |
+| gftt     |       0.0329 |         1.000 |            8.57 |              4.96 |                58.8 |
+| orb      |       0.1046 |         1.000 |            7.06 |              4.82 |                56.9 |
+| brisk    |       0.0161 |         1.000 |            9.52 |              4.84 |                56.7 |
+| sift     |       0.0850 |         1.000 |           21.20 |              4.70 |                39.0 |
+| akaze    |       0.1006 |         1.000 |           14.09 |              4.19 |                47.7 |
+
+With optical flow most frames skip detection, so median times are nearly identical; the detector cost shows up in the mean (keyframes and recovery frames). SIFT and AKAZE are the slowest; BRISK and GFTT were the most accurate in this run.

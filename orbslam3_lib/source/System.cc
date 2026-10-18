@@ -46,7 +46,7 @@ namespace ORB_SLAM3
 
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr, const string &strSequence)
+System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr, const string &strSequence, const string &keypoint_detector_override)
     : mSensor(sensor), mbReset(false), mbResetActiveMap(false), mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false), mbShutDown(false)
 {
     // Output welcome message
@@ -93,7 +93,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         exit(-1);
     }
 
-    settings_             = std::make_unique<Settings>(strSettingsFile, mSensor);
+    settings_             = std::make_unique<Settings>(strSettingsFile, mSensor, keypoint_detector_override);
 
     mStrLoadAtlasFromFile = settings_->atlasLoadFile();
     mStrSaveAtlasToFile   = settings_->atlasSaveFile();
@@ -1817,13 +1817,13 @@ void System::ChangeDataset()
     mpTracker->NewDataset();
 }
 
-float System::GetImageScale() { return mpTracker->GetImageScale(); }
+float     System::GetImageScale() { return mpTracker->GetImageScale(); }
 
-Atlas *System::GetAtlas() const { return mpAtlas; }
+Atlas    *System::GetAtlas() const { return mpAtlas; }
 
 Tracking *System::GetTracker() const { return mpTracker; }
 
-float System::GetCameraFrameRate() const { return settings_->fps(); }
+float     System::GetCameraFrameRate() const { return settings_->fps(); }
 
 #ifdef REGISTER_TIMES
 void System::InsertRectTime(double &time) { mpTracker->vdRectStereo_ms.push_back(time); }

@@ -270,7 +270,8 @@ template <> cv::Mat Settings::readParameter<cv::Mat>(cv::FileStorage &fSettings,
     }
 }
 
-Settings::Settings(const std::string &config_file, const int &sensor) : bNeedToUndistort_(false), bNeedToRectify_(false), bNeedToResize1_(false), bNeedToResize2_(false)
+Settings::Settings(const std::string &config_file, const int &sensor, const std::string &keypoint_detector_override)
+    : bNeedToUndistort_(false), bNeedToRectify_(false), bNeedToResize1_(false), bNeedToResize2_(false)
 {
     sensor_ = sensor;
 
@@ -319,7 +320,7 @@ Settings::Settings(const std::string &config_file, const int &sensor) : bNeedToU
         cout << "\t-Loaded RGB-D calibration" << endl;
     }
 
-    readORB(fSettings);
+    readORB(fSettings, keypoint_detector_override);
     cout << "\t-Loaded ORB settings" << endl;
     readLoadAndSave(fSettings);
     cout << "\t-Loaded Atlas settings" << endl;
@@ -486,24 +487,33 @@ void Settings::readRGBD(cv::FileStorage &fSettings)
     bf_             = b_ * calibration1_->getParameter(0);
 }
 
-void Settings::readORB(cv::FileStorage &fSettings)
+void Settings::readORB(cv::FileStorage &fSettings, const std::string &keypoint_detector_override)
 {
     bool found;
 
-    nFeatures_            = readParameter<int>(fSettings, "ORBextractor.nFeatures", found);
-    scaleFactor_          = readParameter<float>(fSettings, "ORBextractor.scaleFactor", found);
-    nLevels_              = readParameter<int>(fSettings, "ORBextractor.nLevels", found);
-    initThFAST_           = readParameter<int>(fSettings, "ORBextractor.iniThFAST", found);
-    minThFAST_            = readParameter<int>(fSettings, "ORBextractor.minThFAST", found);
+    nFeatures_                   = readParameter<int>(fSettings, "ORBextractor.nFeatures", found);
+    scaleFactor_                 = readParameter<float>(fSettings, "ORBextractor.scaleFactor", found);
+    nLevels_                     = readParameter<int>(fSettings, "ORBextractor.nLevels", found);
+    initThFAST_                  = readParameter<int>(fSettings, "ORBextractor.iniThFAST", found);
+    minThFAST_                   = readParameter<int>(fSettings, "ORBextractor.minThFAST", found);
 
-    const string detector = readParameter<string>(fSettings, "ORBextractor.detector", found, false);
-    _keypoint_detector    = keypoint_detector_type::fast;
-    if (found)
+    string             detector  = keypoint_detector_override;
+    const cv::FileNode extractor = fSettings["orb_extractor"];
+    if (detector.empty() && !extractor.empty())
+    {
+        if (!extractor.isMap() || (!extractor["detector"].empty() && !extractor["detector"].isString()))
+        {
+            throw std::runtime_error("Settings entry orb_extractor must be a map and orb_extractor.detector a string");
+        }
+        detector = extractor["detector"].empty() ? string() : extractor["detector"].string();
+    }
+    _keypoint_detector = keypoint_detector_type::fast;
+    if (!detector.empty())
     {
         const auto parsed = magic_enum::enum_cast<keypoint_detector_type>(detector, magic_enum::case_insensitive);
         if (!parsed)
         {
-            std::cerr << "ORBextractor.detector: unknown keypoint detector '" << detector << "', expected one of:";
+            std::cerr << "orb_extractor.detector: unknown keypoint detector '" << detector << "', expected one of:";
             for (const auto name : magic_enum::enum_names<keypoint_detector_type>())
             {
                 std::cerr << " " << name;
