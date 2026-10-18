@@ -23,9 +23,9 @@
 #include "GeometricTools.h"
 #include "KannalaBrandt8.h"
 #include "MLPnPsolver.h"
-#include "ORBmatcher.h"
 #include "Optimizer.h"
 #include "Pinhole.h"
+#include "descriptor_matcher.h"
 
 #include <algorithm>
 #include <array>
@@ -44,11 +44,10 @@ using namespace std;
 namespace ORB_SLAM3
 {
 
-Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings,
-                   const string &_nameSeq)
-    : mState(NO_IMAGES_YET), mSensor(sensor), mTrackedFr(0), mbStep(false), mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
-      mbReadyToInitializate(false), mpSystem(pSys), bStepByStep(false), mpAtlas(pAtlas), mpLastKeyFrame(nullptr),
-      mnLastRelocFrameId(0), time_recently_lost(5.0), mnFirstFrameId(0), mnInitialFrameId(0), mbCreatedMap(false), mpCamera2(nullptr)
+Tracking::Tracking(System *pSys, place_vocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings, const string &_nameSeq)
+    : mState(NO_IMAGES_YET), mSensor(sensor), mTrackedFr(0), mbStep(false), mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), place_vocabulary_ptr(pVoc), mpKeyFrameDB(pKFDB),
+      mbReadyToInitializate(false), mpSystem(pSys), bStepByStep(false), mpAtlas(pAtlas), mpLastKeyFrame(nullptr), mnLastRelocFrameId(0), time_recently_lost(5.0), mnFirstFrameId(0),
+      mnInitialFrameId(0), mbCreatedMap(false), mpCamera2(nullptr)
 {
     newParameterLoader(settings);
 
@@ -521,11 +520,10 @@ void Tracking::newParameterLoader(Settings *settings)
 
     if ((mSensor == System::STEREO || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && settings->cameraType() == Settings::KannalaBrandt)
     {
-        mpCamera2           = settings->camera2();
-        mpCamera2           = mpAtlas->AddCamera(mpCamera2);
+        mpCamera2 = settings->camera2();
+        mpCamera2 = mpAtlas->AddCamera(mpCamera2);
 
-        mTlr                = settings->Tlr();
-
+        mTlr      = settings->Tlr();
     }
 
     if (mSensor == System::STEREO || mSensor == System::RGBD || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
@@ -559,20 +557,22 @@ void Tracking::newParameterLoader(Settings *settings)
     int                          fMinThFAST   = settings->minThFAST();
     float                        fScaleFactor = settings->scaleFactor();
     const keypoint_detector_type detector     = settings->keypoint_detector();
-    _use_optical_flow                         = settings->use_optical_flow() && mSensor != System::RGBD && mSensor != System::IMU_RGBD;
+    const auto                   descriptor   = settings->keypoint_descriptor();
+    descriptor_matcher::set_backend(settings->matcher_backend());
+    _use_optical_flow = settings->use_optical_flow() && mSensor != System::RGBD && mSensor != System::IMU_RGBD;
 
     cout << "- Sparse Optical Flow: " << (_use_optical_flow ? "enabled" : "disabled") << endl;
 
-    mpORBextractorLeft = std::make_unique<ORBextractor>(nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, detector);
+    left_keypoint_extractor = std::make_unique<keypoint_extractor>(nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, detector, descriptor);
 
     if (mSensor == System::STEREO || mSensor == System::IMU_STEREO)
     {
-        mpORBextractorRight = std::make_unique<ORBextractor>(nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, detector);
+        right_keypoint_extractor = std::make_unique<keypoint_extractor>(nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, detector, descriptor);
     }
 
     if (mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR)
     {
-        mpIniORBextractor = std::make_unique<ORBextractor>(5 * nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, detector);
+        initial_keypoint_extractor = std::make_unique<keypoint_extractor>(5 * nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, detector, descriptor);
     }
 
     // IMU parameters
@@ -591,9 +591,9 @@ void Tracking::newParameterLoader(Settings *settings)
     mpImuPreintegratedFromLastKF = new IMU::Preintegrated(IMU::Bias(), *mpImuCalib);
 }
 
-void         Tracking::SetLocalMapper(LocalMapping *pLocalMapper) { mpLocalMapper = pLocalMapper; }
+void Tracking::SetLocalMapper(LocalMapping *pLocalMapper) { mpLocalMapper = pLocalMapper; }
 
-void         Tracking::SetLoopClosing(LoopClosing *pLoopClosing) { mpLoopClosing = pLoopClosing; }
+void Tracking::SetLoopClosing(LoopClosing *pLoopClosing) { mpLoopClosing = pLoopClosing; }
 
 void Tracking::SetResetHooks(std::function<void()> on_reset_start, std::function<void()> on_reset_complete)
 {
@@ -651,21 +651,22 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
     }
     else if (mSensor == System::STEREO && !mpCamera2)
     {
-        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, mpORBextractorLeft.get(), mpORBextractorRight.get(), mpORBVocabulary, mK, mDistCoef, mbf, mThDepth, mpCamera);
+        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, left_keypoint_extractor.get(), right_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera);
     }
     else if (mSensor == System::STEREO && mpCamera2)
     {
-        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, mpORBextractorLeft.get(), mpORBextractorRight.get(), mpORBVocabulary, mK, mDistCoef, mbf, mThDepth, mpCamera, mpCamera2, mTlr);
+        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, left_keypoint_extractor.get(), right_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera,
+                              mpCamera2, mTlr);
     }
     else if (mSensor == System::IMU_STEREO && !mpCamera2)
     {
-        mCurrentFrame =
-            Frame(mImGray, imGrayRight, timestamp, mpORBextractorLeft.get(), mpORBextractorRight.get(), mpORBVocabulary, mK, mDistCoef, mbf, mThDepth, mpCamera, &mLastFrame, *mpImuCalib);
+        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, left_keypoint_extractor.get(), right_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera,
+                              &mLastFrame, *mpImuCalib);
     }
     else if (mSensor == System::IMU_STEREO && mpCamera2)
     {
-        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, mpORBextractorLeft.get(), mpORBextractorRight.get(), mpORBVocabulary, mK, mDistCoef, mbf, mThDepth, mpCamera, mpCamera2, mTlr,
-                              &mLastFrame, *mpImuCalib);
+        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, left_keypoint_extractor.get(), right_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera,
+                              mpCamera2, mTlr, &mLastFrame, *mpImuCalib);
     }
 
     // cout << "Incoming frame ended" << endl;
@@ -674,7 +675,7 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
     mCurrentFrame.mnDataset = mnNumDataset;
 
 #ifdef REGISTER_TIMES
-    vdORBExtract_ms.push_back(mCurrentFrame.mTimeORB_Ext);
+    vdORBExtract_ms.push_back(mCurrentFrame.feature_extraction_time);
     vdStereoMatch_ms.push_back(mCurrentFrame.mTimeStereoMatch);
 #endif
 
@@ -740,18 +741,18 @@ Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, c
 
     if (mSensor == System::RGBD)
     {
-        mCurrentFrame = Frame(mImGray, imDepth, timestamp, mpORBextractorLeft.get(), mpORBVocabulary, mK, mDistCoef, mbf, mThDepth, mpCamera);
+        mCurrentFrame = Frame(mImGray, imDepth, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera);
     }
     else if (mSensor == System::IMU_RGBD)
     {
-        mCurrentFrame = Frame(mImGray, imDepth, timestamp, mpORBextractorLeft.get(), mpORBVocabulary, mK, mDistCoef, mbf, mThDepth, mpCamera, &mLastFrame, *mpImuCalib);
+        mCurrentFrame = Frame(mImGray, imDepth, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera, &mLastFrame, *mpImuCalib);
     }
 
     mCurrentFrame.mNameFile = filename;
     mCurrentFrame.mnDataset = mnNumDataset;
 
 #ifdef REGISTER_TIMES
-    vdORBExtract_ms.push_back(mCurrentFrame.mTimeORB_Ext);
+    vdORBExtract_ms.push_back(mCurrentFrame.feature_extraction_time);
 #endif
 
     Track();
@@ -827,22 +828,22 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &times
     {
         if (mState == NOT_INITIALIZED || mState == NO_IMAGES_YET || (lastID - initID) < mMaxFrames)
         {
-            mCurrentFrame = Frame(mImGray, timestamp, mpIniORBextractor.get(), mpORBVocabulary, mpCamera, mDistCoef, mbf, mThDepth);
+            mCurrentFrame = Frame(mImGray, timestamp, initial_keypoint_extractor.get(), place_vocabulary_ptr, mpCamera, mDistCoef, mbf, mThDepth);
         }
         else
         {
-            mCurrentFrame = Frame(mImGray, timestamp, mpORBextractorLeft.get(), mpORBVocabulary, mpCamera, mDistCoef, mbf, mThDepth);
+            mCurrentFrame = Frame(mImGray, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mpCamera, mDistCoef, mbf, mThDepth);
         }
     }
     else if (mSensor == System::IMU_MONOCULAR)
     {
         if (mState == NOT_INITIALIZED || mState == NO_IMAGES_YET)
         {
-            mCurrentFrame = Frame(mImGray, timestamp, mpIniORBextractor.get(), mpORBVocabulary, mpCamera, mDistCoef, mbf, mThDepth, &mLastFrame, *mpImuCalib);
+            mCurrentFrame = Frame(mImGray, timestamp, initial_keypoint_extractor.get(), place_vocabulary_ptr, mpCamera, mDistCoef, mbf, mThDepth, &mLastFrame, *mpImuCalib);
         }
         else
         {
-            mCurrentFrame = Frame(mImGray, timestamp, mpORBextractorLeft.get(), mpORBVocabulary, mpCamera, mDistCoef, mbf, mThDepth, &mLastFrame, *mpImuCalib);
+            mCurrentFrame = Frame(mImGray, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mpCamera, mDistCoef, mbf, mThDepth, &mLastFrame, *mpImuCalib);
         }
     }
 
@@ -855,7 +856,7 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &times
     mCurrentFrame.mnDataset = mnNumDataset;
 
 #ifdef REGISTER_TIMES
-    vdORBExtract_ms.push_back(mCurrentFrame.mTimeORB_Ext);
+    vdORBExtract_ms.push_back(mCurrentFrame.feature_extraction_time);
 #endif
 
     lastID = mCurrentFrame.mnId;
@@ -1793,8 +1794,8 @@ void Tracking::MonocularInitialization()
         }
 
         // Find correspondences
-        ORBmatcher matcher(0.9, true);
-        int        nmatches = matcher.SearchForInitialization(mInitialFrame, mCurrentFrame, mvbPrevMatched, mvIniMatches, 100);
+        descriptor_matcher matcher(0.9, true);
+        int                nmatches = matcher.search_for_initialization(mInitialFrame, mCurrentFrame, mvbPrevMatched, mvIniMatches, 100);
 
         // Check if there are enough correspondences
         if (nmatches < 100)
@@ -2035,10 +2036,10 @@ bool Tracking::TrackReferenceKeyFrame()
 
     // We perform first an ORB matching with the reference keyframe
     // If enough matches are found we setup a PnP solver
-    ORBmatcher         matcher(0.7, true);
+    descriptor_matcher matcher(0.7, true);
     vector<MapPoint *> vpMapPointMatches;
 
-    int                nmatches = matcher.SearchByBoW(mpReferenceKF, mCurrentFrame, vpMapPointMatches);
+    int                nmatches = matcher.search_by_vocabulary(mpReferenceKF, mCurrentFrame, vpMapPointMatches);
 
     if (nmatches < 15)
     {
@@ -2182,7 +2183,7 @@ void Tracking::UpdateLastFrame()
 
 bool Tracking::TrackWithMotionModel()
 {
-    ORBmatcher matcher(0.9, true);
+    descriptor_matcher matcher(0.9, true);
 
     // Update last frame pose according to its reference keyframe
     // Create "visual odometry" points if in Localization Mode
@@ -2237,7 +2238,7 @@ bool Tracking::TrackWithMotionModel()
         th = 15;
     }
 
-    int nmatches = matcher.SearchByProjection(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
+    int nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
 
     // If few matches, uses a wider window search
     if (nmatches < 20)
@@ -2245,7 +2246,7 @@ bool Tracking::TrackWithMotionModel()
         Verbose::PrintMess("Not enough matches, wider window search!!", Verbose::VERBOSITY_NORMAL);
         fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
 
-        nmatches = matcher.SearchByProjection(mCurrentFrame, mLastFrame, 2 * th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
+        nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, 2 * th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
         Verbose::PrintMess("Matches with wider search: " + to_string(nmatches), Verbose::VERBOSITY_NORMAL);
     }
 
@@ -2829,8 +2830,8 @@ void Tracking::CreateNewKeyFrame()
     {
         const Frame flow_frame(mCurrentFrame);
         extract_current_features();
-        ORBmatcher matcher(0.9, true);
-        matcher.SearchByProjection(mCurrentFrame, mLastFrame, mSensor == System::STEREO ? 7 : 15, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
+        descriptor_matcher matcher(0.9, true);
+        matcher.search_by_projection(mCurrentFrame, mLastFrame, mSensor == System::STEREO ? 7 : 15, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
         SearchLocalPoints();
         const int inliers = Optimizer::PoseOptimization(&mCurrentFrame);
         if (inliers < 50)
@@ -3037,8 +3038,8 @@ void Tracking::SearchLocalPoints()
 
     if (nToMatch > 0)
     {
-        ORBmatcher matcher(0.8);
-        int        th = 1;
+        descriptor_matcher matcher(0.8);
+        int                th = 1;
         if (mSensor == System::RGBD || mSensor == System::IMU_RGBD)
         {
             th = 3;
@@ -3070,7 +3071,7 @@ void Tracking::SearchLocalPoints()
             th = 15;                                   // 15
         }
 
-        matcher.SearchByProjection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
+        matcher.search_by_projection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
     }
 }
 
@@ -3301,7 +3302,7 @@ bool Tracking::Relocalization()
 
     // We perform first an ORB matching with each candidate
     // If enough matches are found we setup a PnP solver
-    ORBmatcher            matcher(0.75, true);
+    descriptor_matcher    matcher(0.75, true);
 
     vector<MLPnPsolver *> vpMLPnPsolvers;
     vpMLPnPsolvers.resize(nKFs);
@@ -3323,7 +3324,7 @@ bool Tracking::Relocalization()
         }
         else
         {
-            int nmatches = matcher.SearchByBoW(pKF, mCurrentFrame, vvpMapPointMatches[i]);
+            int nmatches = matcher.search_by_vocabulary(pKF, mCurrentFrame, vvpMapPointMatches[i]);
             if (nmatches < 15)
             {
                 vbDiscarded[i] = true;
@@ -3341,8 +3342,8 @@ bool Tracking::Relocalization()
 
     // Alternatively perform some iterations of P4P RANSAC
     // Until we found a camera pose supported by enough inliers
-    bool       bMatch = false;
-    ORBmatcher matcher2(0.9, true);
+    bool               bMatch = false;
+    descriptor_matcher matcher2(0.9, true);
 
     while (nCandidates > 0 && !bMatch)
     {
@@ -3411,7 +3412,7 @@ bool Tracking::Relocalization()
                 // If few inliers, search by projection in a coarse window and optimize again
                 if (nGood < 50)
                 {
-                    int nadditional = matcher2.SearchByProjection(mCurrentFrame, vpCandidateKFs[i], sFound, 10, 100);
+                    int nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 10, 100);
 
                     if (nadditional + nGood >= 50)
                     {
@@ -3429,7 +3430,7 @@ bool Tracking::Relocalization()
                                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
                                 }
                             }
-                            nadditional = matcher2.SearchByProjection(mCurrentFrame, vpCandidateKFs[i], sFound, 3, 64);
+                            nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 3, 64);
 
                             // Final optimization
                             if (nGood + nadditional >= 50)

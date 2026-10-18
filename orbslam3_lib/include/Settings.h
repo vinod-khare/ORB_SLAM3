@@ -23,7 +23,7 @@
 // #define REGISTER_TIMES
 
 #include "CameraModels/GeometricCamera.h"
-#include "ORBextractor.h"
+#include "keypoint_extractor.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,62 +60,64 @@ class Settings
     /*
      * Constructor from file
      */
-    Settings(const std::string &config_file, const int &sensor, const std::string &keypoint_detector_override = {});
+    Settings(const std::string &config_file, const int &sensor, const feature_overrides &overrides = {});
 
     /*
      * Ostream operator overloading to dump settings to the terminal
      */
-    friend std::ostream   &operator<<(std::ostream &output, const Settings &s);
+    friend std::ostream     &operator<<(std::ostream &output, const Settings &s);
 
     /*
      * Getter methods
      */
-    CameraType             cameraType() { return cameraType_; }
-    GeometricCamera       *camera1() { return calibration1_; }
-    GeometricCamera       *camera2() { return calibration2_; }
-    cv::Mat                camera1DistortionCoef() { return cv::Mat(vPinHoleDistorsion1_.size(), 1, CV_32F, vPinHoleDistorsion1_.data()); }
-    cv::Mat                camera2DistortionCoef() { return cv::Mat(vPinHoleDistorsion2_.size(), 1, CV_32F, vPinHoleDistorsion2_.data()); }
+    CameraType               cameraType() { return cameraType_; }
+    GeometricCamera         *camera1() { return calibration1_; }
+    GeometricCamera         *camera2() { return calibration2_; }
+    cv::Mat                  camera1DistortionCoef() { return cv::Mat(vPinHoleDistorsion1_.size(), 1, CV_32F, vPinHoleDistorsion1_.data()); }
+    cv::Mat                  camera2DistortionCoef() { return cv::Mat(vPinHoleDistorsion2_.size(), 1, CV_32F, vPinHoleDistorsion2_.data()); }
 
-    Sophus::SE3f           Tlr() { return Tlr_; }
-    float                  bf() { return bf_; }
-    float                  b() { return b_; }
-    float                  thDepth() { return thDepth_; }
+    Sophus::SE3f             Tlr() { return Tlr_; }
+    float                    bf() { return bf_; }
+    float                    b() { return b_; }
+    float                    thDepth() { return thDepth_; }
 
-    bool                   needToUndistort() { return bNeedToUndistort_; }
+    bool                     needToUndistort() { return bNeedToUndistort_; }
 
-    cv::Size               newImSize() { return newImSize_; }
-    float                  fps() { return fps_; }
-    bool                   rgb() { return bRGB_; }
-    bool                   needToResize() { return bNeedToResize1_; }
-    bool                   needToRectify() { return bNeedToRectify_; }
+    cv::Size                 newImSize() { return newImSize_; }
+    float                    fps() { return fps_; }
+    bool                     rgb() { return bRGB_; }
+    bool                     needToResize() { return bNeedToResize1_; }
+    bool                     needToRectify() { return bNeedToRectify_; }
 
-    float                  noiseGyro() { return noiseGyro_; }
-    float                  noiseAcc() { return noiseAcc_; }
-    float                  gyroWalk() { return gyroWalk_; }
-    float                  accWalk() { return accWalk_; }
-    float                  imuFrequency() { return imuFrequency_; }
-    Sophus::SE3f           Tbc() { return Tbc_; }
-    bool                   insertKFsWhenLost() { return insertKFsWhenLost_; }
+    float                    noiseGyro() { return noiseGyro_; }
+    float                    noiseAcc() { return noiseAcc_; }
+    float                    gyroWalk() { return gyroWalk_; }
+    float                    accWalk() { return accWalk_; }
+    float                    imuFrequency() { return imuFrequency_; }
+    Sophus::SE3f             Tbc() { return Tbc_; }
+    bool                     insertKFsWhenLost() { return insertKFsWhenLost_; }
 
-    float                  depthMapFactor() { return depthMapFactor_; }
+    float                    depthMapFactor() { return depthMapFactor_; }
 
-    int                    nFeatures() { return nFeatures_; }
-    int                    nLevels() { return nLevels_; }
-    float                  initThFAST() { return initThFAST_; }
-    float                  minThFAST() { return minThFAST_; }
-    float                  scaleFactor() { return scaleFactor_; }
-    keypoint_detector_type keypoint_detector() const { return _keypoint_detector; }
-    bool                   use_optical_flow() const { return _use_optical_flow; }
+    int                      nFeatures() { return nFeatures_; }
+    int                      nLevels() { return nLevels_; }
+    float                    initThFAST() { return initThFAST_; }
+    float                    minThFAST() { return minThFAST_; }
+    float                    scaleFactor() { return scaleFactor_; }
+    keypoint_detector_type   keypoint_detector() const { return _keypoint_detector; }
+    keypoint_descriptor_type keypoint_descriptor() const { return _keypoint_descriptor; }
+    descriptor_matcher_type  matcher_backend() const { return _descriptor_matcher; }
+    bool                     use_optical_flow() const { return _use_optical_flow; }
 
-    std::string            atlasLoadFile() { return sLoadFrom_; }
-    std::string            atlasSaveFile() { return sSaveto_; }
+    std::string              atlasLoadFile() { return sLoadFrom_; }
+    std::string              atlasSaveFile() { return sSaveto_; }
 
-    float                  thFarPoints() { return thFarPoints_; }
+    float                    thFarPoints() { return thFarPoints_; }
 
-    cv::Mat                M1l() { return M1l_; }
-    cv::Mat                M2l() { return M2l_; }
-    cv::Mat                M1r() { return M1r_; }
-    cv::Mat                M2r() { return M2r_; }
+    cv::Mat                  M1l() { return M1l_; }
+    cv::Mat                  M2l() { return M2l_; }
+    cv::Mat                  M1r() { return M1r_; }
+    cv::Mat                  M2r() { return M2r_; }
 
   private:
     template <typename T> T readParameter(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required = true)
@@ -146,7 +148,7 @@ class Settings
     void                             readImageInfo(cv::FileStorage &fSettings);
     void                             read_imu(cv::FileStorage &settings);
     void                             readRGBD(cv::FileStorage &fSettings);
-    void                             readORB(cv::FileStorage &fSettings, const std::string &keypoint_detector_override);
+    void                             read_features(cv::FileStorage &fSettings, const std::string &config_file, const feature_overrides &overrides);
     void                             readLoadAndSave(cv::FileStorage &fSettings);
     void                             readOtherParameters(cv::FileStorage &fSettings);
 
@@ -203,6 +205,8 @@ class Settings
     int                              nLevels_;
     int                              initThFAST_, minThFAST_;
     keypoint_detector_type           _keypoint_detector;
+    keypoint_descriptor_type         _keypoint_descriptor{keypoint_descriptor_type::orb};
+    descriptor_matcher_type          _descriptor_matcher{descriptor_matcher_type::brute_force};
     bool                             _use_optical_flow{false};
 
     /*

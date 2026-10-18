@@ -22,8 +22,8 @@
 #include "Converter.h"
 #include "Eigen/Core"
 #include "ImuTypes.h"
-#include "ORBVocabulary.h"
 #include "Settings.h"
+#include "place_vocabulary.h"
 #include "sophus/se3.hpp"
 
 #include <mutex>
@@ -44,7 +44,7 @@ class MapPoint;
 class KeyFrame;
 class ConstraintPoseImu;
 class GeometricCamera;
-class ORBextractor;
+class keypoint_extractor;
 
 class Frame
 {
@@ -62,22 +62,22 @@ class Frame
     bool flow_only{false};
 
     // Constructor for stereo cameras.
-    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor *extractorLeft, ORBextractor *extractorRight, ORBVocabulary *voc, cv::Mat &K, cv::Mat &distCoef,
-          const float &bf, const float &thDepth, GeometricCamera *pCamera, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
+    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,
+          cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera *pCamera, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Constructor for RGB-D cameras.
-    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor *extractor, ORBVocabulary *voc, cv::Mat &K, cv::Mat &distCoef, const float &bf,
+    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, cv::Mat &K, cv::Mat &distCoef, const float &bf,
           const float &thDepth, GeometricCamera *pCamera, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Constructor for Monocular cameras.
-    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor *extractor, ORBVocabulary *voc, GeometricCamera *pCamera, cv::Mat &distCoef, const float &bf, const float &thDepth,
-          Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
+    Frame(const cv::Mat &imGray, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, GeometricCamera *pCamera, cv::Mat &distCoef, const float &bf,
+          const float &thDepth, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Destructor
     // ~Frame();
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
-    void                        ExtractORB(int flag, const cv::Mat &im, const int x0, const int x1);
+    void                        extract_keypoints(int flag, const cv::Mat &im, const int x0, const int x1);
 
     const std::vector<cv::Mat> &get_optical_flow_pyramid(const cv::Mat &image);
     static std::vector<cv::Mat> build_optical_flow_pyramid(const cv::Mat &image);
@@ -185,10 +185,10 @@ class Frame
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     // Vocabulary used for relocalization.
-    ORBVocabulary                      *mpORBvocabulary;
+    place_vocabulary                   *place_vocabulary_ptr;
 
     // Feature extractor. The right is used only in the stereo case.
-    ORBextractor                       *mpORBextractorLeft, *mpORBextractorRight;
+    keypoint_extractor                 *left_keypoint_extractor, *right_keypoint_extractor;
 
     // Frame timestamp.
     double                              mTimeStamp;
@@ -240,6 +240,7 @@ class Frame
 
     // ORB descriptor, each row associated to a keypoint.
     cv::Mat                             mDescriptors, mDescriptorsRight;
+    cv::Mat                             place_descriptors, place_descriptors_right;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
     // Flag to identify outlier associations.
@@ -299,7 +300,7 @@ class Frame
     int                                 mnDataset;
 
 #ifdef REGISTER_TIMES
-    double mTimeORB_Ext;
+    double feature_extraction_time;
     double mTimeStereoMatch;
 #endif
 
@@ -333,7 +334,6 @@ class Frame
     std::vector<int>             mvLeftToRightMatch, mvRightToLeftMatch;
 
     // For stereo fisheye matching
-    static cv::BFMatcher         BFmatcher;
 
     // Triangulated stereo observations using as reference the left camera. These are
     // computed during ComputeStereoFishEyeMatches
@@ -342,8 +342,8 @@ class Frame
     // Grid for the right image
     std::vector<std::size_t>     mGridRight[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
-    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor *extractorLeft, ORBextractor *extractorRight, ORBVocabulary *voc, cv::Mat &K, cv::Mat &distCoef,
-          const float &bf, const float &thDepth, GeometricCamera *pCamera, GeometricCamera *pCamera2, Sophus::SE3f &Tlr, Frame *pPrevF = static_cast<Frame *>(NULL),
+    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,
+          cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera *pCamera, GeometricCamera *pCamera2, Sophus::SE3f &Tlr, Frame *pPrevF = static_cast<Frame *>(NULL),
           const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Stereo fisheye

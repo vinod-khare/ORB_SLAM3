@@ -16,8 +16,8 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef ORBEXTRACTOR_H
-#define ORBEXTRACTOR_H
+#ifndef KEYPOINT_EXTRACTOR_H
+#define KEYPOINT_EXTRACTOR_H
 
 #include <list>
 #include <string>
@@ -28,7 +28,7 @@
 namespace ORB_SLAM3
 {
 
-// Keypoint detector used by ORBextractor; descriptors are always ORB.
+// Keypoint detector used by keypoint_extractor; descriptors are always ORB.
 enum class keypoint_detector_type
 {
     fast,
@@ -39,6 +39,26 @@ enum class keypoint_detector_type
     sift,
     akaze
 };
+
+  enum class keypoint_descriptor_type
+  {
+    orb,
+    sift,
+    brisk
+  };
+
+  enum class descriptor_matcher_type
+  {
+    brute_force,
+    flann
+  };
+
+  struct feature_overrides
+  {
+    std::string detector;
+    std::string descriptor;
+    std::string matcher;
+  };
 
 class ExtractorNode
 {
@@ -53,7 +73,7 @@ class ExtractorNode
     bool                               bNoMore;
 };
 
-class ORBextractor
+class keypoint_extractor
 {
   public:
     enum
@@ -62,9 +82,10 @@ class ORBextractor
         FAST_SCORE   = 1
     };
 
-    ORBextractor(int nfeatures, float scaleFactor, int nlevels, int iniThFAST, int minThFAST, keypoint_detector_type detector_type = keypoint_detector_type::fast);
+    keypoint_extractor(int nfeatures, float scaleFactor, int nlevels, int iniThFAST, int minThFAST, keypoint_detector_type detector_type = keypoint_detector_type::fast,
+           keypoint_descriptor_type descriptor_type = keypoint_descriptor_type::orb);
 
-    ~ORBextractor() {}
+    ~keypoint_extractor() {}
 
     // Compute the ORB features and descriptors on an image.
     // ORB are dispersed on the image using an octree.
@@ -87,6 +108,7 @@ class ORBextractor
 
     // Native detector metadata in input-image coordinates, ordered like the last extraction's ORB keypoints.
     const std::vector<cv::KeyPoint> &get_display_keypoints() const { return display_keypoints_; }
+    const cv::Mat &get_place_descriptors() const { return _place_descriptors; }
 
     std::vector<cv::Mat>             mvImagePyramid;
 
@@ -116,10 +138,14 @@ class ORBextractor
 
   private:
     void                      detect_corners_in_cell(const cv::Mat &cell, std::vector<cv::KeyPoint> &keypoints, int threshold) const;
-    void                      detect_keypoints(int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints);
+    void                      detect_keypoints(int level, int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints);
 
     keypoint_detector_type    _detector_type;
     cv::Ptr<cv::Feature2D>    _detector;
+    keypoint_descriptor_type _descriptor_type;
+    cv::Ptr<cv::Feature2D>    _descriptor;
+    cv::Ptr<cv::Feature2D>    _place_descriptor;
+    cv::Mat                  _place_descriptors;
     std::vector<cv::KeyPoint> display_keypoints_;
 };
 

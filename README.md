@@ -110,35 +110,43 @@ Directory `Examples` contains several demo programs and calibration files to run
 ./Examples/Stereo-Inertial/stereo_inertial_realsense_D435i Vocabulary/ORBvoc.txt ./Examples/Stereo-Inertial/RealSense_D435i.yaml
 ```
 
-## Keypoint detectors
+## Feature Pipeline
 
-The keypoint detector can be selected in the settings YAML. Only detection changes; descriptors are always ORB, so the ORB matcher and `ORBvoc.txt` vocabulary are used unchanged.
+Detection, description, and matching are independently selectable. Descriptors are computed by OpenCV, not a custom sampling implementation.
 
+```yaml
+keypoint_extractor:
+  n_features: 1024
+  scale_factor: 1.2
+  n_levels: 8
+  initial_threshold: 20
+  minimum_threshold: 7
+keypoint_detector:
+  type: FAST
+keypoint_descriptor:
+  type: SIFT
+descriptor_matcher:
+  type: brute_force
 ```
-# FAST (default), AGAST, GFTT, ORB, BRISK, SIFT, AKAZE (case-insensitive)
-orb_extractor:
-  detector: "SIFT"
+
+- Detectors: `FAST`, `AGAST`, `GFTT`, `ORB`, `BRISK`, `SIFT`, `AKAZE` (case-insensitive).
+- Descriptors: `ORB` (32-byte binary, default), `BRISK` (64-byte binary), `SIFT` (128 floating-point values). All supported descriptors can describe points from any supported detector. AKAZE descriptors are not offered because OpenCV requires AKAZE-specific scale-space metadata.
+- Matchers: `brute_force` (default) or `flann`. Binary descriptors use Hamming distance and FLANN LSH; SIFT uses L2 distance and FLANN KD-trees. SLAM projection, pyramid-level, epipolar, ratio, and map-point checks remain in place around OpenCV candidate ranking.
+- Exhaustive ranking inside geometric/vocabulary candidate sets uses OpenCV brute force even in FLANN mode: all candidates must remain available for subsequent geometric filtering, and an approximate index cannot reliably return every neighbor. Unconstrained nearest-neighbor searches use the selected backend.
+- All detectors run across the feature pyramid with per-level spatial distribution. FAST/AGAST use the two configured corner thresholds; ORB/BRISK detectors use `initial_threshold`; the others use OpenCV defaults.
+- The existing trained vocabulary still requires ORB descriptors. A separate, row-aligned OpenCV ORB channel is computed for vocabulary quantization only; tracking, stereo, triangulation, and map-point descriptors use the selected descriptor. This retains vocabulary-based loop closure and relocalization without feeding SIFT data into a binary vocabulary.
+- Internal acceptance thresholds use 32-byte Hamming-equivalent units: BRISK Hamming distances are divided by two; SIFT L2 distances by four. Nearest-neighbor ratio tests are unchanged. Different descriptors can require accuracy tuning; descriptor selection is not a guarantee of equivalent trajectories.
+- Saved atlases retain both descriptor channels. Older ORB atlases can be loaded; an atlas cannot be reused with a different tracking-descriptor format. New atlases require this version of the code.
+
+Command-line selections override YAML:
+
+```bash
+.build/Release/orbslam3_app/orbslam3_app vocab/ORBvoc.txt config/TUM-VI.yaml \
+  --slam-type stereo --keypoint_detector.type fast \
+  --keypoint_descriptor.type sift --descriptor_matcher.type flann
 ```
 
-The command line overrides the YAML: `orbslam3_app ... --orb_extractor.detector sift`.
-
-- **FAST, AGAST**: original per-cell grid detection using `ORBextractor.iniThFAST` / `ORBextractor.minThFAST`.
-- **GFTT, ORB, BRISK, SIFT, AKAZE**: run on each level of the ORB-SLAM image pyramid (single-scale where OpenCV allows; SIFT still searches its own scales). ORB and BRISK use `iniThFAST` as their corner threshold; GFTT, SIFT and AKAZE use OpenCV defaults.
-- All detectors share the octree distribution, orientation, and per-level feature budget from `ORBextractor.nFeatures`.
-
-Smoke-test results on TUM-VI `dataset-corridor1_512_16`, stereo mode, first 300 frames, `config/TUM-VI.yaml` (1500 features, 8 levels, scale 1.2), Release build:
-
-| Detector | Points in initial map | Median tracking time |
-| -------- | --------------------- | -------------------- |
-| FAST     | 364                   | 27 ms                |
-| AGAST    | 385                   | 24 ms                |
-| GFTT     | 442                   | 29 ms                |
-| ORB      | 423                   | 23 ms                |
-| BRISK    | 489                   | 37 ms                |
-| AKAZE    | 569                   | 69 ms                |
-| SIFT     | 503                   | 81 ms                |
-
-These are single runs that only confirm each detector initializes and tracks without errors; trajectory accuracy was not evaluated.
+The old `ORBextractor.*` and `orb_extractor.detector` settings have been replaced by the nested maps above. Project names, the upstream namespace/license notices, and ORB as an actual algorithm/vocabulary dependency are retained.
 
 # 5. EuRoC Examples
 [EuRoC dataset](http://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets) was recorded with two pinhole cameras and an inertial sensor. We provide an example script to launch EuRoC sequences in all the sensor configurations.

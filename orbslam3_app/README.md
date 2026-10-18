@@ -93,7 +93,9 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--output NAME`                                            | Set the trajectory basename. Without this option, trajectory files are `CameraTrajectory.txt` and `KeyFrameTrajectory.txt`; with it, files are `f_NAME.txt` and `kf_NAME.txt`. |
 | `--save-ply`                                               | Export map points to `pointcloud.ply` in the output folder.                                                                                                                    |
 | `--save-colmap`                                            | Export a COLMAP-compatible sparse model into the output folder.                                                                                                                |
-| `--orb_extractor.detector`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`); overrides `orb_extractor.detector` in the settings YAML.                                         |
+| `--keypoint_detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`); overrides `keypoint_detector.type` in the settings YAML.                                         |
+| `--keypoint_descriptor.type`                               | Independent OpenCV descriptor (`orb`, `sift`, `brisk`). |
+| `--descriptor_matcher.type`                                | OpenCV matcher (`brute_force`, `flann`); Hamming/LSH for binary data, L2/KD-tree for SIFT. |
 | `--no-viewer`                                              | Run headless without the Pangolin viewer.                                                                                                                                      |
 
 ## Features Available in This App
@@ -104,7 +106,7 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 - Frame skipping, fixed-stride sampling, and frame-count limits for shorter runs.
 - Pangolin SLAM visualization and camera/keyframe trajectory exports.
 - Optional map-point PLY and COLMAP-compatible sparse-model exports.
-- Configurable feature detector in the settings YAML: FAST, AGAST, GFTT, ORB, BRISK, SIFT, and AKAZE. The detector changes keypoint detection; descriptors remain ORB.
+- Independently configurable OpenCV detectors, descriptors (ORB, SIFT, BRISK), and matchers (brute force, FLANN). The existing vocabulary uses a separate ORB place-recognition descriptor channel; see the root README's Feature Pipeline section.
 - Optional flow-first tracking with descriptor recovery through `Tracking.useOpticalFlow` in the settings YAML.
 - Median and mean tracking-time summary after each run.
 
@@ -130,7 +132,7 @@ After an intentional accuracy change, refresh the baseline and commit it:
 ```
 ## Keypoint Detector Benchmark
 
-[`orbslam3_tests/benchmark/detector_benchmark.py`](../orbslam3_tests/benchmark/detector_benchmark.py) runs `orbslam3_app` headless once per detector (selected with `--orb_extractor.detector`, or `orb_extractor: { detector: ... }` in the settings YAML), scores each trajectory against mocap ground truth using the regression test's evaluation, and prints a Markdown table.
+[`orbslam3_tests/benchmark/detector_benchmark.py`](../orbslam3_tests/benchmark/detector_benchmark.py) runs `orbslam3_app` headless once per detector (selected with `--keypoint_detector.type`, or `keypoint_detector: { type: ... }` in the settings YAML), scores each trajectory against mocap ground truth using the regression test's evaluation, and prints a Markdown table. Descriptor and matcher choices come from the settings YAML.
 
 ```sh
 .venv/bin/python orbslam3_tests/benchmark/detector_benchmark.py \

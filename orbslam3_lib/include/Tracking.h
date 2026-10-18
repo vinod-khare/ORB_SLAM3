@@ -26,13 +26,13 @@
 #include "KeyFrameDatabase.h"
 #include "LocalMapping.h"
 #include "LoopClosing.h"
-#include "ORBVocabulary.h"
-#include "ORBextractor.h"
 #include "Settings.h"
 #include "System.h"
+#include "keypoint_extractor.h"
+#include "place_vocabulary.h"
 
-#include <memory>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <unordered_set>
 #include <utility>
@@ -54,8 +54,7 @@ class Tracking
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Tracking(System *pSys, ORBVocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings,
-             const string &_nameSeq = std::string());
+    Tracking(System *pSys, place_vocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings, const string &_nameSeq = std::string());
 
     ~Tracking();
 
@@ -181,177 +180,177 @@ class Tracking
 
   protected:
     // Main tracking function. It is independent of the input sensor.
-    void                          Track();
+    void                                Track();
 
     // Map initialization for stereo and RGB-D
-    void                          StereoInitialization();
+    void                                StereoInitialization();
 
     // Map initialization for monocular
-    void                          MonocularInitialization();
+    void                                MonocularInitialization();
     // void CreateNewMapPoints();
-    void                          CreateInitialMapMonocular();
+    void                                CreateInitialMapMonocular();
 
-    void                          CheckReplacedInLastFrame();
-    bool                          TrackReferenceKeyFrame();
-    void                          UpdateLastFrame();
-    bool                          TrackWithMotionModel();
-    bool                          can_defer_features(double timestamp) const;
-    void                          extract_current_features();
-    int                           track_with_optical_flow();
-    bool                          PredictStateIMU();
+    void                                CheckReplacedInLastFrame();
+    bool                                TrackReferenceKeyFrame();
+    void                                UpdateLastFrame();
+    bool                                TrackWithMotionModel();
+    bool                                can_defer_features(double timestamp) const;
+    void                                extract_current_features();
+    int                                 track_with_optical_flow();
+    bool                                PredictStateIMU();
 
-    bool                          Relocalization();
+    bool                                Relocalization();
 
-    void                          UpdateLocalMap();
-    void                          UpdateLocalPoints();
-    void                          UpdateLocalKeyFrames();
+    void                                UpdateLocalMap();
+    void                                UpdateLocalPoints();
+    void                                UpdateLocalKeyFrames();
 
-    bool                          TrackLocalMap();
-    void                          SearchLocalPoints();
+    bool                                TrackLocalMap();
+    void                                SearchLocalPoints();
 
-    bool                          NeedNewKeyFrame();
-    void                          CreateNewKeyFrame();
+    bool                                NeedNewKeyFrame();
+    void                                CreateNewKeyFrame();
 
     // Perform preintegration from last frame
-    void                          PreintegrateIMU();
+    void                                PreintegrateIMU();
 
     // Reset IMU biases and compute frame velocity
-    void                          ResetFrameIMU();
+    void                                ResetFrameIMU();
 
-    bool                          mbMapUpdated;
+    bool                                mbMapUpdated;
 
     // Imu preintegration from last frame
-    IMU::Preintegrated           *mpImuPreintegratedFromLastKF;
+    IMU::Preintegrated                 *mpImuPreintegratedFromLastKF;
 
     // Queue of IMU measurements between frames
-    std::list<IMU::Point>         mlQueueImuData;
+    std::list<IMU::Point>               mlQueueImuData;
 
     // Vector of IMU measurements from previous to current frame (to be filled by PreintegrateIMU)
-    std::vector<IMU::Point>       mvImuFromLastFrame;
-    std::mutex                    mMutexImuQueue;
+    std::vector<IMU::Point>             mvImuFromLastFrame;
+    std::mutex                          mMutexImuQueue;
 
     // Imu calibration parameters
-    IMU::Calib                   *mpImuCalib;
+    IMU::Calib                         *mpImuCalib;
 
     // Last Bias Estimation (at keyframe creation)
-    IMU::Bias                     mLastBias;
+    IMU::Bias                           mLastBias;
 
     // In case of performing only localization, this flag is true when there are no matches to
     // points in the map. Still tracking will continue if there are enough matches with temporal points.
     // In that case we are doing visual odometry. The system will try to do relocalization to recover
     // "zero-drift" localization to the map.
-    bool                          mbVO;
+    bool                                mbVO;
 
     // Other Thread Pointers
-    LocalMapping                 *mpLocalMapper;
-    LoopClosing                  *mpLoopClosing;
+    LocalMapping                       *mpLocalMapper;
+    LoopClosing                        *mpLoopClosing;
 
     // ORB
-    std::unique_ptr<ORBextractor> mpORBextractorLeft, mpORBextractorRight;
-    std::unique_ptr<ORBextractor> mpIniORBextractor;
+    std::unique_ptr<keypoint_extractor> left_keypoint_extractor, right_keypoint_extractor;
+    std::unique_ptr<keypoint_extractor> initial_keypoint_extractor;
 
     // BoW
-    ORBVocabulary                *mpORBVocabulary;
-    KeyFrameDatabase             *mpKeyFrameDB;
+    place_vocabulary                   *place_vocabulary_ptr;
+    KeyFrameDatabase                   *mpKeyFrameDB;
 
     // Initalization (only for monocular)
-    bool                          mbReadyToInitializate;
-    bool                          mbSetInit;
+    bool                                mbReadyToInitializate;
+    bool                                mbSetInit;
 
     // Local Map
-    KeyFrame                     *mpReferenceKF;
-    std::vector<KeyFrame *>       mvpLocalKeyFrames;
-    std::vector<MapPoint *>       mvpLocalMapPoints;
+    KeyFrame                           *mpReferenceKF;
+    std::vector<KeyFrame *>             mvpLocalKeyFrames;
+    std::vector<MapPoint *>             mvpLocalMapPoints;
 
     // System
-    System                       *mpSystem;
-    std::function<void()>         mOnResetStart;
-    std::function<void()>         mOnResetComplete;
+    System                             *mpSystem;
+    std::function<void()>               mOnResetStart;
+    std::function<void()>               mOnResetComplete;
 
-    bool                          bStepByStep;
+    bool                                bStepByStep;
 
     // Atlas
-    Atlas                        *mpAtlas;
+    Atlas                              *mpAtlas;
 
     // Calibration matrix
-    cv::Mat                       mK;
-    Eigen::Matrix3f               mK_;
-    cv::Mat                       mDistCoef;
-    float                         mbf;
-    float                         mImageScale;
+    cv::Mat                             mK;
+    Eigen::Matrix3f                     mK_;
+    cv::Mat                             mDistCoef;
+    float                               mbf;
+    float                               mImageScale;
 
-    float                         mImuFreq;
-    double                        mImuPer;
-    bool                          mInsertKFsLost;
+    float                               mImuFreq;
+    double                              mImuPer;
+    bool                                mInsertKFsLost;
 
     // New KeyFrame rules (according to fps)
-    int                           mMinFrames;
-    int                           mMaxFrames;
+    int                                 mMinFrames;
+    int                                 mMaxFrames;
 
-    int                           mnFirstImuFrameId;
-    int                           mnFramesToResetIMU;
+    int                                 mnFirstImuFrameId;
+    int                                 mnFramesToResetIMU;
 
     // Threshold close/far points
     // Points seen as close by the stereo/RGBD sensor are considered reliable
     // and inserted from just one frame. Far points requiere a match in two keyframes.
-    float                         mThDepth;
+    float                               mThDepth;
 
     // For RGB-D inputs only. For some datasets (e.g. TUM) the depthmap values are scaled.
-    float                         mDepthMapFactor;
+    float                               mDepthMapFactor;
 
     // Current matches in frame
-    int                           mnMatchesInliers;
+    int                                 mnMatchesInliers;
 
     // Last Frame, KeyFrame and Relocalisation Info
-    KeyFrame                     *mpLastKeyFrame;
-    unsigned int                  mnLastKeyFrameId;
-    unsigned int                  mnLastRelocFrameId;
-    double                        mTimeStampLost;
-    double                        time_recently_lost;
+    KeyFrame                           *mpLastKeyFrame;
+    unsigned int                        mnLastKeyFrameId;
+    unsigned int                        mnLastRelocFrameId;
+    double                              mTimeStampLost;
+    double                              time_recently_lost;
 
-    unsigned int                  mnFirstFrameId;
-    unsigned int                  mnInitialFrameId;
-    unsigned int                  mnLastInitFrameId;
+    unsigned int                        mnFirstFrameId;
+    unsigned int                        mnInitialFrameId;
+    unsigned int                        mnLastInitFrameId;
 
-    bool                          mbCreatedMap;
+    bool                                mbCreatedMap;
 
     // Motion Model
-    bool                          mbVelocity{false};
-    Sophus::SE3f                  mVelocity;
+    bool                                mbVelocity{false};
+    Sophus::SE3f                        mVelocity;
 
-    bool                          _use_optical_flow{false};
-    cv::Mat                       _previous_gray;
-    unsigned int                  _previous_gray_frame_id{0};
-    unsigned long                 last_feature_frame_id_{0};
-    int                           flow_reference_matches_{0};
-    std::size_t                   flow_frames_{0};
-    std::size_t                   feature_frames_{0};
-    std::size_t                   flow_recoveries_{0};
+    bool                                _use_optical_flow{false};
+    cv::Mat                             _previous_gray;
+    unsigned int                        _previous_gray_frame_id{0};
+    unsigned long                       last_feature_frame_id_{0};
+    int                                 flow_reference_matches_{0};
+    std::size_t                         flow_frames_{0};
+    std::size_t                         feature_frames_{0};
+    std::size_t                         flow_recoveries_{0};
 
     // Color order (true RGB, false BGR, ignored if grayscale)
-    bool                          mbRGB;
+    bool                                mbRGB;
 
-    list<MapPoint *>              mlpTemporalPoints;
+    list<MapPoint *>                    mlpTemporalPoints;
 
     // int nMapChangeIndex;
 
-    int                           mnNumDataset;
+    int                                 mnNumDataset;
 
-    ofstream                      f_track_stats;
+    ofstream                            f_track_stats;
 
-    ofstream                      f_track_times;
-    double                        mTime_PreIntIMU;
-    double                        mTime_PosePred;
-    double                        mTime_LocalMapTrack;
-    double                        mTime_NewKF_Dec;
+    ofstream                            f_track_times;
+    double                              mTime_PreIntIMU;
+    double                              mTime_PosePred;
+    double                              mTime_LocalMapTrack;
+    double                              mTime_NewKF_Dec;
 
-    GeometricCamera              *mpCamera, *mpCamera2;
+    GeometricCamera                    *mpCamera, *mpCamera2;
 
-    int                           initID, lastID;
+    int                                 initID, lastID;
 
-    Sophus::SE3f                  mTlr;
+    Sophus::SE3f                        mTlr;
 
-    void                          newParameterLoader(Settings *settings);
+    void                                newParameterLoader(Settings *settings);
 
 #ifdef REGISTER_LOOP
     bool       Stop();

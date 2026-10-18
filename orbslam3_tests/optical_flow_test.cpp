@@ -1,8 +1,8 @@
 #include "Frame.h"
 #include "KannalaBrandt8.h"
 #include "MapPoint.h"
-#include "ORBextractor.h"
 #include "Pinhole.h"
+#include "keypoint_extractor.h"
 
 #include <algorithm>
 #include <limits>
@@ -82,18 +82,18 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
 
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
 
-    ORB_SLAM3::ORBextractor   left_extractor(400, 1.2f, 4, 20, 7);
-    ORB_SLAM3::ORBextractor   right_extractor(400, 1.2f, 4, 20, 7);
-    ORB_SLAM3::Pinhole        pinhole({200, 200, 128, 128});
-    ORB_SLAM3::KannalaBrandt8 left_camera({200, 200, 128, 128, 0, 0, 0, 0});
-    ORB_SLAM3::KannalaBrandt8 right_camera({200, 200, 128, 128, 0, 0, 0, 0});
+    ORB_SLAM3::keypoint_extractor left_extractor(400, 1.2f, 4, 20, 7);
+    ORB_SLAM3::keypoint_extractor right_extractor(400, 1.2f, 4, 20, 7);
+    ORB_SLAM3::Pinhole            pinhole({200, 200, 128, 128});
+    ORB_SLAM3::KannalaBrandt8     left_camera({200, 200, 128, 128, 0, 0, 0, 0});
+    ORB_SLAM3::KannalaBrandt8     right_camera({200, 200, 128, 128, 0, 0, 0, 0});
 
     left_camera.mvLappingArea  = {0, 256};
     right_camera.mvLappingArea = {0, 256};
 
     auto    calibration        = pinhole.toK();
     cv::Mat distortion         = cv::Mat::zeros(4, 1, CV_32F);
-    
+
     if (camera_kind == 3)
     {
         distortion.at<float>(0) = -0.1f;

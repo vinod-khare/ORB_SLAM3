@@ -31,31 +31,29 @@ IMU.AccWalk: 0.00086
 IMU.Frequency: 200.0
 
 #--------------------------------------------------------------------------------------------
-# ORB Parameters
+# Feature Parameters
 #--------------------------------------------------------------------------------------------
 
-# ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 1024 # Tested with 1250
+keypoint_extractor:
+  n_features: 1024
+  scale_factor: 1.2
+  n_levels: 8
+  initial_threshold: 20
+  minimum_threshold: 7
 
-# ORB Extractor: Scale factor between levels in the scale pyramid
-ORBextractor.scaleFactor: 1.2
+# FAST, AGAST, GFTT, ORB, BRISK, SIFT, AKAZE
+keypoint_detector:
+  type: "SIFT"
 
-# ORB Extractor: Number of levels in the scale pyramid
-ORBextractor.nLevels: 8
+# ORB, SIFT, BRISK; independent of the detector
+keypoint_descriptor:
+  type: "SIFT"
 
-# ORB Extractor: Fast threshold
-# Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
-# Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
-# You can lower these values if your images have low contrast
-ORBextractor.iniThFAST: 20
-ORBextractor.minThFAST: 7
+# brute_force or flann (LSH for binary descriptors, KD-tree for SIFT)
+descriptor_matcher:
+  type: "flann"
 
-# Keypoint detector (descriptors are always ORB): FAST (default), AGAST, GFTT, ORB, BRISK, SIFT, AKAZE
-# FAST/AGAST use the grid thresholds above; ORB/BRISK use iniThFAST as their corner threshold.
-orb_extractor:
-  detector: "FAST"
-
-# Flow-first tracking with ORB recovery/keyframes for mono/stereo, including IMU (0: off, 1: on)
+# Flow-first tracking with descriptor recovery/keyframes (0: off, 1: on)
 Tracking.useOpticalFlow: 1
 
 #--------------------------------------------------------------------------------------------

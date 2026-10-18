@@ -50,6 +50,8 @@
 
 #include "DUtils/Random.h"
 
+#include <utility>
+
 #include <Eigen/Sparse>
 
 namespace ORB_SLAM3
@@ -201,7 +203,7 @@ bool MLPnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlier
             {
                 nInliers  = mnRefinedInliers;
                 vbInliers = vector<bool>(mvpMapPointMatches.size(), false);
-                for (int i = 0; i < N; i++)
+                for (int i = 0; std::cmp_less(i, N); i++)
                 {
                     if (mvbRefinedInliers[i])
                     {
@@ -221,7 +223,7 @@ bool MLPnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlier
         {
             nInliers  = mnBestInliers;
             vbInliers = vector<bool>(mvpMapPointMatches.size(), false);
-            for (int i = 0; i < N; i++)
+            for (int i = 0; std::cmp_less(i, N); i++)
             {
                 if (mvbBestInliers[i])
                 {
@@ -280,7 +282,7 @@ void MLPnPsolver::SetRansacParameters(double probability, int minInliers, int ma
     mRansacMaxIts = max(1, min(nIterations, mRansacMaxIts));
 
     mvMaxError.resize(mvSigma2.size());
-    for (size_t i = 0; i < mvSigma2.size(); i++)
+    for (size_t i = 0; std::cmp_less(i, mvSigma2.size()); i++)
     {
         mvMaxError[i] = mvSigma2[i] * th2;
     }
@@ -290,7 +292,7 @@ void MLPnPsolver::CheckInliers()
 {
     mnInliersi = 0;
 
-    for (int i = 0; i < N; i++)
+    for (int i = 0; std::cmp_less(i, N); i++)
     {
         point_t     p = mvP3Dw[i];
         cv::Point3f P3Dw(p(0), p(1), p(2));
@@ -325,7 +327,7 @@ bool MLPnPsolver::Refine()
     vector<int> vIndices;
     vIndices.reserve(mvbBestInliers.size());
 
-    for (size_t i = 0; i < mvbBestInliers.size(); i++)
+    for (size_t i = 0; std::cmp_less(i, mvbBestInliers.size()); i++)
     {
         if (mvbBestInliers[i])
         {
@@ -338,7 +340,7 @@ bool MLPnPsolver::Refine()
     points_t         p3DS;
     vector<int>      indexes;
 
-    for (size_t i = 0; i < vIndices.size(); i++)
+    for (size_t i = 0; std::cmp_less(i, vIndices.size()); i++)
     {
         int idx = vIndices[i];
 
@@ -836,7 +838,7 @@ void MLPnPsolver::mlpnp_residuals_and_jacs(const Eigen::VectorXd &x, const point
 
     Eigen::MatrixXd jacs(2, 6);
 
-    for (int i = 0; i < pts.size(); ++i)
+    for (int i = 0; std::cmp_less(i, pts.size()); ++i)
     {
         Eigen::Vector3d ptCam  = R * pts[i] + T;
         ptCam                 /= ptCam.norm();

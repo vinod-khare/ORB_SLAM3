@@ -30,8 +30,8 @@ add_library(ORB_SLAM3 SHARED
         source/Tracking.cc
         source/LocalMapping.cc
         source/LoopClosing.cc
-        source/ORBextractor.cc
-        source/ORBmatcher.cc
+        source/keypoint_extractor.cc
+        source/descriptor_matcher.cc
         source/Converter.cc
         source/MapPoint.cc
         source/KeyFrame.cc

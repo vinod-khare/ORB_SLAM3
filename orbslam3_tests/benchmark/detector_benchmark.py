@@ -31,7 +31,7 @@ def run_detector(args, detector):
     log = out / "app.log"
     if not args.skip_run:
         out.mkdir(parents=True, exist_ok=True)
-        cmd = [str(args.app), "--vocab", str(args.vocab), "--settings", str(args.settings), "--slam-type", args.slam_type, "--orb_extractor.detector", detector,
+        cmd = [str(args.app), "--vocab", str(args.vocab), "--settings", str(args.settings), "--slam-type", args.slam_type, "--keypoint_detector.type", detector,
                "--output-folder", str(out), "--output", "trajectory", "--no-viewer"]
         with log.open("w") as f:
             subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, check=True)

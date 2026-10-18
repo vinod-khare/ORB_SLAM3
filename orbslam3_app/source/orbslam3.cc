@@ -152,9 +152,11 @@ int    main(int argc, char **argv)
             "no-viewer", po::bool_switch()->default_value(false), "Run headless without the Pangolin viewer")("slam-type", po::value<string>()->default_value("mono"),
                                                                                                               "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
             "frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")("frames-stride", po::value<int>()->default_value(1),
-                                                                                                            "Take every Nth frame (stride)")("frames-take", po::value<int>()->default_value(0),
-                                                                                                                                             "Maximum number of frames to process (0 = all)")(
-            "orb_extractor.detector", po::value<string>(), "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze); overrides the settings YAML");
+                                                                                                            "Take every Nth frame (stride)")(
+            "frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")("keypoint_detector.type", po::value<string>(),
+                                                                                                                "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze)")(
+            "keypoint_descriptor.type", po::value<string>(), "Keypoint descriptor (orb, sift, brisk)")("descriptor_matcher.type", po::value<string>(),
+                                                                                                       "Descriptor matcher (brute_force, flann)");
 
         po::positional_options_description p;
         p.add("vocab", 1);
@@ -281,8 +283,11 @@ int    main(int argc, char **argv)
         {
             ui_settings = std::make_unique<ORB_SLAM3::viewer_settings>(ORB_SLAM3::read_viewer_settings(settings_path));
         }
-        ORB_SLAM3::System SLAM(vocab_path, settings_path, sensor, 0, output_filename, vm.count("orb_extractor.detector") ? vm["orb_extractor.detector"].as<string>() : string());
-        const float       image_scale = SLAM.GetImageScale();
+        const ORB_SLAM3::feature_overrides      overrides{vm.count("keypoint_detector.type") ? vm["keypoint_detector.type"].as<string>() : string(),
+                                                          vm.count("keypoint_descriptor.type") ? vm["keypoint_descriptor.type"].as<string>() : string(),
+                                                          vm.count("descriptor_matcher.type") ? vm["descriptor_matcher.type"].as<string>() : string()};
+        ORB_SLAM3::System                       SLAM(vocab_path, settings_path, sensor, 0, output_filename, overrides);
+        const float                             image_scale = SLAM.GetImageScale();
 
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;

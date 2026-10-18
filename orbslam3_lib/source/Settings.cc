@@ -23,6 +23,7 @@
 #include "System.h"
 
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 
@@ -30,6 +31,7 @@
 #include <opencv2/core/persistence.hpp>
 
 #include <magic_enum/magic_enum.hpp>
+#include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
 
 using namespace std;
@@ -270,7 +272,7 @@ template <> cv::Mat Settings::readParameter<cv::Mat>(cv::FileStorage &fSettings,
     }
 }
 
-Settings::Settings(const std::string &config_file, const int &sensor, const std::string &keypoint_detector_override)
+Settings::Settings(const std::string &config_file, const int &sensor, const feature_overrides &overrides)
     : bNeedToUndistort_(false), bNeedToRectify_(false), bNeedToResize1_(false), bNeedToResize2_(false)
 {
     sensor_ = sensor;
@@ -320,8 +322,8 @@ Settings::Settings(const std::string &config_file, const int &sensor, const std:
         cout << "\t-Loaded RGB-D calibration" << endl;
     }
 
-    readORB(fSettings, keypoint_detector_override);
-    cout << "\t-Loaded ORB settings" << endl;
+    read_features(fSettings, config_file, overrides);
+    spdlog::info("Loaded feature settings");
     readLoadAndSave(fSettings);
     cout << "\t-Loaded Atlas settings" << endl;
     readOtherParameters(fSettings);
@@ -487,42 +489,49 @@ void Settings::readRGBD(cv::FileStorage &fSettings)
     bf_             = b_ * calibration1_->getParameter(0);
 }
 
-void Settings::readORB(cv::FileStorage &fSettings, const std::string &keypoint_detector_override)
+void Settings::read_features(cv::FileStorage &fSettings, const std::string &config_file, const feature_overrides &overrides)
 {
-    bool found;
-
-    nFeatures_                   = readParameter<int>(fSettings, "ORBextractor.nFeatures", found);
-    scaleFactor_                 = readParameter<float>(fSettings, "ORBextractor.scaleFactor", found);
-    nLevels_                     = readParameter<int>(fSettings, "ORBextractor.nLevels", found);
-    initThFAST_                  = readParameter<int>(fSettings, "ORBextractor.iniThFAST", found);
-    minThFAST_                   = readParameter<int>(fSettings, "ORBextractor.minThFAST", found);
-
-    string             detector  = keypoint_detector_override;
-    const cv::FileNode extractor = fSettings["orb_extractor"];
-    if (detector.empty() && !extractor.empty())
+    std::ifstream stream(config_file);
+    if (stream.peek() == '%')
     {
-        if (!extractor.isMap() || (!extractor["detector"].empty() && !extractor["detector"].isString()))
-        {
-            throw std::runtime_error("Settings entry orb_extractor must be a map and orb_extractor.detector a string");
-        }
-        detector = extractor["detector"].empty() ? string() : extractor["detector"].string();
+        std::string directive;
+        std::getline(stream, directive);
     }
-    _keypoint_detector = keypoint_detector_type::fast;
-    if (!detector.empty())
+    const auto root      = YAML::Load(stream);
+    const auto extractor = root["keypoint_extractor"];
+    if (!extractor || !extractor.IsMap())
     {
-        const auto parsed = magic_enum::enum_cast<keypoint_detector_type>(detector, magic_enum::case_insensitive);
+        throw std::runtime_error("keypoint_extractor must be a map containing n_features, scale_factor, n_levels, initial_threshold, and minimum_threshold");
+    }
+    nFeatures_   = extractor["n_features"].as<int>();
+    scaleFactor_ = extractor["scale_factor"].as<float>();
+    nLevels_     = extractor["n_levels"].as<int>();
+    initThFAST_  = extractor["initial_threshold"].as<int>();
+    minThFAST_   = extractor["minimum_threshold"].as<int>();
+    if (nFeatures_ <= 0 || nLevels_ <= 0 || nLevels_ > 32 || !std::isfinite(scaleFactor_) || scaleFactor_ <= 1 || initThFAST_ < 0 || minThFAST_ < 0 || minThFAST_ > initThFAST_)
+    {
+        throw std::runtime_error("Invalid keypoint_extractor values: require positive features, 1..32 levels, finite scale_factor > 1, and 0 <= minimum_threshold <= initial_threshold");
+    }
+    const auto read_selection = [&]<typename ENUM_T_>(const std::string &section, const std::string &override_value, ENUM_T_ default_value)
+    {
+        const auto node = root[section];
+        if (node && !node.IsMap())
+        {
+            throw std::runtime_error(section + " must be a map");
+        }
+        const auto value  = !override_value.empty() ? override_value : node && node["type"] ? node["type"].as<std::string>() : std::string(magic_enum::enum_name(default_value));
+        const auto parsed = magic_enum::enum_cast<ENUM_T_>(value, magic_enum::case_insensitive);
         if (!parsed)
         {
-            std::cerr << "orb_extractor.detector: unknown keypoint detector '" << detector << "', expected one of:";
-            for (const auto name : magic_enum::enum_names<keypoint_detector_type>())
-            {
-                std::cerr << " " << name;
-            }
-            std::cerr << ", aborting..." << std::endl;
-            exit(-1);
+            throw std::runtime_error("Unknown " + section + ".type: " + value);
         }
-        _keypoint_detector = *parsed;
-    }
+        return *parsed;
+    };
+    _keypoint_detector   = read_selection("keypoint_detector", overrides.detector, keypoint_detector_type::fast);
+    _keypoint_descriptor = read_selection("keypoint_descriptor", overrides.descriptor, keypoint_descriptor_type::orb);
+    _descriptor_matcher  = read_selection("descriptor_matcher", overrides.matcher, descriptor_matcher_type::brute_force);
+    spdlog::info("Feature pipeline: detector={}, descriptor={}, matcher={}", magic_enum::enum_name(_keypoint_detector), magic_enum::enum_name(_keypoint_descriptor),
+                 magic_enum::enum_name(_descriptor_matcher));
 
     const cv::FileNode optical_flow_node = fSettings["Tracking.useOpticalFlow"];
     int                use_optical_flow  = 0;
@@ -727,8 +736,8 @@ ostream &operator<<(std::ostream &output, const Settings &settings)
     }
 
     output << "\t-Features per image: " << settings.nFeatures_ << endl;
-    output << "\t-ORB scale factor: " << settings.scaleFactor_ << endl;
-    output << "\t-ORB number of scales: " << settings.nLevels_ << endl;
+    output << "\t-Feature scale factor: " << settings.scaleFactor_ << endl;
+    output << "\t-Feature number of scales: " << settings.nLevels_ << endl;
     output << "\t-Initial FAST threshold: " << settings.initThFAST_ << endl;
     output << "\t-Min FAST threshold: " << settings.minThFAST_ << endl;
     output << "\t-Keypoint detector: " << magic_enum::enum_name(settings._keypoint_detector) << endl;

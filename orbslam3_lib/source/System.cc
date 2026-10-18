@@ -46,7 +46,7 @@ namespace ORB_SLAM3
 
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr, const string &strSequence, const string &keypoint_detector_override)
+System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr, const string &strSequence, const feature_overrides &overrides)
     : mSensor(sensor), mbReset(false), mbResetActiveMap(false), mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false), mbShutDown(false)
 {
     // Output welcome message
@@ -93,7 +93,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         exit(-1);
     }
 
-    settings_             = std::make_unique<Settings>(strSettingsFile, mSensor, keypoint_detector_override);
+    settings_             = std::make_unique<Settings>(strSettingsFile, mSensor, overrides);
 
     mStrLoadAtlasFromFile = settings_->atlasLoadFile();
     mStrSaveAtlasToFile   = settings_->atlasSaveFile();
@@ -114,7 +114,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         // Load ORB Vocabulary
         cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
-        mpVocabulary  = new ORBVocabulary();
+        mpVocabulary  = new place_vocabulary();
         bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
         if (!bVocLoad)
         {
@@ -136,7 +136,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         // Load ORB Vocabulary
         cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
-        mpVocabulary  = new ORBVocabulary();
+        mpVocabulary  = new place_vocabulary();
         bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
         if (!bVocLoad)
         {
@@ -160,6 +160,16 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         {
             cout << "Error to load the file, please try with other session file or vocabulary file" << endl;
             exit(-1);
+        }
+        const auto descriptor         = settings_->keypoint_descriptor();
+        const int  descriptor_columns = descriptor == keypoint_descriptor_type::sift ? 128 : descriptor == keypoint_descriptor_type::brisk ? 64 : 32;
+        const int  descriptor_type    = descriptor == keypoint_descriptor_type::sift ? CV_32F : CV_8U;
+        for (const auto *keyframe : mpAtlas->GetAllKeyFrames())
+        {
+            if (keyframe->mDescriptors.cols != descriptor_columns || keyframe->mDescriptors.type() != descriptor_type)
+            {
+                throw std::runtime_error("Atlas tracking descriptors do not match keypoint_descriptor.type; use the descriptor that created the atlas");
+            }
         }
         // mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
 
@@ -1931,7 +1941,7 @@ bool System::LoadAtlas(int type)
         }
 
         mpAtlas->SetKeyFrameDababase(mpKeyFrameDatabase);
-        mpAtlas->SetORBVocabulary(mpVocabulary);
+        mpAtlas->Setplace_vocabulary(mpVocabulary);
         mpAtlas->PostLoad();
 
         return true;
