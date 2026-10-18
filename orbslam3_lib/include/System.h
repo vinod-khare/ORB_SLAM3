@@ -26,6 +26,7 @@
 #include "LoopClosing.h"
 #include "Settings.h"
 #include "Tracking.h"
+#include "feature_overrides.h"
 #include "place_vocabulary.h"
 
 #include <stdio.h>

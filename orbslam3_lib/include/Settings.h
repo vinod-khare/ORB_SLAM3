@@ -23,7 +23,10 @@
 // #define REGISTER_TIMES
 
 #include "CameraModels/GeometricCamera.h"
-#include "keypoint_extractor.h"
+#include "descriptor_matcher_type.h"
+#include "feature_overrides.h"
+#include "keypoint_descriptor_type.h"
+#include "keypoint_detector_type.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -53,6 +53,8 @@
 
 #include "keypoint_extractor.h"
 
+#include "keypoint_distribution_node.h"
+
 #include <algorithm>
 #include <vector>
 

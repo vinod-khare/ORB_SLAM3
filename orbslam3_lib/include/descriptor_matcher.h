@@ -22,7 +22,7 @@
 #include "Frame.h"
 #include "KeyFrame.h"
 #include "MapPoint.h"
-#include "keypoint_extractor.h"
+#include "descriptor_matcher_type.h"
 #include "sophus/sim3.hpp"
 
 #include <vector>

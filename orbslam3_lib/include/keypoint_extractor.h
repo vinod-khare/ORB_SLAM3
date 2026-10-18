@@ -16,61 +16,17 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef KEYPOINT_EXTRACTOR_H
-#define KEYPOINT_EXTRACTOR_H
+#pragma once
 
-#include <list>
-#include <string>
+#include "keypoint_descriptor_type.h"
+#include "keypoint_detector_type.h"
+
 #include <vector>
 
 #include <opencv2/opencv.hpp>
 
 namespace ORB_SLAM3
 {
-
-enum class keypoint_detector_type
-{
-    fast,
-    agast,
-    gftt,
-    orb,
-    brisk,
-    sift,
-    akaze
-};
-
-enum class keypoint_descriptor_type
-{
-    orb,
-    sift,
-    brisk
-};
-
-enum class descriptor_matcher_type
-{
-    brute_force,
-    flann
-};
-
-struct feature_overrides
-{
-    std::string detector;
-    std::string descriptor;
-    std::string matcher;
-};
-
-class keypoint_distribution_node
-{
-  public:
-    keypoint_distribution_node() : bNoMore(false) {}
-
-    void                                            divide_node(keypoint_distribution_node &n1, keypoint_distribution_node &n2, keypoint_distribution_node &n3, keypoint_distribution_node &n4);
-
-    std::vector<cv::KeyPoint>                       vKeys;
-    cv::Point2i                                     UL, UR, BL, BR;
-    std::list<keypoint_distribution_node>::iterator lit;
-    bool                                            bNoMore;
-};
 
 class keypoint_extractor
 {
@@ -139,5 +95,3 @@ class keypoint_extractor
 };
 
 } // namespace ORB_SLAM3
-
-#endif
