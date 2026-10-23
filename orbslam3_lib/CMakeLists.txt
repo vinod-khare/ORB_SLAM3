@@ -17,6 +17,7 @@ find_package(yaml-cpp CONFIG REQUIRED)
 if(NOT DBoW2_INCLUDE_DIRS)
         find_path(DBoW2_INCLUDE_DIRS NAMES DBoW2/DBoW2.h)
 endif()
+
 if(NOT TARGET DBoW2::DBoW2)
         add_library(DBoW2::DBoW2 UNKNOWN IMPORTED)
         set_target_properties(DBoW2::DBoW2 PROPERTIES
@@ -46,7 +47,6 @@ add_library(ORB_SLAM3 SHARED
         source/CameraModels/Pinhole.cpp
         source/CameraModels/KannalaBrandt8.cpp
         source/OptimizableTypes.cpp
-        source/MLPnPsolver.cpp
         source/GeometricTools.cpp
         source/TwoViewReconstruction.cpp
         source/Config.cpp
