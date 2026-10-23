@@ -135,7 +135,6 @@ int    main(int argc, char **argv)
 
         const string &vocab_path    = options.vocab_path;
         const string &settings_path = options.settings_path;
-        const string  times_file    = options.times_file.value_or(string{});
 
         string        output_folder;
         if (options.output_folder.has_value())
@@ -159,7 +158,6 @@ int    main(int argc, char **argv)
         const int                            frames_skip     = options.frames_skip;
         const int                            frames_stride   = options.frames_stride;
         const int                            frames_take     = options.frames_take;
-        const folder_reader::timestamps_type timestamps_type = options.timestamps_type;
         const bool                           save_colmap     = options.save_colmap;
         const bool                           save_ply        = options.save_ply;
         const bool                           use_viewer      = options.use_viewer;
@@ -185,16 +183,9 @@ int    main(int argc, char **argv)
             return 1;
         }
 
-        if (!times_file.empty())
-        {
-            cout << "Loading sequence: " << left_image_dir << " with times from " << times_file << "...";
-        }
-        else
-        {
-            cout << "Loading sequence: " << left_image_dir << " using filename nanoseconds as timestamps...";
-        }
+        cout << "Loading sequence: " << left_image_dir << " using filename nanoseconds as timestamps...";
 
-        const folder_reader::settings reader_settings{left_image_dir, right_image_dir, times_file, frames_skip, frames_stride, frames_take, timestamps_type, imu_csv_path};
+        const folder_reader::settings reader_settings{left_image_dir, right_image_dir, frames_skip, frames_stride, frames_take, imu_csv_path};
         folder_reader                 reader(reader_settings);
         cout << "LOADED!" << endl;
 

@@ -72,9 +72,8 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 
 ## Input Data
 
-- Images may be `.png`, `.jpg`, or `.jpeg`. With no timestamps file, image filename stems must be numeric nanoseconds, for example `1403636579763555584.png`; frames are ordered by the numeric timestamp.
+- Images may be `.png`, `.jpg`, or `.jpeg`. Image filename stems must be numeric nanoseconds, for example `1403636579763555584.png`; frames are ordered by the numeric timestamp.
 - Stereo images are paired by identical filename in the left and right folders.
-- Pass `--times-file FILE` to use an external timestamp list. `--timestamps-type` accepts `auto`, `filename_ns`, `timestamp_ns`, or `utc`. `filename_ns` associates entries with numeric image filename stems; `timestamp_ns` associates each timestamp with the corresponding sorted image; `utc` accepts UTC date/time lines. The default `auto` detects the format where possible.
 - In inertial modes, `data.imu` points to a CSV with seven numeric columns and no header: `timestamp_ns,gx,gy,gz,ax,ay,az`. Timestamps must be ordered. Blank lines and lines beginning with `#` are ignored.
 - The camera and IMU calibration, camera model, and IMU noise parameters belong in the settings YAML. The provided TUM-VI configuration uses a Kalibr camchain file.
 
@@ -85,7 +84,6 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--vocab`, `--settings`                                    | Required ORB vocabulary and settings YAML paths. These may also be supplied as the first two positional arguments.                                                             |
 | `--slam-type`                                              | `mono` (default), `mono-inertial`, `stereo`, or `stereo-inertial`.                                                                                                             |
 | `--data.root`, `--data.left`, `--data.right`, `--data.imu` | Dataset root and sensor data paths; command-line values override corresponding YAML values.                                                                                    |
-| `--times-file`, `--timestamps-type`                        | Optional timestamp list and its format.                                                                                                                                        |
 | `--frames-skip N`                                          | Skip the first N image frames.                                                                                                                                                 |
 | `--frames-stride N`                                        | Process every Nth frame; default is 1.                                                                                                                                         |
 | `--frames-take N`                                          | Maximum number of frames; 0 (default) processes all remaining frames.                                                                                                          |
@@ -117,7 +115,7 @@ See the [spdlog pattern flags](https://github.com/gabime/spdlog/wiki/Custom-form
 ## Features Available in This App
 
 - Offline folder replay for monocular, stereo, monocular-inertial, and stereo-inertial SLAM.
-- Image timestamps from numeric filenames or external nanosecond/UTC timestamp files.
+- Image timestamps from numeric nanosecond filename stems.
 - Stereo pairing by matching image filenames, plus time-associated IMU CSV input.
 - Frame skipping, fixed-stride sampling, and frame-count limits for shorter runs.
 - Pangolin SLAM visualization and camera/keyframe trajectory exports.

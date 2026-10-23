@@ -1,4 +1,5 @@
 #include "command_line_options.h"
+#include "folder_reader.h"
 
 #include <chrono>
 #include <filesystem>
@@ -53,6 +54,14 @@ TEST_CASE("Logging pattern supports defaults, YAML and command-line precedence",
     REQUIRE_THROWS_WITH(settings.parse("logging: invalid\n"), "Settings entry logging must be a map");
     REQUIRE_THROWS_WITH(settings.parse("logging:\n  pattern: [invalid]\n"), "Settings entry logging.pattern must be a string");
     REQUIRE_THROWS_WITH(settings.parse("logging:\n  pattern: null\n"), "Settings entry logging.pattern must be a string");
+}
+
+TEST_CASE("External timestamp file options are rejected")
+{
+    const logging_settings settings;
+    REQUIRE(settings.parse("logging: {}\n", {"--times-file", "times.txt"}).exit_code == 1);
+    REQUIRE(settings.parse("logging: {}\n", {"--timestamps-type", "utc"}).exit_code == 1);
+    REQUIRE(settings.parse("logging: {}\n", {"times.txt"}).exit_code == 1);
 }
 
 TEST_CASE("Folder readers preserve the configured logging pattern", "[logging]")
