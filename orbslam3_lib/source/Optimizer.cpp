@@ -865,7 +865,7 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
     pMap->IncreaseChangeIndex();
 }
 
-int Optimizer::PoseOptimization(Frame *pFrame)
+int Optimizer::PoseOptimization(Frame *pFrame, GeometricCamera *camera, GeometricCamera *right_camera)
 {
     g2o::SparseOptimizer                    optimizer;
     g2o::BlockSolver_6_3::LinearSolverType *linearSolver;
@@ -915,7 +915,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
             if (pMP)
             {
                 // Conventional SLAM
-                if (!pFrame->mpCamera2)
+                if (!right_camera)
                 {
                     // Monocular observation
                     if (pFrame->mvuRight[i] < 0)
@@ -938,7 +938,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                         e->setRobustKernel(rk);
                         rk->setDelta(deltaMono);
 
-                        e->pCamera = pFrame->mpCamera;
+                        e->pCamera = camera;
                         e->Xw      = pMP->GetWorldPos().cast<double>();
 
                         optimizer.addEdge(e);
@@ -1008,7 +1008,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                         e->setRobustKernel(rk);
                         rk->setDelta(deltaMono);
 
-                        e->pCamera = pFrame->mpCamera;
+                        e->pCamera = camera;
                         e->Xw      = pMP->GetWorldPos().cast<double>();
 
                         optimizer.addEdge(e);
@@ -1036,7 +1036,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                         e->setRobustKernel(rk);
                         rk->setDelta(deltaMono);
 
-                        e->pCamera = pFrame->mpCamera2;
+                        e->pCamera = right_camera;
                         e->Xw      = pMP->GetWorldPos().cast<double>();
 
                         e->mTrl    = g2o::SE3Quat(pFrame->GetRelativePoseTrl().unit_quaternion().cast<double>(), pFrame->GetRelativePoseTrl().translation().cast<double>());
@@ -4765,7 +4765,7 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
     pMap->IncreaseChangeIndex();
 }
 
-int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit)
+int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, GeometricCamera *camera, GeometricCamera *right_camera, bool bRecInit)
 {
     g2o::SparseOptimizer                 optimizer;
     g2o::BlockSolverX::LinearSolverType *linearSolver;
@@ -4783,7 +4783,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit
     int         nInitialCorrespondences       = 0;
 
     // Set Frame vertex
-    VertexPose *VP                            = new VertexPose(pFrame);
+    VertexPose *VP                            = new VertexPose(pFrame, camera, right_camera);
     VP->setId(0);
     VP->setFixed(false);
     optimizer.addVertex(VP);
@@ -4851,7 +4851,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit
                     e->setMeasurement(obs);
 
                     // Add here uncerteinty
-                    const float unc2      = pFrame->mpCamera->uncertainty2(obs);
+                    const float unc2      = camera->uncertainty2(obs);
 
                     const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
                     e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
@@ -4882,7 +4882,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit
                     e->setMeasurement(obs);
 
                     // Add here uncerteinty
-                    const float  unc2      = pFrame->mpCamera->uncertainty2(obs.head(2));
+                    const float  unc2      = camera->uncertainty2(obs.head(2));
 
                     const float &invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
                     e->setInformation(Eigen::Matrix3d::Identity() * invSigma2);
@@ -4913,7 +4913,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit
                     e->setMeasurement(obs);
 
                     // Add here uncerteinty
-                    const float unc2      = pFrame->mpCamera->uncertainty2(obs);
+                    const float unc2      = camera->uncertainty2(obs);
 
                     const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
                     e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
@@ -5168,7 +5168,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit
     return nInitialCorrespondences - nBad;
 }
 
-int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
+int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, GeometricCamera *camera, GeometricCamera *right_camera, bool bRecInit)
 {
     g2o::SparseOptimizer                 optimizer;
     g2o::BlockSolverX::LinearSolverType *linearSolver;
@@ -5186,7 +5186,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
     int         nInitialCorrespondences       = 0;
 
     // Set Current Frame vertex
-    VertexPose *VP                            = new VertexPose(pFrame);
+    VertexPose *VP                            = new VertexPose(pFrame, camera, right_camera);
     VP->setId(0);
     VP->setFixed(false);
     optimizer.addVertex(VP);
@@ -5253,7 +5253,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
                     e->setMeasurement(obs);
 
                     // Add here uncerteinty
-                    const float unc2      = pFrame->mpCamera->uncertainty2(obs);
+                    const float unc2      = camera->uncertainty2(obs);
 
                     const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
                     e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
@@ -5284,7 +5284,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
                     e->setMeasurement(obs);
 
                     // Add here uncerteinty
-                    const float  unc2      = pFrame->mpCamera->uncertainty2(obs.head(2));
+                    const float  unc2      = camera->uncertainty2(obs.head(2));
 
                     const float &invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
                     e->setInformation(Eigen::Matrix3d::Identity() * invSigma2);
@@ -5315,7 +5315,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
                     e->setMeasurement(obs);
 
                     // Add here uncerteinty
-                    const float unc2      = pFrame->mpCamera->uncertainty2(obs);
+                    const float unc2      = camera->uncertainty2(obs);
 
                     const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
                     e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
@@ -5338,7 +5338,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
     // Set Previous Frame Vertex
     Frame      *pFp         = pFrame->mpPrevFrame;
 
-    VertexPose *VPk         = new VertexPose(pFp);
+    VertexPose *VPk         = new VertexPose(pFp, camera, right_camera);
     VPk->setId(4);
     VPk->setFixed(false);
     optimizer.addVertex(VPk);

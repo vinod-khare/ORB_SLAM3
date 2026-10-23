@@ -477,7 +477,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
 
                             if (_check_orientation)
                             {
-                                cv::KeyPoint &Fkp = (!F.mpCamera2) ? F.mvKeys[bestIdxFR] : (bestIdxFR >= F.Nleft) ? F.mvKeysRight[bestIdxFR - F.Nleft] : F.mvKeys[bestIdxFR];
+                                cv::KeyPoint &Fkp = (F.Nleft == -1) ? F.mvKeys[bestIdxFR] : (bestIdxFR >= F.Nleft) ? F.mvKeysRight[bestIdxFR - F.Nleft] : F.mvKeys[bestIdxFR];
 
                                 float         rot = kp.angle - Fkp.angle;
                                 if (rot < 0.0)
@@ -1929,7 +1929,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
     return nFound;
 }
 
-int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono)
+int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono, GeometricCamera *camera)
 {
     int         nmatches = 0;
 
@@ -1970,7 +1970,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
                     continue;
                 }
 
-                Eigen::Vector2f uv = CurrentFrame.mpCamera->project(x3Dc);
+                Eigen::Vector2f uv = camera->project(x3Dc);
 
                 if (uv(0) < CurrentFrame.mnMinX || uv(0) > CurrentFrame.mnMaxX)
                 {
@@ -2074,7 +2074,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
                 if (CurrentFrame.Nleft != -1)
                 {
                     Eigen::Vector3f x3Dr        = CurrentFrame.GetRelativePoseTrl() * x3Dc;
-                    Eigen::Vector2f uv          = CurrentFrame.mpCamera->project(x3Dr);
+                    Eigen::Vector2f uv          = camera->project(x3Dr);
 
                     int             nLastOctave = (LastFrame.Nleft == -1 || i < LastFrame.Nleft) ? LastFrame.mvKeys[i].octave : LastFrame.mvKeysRight[i - LastFrame.Nleft].octave;
 
@@ -2178,7 +2178,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
     return nmatches;
 }
 
-int descriptor_matcher::search_by_projection(Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold)
+int descriptor_matcher::search_by_projection(Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold, GeometricCamera *camera)
 {
     int                nmatches = 0;
 
@@ -2207,7 +2207,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, KeyFrame *pKF,
                 Eigen::Vector3f       x3Dw = pMP->GetWorldPos();
                 Eigen::Vector3f       x3Dc = Tcw * x3Dw;
 
-                const Eigen::Vector2f uv   = CurrentFrame.mpCamera->project(x3Dc);
+                const Eigen::Vector2f uv   = camera->project(x3Dc);
 
                 if (uv(0) < CurrentFrame.mnMinX || uv(0) > CurrentFrame.mnMaxX)
                 {

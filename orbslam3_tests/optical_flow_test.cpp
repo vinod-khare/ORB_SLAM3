@@ -176,7 +176,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     current.setIntegrated();
     current.get_optical_flow_pyramid(image);
     const auto *pyramid_data = current.optical_flow_pyramid.front().data;
-    current.extract_features(image, stereo ? image : cv::Mat());
+    current.extract_features(image, camera_kind == 2 ? static_cast<ORB_SLAM3::GeometricCamera *>(&left_camera) : &pinhole, stereo ? image : cv::Mat(),
+                             camera_kind == 2 ? &right_camera : nullptr);
     REQUIRE_FALSE(current.flow_only);
     REQUIRE(current.mnId == next_id);
     REQUIRE(ORB_SLAM3::Frame::nNextId == next_id + 1);
@@ -204,14 +205,53 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mBowVec.empty());
     REQUIRE(current.mFeatVec.empty());
     const auto first_grid = current.GetFeaturesInArea(128, 128, 256);
-    current.extract_features(image, stereo ? image : cv::Mat());
+    current.extract_features(image, camera_kind == 2 ? static_cast<ORB_SLAM3::GeometricCamera *>(&left_camera) : &pinhole, stereo ? image : cv::Mat(),
+                             camera_kind == 2 ? &right_camera : nullptr);
     REQUIRE(current.GetFeaturesInArea(128, 128, 256) == first_grid);
+
+    if (camera_kind == 2)
+    {
+        const cv::Mat blank = cv::Mat::zeros(image.size(), image.type());
+        current.extract_features(blank, &left_camera, blank, &right_camera);
+        REQUIRE(current.N == 0);
+        REQUIRE(current.Nleft == 0);
+        REQUIRE(current.Nright == 0);
+        current.set_tracked_features({tracked}, {&point});
+        REQUIRE(current.Nleft == 1);
+        REQUIRE(current.Nright == 0);
+        REQUIRE(current.mvKeysUn.front().pt == tracked.pt);
+        REQUIRE(current.mvLeftToRightMatch == std::vector<int>{-1});
+    }
+}
+
+TEST_CASE("RGB-D frames undistort tracked features without a camera")
+{
+    cv::Mat image(256, 256, CV_8UC1);
+    cv::RNG random(17);
+    random.fill(image, cv::RNG::UNIFORM, 0, 256);
+    ORB_SLAM3::keypoint_extractor extractor(400, 1.2f, 4, 20, 7);
+    cv::Mat                       calibration = (cv::Mat_<float>(3, 3) << 200, 0, 128, 0, 200, 128, 0, 0, 1);
+    cv::Mat                       distortion  = (cv::Mat_<float>(4, 1) << -0.1f, 0, 0, 0);
+    const cv::Mat                 depth(image.size(), CV_32F, cv::Scalar(2));
+    ORB_SLAM3::Frame::mbInitialComputations = true;
+    ORB_SLAM3::Frame frame(image, depth, 1.0, &extractor, nullptr, calibration, distortion, 20, 40);
+    REQUIRE(frame.N > 0);
+    REQUIRE(frame.Nleft == -1);
+    REQUIRE(std::all_of(frame.mvDepth.begin(), frame.mvDepth.end(), [](float value) { return value == 2.0f; }));
+    REQUIRE(std::all_of(frame.mvuRight.begin(), frame.mvuRight.end(), [](float value) { return value >= 0; }));
+
+    ORB_SLAM3::MapPoint point;
+    const cv::KeyPoint  tracked(73.25f, 81.75f, 31.0f);
+    frame.set_tracked_features({tracked}, {&point});
+    std::vector<cv::Point2f> expected;
+    cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected, calibration, distortion, cv::noArray(), calibration);
+    REQUIRE(cv::norm(frame.mvKeysUn.front().pt - expected.front()) < 0.001);
+    REQUIRE(frame.Nleft == -1);
 }
 
 TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
 {
     ORB_SLAM3::Frame frame;
-    frame.mpCamera2 = nullptr;
     frame.mDistCoef = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::MapPoint       point;
     std::vector<cv::KeyPoint> keys;

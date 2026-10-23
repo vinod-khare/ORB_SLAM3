@@ -400,7 +400,7 @@ bool Sim3Solver::ComputeSim3(Eigen::Matrix3f &P1, Eigen::Matrix3f &P2)
 
     if (!mbFixScale)
     {
-        double cvnom = Converter::toCvMat(Pr1).dot(Converter::toCvMat(P3));
+        double cvnom = Converter::to_cv_mat(Pr1).dot(Converter::to_cv_mat(P3));
         double nom   = (Pr1.array() * P3.array()).sum();
         if (abs(nom - cvnom) > 1e-3)
         {

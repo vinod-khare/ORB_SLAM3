@@ -41,19 +41,24 @@ class Converter
     static g2o::SE3Quat                toSE3Quat(const Sophus::SE3f &T);
     static g2o::SE3Quat                toSE3Quat(const g2o::Sim3 &gSim3);
 
-    // TODO: templetize these functions
     static cv::Mat                     toCvMat(const g2o::SE3Quat &SE3);
     static cv::Mat                     toCvMat(const g2o::Sim3 &Sim3);
-    static cv::Mat                     toCvMat(const Eigen::Matrix<double, 4, 4> &m);
-    static cv::Mat                     toCvMat(const Eigen::Matrix<float, 4, 4> &m);
-    static cv::Mat                     toCvMat(const Eigen::Matrix<float, 3, 4> &m);
-    static cv::Mat                     toCvMat(const Eigen::Matrix3d &m);
-    static cv::Mat                     toCvMat(const Eigen::Matrix<double, 3, 1> &m);
-    static cv::Mat                     toCvMat(const Eigen::Matrix<float, 3, 1> &m);
-    static cv::Mat                     toCvMat(const Eigen::Matrix<float, 3, 3> &m);
 
-    static cv::Mat                     toCvMat(const Eigen::MatrixXf &m);
-    static cv::Mat                     toCvMat(const Eigen::MatrixXd &m);
+    template <typename T_DERIVED>
+    static cv::Mat to_cv_mat(const Eigen::MatrixBase<T_DERIVED> &matrix)
+    {
+      cv::Mat cv_mat(static_cast<int>(matrix.rows()), static_cast<int>(matrix.cols()), CV_32F);
+      for (Eigen::Index row = 0; row < matrix.rows(); ++row)
+      {
+        for (Eigen::Index column = 0; column < matrix.cols(); ++column)
+        {
+          cv_mat.at<float>(static_cast<int>(row), static_cast<int>(column)) =
+            static_cast<float>(matrix(row, column));
+        }
+      }
+
+      return cv_mat;
+    }
 
     static cv::Mat                     toCvSE3(const Eigen::Matrix<double, 3, 3> &R, const Eigen::Matrix<double, 3, 1> &t);
     static cv::Mat                     tocvSkewMatrix(const cv::Mat &v);
@@ -70,7 +75,6 @@ class Converter
     static bool                        isRotationMatrix(const cv::Mat &R);
     static std::vector<float>          toEuler(const cv::Mat &R);
 
-    // TODO: Sophus migration, to be deleted in the future
     static Sophus::SE3<float>          toSophus(const cv::Mat &T);
     static Sophus::Sim3f               toSophus(const g2o::Sim3 &S);
 };

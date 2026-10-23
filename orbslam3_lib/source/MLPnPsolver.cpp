@@ -56,7 +56,7 @@
 
 namespace ORB_SLAM3
 {
-MLPnPsolver::MLPnPsolver(const Frame &F, const vector<MapPoint *> &vpMapPointMatches) : mnInliersi(0), mnIterations(0), mnBestInliers(0), N(0), mpCamera(F.mpCamera)
+MLPnPsolver::MLPnPsolver(const Frame &F, const vector<MapPoint *> &vpMapPointMatches, GeometricCamera *camera) : mnInliersi(0), mnIterations(0), mnBestInliers(0), N(0), mpCamera(camera)
 {
     mvpMapPointMatches = vpMapPointMatches;
     mvBearingVecs.reserve(F.mvpMapPoints.size());

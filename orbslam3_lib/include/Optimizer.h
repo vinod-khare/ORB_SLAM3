@@ -53,9 +53,9 @@ class Optimizer
 
     void static LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges);
 
-    int static PoseOptimization(Frame *pFrame);
-    int static PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit = false);
-    int static PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit = false);
+    int static PoseOptimization(Frame *pFrame, GeometricCamera *camera, GeometricCamera *right_camera = nullptr);
+    int static PoseInertialOptimizationLastKeyFrame(Frame *pFrame, GeometricCamera *camera, GeometricCamera *right_camera = nullptr, bool bRecInit = false);
+    int static PoseInertialOptimizationLastFrame(Frame *pFrame, GeometricCamera *camera, GeometricCamera *right_camera = nullptr, bool bRecInit = false);
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
     void static OptimizeEssentialGraph(Map *pMap, KeyFrame *pLoopKF, KeyFrame *pCurKF, const LoopClosing::KeyFrameAndPose &NonCorrectedSim3, const LoopClosing::KeyFrameAndPose &CorrectedSim3,

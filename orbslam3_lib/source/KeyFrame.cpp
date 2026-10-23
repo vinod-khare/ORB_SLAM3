@@ -38,7 +38,7 @@ KeyFrame::KeyFrame()
 {
 }
 
-KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB)
+KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, GeometricCamera *camera, GeometricCamera *right_camera)
     : bImu(pMap->isImuInitialized()), mnFrameId(F.mnId), mTimeStamp(F.mTimeStamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS), mfGridElementWidthInv(F.mfGridElementWidthInv),
       mfGridElementHeightInv(F.mfGridElementHeightInv), mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0), mnNumberOfOpt(0), mnLoopQuery(0),
       mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), mnPlaceRecognitionQuery(0), mnPlaceRecognitionWords(0), mPlaceRecognitionScore(0), mbCurrentPlaceRecognition(false), mnBAGlobalForKF(0),
@@ -48,7 +48,7 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB)
       mvLevelSigma2(F.mvLevelSigma2), mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX), mnMaxY(F.mnMaxY), mPrevKF(nullptr), mNextKF(nullptr),
       mpImuPreintegrated(F.mpImuPreintegrated), mImuCalib(F.mImuCalib), mNameFile(F.mNameFile), mnDataset(F.mnDataset), mbHasVelocity(false), mTlr(F.GetRelativePoseTlr()),
       mTrl(F.GetRelativePoseTrl()), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), place_vocabulary_ptr(F.place_vocabulary_ptr), mbFirstConnection(true), mpParent(nullptr),
-      mbNotErase(false), mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb / 2), mpMap(pMap), mK_(F.mK_), mpCamera(F.mpCamera), mpCamera2(F.mpCamera2),
+      mbNotErase(false), mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb / 2), mpMap(pMap), mK_(F.mK_), mpCamera(camera), mpCamera2(right_camera),
       mvLeftToRightMatch(F.mvLeftToRightMatch), mvRightToLeftMatch(F.mvRightToLeftMatch), mvKeysRight(F.mvKeysRight), NLeft(F.Nleft), NRight(F.Nright)
 {
     mnId              = nNextId++;

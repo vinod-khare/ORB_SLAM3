@@ -741,11 +741,11 @@ Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, c
 
     if (mSensor == System::RGBD)
     {
-        mCurrentFrame = Frame(mImGray, imDepth, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera);
+        mCurrentFrame = Frame(mImGray, imDepth, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth);
     }
     else if (mSensor == System::IMU_RGBD)
     {
-        mCurrentFrame = Frame(mImGray, imDepth, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera, &mLastFrame, *mpImuCalib);
+        mCurrentFrame = Frame(mImGray, imDepth, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, &mLastFrame, *mpImuCalib);
     }
 
     mCurrentFrame.mNameFile = filename;
@@ -1673,7 +1673,7 @@ void Tracking::StereoInitialization()
         }
 
         // Create KeyFrame
-        KeyFrame *pKFini = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB);
+        KeyFrame *pKFini = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, mpCamera, mpCamera2);
 
         // Insert KeyFrame in the map
         mpAtlas->AddKeyFrame(pKFini);
@@ -1830,8 +1830,8 @@ void Tracking::MonocularInitialization()
 void Tracking::CreateInitialMapMonocular()
 {
     // Create KeyFrames
-    KeyFrame *pKFini = new KeyFrame(mInitialFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB);
-    KeyFrame *pKFcur = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB);
+    KeyFrame *pKFini = new KeyFrame(mInitialFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, mpCamera, mpCamera2);
+    KeyFrame *pKFcur = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, mpCamera, mpCamera2);
 
     if (mSensor == System::IMU_MONOCULAR)
     {
@@ -2053,7 +2053,7 @@ bool Tracking::TrackReferenceKeyFrame()
     // mCurrentFrame.PrintPointDistribution();
 
     // cout << " TrackReferenceKeyFrame mLastFrame.mTcw:  " << mLastFrame.mTcw << endl;
-    Optimizer::PoseOptimization(&mCurrentFrame);
+    Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -2207,7 +2207,7 @@ bool Tracking::TrackWithMotionModel()
         const int  flow_matches   = track_with_optical_flow();
         if (flow_matches >= 50)
         {
-            Optimizer::PoseOptimization(&mCurrentFrame);
+            Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
             if (mCurrentFrame.reliable_flow_inliers(mImGray.size()))
             {
                 spdlog::debug("Frame {}: flow-only tracking, {} observations", mCurrentFrame.mnId, flow_matches);
@@ -2238,7 +2238,8 @@ bool Tracking::TrackWithMotionModel()
         th = 15;
     }
 
-    int nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
+    // TODO: projecting points should be trackers responsiblity, leaving matcher to match pre-projected points.
+    int nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR, mpCamera);
 
     // If few matches, uses a wider window search
     if (nmatches < 20)
@@ -2246,7 +2247,7 @@ bool Tracking::TrackWithMotionModel()
         Verbose::PrintMess("Not enough matches, wider window search!!", Verbose::VERBOSITY_NORMAL);
         fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
 
-        nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, 2 * th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
+        nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, 2 * th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR, mpCamera);
         Verbose::PrintMess("Matches with wider search: " + to_string(nmatches), Verbose::VERBOSITY_NORMAL);
     }
 
@@ -2264,7 +2265,7 @@ bool Tracking::TrackWithMotionModel()
     }
 
     // Optimize frame pose with all matches
-    Optimizer::PoseOptimization(&mCurrentFrame);
+    Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -2326,7 +2327,7 @@ void Tracking::extract_current_features()
     {
         return;
     }
-    mCurrentFrame.extract_features(mImGray, (mSensor == System::STEREO || mSensor == System::IMU_STEREO) ? mImRight : cv::Mat());
+    mCurrentFrame.extract_features(mImGray, mpCamera, (mSensor == System::STEREO || mSensor == System::IMU_STEREO) ? mImRight : cv::Mat(), mpCamera2);
     last_feature_frame_id_ = mCurrentFrame.mnId;
     ++feature_frames_;
 }
@@ -2500,14 +2501,14 @@ bool Tracking::TrackLocalMap()
 
     if (!mpAtlas->isImuInitialized())
     {
-        Optimizer::PoseOptimization(&mCurrentFrame);
+        Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
     }
     else
     {
         if (mCurrentFrame.mnId <= mnLastRelocFrameId + mnFramesToResetIMU)
         {
             Verbose::PrintMess("TLM: PoseOptimization ", Verbose::VERBOSITY_DEBUG);
-            Optimizer::PoseOptimization(&mCurrentFrame);
+            Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
         }
         else
         {
@@ -2517,12 +2518,12 @@ bool Tracking::TrackLocalMap()
             if (!mbMapUpdated && mLastFrame.mpcpi)
             {
                 Verbose::PrintMess("TLM: PoseInertialOptimizationLastFrame ", Verbose::VERBOSITY_DEBUG);
-                Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
+                Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame, mpCamera, mpCamera2); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
             }
             else
             {
                 Verbose::PrintMess("TLM: PoseInertialOptimizationLastKeyFrame ", Verbose::VERBOSITY_DEBUG);
-                Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
+                Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame, mpCamera, mpCamera2); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
             }
         }
     }
@@ -2831,9 +2832,9 @@ void Tracking::CreateNewKeyFrame()
         const Frame flow_frame(mCurrentFrame);
         extract_current_features();
         descriptor_matcher matcher(0.9, true);
-        matcher.search_by_projection(mCurrentFrame, mLastFrame, mSensor == System::STEREO ? 7 : 15, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR);
+        matcher.search_by_projection(mCurrentFrame, mLastFrame, mSensor == System::STEREO ? 7 : 15, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR, mpCamera);
         SearchLocalPoints();
-        const int inliers = Optimizer::PoseOptimization(&mCurrentFrame);
+        const int inliers = Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
         if (inliers < 50)
         {
             spdlog::warn("Frame {}: postponing keyframe; only {} descriptor inliers after feature refresh", mCurrentFrame.mnId, inliers);
@@ -2853,7 +2854,7 @@ void Tracking::CreateNewKeyFrame()
         return;
     }
 
-    KeyFrame *pKF = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB);
+    KeyFrame *pKF = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, mpCamera, mpCamera2);
 
     if (mpAtlas->isImuInitialized()) //  || mpLocalMapper->IsInitializing())
     {
@@ -3025,7 +3026,7 @@ void Tracking::SearchLocalPoints()
             continue;
         }
         // Project (this fills MapPoint variables for matching)
-        if (mCurrentFrame.isInFrustum(pMP, 0.5))
+        if (mCurrentFrame.isInFrustum(pMP, 0.5, mpCamera, mpCamera2))
         {
             pMP->IncreaseVisible();
             nToMatch++;
@@ -3332,7 +3333,7 @@ bool Tracking::Relocalization()
             }
             else
             {
-                MLPnPsolver *pSolver = new MLPnPsolver(mCurrentFrame, vvpMapPointMatches[i]);
+                MLPnPsolver *pSolver = new MLPnPsolver(mCurrentFrame, vvpMapPointMatches[i], mpCamera);
                 pSolver->SetRansacParameters(0.99, 10, 300, 6, 0.5, 5.991); // This solver needs at least 6 points
                 vpMLPnPsolvers[i] = pSolver;
                 nCandidates++;
@@ -3394,7 +3395,7 @@ bool Tracking::Relocalization()
                     }
                 }
 
-                int nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+                int nGood = Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
 
                 if (nGood < 10)
                 {
@@ -3412,11 +3413,11 @@ bool Tracking::Relocalization()
                 // If few inliers, search by projection in a coarse window and optimize again
                 if (nGood < 50)
                 {
-                    int nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 10, 100);
+                    int nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 10, 100, mpCamera);
 
                     if (nadditional + nGood >= 50)
                     {
-                        nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+                        nGood = Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
 
                         // If many inliers but still not enough, search by projection again in a narrower window
                         // the camera has been already optimized with many points
@@ -3430,12 +3431,12 @@ bool Tracking::Relocalization()
                                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
                                 }
                             }
-                            nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 3, 64);
+                            nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 3, 64, mpCamera);
 
                             // Final optimization
                             if (nGood + nadditional >= 50)
                             {
-                                nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+                                nGood = Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
 
                                 for (int io = 0; io < mCurrentFrame.N; io++)
                                 {

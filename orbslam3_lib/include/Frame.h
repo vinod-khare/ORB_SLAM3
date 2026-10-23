@@ -56,7 +56,7 @@ class Frame
 
     // Calibration/state for a new image, without detecting or describing features.
     Frame(Frame &previous, double timestamp);
-    void extract_features(const cv::Mat &left, const cv::Mat &right = cv::Mat());
+    void extract_features(const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right = cv::Mat(), GeometricCamera *right_camera = nullptr);
     void set_tracked_features(std::vector<cv::KeyPoint> keys, std::vector<MapPoint *> points, std::vector<cv::KeyPoint> native_keys = {});
     bool reliable_flow_inliers(const cv::Size &image_size) const;
     bool flow_only{false};
@@ -67,7 +67,7 @@ class Frame
 
     // Constructor for RGB-D cameras.
     Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, cv::Mat &K, cv::Mat &distCoef, const float &bf,
-          const float &thDepth, GeometricCamera *pCamera, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
+          const float &thDepth, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Constructor for Monocular cameras.
     Frame(const cv::Mat &imGray, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, GeometricCamera *pCamera, cv::Mat &distCoef, const float &bf,
@@ -109,7 +109,7 @@ class Frame
 
     // Check if a MapPoint is in the frustum of the camera
     // and fill variables of the MapPoint to be used by the tracking
-    bool                        isInFrustum(MapPoint *pMP, float viewingCosLimit);
+    bool                        isInFrustum(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, GeometricCamera *right_camera = nullptr);
 
     bool                        ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v);
 
@@ -323,10 +323,9 @@ class Frame
     std::mutex *mpMutexImu;
 
   public:
-    GeometricCamera             *mpCamera, *mpCamera2; // TODO: do we need references to the cameras in the frame class?
-
     // Number of KeyPoints extracted in the left and right images
-    int                          Nleft, Nright;
+    int                          Nleft{-1};
+    int                          Nright{-1};
     // Number of Non Lapping Keypoints
     int                          monoLeft, monoRight;
 
@@ -347,9 +346,9 @@ class Frame
           const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Stereo fisheye
-    void            ComputeStereoFishEyeMatches();
+    void            ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera);
 
-    bool            isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, bool bRight = false);
+    bool            isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, bool bRight = false);
 
     Eigen::Vector3f UnprojectStereoFishEye(const int &i);
 

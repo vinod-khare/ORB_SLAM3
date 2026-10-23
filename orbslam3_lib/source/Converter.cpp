@@ -51,7 +51,7 @@ g2o::SE3Quat Converter::toSE3Quat(const Sophus::SE3f &T)
 cv::Mat Converter::toCvMat(const g2o::SE3Quat &SE3)
 {
     Eigen::Matrix<double,4,4> eigMat = SE3.to_homogeneous_matrix();
-    return toCvMat(eigMat);
+    return to_cv_mat(eigMat);
 }
 
 cv::Mat Converter::toCvMat(const g2o::Sim3 &Sim3)
@@ -60,94 +60,6 @@ cv::Mat Converter::toCvMat(const g2o::Sim3 &Sim3)
     Eigen::Vector3d eigt = Sim3.translation();
     double s = Sim3.scale();
     return toCvSE3(s*eigR,eigt);
-}
-
-cv::Mat Converter::toCvMat(const Eigen::Matrix<double,4,4> &m)
-{
-    cv::Mat cvMat(4,4,CV_32F);
-    for(int i=0;i<4;i++)
-        for(int j=0; j<4; j++)
-            cvMat.at<float>(i,j)=m(i,j);
-
-    return cvMat.clone();
-}
-
-cv::Mat Converter::toCvMat(const Eigen::Matrix<float,4,4> &m)
-{
-    cv::Mat cvMat(4,4,CV_32F);
-    for(int i=0;i<4;i++)
-        for(int j=0; j<4; j++)
-            cvMat.at<float>(i,j)=m(i,j);
-
-    return cvMat.clone();
-}
-
-cv::Mat Converter::toCvMat(const Eigen::Matrix<float,3,4> &m)
-{
-    cv::Mat cvMat(3,4,CV_32F);
-    for(int i=0;i<3;i++)
-        for(int j=0; j<4; j++)
-            cvMat.at<float>(i,j)=m(i,j);
-
-    return cvMat.clone();
-}
-
-cv::Mat Converter::toCvMat(const Eigen::Matrix3d &m)
-{
-    cv::Mat cvMat(3,3,CV_32F);
-    for(int i=0;i<3;i++)
-        for(int j=0; j<3; j++)
-            cvMat.at<float>(i,j)=m(i,j);
-
-    return cvMat.clone();
-}
-
-cv::Mat Converter::toCvMat(const Eigen::Matrix3f &m)
-{
-    cv::Mat cvMat(3,3,CV_32F);
-    for(int i=0;i<3;i++)
-        for(int j=0; j<3; j++)
-            cvMat.at<float>(i,j)=m(i,j);
-
-    return cvMat.clone();
-}
-
-cv::Mat Converter::toCvMat(const Eigen::MatrixXf &m)
-{
-    cv::Mat cvMat(m.rows(),m.cols(),CV_32F);
-    for(int i=0;i<m.rows();i++)
-        for(int j=0; j<m.cols(); j++)
-            cvMat.at<float>(i,j)=m(i,j);
-
-    return cvMat.clone();
-}
-
-cv::Mat Converter::toCvMat(const Eigen::MatrixXd &m)
-{
-    cv::Mat cvMat(m.rows(),m.cols(),CV_32F);
-    for(int i=0;i<m.rows();i++)
-        for(int j=0; j<m.cols(); j++)
-            cvMat.at<float>(i,j)=m(i,j);
-
-    return cvMat.clone();
-}
-
-cv::Mat Converter::toCvMat(const Eigen::Matrix<double,3,1> &m)
-{
-    cv::Mat cvMat(3,1,CV_32F);
-    for(int i=0;i<3;i++)
-            cvMat.at<float>(i)=m(i);
-
-    return cvMat.clone();
-}
-
-cv::Mat Converter::toCvMat(const Eigen::Matrix<float,3,1> &m)
-{
-    cv::Mat cvMat(3,1,CV_32F);
-    for(int i=0;i<3;i++)
-        cvMat.at<float>(i)=m(i);
-
-    return cvMat.clone();
 }
 
 cv::Mat Converter::toCvSE3(const Eigen::Matrix<double,3,3> &R, const Eigen::Matrix<double,3,1> &t)

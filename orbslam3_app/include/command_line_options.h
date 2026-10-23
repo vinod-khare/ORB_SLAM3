@@ -6,7 +6,6 @@
 #include <optional>
 #include <string>
 
-// TODO: this class can reuse some of the settings classes from lib
 class command_line_options
 {
   public:
