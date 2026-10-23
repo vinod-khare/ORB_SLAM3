@@ -8,6 +8,7 @@ find_package(Pangolin CONFIG REQUIRED)
 find_package(rapidcsv CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(Threads REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
 
 add_library(orbslam3_input STATIC
     source/folder_reader.cpp
@@ -30,4 +31,4 @@ add_executable(orbslam3_app
     source/orbslam3.cpp)
 
 target_compile_options(orbslam3_app PRIVATE -Wall)
-target_link_libraries(orbslam3_app PRIVATE orbslam3_input orbslam3_ui Boost::program_options spdlog::spdlog)
+target_link_libraries(orbslam3_app PRIVATE orbslam3_input orbslam3_ui Boost::program_options spdlog::spdlog yaml-cpp::yaml-cpp)

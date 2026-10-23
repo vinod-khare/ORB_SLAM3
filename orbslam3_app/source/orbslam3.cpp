@@ -131,6 +131,8 @@ int    main(int argc, char **argv)
             return *options.exit_code;
         }
 
+        spdlog::set_pattern(options.logging_pattern);
+
         const string &vocab_path    = options.vocab_path;
         const string &settings_path = options.settings_path;
         const string  times_file    = options.times_file.value_or(string{});

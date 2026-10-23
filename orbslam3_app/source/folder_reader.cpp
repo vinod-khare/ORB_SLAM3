@@ -151,16 +151,14 @@ bool file_exists_with_any_image_extension(const std::string &image_dir, const st
 
 folder_reader::folder_reader(const settings &reader_settings)
 {
-    const std::string    &left_image_path  = reader_settings.left_image_path;
-    const std::string    &right_image_path = reader_settings.right_image_path;
-    const std::string    &times_path       = reader_settings.times_path;
-    int                   frames_skip      = reader_settings.frames_skip;
-    const int             frames_stride    = reader_settings.frames_stride;
-    const int             frames_take      = reader_settings.frames_take;
-    const timestamps_type type             = reader_settings.type;
-    const std::string    &imu_path         = reader_settings.imu_path;
-
-    spdlog::set_pattern("[%H:%M:%S] [%^%l%$] %v");
+    const std::string       &left_image_path  = reader_settings.left_image_path;
+    const std::string       &right_image_path = reader_settings.right_image_path;
+    const std::string       &times_path       = reader_settings.times_path;
+    int                      frames_skip      = reader_settings.frames_skip;
+    const int                frames_stride    = reader_settings.frames_stride;
+    const int                frames_take      = reader_settings.frames_take;
+    const timestamps_type    type             = reader_settings.type;
+    const std::string       &imu_path         = reader_settings.imu_path;
 
     std::vector<std::string> allImages;
     std::vector<double>      allTimestamps;

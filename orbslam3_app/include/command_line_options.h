@@ -16,6 +16,7 @@ class command_line_options
 
     std::string                    vocab_path;
     std::string                    settings_path;
+    std::string                    logging_pattern = "%+";
     std::optional<std::string>     times_file;
     std::optional<std::string>     data_root;
     std::optional<std::string>     data_left;

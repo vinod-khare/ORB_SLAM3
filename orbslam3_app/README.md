@@ -97,6 +97,22 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--keypoint_descriptor.type`                               | Independent OpenCV descriptor (`orb`, `sift`, `brisk`). |
 | `--descriptor_matcher.type`                                | OpenCV matcher (`brute_force`, `flann`); Hamming/LSH for binary data, L2/KD-tree for SIFT. |
 | `--no-viewer`                                              | Run headless without the Pangolin viewer.                                                                                                                                      |
+| `--logging.pattern`                                       | spdlog output pattern; overrides `logging.pattern` in YAML. Default: `%+` (spdlog's built-in default). |
+
+## Logging
+
+Set the spdlog output pattern in the settings YAML:
+
+```yaml
+logging:
+  pattern: "[%H:%M:%S] [%^%l%$] %v"
+```
+
+Or override it with `--logging.pattern '[%H:%M:%S] [%^%l%$] %v'`.
+Quote patterns to preserve `%` characters and spaces. With neither setting, logs
+use spdlog's project default (`%+`), including date, time with milliseconds,
+logger name (when nonempty), colored level, and message. `%v` prints only the message.
+See the [spdlog pattern flags](https://github.com/gabime/spdlog/wiki/Custom-formatting#pattern-flags).
 
 ## Features Available in This App
 

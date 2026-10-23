@@ -1,9 +1,13 @@
 #include "command_line_options.h"
 
+#include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
 #include <boost/program_options.hpp>
+
+#include <yaml-cpp/yaml.h>
 
 namespace po = boost::program_options;
 
@@ -27,7 +31,8 @@ command_line_options::command_line_options(int argc, char **argv)
         "frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")("keypoint_detector.type", po::value<std::string>(),
                                                                                                             "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze)")(
         "keypoint_descriptor.type", po::value<std::string>(), "Keypoint descriptor (orb, sift, brisk)")("descriptor_matcher.type", po::value<std::string>(),
-                                                                                                        "Descriptor matcher (brute_force, flann)");
+                                                                                                        "Descriptor matcher (brute_force, flann)")(
+        "logging.pattern", po::value<std::string>(), "spdlog output pattern; overrides logging.pattern in YAML (default: %+, spdlog default)");
 
     po::positional_options_description positional;
     positional.add("vocab", 1);
@@ -64,6 +69,43 @@ command_line_options::command_line_options(int argc, char **argv)
 
     vocab_path    = values["vocab"].as<std::string>();
     settings_path = values["settings"].as<std::string>();
+    
+    if (values.count("logging.pattern"))
+    {
+        logging_pattern = values["logging.pattern"].as<std::string>();
+    }
+    else
+    {
+        std::ifstream stream(settings_path);
+        if (!stream)
+        {
+            throw std::runtime_error("Failed to open settings file: " + settings_path);
+        }
+        // OpenCV settings use a non-standard %YAML:1.0 directive.
+        if (stream.peek() == '%')
+        {
+            std::string directive;
+            std::getline(stream, directive);
+        }
+        const auto root    = YAML::Load(stream);
+        const auto logging = root["logging"];
+        if (logging)
+        {
+            if (!logging.IsMap())
+            {
+                throw std::runtime_error("Settings entry logging must be a map");
+            }
+            const auto pattern = logging["pattern"];
+            if (pattern)
+            {
+                if (!pattern.IsScalar())
+                {
+                    throw std::runtime_error("Settings entry logging.pattern must be a string");
+                }
+                logging_pattern = pattern.as<std::string>();
+            }
+        }
+    }
     if (values.count("times-file"))
     {
         times_file = values["times-file"].as<std::string>();
