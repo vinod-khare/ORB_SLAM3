@@ -147,7 +147,7 @@ class Settings
 
     void                             read_cameras(cv::FileStorage &settings);
     void                             readImageInfo(cv::FileStorage &fSettings);
-    void                             read_imu(cv::FileStorage &settings);
+    void                             read_imu(cv::FileStorage &settings, const std::string &config_file);
     void                             readRGBD(cv::FileStorage &fSettings);
     void                             read_features(cv::FileStorage &fSettings, const std::string &config_file, const feature_overrides &overrides);
     void                             readLoadAndSave(cv::FileStorage &fSettings);

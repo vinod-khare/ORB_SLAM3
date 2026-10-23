@@ -75,7 +75,9 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 - Images may be `.png`, `.jpg`, or `.jpeg`. Image filename stems must be numeric nanoseconds, for example `1403636579763555584.png`; frames are ordered by the numeric timestamp.
 - Stereo images are paired by identical filename in the left and right folders.
 - In inertial modes, `data.imu` points to a CSV with seven numeric columns and no header: `timestamp_ns,gx,gy,gz,ax,ay,az`. Timestamps must be ordered. Blank lines and lines beginning with `#` are ignored.
-- The camera and IMU calibration, camera model, and IMU noise parameters belong in the settings YAML. The provided TUM-VI configuration uses a Kalibr camchain file.
+- `calibration.file` points to the Kalibr camchain YAML providing camera models, intrinsics, distortion, resolution, and camera/IMU extrinsics.
+- In inertial modes, `calibration.imu_file` must point to a Kalibr IMU YAML containing `gyroscope_noise_density`, `accelerometer_noise_density`, `gyroscope_random_walk`, `accelerometer_random_walk`, and `update_rate`. All five values must be finite and positive. Relative paths are resolved from the settings file, not the camchain file.
+- IMU noise and frequency must come from that calibration file. The former settings keys `IMU.NoiseGyro`, `IMU.NoiseAcc`, `IMU.GyroWalk`, `IMU.AccWalk`, and `IMU.Frequency` are no longer supported. `IMU.InsertKFsWhenLost` remains an optional settings entry.
 
 ## Options
 

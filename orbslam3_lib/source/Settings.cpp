@@ -22,6 +22,7 @@
 #include "CameraModels/Pinhole.h"
 #include "System.h"
 
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -312,7 +313,7 @@ Settings::Settings(const std::string &config_file, const int &sensor, const feat
 
     if (sensor_ == System::IMU_MONOCULAR || sensor_ == System::IMU_STEREO || sensor_ == System::IMU_RGBD)
     {
-        read_imu(fSettings);
+        read_imu(fSettings, config_file);
         cout << "\t-Loaded IMU calibration" << endl;
     }
 
@@ -456,18 +457,59 @@ void Settings::readImageInfo(cv::FileStorage &fSettings)
     bRGB_ = (bool)readParameter<int>(fSettings, "Camera.RGB", found);
 }
 
-void Settings::read_imu(cv::FileStorage &settings)
+void Settings::read_imu(cv::FileStorage &settings, const std::string &config_file)
 {
-    bool found;
-    noiseGyro_    = readParameter<float>(settings, "IMU.NoiseGyro", found);
-    noiseAcc_     = readParameter<float>(settings, "IMU.NoiseAcc", found);
-    gyroWalk_     = readParameter<float>(settings, "IMU.GyroWalk", found);
-    accWalk_      = readParameter<float>(settings, "IMU.AccWalk", found);
-    imuFrequency_ = readParameter<float>(settings, "IMU.Frequency", found);
+    for (const auto *key : {"IMU.NoiseGyro", "IMU.NoiseAcc", "IMU.GyroWalk", "IMU.AccWalk", "IMU.Frequency"})
+    {
+        if (!settings[key].empty())
+        {
+            throw std::runtime_error(std::string(key) + " is no longer supported in settings; use calibration.imu_file (Kalibr IMU YAML)");
+        }
+    }
+
+    const auto imu_file = settings["calibration"]["imu_file"];
+    if (!imu_file.isString())
+    {
+        throw std::runtime_error("Settings entry calibration.imu_file (Kalibr IMU YAML) is required in " + config_file);
+    }
+
+    auto imu_path = std::filesystem::path(imu_file.string());
+    if (imu_path.is_relative())
+    {
+        imu_path = std::filesystem::absolute(config_file).parent_path() / imu_path;
+    }
+
+    imu_path = imu_path.lexically_normal();
+    const auto calibration = load_calibration(imu_path);
+    const auto read_value = [&](const std::string &key)
+    {
+        float value;
+        try
+        {
+            value = calibration[key].as<float>();
+        }
+        catch (const YAML::Exception &error)
+        {
+            throw std::runtime_error("Invalid " + key + " in calibration file " + imu_path.string() + ": " + error.what());
+        }
+        if (!std::isfinite(value) || value <= 0.0f)
+        {
+            throw std::runtime_error(key + " must be finite and positive in calibration file: " + imu_path.string());
+        }
+        return value;
+    };
+
+    noiseGyro_ = read_value("gyroscope_noise_density");
+    noiseAcc_ = read_value("accelerometer_noise_density");
+    gyroWalk_ = read_value("gyroscope_random_walk");
+    accWalk_ = read_value("accelerometer_random_walk");
+    imuFrequency_ = read_value("update_rate");
+    spdlog::info("Loaded IMU calibration from {}", imu_path.string());
 
     // Kalibr T_cam_imu maps IMU points into cam0, so Tbc is its inverse.
     Tbc_          = read_transform(load_calibration(_calibration_file)["cam0"]["T_cam_imu"], "cam0.T_cam_imu", _calibration_file).inverse();
 
+    bool found;
     readParameter<int>(settings, "IMU.InsertKFsWhenLost", found, false);
     if (found)
     {

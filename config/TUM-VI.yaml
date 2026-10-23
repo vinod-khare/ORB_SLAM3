@@ -11,6 +11,7 @@ data:
 # (relative paths are resolved from this file)
 calibration:
   file: "../.data/tumvi/dataset-corridor1_512_16/dso/camchain.yaml"
+  imu_file: "../.data/tumvi/dataset-corridor1_512_16/dso/imu_config.yaml"
 
 # Close/Far threshold. Baseline times.
 Stereo.ThDepth: 40.0
@@ -22,18 +23,9 @@ Camera.fps: 20
 Camera.RGB: 1
 
 #--------------------------------------------------------------------------------------------
-# IMU Parameters
-#--------------------------------------------------------------------------------------------
-IMU.NoiseGyro: 0.00016
-IMU.NoiseAcc: 0.0028
-IMU.GyroWalk: 0.000022
-IMU.AccWalk: 0.00086
-IMU.Frequency: 200.0
-
-#--------------------------------------------------------------------------------------------
 # Feature Parameters
 #--------------------------------------------------------------------------------------------
-
+TODO: combine the following into a single "keypoint" section
 keypoint_extractor:
   n_features: 1024
   scale_factor: 1.2
