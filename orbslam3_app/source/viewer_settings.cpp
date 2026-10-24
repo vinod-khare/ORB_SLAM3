@@ -1,5 +1,6 @@
 #include "viewer_settings.h"
 
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -20,7 +21,12 @@ float read_required_float(const cv::FileStorage &file, const std::string &key)
     {
         throw std::runtime_error("Missing or invalid viewer setting: " + key);
     }
-    return static_cast<float>(node);
+    const float value = static_cast<float>(node);
+    if (!std::isfinite(value))
+    {
+        throw std::runtime_error("Viewer setting must be finite: " + key);
+    }
+    return value;
 }
 
 } // namespace
@@ -42,6 +48,10 @@ viewer_settings read_viewer_settings(const std::string &settings_file, const std
             throw std::runtime_error("Invalid viewer setting: Viewer.imageViewScale");
         }
         scale = static_cast<float>(image_view_scale);
+        if (!std::isfinite(scale) || scale <= 0.0f)
+        {
+            throw std::runtime_error("Viewer.imageViewScale must be a positive finite number");
+        }
     }
 
     viewer_settings settings{read_required_float(file, "Viewer.KeyFrameSize"),

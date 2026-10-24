@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <string>
 
 #include <Eigen/Geometry>
 #include <catch2/catch_test_macros.hpp>
@@ -121,6 +122,24 @@ TEST_CASE("Ground truth viewer settings use Kalibr camera-to-IMU calibration", "
     calibration.write("cam0:\n  T_cam_imu: [[2, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]\n");
     REQUIRE_THROWS(ORB_SLAM3::read_viewer_settings(config.path.string(), "ground_truth.csv"));
     REQUIRE_NOTHROW(ORB_SLAM3::read_viewer_settings(config.path.string()));
+}
+
+TEST_CASE("Viewer settings reject non-finite values and invalid image scales")
+{
+    const ground_truth_file config;
+    const std::string settings = "%YAML:1.0\n---\nViewer.KeyFrameSize: 0.05\nViewer.KeyFrameLineWidth: 1.0\nViewer.GraphLineWidth: 1.0\n"
+                                 "Viewer.PointSize: 2.0\nViewer.CameraSize: 0.08\nViewer.CameraLineWidth: 3.0\nViewer.ViewpointX: 0.0\n"
+                                 "Viewer.ViewpointY: -0.7\nViewer.ViewpointZ: -1.8\nViewer.ViewpointF: 500.0\n";
+    auto non_finite_setting = settings;
+    non_finite_setting.replace(non_finite_setting.find("Viewer.PointSize: 2.0"), std::string("Viewer.PointSize: 2.0").size(), "Viewer.PointSize: .Nan");
+    config.write(non_finite_setting);
+    REQUIRE_THROWS(ORB_SLAM3::read_viewer_settings(config.path.string()));
+
+    for (const auto &scale : {"0.0", "-1.0", ".Inf"})
+    {
+        config.write(settings + "Viewer.imageViewScale: " + scale + "\n");
+        REQUIRE_THROWS(ORB_SLAM3::read_viewer_settings(config.path.string()));
+    }
 }
 
 TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.viewer_render][ground_truth_render]")
