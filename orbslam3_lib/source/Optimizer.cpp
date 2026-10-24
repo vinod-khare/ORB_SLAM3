@@ -528,8 +528,8 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
 
                 g2o::HyperGraph::Vertex *VG1;
                 g2o::HyperGraph::Vertex *VA1;
-                g2o::HyperGraph::Vertex *VG2;
-                g2o::HyperGraph::Vertex *VA2;
+                g2o::HyperGraph::Vertex *VG2 = nullptr;
+                g2o::HyperGraph::Vertex *VA2 = nullptr;
                 if (!bInit)
                 {
                     VG1 = optimizer.vertex(maxKFid + 3 * (pKFi->mPrevKF->mnId) + 2);

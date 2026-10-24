@@ -658,8 +658,8 @@ void KeyFrame::SetBadFlag()
             bool      bContinue = false;
 
             int       max       = -1;
-            KeyFrame *pC;
-            KeyFrame *pP;
+            KeyFrame *pC = nullptr;
+            KeyFrame *pP = nullptr;
 
             for (set<KeyFrame *>::iterator sit = mspChildrens.begin(), send = mspChildrens.end(); sit != send; sit++)
             {

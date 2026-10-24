@@ -188,7 +188,7 @@ namespace ORB_SLAM3 {
         for(size_t i = 0; i < vKeys1.size(); i++) vPts1[i] = vKeys1[i].pt;
         for(size_t i = 0; i < vKeys2.size(); i++) vPts2[i] = vKeys2[i].pt;
 
-        cv::Mat D = (cv::Mat_<float>(4,1) << mvParameters[4], mvParameters[5], mvParameters[6], mvParameters[7]);
+        cv::Mat D = cv::Mat(cv::Vec4f(mvParameters[4], mvParameters[5], mvParameters[6], mvParameters[7]));
         cv::Mat R = cv::Mat::eye(3,3,CV_32F);
         cv::Mat K = this->toK();
         cv::fisheye::undistortPoints(vPts1,vPts1,K,D,R,K);
@@ -202,8 +202,9 @@ namespace ORB_SLAM3 {
 
 
     cv::Mat KannalaBrandt8::toK() {
-        cv::Mat K = (cv::Mat_<float>(3, 3)
-                << mvParameters[0], 0.f, mvParameters[2], 0.f, mvParameters[1], mvParameters[3], 0.f, 0.f, 1.f);
+        cv::Mat K = cv::Mat(cv::Matx33f(mvParameters[0], 0.f, mvParameters[2],
+                                       0.f, mvParameters[1], mvParameters[3],
+                                       0.f, 0.f, 1.f));
         return K;
     }
     Eigen::Matrix3f KannalaBrandt8::toK_() {

@@ -164,9 +164,9 @@ std::vector<float> Converter::toQuaternion(const cv::Mat &M)
 
 cv::Mat Converter::tocvSkewMatrix(const cv::Mat &v)
 {
-    return (cv::Mat_<float>(3,3) <<             0, -v.at<float>(2), v.at<float>(1),
-            v.at<float>(2),               0,-v.at<float>(0),
-            -v.at<float>(1),  v.at<float>(0),              0);
+    return cv::Mat(cv::Matx33f(0.f, -v.at<float>(2), v.at<float>(1),
+                              v.at<float>(2), 0.f, -v.at<float>(0),
+                              -v.at<float>(1), v.at<float>(0), 0.f));
 }
 
 bool Converter::isRotationMatrix(const cv::Mat &R)
