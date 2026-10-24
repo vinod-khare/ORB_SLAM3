@@ -32,7 +32,7 @@ class Tracking;
 class Viewer
 {
   public:
-    Viewer(System *system, FrameDrawer *frame_drawer, MapDrawer *map_drawer, Tracking *tracker, const viewer_settings &settings);
+    Viewer(System &system, FrameDrawer &frame_drawer, MapDrawer &map_drawer, Tracking &tracker, const viewer_settings &settings);
     void Run();
     void RequestFinish();
     void RequestStop();
@@ -45,10 +45,10 @@ class Viewer
     bool both{false};
 
   private:
-    System           *_system;
-    FrameDrawer      *_frame_drawer;
-    MapDrawer        *_map_drawer;
-    Tracking         *_tracker;
+    System           &_system;
+    FrameDrawer      &_frame_drawer;
+    MapDrawer        &_map_drawer;
+    Tracking         &_tracker;
     viewer_settings   _settings;
     float             _tracked_image_scale;
     std::atomic<bool> _finish_requested{false};

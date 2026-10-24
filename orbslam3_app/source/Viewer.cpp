@@ -74,8 +74,8 @@ bool tool_button(const char *icon, const char *tooltip)
 }
 } // namespace
 
-Viewer::Viewer(System *system, FrameDrawer *frame_drawer, MapDrawer *map_drawer, Tracking *tracker, const viewer_settings &settings)
-    : _system(system), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _tracker(tracker), _settings(settings), _tracked_image_scale(tracker->GetImageScale())
+Viewer::Viewer(System &system, FrameDrawer &frame_drawer, MapDrawer &map_drawer, Tracking &tracker, const viewer_settings &settings)
+    : _system(system), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _tracker(tracker), _settings(settings), _tracked_image_scale(tracker.GetImageScale())
 {
 }
 
@@ -131,7 +131,7 @@ void Viewer::Run()
             }
             _stopped = _stop_requested.load();
         };
-        params.callbacks.ShowStatus = [&] { ImGui::Text("Tracking %.1f FPS  |  UI %.1f FPS", _frame_drawer->get_tracking_fps(), ImGui::GetIO().Framerate); };
+        params.callbacks.ShowStatus = [&] { ImGui::Text("Tracking %.1f FPS  |  UI %.1f FPS", _frame_drawer.get_tracking_fps(), ImGui::GetIO().Framerate); };
         params.dockingParams.dockableWindows.emplace_back(
             "Controls", "Controls",
             [&]
@@ -143,12 +143,12 @@ void Viewer::Run()
                 }
                 if (ImGui::Checkbox("Step by step", &step_by_step))
                 {
-                    _tracker->SetStepByStep(step_by_step);
+                    _tracker.SetStepByStep(step_by_step);
                 }
                 ImGui::BeginDisabled(!step_by_step);
                 if (tool_button(ICON_FA_STEP_FORWARD, "Process next frame"))
                 {
-                    _tracker->mbStep = true;
+                    _tracker.mbStep = true;
                 }
                 ImGui::EndDisabled();
                 ImGui::SameLine();
@@ -156,14 +156,14 @@ void Viewer::Run()
                 {
                     localization            = false;
                     _localization_requested = false;
-                    _tracker->SetStepByStep(false);
+                    _tracker.SetStepByStep(false);
                     step_by_step     = false;
                     _reset_requested = true;
                 }
                 ImGui::SameLine();
                 if (tool_button(ICON_FA_STOP, "Stop playback and save trajectories"))
                 {
-                    _tracker->SetStepByStep(false);
+                    _tracker.SetStepByStep(false);
                     _exit_requested     = true;
                     params.appShallExit = true;
                 }
@@ -184,18 +184,18 @@ void Viewer::Run()
                 ImGui::SeparatorText("View");
                 if (ImGui::Checkbox("Follow camera", &follow) && follow)
                 {
-                    _map_drawer->reset_view(top_view);
+                    _map_drawer.reset_view(top_view);
                 }
                 if (tool_button(ICON_FA_CAMERA, "Camera view"))
                 {
                     top_view = false;
-                    _map_drawer->reset_view(false);
+                    _map_drawer.reset_view(false);
                 }
                 ImGui::SameLine();
                 if (tool_button(ICON_FA_MAP, "Top view"))
                 {
                     top_view = true;
-                    _map_drawer->reset_view(true);
+                    _map_drawer.reset_view(true);
                 }
                 ImGui::SameLine();
                 if (tool_button(ICON_FA_COLUMNS, "Restore pane layout"))
@@ -217,10 +217,10 @@ void Viewer::Run()
                     return;
                 }
                 auto      *context = glfwGetCurrentContext();
-                const auto image   = _map_drawer->render(static_cast<int>(available.x), static_cast<int>(available.y), layers);
+                const auto image   = _map_drawer.render(static_cast<int>(available.x), static_cast<int>(available.y), layers);
                 if (follow)
                 {
-                    _map_drawer->follow_camera(top_view);
+                    _map_drawer.follow_camera(top_view);
                 }
                 glfwMakeContextCurrent(context);
                 cv::Mat rgba;
@@ -234,8 +234,8 @@ void Viewer::Run()
                     if (dragging || io.MouseWheel != 0)
                     {
                         follow = false;
-                        _map_drawer->navigate(dragging ? io.MouseDelta.x : 0, dragging ? io.MouseDelta.y : 0, io.MouseWheel,
-                                              io.KeyShift || ImGui::IsMouseDown(ImGuiMouseButton_Middle) || ImGui::IsMouseDown(ImGuiMouseButton_Right));
+                        _map_drawer.navigate(dragging ? io.MouseDelta.x : 0, dragging ? io.MouseDelta.y : 0, io.MouseWheel,
+                                             io.KeyShift || ImGui::IsMouseDown(ImGuiMouseButton_Middle) || ImGui::IsMouseDown(ImGuiMouseButton_Right));
                     }
                 }
             });
@@ -245,7 +245,7 @@ void Viewer::Run()
             {
                 return;
             }
-            auto image = right ? _frame_drawer->DrawRightFrame(_tracked_image_scale) : _frame_drawer->DrawFrame(_tracked_image_scale);
+            auto image = right ? _frame_drawer.DrawRightFrame(_tracked_image_scale) : _frame_drawer.DrawFrame(_tracked_image_scale);
             if (image.empty())
             {
                 return;
@@ -272,7 +272,7 @@ void Viewer::Run()
             left_texture.reset();
             right_texture.reset();
             auto *context = glfwGetCurrentContext();
-            _map_drawer->release();
+            _map_drawer.release();
             glfwMakeContextCurrent(context);
         };
         spdlog::info("Starting ImGui viewer on a low-priority UI thread");
@@ -281,9 +281,9 @@ void Viewer::Run()
     catch (const std::exception &error)
     {
         spdlog::error("Viewer failed: {}", error.what());
-        _map_drawer->release();
+        _map_drawer.release();
     }
-    _tracker->SetStepByStep(false);
+    _tracker.SetStepByStep(false);
     _stopped  = true;
     _finished = true;
 }
@@ -295,17 +295,17 @@ void Viewer::process_commands()
     {
         if (localization)
         {
-            _system->ActivateLocalizationMode();
+            _system.ActivateLocalizationMode();
         }
         else
         {
-            _system->DeactivateLocalizationMode();
+            _system.DeactivateLocalizationMode();
         }
         _localization_active = localization;
     }
     if (_reset_requested.exchange(false))
     {
-        _system->ResetActiveMap();
+        _system.ResetActiveMap();
     }
 }
 

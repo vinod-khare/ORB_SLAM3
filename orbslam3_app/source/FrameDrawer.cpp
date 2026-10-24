@@ -18,6 +18,8 @@
 
 #include "FrameDrawer.h"
 
+#include "Atlas.h"
+#include "MapPoint.h"
 #include "Tracking.h"
 
 #include <iomanip>
@@ -29,7 +31,7 @@
 namespace ORB_SLAM3
 {
 
-FrameDrawer::FrameDrawer(Atlas *pAtlas) : both(false), mpAtlas(pAtlas)
+FrameDrawer::FrameDrawer(Atlas &atlas) : both(false), _atlas(atlas)
 {
     mState   = Tracking::SYSTEM_NOT_READY;
     mIm      = cv::Mat(480, 640, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -305,9 +307,9 @@ void FrameDrawer::draw_text_info(cv::Mat &im, int nState, cv::Mat &imText)
         {
             s << "LOCALIZATION | ";
         }
-        int nMaps = mpAtlas->CountMaps();
-        int nKFs  = mpAtlas->KeyFramesInMap();
-        int nMPs  = mpAtlas->MapPointsInMap();
+        int nMaps = _atlas.CountMaps();
+        int nKFs  = _atlas.KeyFramesInMap();
+        int nMPs  = _atlas.MapPointsInMap();
         s << "Maps: " << nMaps << ", KFs: " << nKFs << ", MPs: " << nMPs << ", Matches: " << mnTracked;
         if (mnTrackedVO > 0)
         {

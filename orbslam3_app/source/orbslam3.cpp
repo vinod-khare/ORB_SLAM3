@@ -19,6 +19,7 @@
  * ORB-SLAM3. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "Atlas.h"
 #include "Converter.h"
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
@@ -223,10 +224,10 @@ int    main(int argc, char **argv)
         std::jthread                            viewer_thread;
         if (use_viewer)
         {
-            frame_drawer       = std::make_unique<ORB_SLAM3::FrameDrawer>(SLAM.GetAtlas());
+            frame_drawer       = std::make_unique<ORB_SLAM3::FrameDrawer>(*SLAM.GetAtlas());
             frame_drawer->both = stereo;
-            map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(SLAM.GetAtlas(), *ui_settings);
-            viewer             = std::make_unique<ORB_SLAM3::Viewer>(&SLAM, frame_drawer.get(), map_drawer.get(), SLAM.GetTracker(), *ui_settings);
+            map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(*SLAM.GetAtlas(), *ui_settings);
+            viewer             = std::make_unique<ORB_SLAM3::Viewer>(SLAM, *frame_drawer, *map_drawer, *SLAM.GetTracker(), *ui_settings);
             viewer->both       = stereo;
             SLAM.GetTracker()->SetResetHooks(
                 [&viewer, &map_drawer]

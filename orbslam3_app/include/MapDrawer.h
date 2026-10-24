@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "Atlas.h"
 #include "ground_truth_trajectory.h"
 #include "viewer_settings.h"
 
@@ -26,6 +25,9 @@
 
 #include <array>
 #include <mutex>
+#include <optional>
+#include <utility>
+#include <vector>
 
 #include <opencv2/core.hpp>
 
@@ -38,11 +40,12 @@ class vtkWindowToImageFilter;
 
 namespace ORB_SLAM3
 {
+class Atlas;
+
 class MapDrawer
 {
   public:
-    // TODO: reduce coupling between MapDrawer and Atlas
-    MapDrawer(Atlas *atlas, const viewer_settings &settings);
+    MapDrawer(Atlas &atlas, const viewer_settings &settings);
     ~MapDrawer();
 
     void         SetCurrentCameraPose(const Sophus::SE3f &camera_pose, unsigned long map_id = 0);
@@ -54,9 +57,9 @@ class MapDrawer
     void         navigate(float horizontal, float vertical, float zoom, bool pan);
     void         release();
 
-    Atlas       *mpAtlas;
-
   private:
+    // TODO: introduce a map-view data source to keep Atlas traversal out of the renderer.
+    Atlas                                         &_atlas;
     viewer_settings                               _settings;
     ground_truth_trajectory                       _ground_truth;
     std::optional<Eigen::Matrix4d>                _ground_truth_alignment;

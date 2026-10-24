@@ -18,6 +18,7 @@
 
 #include "MapDrawer.h"
 
+#include "Atlas.h"
 #include "KeyFrame.h"
 #include "MapPoint.h"
 
@@ -42,7 +43,7 @@
 
 namespace ORB_SLAM3
 {
-MapDrawer::MapDrawer(Atlas *atlas, const viewer_settings &settings) : mpAtlas(atlas), _settings(settings), _ground_truth(settings.ground_truth_path, settings.ground_truth_body_to_camera) {}
+MapDrawer::MapDrawer(Atlas &atlas, const viewer_settings &settings) : _atlas(atlas), _settings(settings), _ground_truth(settings.ground_truth_path, settings.ground_truth_body_to_camera) {}
 MapDrawer::~MapDrawer() = default;
 
 void MapDrawer::SetCurrentCameraPose(const Sophus::SE3f &camera_pose, unsigned long map_id)
@@ -248,7 +249,7 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 7> &laye
     };
     add_camera(7, camera_pose(), _settings.camera_size);
     trajectory_samples estimated_trajectory;
-    auto              *active_map = mpAtlas->GetCurrentMap();
+    auto              *active_map = _atlas.GetCurrentMap();
     if (active_map)
     {
         std::set<unsigned long> optimized_keyframes;
@@ -278,7 +279,7 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 7> &laye
                 cells[group]->InsertNextCell(1, &index);
             }
         }
-        for (auto *map : mpAtlas->GetAllMaps())
+        for (auto *map : _atlas.GetAllMaps())
         {
             for (auto *keyframe : map->GetAllKeyFrames())
             {

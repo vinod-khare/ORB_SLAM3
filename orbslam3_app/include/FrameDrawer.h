@@ -19,30 +19,30 @@
 #ifndef FRAMEDRAWER_H
 #define FRAMEDRAWER_H
 
-#include "Atlas.h"
-#include "MapPoint.h"
-#include "Tracking.h"
-
 #include <atomic>
 #include <chrono>
 #include <mutex>
+#include <utility>
+#include <vector>
 
+#include <Eigen/Core>
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
 
 namespace ORB_SLAM3
 {
 
+class Atlas;
 class Tracking;
 
 class FrameDrawer
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    FrameDrawer(Atlas *pAtlas);
+    explicit FrameDrawer(Atlas &atlas);
 
     // Update info from the last processed frame.
-    bool    Update(Tracking *pTracker);
+    bool    Update(Tracking *tracker);
 
     // Draw last processed frame.
     cv::Mat DrawFrame(float imageScale = 1.f);
@@ -59,20 +59,20 @@ class FrameDrawer
     // Info of the frame to be drawn
     cv::Mat                                mIm, mImRight;
     int                                    N;
-    vector<cv::KeyPoint>                   mvCurrentKeys, mvCurrentKeysRight;
-    vector<bool>                           mvbMap, mvbVO;
+    std::vector<cv::KeyPoint>              mvCurrentKeys, mvCurrentKeysRight;
+    std::vector<bool>                      mvbMap, mvbVO;
     std::atomic<bool>                      mbOnlyTracking{false};
     int                                    mnTracked, mnTrackedVO;
-    vector<cv::KeyPoint>                   mvIniKeys;
-    vector<int>                            mvIniMatches;
+    std::vector<cv::KeyPoint>              mvIniKeys;
+    std::vector<int>                       mvIniMatches;
     int                                    mState;
     std::vector<float>                     mvCurrentDepth;
     float                                  mThDepth;
 
-    Atlas                                 *mpAtlas;
+    Atlas                                 &_atlas;
 
     std::mutex                             mMutex;
-    vector<pair<cv::Point2f, cv::Point2f>> mvTracks;
+    std::vector<std::pair<cv::Point2f, cv::Point2f>> mvTracks;
 
     void                                   update_tracking_fps();
 
