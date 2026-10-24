@@ -19,28 +19,24 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-#include "Atlas.h"
 #include "ImuTypes.h"
-#include "KeyFrameDatabase.h"
-#include "LocalMapping.h"
-#include "LoopClosing.h"
-#include "Settings.h"
-#include "Tracking.h"
 #include "feature_overrides.h"
-#include "place_vocabulary.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
+#include <iostream>
 #include <list>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <opencv2/core/core.hpp>
 
 namespace ORB_SLAM3
 {
+
+using std::string;
+using std::vector;
 
 class Verbose
 {
@@ -61,7 +57,7 @@ class Verbose
     {
         if (lev <= th)
         {
-            cout << str << endl;
+            std::cout << str << std::endl;
         }
     }
 
@@ -69,6 +65,10 @@ class Verbose
 };
 
 class Atlas;
+class KeyFrameDatabase;
+class Map;
+class MapPoint;
+class place_vocabulary;
 class Tracking;
 class LocalMapping;
 class LoopClosing;
@@ -100,6 +100,7 @@ class System
     // Initialize the SLAM system. It launches the Local Mapping and Loop Closing threads.
     System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr = 0, const string &strSequence = std::string(),
            const feature_overrides &overrides = {});
+    ~System();
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.

@@ -18,7 +18,14 @@
 
 #include "System.h"
 
+#include "Atlas.h"
 #include "Converter.h"
+#include "KeyFrameDatabase.h"
+#include "LocalMapping.h"
+#include "LoopClosing.h"
+#include "Settings.h"
+#include "Tracking.h"
+#include "place_vocabulary.h"
 
 #include <cmath>
 #include <filesystem>
@@ -229,6 +236,8 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     // Fix verbosity
     Verbose::SetTh(Verbose::VERBOSITY_QUIET);
 }
+
+System::~System() = default;
 
 void System::RegisterFrameFilenameForExport(const string &filename)
 {
