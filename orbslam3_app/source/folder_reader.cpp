@@ -18,6 +18,11 @@ namespace
 
 folder_reader::folder_reader(const settings &reader_settings)
 {
+    if (reader_settings.frames_skip < 0 || reader_settings.frames_stride <= 0 || reader_settings.frames_take < 0)
+    {
+        throw std::invalid_argument("Frame skip and take must be non-negative, and frame stride must be positive");
+    }
+
     const std::string       &left_image_path  = reader_settings.left_image_path;
     const std::string       &right_image_path = reader_settings.right_image_path;
     int                      frames_skip      = reader_settings.frames_skip;

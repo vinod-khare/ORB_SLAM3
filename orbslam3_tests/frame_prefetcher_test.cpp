@@ -59,6 +59,23 @@ struct image_sequence
 };
 } // namespace
 
+TEST_CASE("Folder reader rejects invalid frame sampling parameters")
+{
+    const image_sequence sequence;
+    auto                 settings = sequence.settings(false, false);
+
+    settings.frames_skip = -1;
+    REQUIRE_THROWS_AS(folder_reader(settings), std::invalid_argument);
+
+    settings.frames_skip   = 0;
+    settings.frames_stride = 0;
+    REQUIRE_THROWS_AS(folder_reader(settings), std::invalid_argument);
+
+    settings.frames_stride = 1;
+    settings.frames_take   = -1;
+    REQUIRE_THROWS_AS(folder_reader(settings), std::invalid_argument);
+}
+
 TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
 {
     const bool           stereo                  = GENERATE(false, true);
