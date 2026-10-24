@@ -20,12 +20,13 @@ target_link_libraries(orbslam3_input PUBLIC ORB_SLAM3 Threads::Threads PRIVATE r
 
 add_library(orbslam3_ui STATIC
     source/FrameDrawer.cpp
+    source/ground_truth_trajectory.cpp
     source/MapDrawer.cpp
     source/Viewer.cpp
     source/viewer_settings.cpp)
 target_compile_options(orbslam3_ui PRIVATE -Wall)
 target_include_directories(orbslam3_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(orbslam3_ui PUBLIC ORB_SLAM3 VTK::CommonCore PRIVATE hello-imgui::hello_imgui VTK::CommonDataModel VTK::RenderingCore VTK::RenderingOpenGL2 spdlog::spdlog)
+target_link_libraries(orbslam3_ui PUBLIC ORB_SLAM3 VTK::CommonCore PRIVATE rapidcsv::rapidcsv yaml-cpp::yaml-cpp hello-imgui::hello_imgui VTK::CommonDataModel VTK::RenderingCore VTK::RenderingOpenGL2 spdlog::spdlog)
 vtk_module_autoinit(TARGETS orbslam3_ui MODULES VTK::RenderingOpenGL2)
 
 hello_imgui_add_app(orbslam3_app

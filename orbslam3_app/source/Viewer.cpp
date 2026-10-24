@@ -108,7 +108,7 @@ void Viewer::Run()
             {"MainDockSpace",   "Camera", ImGuiDir_Down, 0.4f}
         };
 
-        std::array<bool, 5>       layers{true, true, true, true, false};
+        std::array<bool, 7>       layers{true, true, true, true, false, _settings.ground_truth_visible, _settings.camera_trajectory_visible};
         bool                      follow{false};
         bool                      top_view{false};
         bool                      localization{false};
@@ -132,68 +132,77 @@ void Viewer::Run()
             _stopped = _stop_requested.load();
         };
         params.callbacks.ShowStatus = [&] { ImGui::Text("Tracking %.1f FPS  |  UI %.1f FPS", _frame_drawer->get_tracking_fps(), ImGui::GetIO().Framerate); };
-        params.dockingParams.dockableWindows.emplace_back("Controls", "Controls",
-                                                          [&]
-                                                          {
-                                                              ImGui::SeparatorText("Tracking");
-                                                              if (ImGui::Checkbox("Localization only", &localization))
-                                                              {
-                                                                  _localization_requested = localization;
-                                                              }
-                                                              if (ImGui::Checkbox("Step by step", &step_by_step))
-                                                              {
-                                                                  _tracker->SetStepByStep(step_by_step);
-                                                              }
-                                                              ImGui::BeginDisabled(!step_by_step);
-                                                              if (tool_button(ICON_FA_STEP_FORWARD, "Process next frame"))
-                                                              {
-                                                                  _tracker->mbStep = true;
-                                                              }
-                                                              ImGui::EndDisabled();
-                                                              ImGui::SameLine();
-                                                              if (tool_button(ICON_FA_UNDO, "Reset active map"))
-                                                              {
-                                                                  localization            = false;
-                                                                  _localization_requested = false;
-                                                                  _tracker->SetStepByStep(false);
-                                                                  step_by_step     = false;
-                                                                  _reset_requested = true;
-                                                              }
-                                                              ImGui::SameLine();
-                                                              if (tool_button(ICON_FA_STOP, "Stop playback and save trajectories"))
-                                                              {
-                                                                  _tracker->SetStepByStep(false);
-                                                                  _exit_requested     = true;
-                                                                  params.appShallExit = true;
-                                                              }
-                                                              ImGui::SeparatorText("Map layers");
-                                                              ImGui::Checkbox("Map points", &layers[0]);
-                                                              ImGui::Checkbox("Keyframes", &layers[1]);
-                                                              ImGui::Checkbox("Covisibility graph", &layers[2]);
-                                                              ImGui::Checkbox("Inertial graph", &layers[3]);
-                                                              ImGui::Checkbox("Local BA colors", &layers[4]);
-                                                              ImGui::SeparatorText("View");
-                                                              if (ImGui::Checkbox("Follow camera", &follow) && follow)
-                                                              {
-                                                                  _map_drawer->reset_view(top_view);
-                                                              }
-                                                              if (tool_button(ICON_FA_CAMERA, "Camera view"))
-                                                              {
-                                                                  top_view = false;
-                                                                  _map_drawer->reset_view(false);
-                                                              }
-                                                              ImGui::SameLine();
-                                                              if (tool_button(ICON_FA_MAP, "Top view"))
-                                                              {
-                                                                  top_view = true;
-                                                                  _map_drawer->reset_view(true);
-                                                              }
-                                                              ImGui::SameLine();
-                                                              if (tool_button(ICON_FA_COLUMNS, "Restore pane layout"))
-                                                              {
-                                                                  params.dockingParams.layoutReset = true;
-                                                              }
-                                                          });
+        params.dockingParams.dockableWindows.emplace_back(
+            "Controls", "Controls",
+            [&]
+            {
+                ImGui::SeparatorText("Tracking");
+                if (ImGui::Checkbox("Localization only", &localization))
+                {
+                    _localization_requested = localization;
+                }
+                if (ImGui::Checkbox("Step by step", &step_by_step))
+                {
+                    _tracker->SetStepByStep(step_by_step);
+                }
+                ImGui::BeginDisabled(!step_by_step);
+                if (tool_button(ICON_FA_STEP_FORWARD, "Process next frame"))
+                {
+                    _tracker->mbStep = true;
+                }
+                ImGui::EndDisabled();
+                ImGui::SameLine();
+                if (tool_button(ICON_FA_UNDO, "Reset active map"))
+                {
+                    localization            = false;
+                    _localization_requested = false;
+                    _tracker->SetStepByStep(false);
+                    step_by_step     = false;
+                    _reset_requested = true;
+                }
+                ImGui::SameLine();
+                if (tool_button(ICON_FA_STOP, "Stop playback and save trajectories"))
+                {
+                    _tracker->SetStepByStep(false);
+                    _exit_requested     = true;
+                    params.appShallExit = true;
+                }
+                ImGui::SeparatorText("Map layers");
+                ImGui::Checkbox("Map points", &layers[0]);
+                ImGui::Checkbox("Keyframes", &layers[1]);
+                ImGui::Checkbox("Covisibility graph", &layers[2]);
+                ImGui::Checkbox("Inertial graph", &layers[3]);
+                ImGui::Checkbox("Local BA colors", &layers[4]);
+                ImGui::BeginDisabled(_settings.ground_truth_path.empty());
+                ImGui::Checkbox("Ground truth", &layers[5]);
+                ImGui::SameLine();
+                ImGui::ColorButton("Ground truth color", ImVec4(0.95f, 0.45f, 0.05f, 1.f), ImGuiColorEditFlags_NoDragDrop | ImGuiColorEditFlags_NoTooltip);
+                ImGui::EndDisabled();
+                ImGui::Checkbox("Camera trajectory", &layers[6]);
+                ImGui::SameLine();
+                ImGui::ColorButton("Camera trajectory color", ImVec4(0.f, 0.45f, 0.65f, 1.f), ImGuiColorEditFlags_NoDragDrop | ImGuiColorEditFlags_NoTooltip);
+                ImGui::SeparatorText("View");
+                if (ImGui::Checkbox("Follow camera", &follow) && follow)
+                {
+                    _map_drawer->reset_view(top_view);
+                }
+                if (tool_button(ICON_FA_CAMERA, "Camera view"))
+                {
+                    top_view = false;
+                    _map_drawer->reset_view(false);
+                }
+                ImGui::SameLine();
+                if (tool_button(ICON_FA_MAP, "Top view"))
+                {
+                    top_view = true;
+                    _map_drawer->reset_view(true);
+                }
+                ImGui::SameLine();
+                if (tool_button(ICON_FA_COLUMNS, "Restore pane layout"))
+                {
+                    params.dockingParams.layoutReset = true;
+                }
+            });
         params.dockingParams.dockableWindows.emplace_back(
             "Map", "MainDockSpace",
             [&]

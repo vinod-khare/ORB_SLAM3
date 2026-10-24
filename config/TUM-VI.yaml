@@ -51,6 +51,13 @@ Tracking.useOpticalFlow: 1
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
 #--------------------------------------------------------------------------------------------
+ground_truth:
+  path: "../.data/tumvi/dataset-corridor1_512_16/mav0/mocap0/data.csv"
+  visible: false
+
+camera_trajectory:
+  visible: true
+
 Viewer.KeyFrameSize: 0.05
 Viewer.KeyFrameLineWidth: 1.0
 Viewer.GraphLineWidth: 0.9

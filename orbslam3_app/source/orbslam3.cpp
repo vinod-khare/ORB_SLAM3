@@ -209,7 +209,9 @@ int    main(int argc, char **argv)
         std::unique_ptr<ORB_SLAM3::viewer_settings> ui_settings;
         if (use_viewer)
         {
-            ui_settings = std::make_unique<ORB_SLAM3::viewer_settings>(ORB_SLAM3::read_viewer_settings(settings_path));
+            ui_settings =
+                std::make_unique<ORB_SLAM3::viewer_settings>(ORB_SLAM3::read_viewer_settings(settings_path, options.ground_truth_path, options.ground_truth_visible, slam_type == "mono"));
+            ui_settings->camera_trajectory_visible = options.camera_trajectory_visible;
         }
         const ORB_SLAM3::feature_overrides      overrides = options.overrides;
         ORB_SLAM3::System                       SLAM(vocab_path, settings_path, sensor, 0, output_filename, overrides);
@@ -227,8 +229,9 @@ int    main(int argc, char **argv)
             viewer             = std::make_unique<ORB_SLAM3::Viewer>(&SLAM, frame_drawer.get(), map_drawer.get(), SLAM.GetTracker(), *ui_settings);
             viewer->both       = stereo;
             SLAM.GetTracker()->SetResetHooks(
-                [&viewer]
+                [&viewer, &map_drawer]
                 {
+                    map_drawer->break_camera_trajectory();
                     viewer->RequestStop();
                     while (!viewer->isStopped())
                     {
@@ -286,9 +289,13 @@ int    main(int argc, char **argv)
                 {
                     auto *tracker = SLAM.GetTracker();
                     frame_drawer->Update(tracker);
-                    if (tracker->mCurrentFrame.isSet())
+                    if (tracker->mCurrentFrame.isSet() && tracker->mState == ORB_SLAM3::Tracking::OK)
                     {
-                        map_drawer->SetCurrentCameraPose(tracker->mCurrentFrame.GetPose());
+                        map_drawer->SetCurrentCameraPose(tracker->mCurrentFrame.GetPose(), SLAM.GetAtlas()->GetCurrentMap()->GetId());
+                    }
+                    else
+                    {
+                        map_drawer->break_camera_trajectory();
                     }
                 }
                 const auto   tracking_end  = std::chrono::steady_clock::now();

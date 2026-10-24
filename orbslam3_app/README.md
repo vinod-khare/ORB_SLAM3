@@ -29,9 +29,67 @@ The viewer preserves the selected detector's native size and orientation, separa
 
 Hello ImGui owns one native window with resizable, dockable Controls, Map, and camera panes (separate left/right panes in stereo). VTK renders the 3D map off-screen; both that image and OpenCV overlays appear as ImGui textures. Drag the map to orbit, use Shift-drag or the middle/right mouse button to pan, and scroll to zoom. The controls retain follow-camera, camera/top views, layer visibility, localization, stepping, reset, and stop/export. Pane layouts and window geometry persist between runs; the layout button restores the default arrangement.
 
-The UI runs on a separate, lower-priority thread capped at 30 FPS. Camera snapshots are demand-driven: the SLAM thread uses `try_lock` and drops a display update rather than waiting for the UI. Pose and local-BA color publication are also non-blocking. All image annotation, VTK rendering, and texture uploads happen on the UI thread. Map access retains the core's existing short data-access locks; rendering never holds those locks. Reset explicitly pauses map reads to protect object lifetimes. Closing the window detaches visualization and lets playback continue; Stop ends playback and uses the normal trajectory-export path.
+The UI runs on a separate, lower-priority thread capped at 30 FPS. Camera image snapshots are demand-driven: the SLAM thread uses `try_lock` and drops an image update rather than waiting for the UI. Camera poses are queued through a short mutex-protected handoff so the full trajectory retains every tracked frame; the UI only swaps that queue while locked, never rendering under the lock. Local-BA color publication remains non-blocking. All image annotation, VTK rendering, and texture uploads happen on the UI thread. Map access retains the core's existing short data-access locks; rendering never holds those locks. Reset explicitly pauses map reads to protect object lifetimes. Closing the window detaches visualization and lets playback continue; Stop ends playback and uses the normal trajectory-export path.
 
 The core `ORB_SLAM3` library runs without UI dependencies; `--no-viewer` skips loading viewer settings and starting the UI. Neither Pangolin nor OpenCV HighGUI is required by the app.
+
+## Ground Truth
+
+Display a ground-truth trajectory as an orange line in the map pane:
+
+```yaml
+ground_truth:
+  path: "../dataset/mav0/mocap0/data.csv"
+  visible: true
+```
+
+Or use `--ground_truth.path /datasets/trajectory.txt --ground_truth.visible`.
+Command-line values override YAML; `--ground_truth.visible=false` starts with the
+overlay hidden. YAML paths are relative to the settings file; command-line paths
+are relative to the working directory. Visibility defaults to false. A configured
+file is loaded even when initially hidden, and the **Ground truth** checkbox under
+**Map layers** toggles it during playback. Without a path, that checkbox is disabled.
+Headless runs do not load ground truth.
+
+Supported formats are TUM text (`timestamp_seconds tx ty tz qx qy qz qw`, camera
+poses) and EuRoC/TUM-VI CSV (`timestamp_nanoseconds,px,py,pz,qw,qx,qy,qz`, IMU/body
+poses; additional columns are allowed). Blank lines and `#` comments are ignored.
+Timestamps must increase strictly, and pose values must be finite with nonzero
+quaternions. Invalid or unreadable files report an error rather than being ignored.
+For CSV, the Kalibr `cam0.T_cam_imu` transform from `calibration.file`, when present,
+converts body poses to camera poses; otherwise the frames are assumed identical.
+
+Ground truth is aligned to the active map using Eigen's least-squares rigid
+alignment, with scale fitting only for non-inertial monocular SLAM. Translation is
+interpolated using lerp and orientation using quaternion slerp at each keyframe's
+timestamp, including between distant samples; no nearest-timestamp cutoff is used.
+The camera offset is applied after interpolation. Timestamps outside the ground-truth
+range are not extrapolated. The overlay appears once there are at least three
+non-collinear reference positions. That first valid alignment is frozen for the
+viewer lifetime: optimization, keyframe culling, resets, visibility toggles, and
+playback beyond the reference time range never refit or move ground truth.
+
+## Camera Trajectory
+
+The **Camera trajectory** layer shows every successfully tracked frame, not just
+keyframes. It defaults to visible and remains independent of the keyframe layer.
+It records the live pose estimates as published, rather than retroactively
+reconstructing an optimized export trajectory. Tracking loss, resets, and map
+changes start disconnected segments instead of drawing artificial bridges.
+Hiding the layer does not discard its history.
+
+The camera trail is a 3-pixel teal line; ground truth is a 7-pixel orange line.
+The narrower camera line is drawn in front where paths coincide, leaving the
+orange edges visible. Matching color swatches beside both layer checkboxes
+identify them.
+
+```yaml
+camera_trajectory:
+  visible: true
+```
+
+Override this using `--camera_trajectory.visible=false` (or
+`--camera_trajectory.visible` to enable it).
 
 ## Build
 
@@ -101,6 +159,9 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--keypoint_descriptor.type`                               | Independent OpenCV descriptor (`orb`, `sift`, `brisk`). |
 | `--descriptor_matcher.type`                                | OpenCV matcher (`brute_force`, `flann`); Hamming/LSH for binary data, L2/KD-tree for SIFT. |
 | `--no-viewer`                                              | Run headless without the ImGui viewer.                                                                                                                                      |
+| `--ground_truth.path`                                     | TUM trajectory or EuRoC/TUM-VI CSV file; overrides YAML `ground_truth.path`. |
+| `--ground_truth.visible [true/false]`                      | Initial ground-truth visibility; overrides YAML `ground_truth.visible` (default: false). |
+| `--camera_trajectory.visible [true/false]`                 | Initial full camera-trail visibility; overrides YAML `camera_trajectory.visible` (default: true). |
 | `--logging.pattern`                                       | spdlog output pattern; overrides `logging.pattern` in YAML. Default: `%+` (spdlog's built-in default). |
 
 ## Logging

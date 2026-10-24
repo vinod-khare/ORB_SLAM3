@@ -1,5 +1,6 @@
 #include "command_line_options.h"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -30,7 +31,10 @@ command_line_options::command_line_options(int argc, char **argv)
                                                                                                             "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze)")(
         "keypoint_descriptor.type", po::value<std::string>(), "Keypoint descriptor (orb, sift, brisk)")("descriptor_matcher.type", po::value<std::string>(),
                                                                                                         "Descriptor matcher (brute_force, flann)")(
-        "logging.pattern", po::value<std::string>(), "spdlog output pattern; overrides logging.pattern in YAML (default: %+, spdlog default)");
+        "logging.pattern", po::value<std::string>(), "spdlog output pattern; overrides logging.pattern in YAML (default: %+, spdlog default)")(
+        "ground_truth.path", po::value<std::string>(), "Ground-truth trajectory file (TUM text or EuRoC/TUM-VI CSV)")("ground_truth.visible", po::value<bool>()->implicit_value(true),
+                                                                                                                      "Initially display ground truth (true/false; default: false)")(
+        "camera_trajectory.visible", po::value<bool>()->implicit_value(true), "Initially display the full camera trajectory (true/false; default: true)");
 
     po::positional_options_description positional;
     positional.add("vocab", 1);
@@ -65,24 +69,73 @@ command_line_options::command_line_options(int argc, char **argv)
     vocab_path    = values["vocab"].as<std::string>();
     settings_path = values["settings"].as<std::string>();
 
+    std::ifstream stream(settings_path);
+    if (!stream)
+    {
+        throw std::runtime_error("Failed to open settings file: " + settings_path);
+    }
+    // OpenCV settings use a non-standard %YAML:1.0 directive.
+    if (stream.peek() == '%')
+    {
+        std::string directive;
+        std::getline(stream, directive);
+    }
+    const auto root         = YAML::Load(stream);
+    const auto ground_truth = root["ground_truth"];
+    if (ground_truth)
+    {
+        if (!ground_truth.IsMap())
+        {
+            throw std::runtime_error("Settings entry ground_truth must be a map");
+        }
+        if (!values.count("ground_truth.path") && ground_truth["path"])
+        {
+            const auto path = ground_truth["path"].as<std::string>();
+            if (!path.empty())
+            {
+                ground_truth_path = (std::filesystem::absolute(settings_path).parent_path() / path).lexically_normal().string();
+            }
+        }
+        if (!values.count("ground_truth.visible") && ground_truth["visible"])
+        {
+            ground_truth_visible = ground_truth["visible"].as<bool>();
+        }
+    }
+    if (values.count("ground_truth.path"))
+    {
+        ground_truth_path = values["ground_truth.path"].as<std::string>();
+    }
+    if (values.count("ground_truth.visible"))
+    {
+        ground_truth_visible = values["ground_truth.visible"].as<bool>();
+    }
+    if (ground_truth_visible && ground_truth_path.empty())
+    {
+        throw std::runtime_error("ground_truth.visible requires ground_truth.path");
+    }
+    const auto camera_trajectory = root["camera_trajectory"];
+    if (camera_trajectory)
+    {
+        if (!camera_trajectory.IsMap())
+        {
+            throw std::runtime_error("Settings entry camera_trajectory must be a map");
+        }
+        if (!values.count("camera_trajectory.visible") && camera_trajectory["visible"])
+        {
+            camera_trajectory_visible = camera_trajectory["visible"].as<bool>();
+        }
+    }
+    if (values.count("camera_trajectory.visible"))
+    {
+        camera_trajectory_visible = values["camera_trajectory.visible"].as<bool>();
+    }
+
     if (values.count("logging.pattern"))
     {
         logging_pattern = values["logging.pattern"].as<std::string>();
     }
     else
     {
-        std::ifstream stream(settings_path);
-        if (!stream)
-        {
-            throw std::runtime_error("Failed to open settings file: " + settings_path);
-        }
-        // OpenCV settings use a non-standard %YAML:1.0 directive.
-        if (stream.peek() == '%')
-        {
-            std::string directive;
-            std::getline(stream, directive);
-        }
-        const auto root    = YAML::Load(stream);
         const auto logging = root["logging"];
         if (logging)
         {

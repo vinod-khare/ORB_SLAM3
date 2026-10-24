@@ -92,7 +92,7 @@ TEST_CASE("Off-screen map rendering survives pane resizing and navigation", "[.v
     ORB_SLAM3::Atlas                 atlas(0);
     const ORB_SLAM3::viewer_settings settings{0.05f, 1.f, 1.f, 2.f, 0.08f, 3.f, 0.f, -0.7f, -1.8f, 500.f, 1.f};
     ORB_SLAM3::MapDrawer             drawer(&atlas, settings);
-    const std::array<bool, 5>        layers{true, true, true, true, false};
+    const std::array<bool, 7>        layers{true, true, true, true, false, false, false};
     const auto                       first = drawer.render(640, 480, layers);
     REQUIRE(first.size() == cv::Size(640, 480));
     REQUIRE(first.type() == CV_8UC3);

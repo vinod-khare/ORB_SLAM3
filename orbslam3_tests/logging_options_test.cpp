@@ -64,6 +64,36 @@ TEST_CASE("External timestamp file options are rejected")
     REQUIRE(settings.parse("logging: {}\n", {"times.txt"}).exit_code == 1);
 }
 
+TEST_CASE("Ground truth options support YAML, CLI overrides and relative paths", "[ground_truth_options]")
+{
+    const logging_settings settings;
+    const auto             defaults = settings.parse("other: value\n");
+    REQUIRE(defaults.ground_truth_path.empty());
+    REQUIRE_FALSE(defaults.ground_truth_visible);
+    const auto yaml = settings.parse("ground_truth:\n  path: mocap/data.csv\n  visible: true\n");
+    REQUIRE(yaml.ground_truth_path == (settings.directory / "mocap/data.csv").string());
+    REQUIRE(yaml.ground_truth_visible);
+    const auto cli = settings.parse("ground_truth:\n  path: mocap/data.csv\n  visible: true\n", {"--ground_truth.path", "trajectory.txt", "--ground_truth.visible=false"});
+    REQUIRE(cli.ground_truth_path == "trajectory.txt");
+    REQUIRE_FALSE(cli.ground_truth_visible);
+    REQUIRE(settings.parse("ground_truth: {}\n", {"--ground_truth.path", "poses.txt", "--ground_truth.visible"}).ground_truth_visible);
+    REQUIRE_THROWS_WITH(settings.parse("ground_truth: invalid\n"), "Settings entry ground_truth must be a map");
+    REQUIRE_THROWS(settings.parse("ground_truth: {path: [], visible: true}\n"));
+    REQUIRE_THROWS(settings.parse("ground_truth: {visible: invalid}\n"));
+    REQUIRE_THROWS_WITH(settings.parse("ground_truth: {visible: true}\n"), "ground_truth.visible requires ground_truth.path");
+}
+
+TEST_CASE("Camera trajectory visibility supports defaults, YAML and CLI", "[camera_trajectory_options]")
+{
+    const logging_settings settings;
+    REQUIRE(settings.parse("other: value\n").camera_trajectory_visible);
+    REQUIRE_FALSE(settings.parse("camera_trajectory: {visible: false}\n").camera_trajectory_visible);
+    REQUIRE(settings.parse("camera_trajectory: {visible: false}\n", {"--camera_trajectory.visible"}).camera_trajectory_visible);
+    REQUIRE_FALSE(settings.parse("camera_trajectory: {visible: true}\n", {"--camera_trajectory.visible=false"}).camera_trajectory_visible);
+    REQUIRE_THROWS_WITH(settings.parse("camera_trajectory: invalid\n"), "Settings entry camera_trajectory must be a map");
+    REQUIRE_THROWS(settings.parse("camera_trajectory: {visible: invalid}\n"));
+}
+
 TEST_CASE("Folder readers preserve the configured logging pattern", "[logging]")
 {
     const logging_settings settings;

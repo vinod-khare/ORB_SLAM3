@@ -38,18 +38,26 @@
 #include <cmath>
 #include <set>
 
+#include <vtkMatrix4x4.h>
+
 namespace ORB_SLAM3
 {
-MapDrawer::MapDrawer(Atlas *atlas, const viewer_settings &settings) : mpAtlas(atlas), _settings(settings) {}
+MapDrawer::MapDrawer(Atlas *atlas, const viewer_settings &settings) : mpAtlas(atlas), _settings(settings), _ground_truth(settings.ground_truth_path, settings.ground_truth_body_to_camera) {}
 MapDrawer::~MapDrawer() = default;
 
-void MapDrawer::SetCurrentCameraPose(const Sophus::SE3f &camera_pose)
+void MapDrawer::SetCurrentCameraPose(const Sophus::SE3f &camera_pose, unsigned long map_id)
 {
-    std::unique_lock lock(_camera_mutex, std::try_to_lock);
-    if (lock.owns_lock())
-    {
-        _camera_pose = camera_pose.inverse();
-    }
+    std::scoped_lock lock(_camera_mutex);
+    _camera_pose = camera_pose.inverse();
+    _pending_camera_trajectory.emplace_back(_camera_pose.translation(), _connect_camera_trajectory && _trajectory_map_id == map_id);
+    _trajectory_map_id         = map_id;
+    _connect_camera_trajectory = true;
+}
+
+void MapDrawer::break_camera_trajectory()
+{
+    std::scoped_lock lock(_camera_mutex);
+    _connect_camera_trajectory = false;
 }
 
 Sophus::SE3f MapDrawer::camera_pose()
@@ -132,7 +140,7 @@ void MapDrawer::navigate(float horizontal, float vertical, float zoom, bool pan)
     camera->Dolly(std::pow(1.15, zoom));
 }
 
-cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 5> &layers)
+cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 7> &layers)
 {
     if (!_window)
     {
@@ -148,10 +156,73 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 5> &laye
         _capture->SetInputBufferTypeToRGB();
         _capture->ReadFrontBufferOff();
         _capture->ShouldRerenderOff();
+        if (!_ground_truth.samples().empty())
+        {
+            vtkNew<vtkPoints>    reference_points;
+            vtkNew<vtkCellArray> reference_lines;
+            for (const auto &[timestamp, position] : _ground_truth.samples())
+            {
+                const auto index = reference_points->InsertNextPoint(position.x(), position.y(), position.z());
+                if (index > 0)
+                {
+                    const vtkIdType segment[]{index - 1, index};
+                    reference_lines->InsertNextCell(2, segment);
+                }
+            }
+            vtkNew<vtkPolyData> reference_data;
+            reference_data->SetPoints(reference_points);
+            reference_data->SetLines(reference_lines);
+            vtkNew<vtkPolyDataMapper> reference_mapper;
+            reference_mapper->SetInputData(reference_data);
+            _ground_truth_actor = vtkSmartPointer<vtkActor>::New();
+            _ground_truth_actor->SetMapper(reference_mapper);
+            _ground_truth_actor->GetProperty()->SetColor(0.95, 0.45, 0.05);
+            _ground_truth_actor->GetProperty()->SetLineWidth(7.f);
+            _ground_truth_actor->GetProperty()->LightingOff();
+        }
+        if (!_camera_trajectory_points)
+        {
+            _camera_trajectory_points = vtkSmartPointer<vtkPoints>::New();
+            _camera_trajectory_lines  = vtkSmartPointer<vtkCellArray>::New();
+        }
+        vtkNew<vtkPolyData> trajectory_data;
+        trajectory_data->SetPoints(_camera_trajectory_points);
+        trajectory_data->SetLines(_camera_trajectory_lines);
+        vtkNew<vtkPolyDataMapper> trajectory_mapper;
+        trajectory_mapper->SetInputData(trajectory_data);
+        trajectory_mapper->SetResolveCoincidentTopologyToPolygonOffset();
+        trajectory_mapper->SetRelativeCoincidentTopologyLineOffsetParameters(0, -2);
+        _camera_trajectory_actor = vtkSmartPointer<vtkActor>::New();
+        _camera_trajectory_actor->SetMapper(trajectory_mapper);
+        _camera_trajectory_actor->GetProperty()->SetColor(0.0, 0.45, 0.65);
+        _camera_trajectory_actor->GetProperty()->SetLineWidth(3.f);
+        _camera_trajectory_actor->GetProperty()->LightingOff();
         reset_view(false);
     }
     _window->SetSize(std::clamp(width, 1, 4096), std::clamp(height, 1, 4096));
     _renderer->RemoveAllViewProps();
+    std::vector<std::pair<Eigen::Vector3f, bool>> pending_trajectory;
+    {
+        std::unique_lock lock(_camera_mutex, std::try_to_lock);
+        if (lock.owns_lock())
+        {
+            pending_trajectory.swap(_pending_camera_trajectory);
+        }
+    }
+    for (const auto &[position, connected] : pending_trajectory)
+    {
+        const auto index = _camera_trajectory_points->InsertNextPoint(position.x(), position.y(), position.z());
+        if (connected && index > 0)
+        {
+            const vtkIdType segment[]{index - 1, index};
+            _camera_trajectory_lines->InsertNextCell(2, segment);
+        }
+    }
+    if (!pending_trajectory.empty())
+    {
+        _camera_trajectory_points->Modified();
+        _camera_trajectory_lines->Modified();
+    }
     std::array<vtkSmartPointer<vtkPoints>, 14>    points;
     std::array<vtkSmartPointer<vtkCellArray>, 14> cells;
     for (std::size_t group = 0; group < points.size(); ++group)
@@ -176,7 +247,8 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 5> &laye
         }
     };
     add_camera(7, camera_pose(), _settings.camera_size);
-    auto *active_map = mpAtlas->GetCurrentMap();
+    trajectory_samples estimated_trajectory;
+    auto              *active_map = mpAtlas->GetCurrentMap();
     if (active_map)
     {
         std::set<unsigned long> optimized_keyframes;
@@ -239,6 +311,10 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 5> &laye
                     continue;
                 }
                 const auto center = keyframe->GetCameraCenter();
+                if (!_ground_truth_alignment && _ground_truth_actor)
+                {
+                    estimated_trajectory.emplace_back(keyframe->mTimeStamp, center.cast<double>());
+                }
                 if (layers[2])
                 {
                     for (auto *neighbor : keyframe->GetCovisiblesByWeight(100))
@@ -269,6 +345,30 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 5> &laye
                 }
             }
         }
+    }
+    if (!_ground_truth_alignment && _ground_truth_actor)
+    {
+        _ground_truth_alignment = _ground_truth.alignment(estimated_trajectory, _settings.ground_truth_correct_scale);
+    }
+    if (layers[5] && _ground_truth_actor && _ground_truth_alignment)
+    {
+        if (!_ground_truth_actor->GetUserMatrix())
+        {
+            vtkNew<vtkMatrix4x4> transform;
+            for (int row = 0; row < 4; ++row)
+            {
+                for (int column = 0; column < 4; ++column)
+                {
+                    transform->SetElement(row, column, (*_ground_truth_alignment)(row, column));
+                }
+            }
+            _ground_truth_actor->SetUserMatrix(transform);
+        }
+        _renderer->AddActor(_ground_truth_actor);
+    }
+    if (layers[6])
+    {
+        _renderer->AddActor(_camera_trajectory_actor);
     }
     constexpr std::array<std::array<double, 3>, 14> colors{
         {{0.12, 0.15, 0.18},
@@ -322,7 +422,9 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 5> &laye
 
 void MapDrawer::release()
 {
-    _capture = nullptr;
+    _camera_trajectory_actor = nullptr;
+    _ground_truth_actor      = nullptr;
+    _capture                 = nullptr;
     if (_window)
     {
         _window->Finalize();

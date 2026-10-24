@@ -7,6 +7,7 @@ add_executable(orbslam3_tests
     timestamp_test.cpp
     optical_flow_test.cpp
     frame_drawer_test.cpp
+    ground_truth_test.cpp
     native_keypoints_test.cpp
     frame_prefetcher_test.cpp
     logging_options_test.cpp
