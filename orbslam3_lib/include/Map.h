@@ -149,6 +149,7 @@ class Map
     // DEBUG: show KFs which are used in LBA
     std::set<long unsigned int> msOptKFs;
     std::set<long unsigned int> msFixedKFs;
+    std::mutex                  viewer_mutex;
 
   protected:
     long unsigned int       mnId;

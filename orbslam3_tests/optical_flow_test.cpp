@@ -18,7 +18,7 @@ TEST_CASE("Optical flow reuses frame pyramids and matches raw image tracking")
     cv::GaussianBlur(previous_image, previous_image, cv::Size(5, 5), 0);
 
     cv::Mat       current_image;
-    const cv::Mat transform = (cv::Mat_<double>(2, 3) << 1, 0, 2, 0, 1, 1);
+    const cv::Mat transform = cv::Mat(cv::Matx23d(1, 0, 2, 0, 1, 1));
     cv::warpAffine(previous_image, current_image, transform, previous_image.size());
 
     ORB_SLAM3::Frame previous_frame;
@@ -230,8 +230,8 @@ TEST_CASE("RGB-D frames undistort tracked features without a camera")
     cv::RNG random(17);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     ORB_SLAM3::keypoint_extractor extractor(400, 1.2f, 4, 20, 7);
-    cv::Mat                       calibration = (cv::Mat_<float>(3, 3) << 200, 0, 128, 0, 200, 128, 0, 0, 1);
-    cv::Mat                       distortion  = (cv::Mat_<float>(4, 1) << -0.1f, 0, 0, 0);
+    cv::Mat                       calibration = cv::Mat(cv::Matx33f(200, 0, 128, 0, 200, 128, 0, 0, 1));
+    cv::Mat                       distortion  = cv::Mat(cv::Vec4f(-0.1f, 0, 0, 0));
     const cv::Mat                 depth(image.size(), CV_32F, cv::Scalar(2));
     ORB_SLAM3::Frame::mbInitialComputations = true;
     ORB_SLAM3::Frame frame(image, depth, 1.0, &extractor, nullptr, calibration, distortion, 20, 40);

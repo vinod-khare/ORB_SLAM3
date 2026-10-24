@@ -155,13 +155,13 @@ int    main(int argc, char **argv)
             cout << "Output filename: " << output_filename << endl;
         }
 
-        const int                            frames_skip     = options.frames_skip;
-        const int                            frames_stride   = options.frames_stride;
-        const int                            frames_take     = options.frames_take;
-        const bool                           save_colmap     = options.save_colmap;
-        const bool                           save_ply        = options.save_ply;
-        const bool                           use_viewer      = options.use_viewer;
-        const string                        &slam_type       = options.slam_type;
+        const int     frames_skip   = options.frames_skip;
+        const int     frames_stride = options.frames_stride;
+        const int     frames_take   = options.frames_take;
+        const bool    save_colmap   = options.save_colmap;
+        const bool    save_ply      = options.save_ply;
+        const bool    use_viewer    = options.use_viewer;
+        const string &slam_type     = options.slam_type;
 
         if (slam_type != "mono" && slam_type != "mono-inertial" && slam_type != "stereo" && slam_type != "stereo-inertial")
         {
@@ -218,7 +218,7 @@ int    main(int argc, char **argv)
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
         std::unique_ptr<ORB_SLAM3::Viewer>      viewer;
-        std::thread                             viewer_thread;
+        std::jthread                            viewer_thread;
         if (use_viewer)
         {
             frame_drawer       = std::make_unique<ORB_SLAM3::FrameDrawer>(SLAM.GetAtlas());
@@ -236,7 +236,7 @@ int    main(int argc, char **argv)
                     }
                 },
                 [&viewer] { viewer->Release(); });
-            viewer_thread = std::thread(&ORB_SLAM3::Viewer::Run, viewer.get());
+            viewer_thread = std::jthread(&ORB_SLAM3::Viewer::Run, viewer.get());
         }
 
         const auto stop_viewer = [&]
@@ -255,6 +255,14 @@ int    main(int argc, char **argv)
             frame_prefetcher prefetch(reader, stereo, inertial, image_scale, SLAM.can_precompute_optical_flow_pyramid());
             for (int ni = 0; ni < nImages; ni++, proccIm++)
             {
+                if (viewer)
+                {
+                    viewer->process_commands();
+                    if (viewer->exit_requested())
+                    {
+                        break;
+                    }
+                }
                 std::cout << "Image: " << ni << "/" << nImages << "\r";
                 std::cout.flush();
 
@@ -338,15 +346,19 @@ int    main(int argc, char **argv)
         }
 
         // Tracking time statistics
+        vTimesTrack.resize(proccIm);
         sort(vTimesTrack.begin(), vTimesTrack.end());
         float totaltime = 0;
-        for (int ni = 0; ni < nImages; ni++)
+        for (int ni = 0; ni < proccIm; ni++)
         {
             totaltime += vTimesTrack[ni];
         }
         cout << "-------" << endl << endl;
-        cout << "median tracking time: " << vTimesTrack[nImages / 2] << endl;
-        cout << "mean tracking time: " << totaltime / proccIm << endl;
+        if (proccIm > 0)
+        {
+            cout << "median tracking time: " << vTimesTrack[proccIm / 2] << endl;
+            cout << "mean tracking time: " << totaltime / proccIm << endl;
+        }
 
         return 0;
     }

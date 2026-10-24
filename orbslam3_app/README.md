@@ -23,11 +23,15 @@ Shutdown reports flow-only frames, feature-extracted frames, and flow recovery a
 
 ## Viewer keypoints
 
-The **ORB-SLAM3: Current Frame** window displays tracked features using OpenCV's rich keypoint style: circles show feature size and radial lines show orientation (when available). Green marks map-point matches; blue marks visual-odometry matches. Both camera views use this style, with keypoint positions and sizes scaled together. Initialization correspondence lines and tracking statistics are unchanged.
+The camera panes in the **ORB-SLAM3** window display tracked features using OpenCV's rich keypoint style: circles show feature size and radial lines show orientation (when available). Green marks map-point matches; blue marks visual-odometry matches. Both camera views use this style, with keypoint positions and sizes scaled together. Initialization correspondence lines and tracking statistics are unchanged.
 
 The viewer preserves the selected detector's native size and orientation, separately from the ORB patch sizes and orientations used for descriptors and matching. Sizes are converted from pyramid-level to input-image coordinates. Detectors that do not report orientation (such as FAST, AGAST, and GFTT) display circles without orientation lines. OpenCV does not assign a separate symbol to each detector type. Flow-only frames move the last detected markers to their tracked positions; their size and orientation remain from the last detection until features are refreshed.
 
-The Pangolin map viewer and OpenCV frame viewer are owned by the app layer. The core `ORB_SLAM3` library runs without UI dependencies; `--no-viewer` skips loading viewer settings and starting the UI.
+Hello ImGui owns one native window with resizable, dockable Controls, Map, and camera panes (separate left/right panes in stereo). VTK renders the 3D map off-screen; both that image and OpenCV overlays appear as ImGui textures. Drag the map to orbit, use Shift-drag or the middle/right mouse button to pan, and scroll to zoom. The controls retain follow-camera, camera/top views, layer visibility, localization, stepping, reset, and stop/export. Pane layouts and window geometry persist between runs; the layout button restores the default arrangement.
+
+The UI runs on a separate, lower-priority thread capped at 30 FPS. Camera snapshots are demand-driven: the SLAM thread uses `try_lock` and drops a display update rather than waiting for the UI. Pose and local-BA color publication are also non-blocking. All image annotation, VTK rendering, and texture uploads happen on the UI thread. Map access retains the core's existing short data-access locks; rendering never holds those locks. Reset explicitly pauses map reads to protect object lifetimes. Closing the window detaches visualization and lets playback continue; Stop ends playback and uses the normal trajectory-export path.
+
+The core `ORB_SLAM3` library runs without UI dependencies; `--no-viewer` skips loading viewer settings and starting the UI. Neither Pangolin nor OpenCV HighGUI is required by the app.
 
 ## Build
 
@@ -96,7 +100,7 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--keypoint_detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`); overrides `keypoint_detector.type` in the settings YAML.                                         |
 | `--keypoint_descriptor.type`                               | Independent OpenCV descriptor (`orb`, `sift`, `brisk`). |
 | `--descriptor_matcher.type`                                | OpenCV matcher (`brute_force`, `flann`); Hamming/LSH for binary data, L2/KD-tree for SIFT. |
-| `--no-viewer`                                              | Run headless without the Pangolin viewer.                                                                                                                                      |
+| `--no-viewer`                                              | Run headless without the ImGui viewer.                                                                                                                                      |
 | `--logging.pattern`                                       | spdlog output pattern; overrides `logging.pattern` in YAML. Default: `%+` (spdlog's built-in default). |
 
 ## Logging
@@ -120,7 +124,7 @@ See the [spdlog pattern flags](https://github.com/gabime/spdlog/wiki/Custom-form
 - Image timestamps from numeric nanosecond filename stems.
 - Stereo pairing by matching image filenames, plus time-associated IMU CSV input.
 - Frame skipping, fixed-stride sampling, and frame-count limits for shorter runs.
-- Pangolin SLAM visualization and camera/keyframe trajectory exports.
+- Dockable ImGui/VTK SLAM visualization and camera/keyframe trajectory exports.
 - Optional map-point PLY and COLMAP-compatible sparse-model exports.
 - Independently configurable OpenCV detectors, descriptors (ORB, SIFT, BRISK), and matchers (brute force, FLANN). The existing vocabulary uses a separate ORB place-recognition descriptor channel; see the root README's Feature Pipeline section.
 - Optional flow-first tracking with descriptor recovery through `Tracking.useOpticalFlow` in the settings YAML.

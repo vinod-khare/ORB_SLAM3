@@ -1279,11 +1279,11 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
         optimizer.setForceStopFlag(pbStopFlag);
     }
 
-    unsigned long maxKFid = 0;
+    unsigned long           maxKFid = 0;
 
     // DEBUG LBA
-    pCurrentMap->msOptKFs.clear();
-    pCurrentMap->msFixedKFs.clear();
+    std::set<unsigned long> optimized_keyframes;
+    std::set<unsigned long> fixed_keyframes;
 
     // Set Local KeyFrame vertices
     for (list<KeyFrame *>::iterator lit = lLocalKeyFrames.begin(), lend = lLocalKeyFrames.end(); lit != lend; lit++)
@@ -1300,7 +1300,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
             maxKFid = pKFi->mnId;
         }
         // DEBUG LBA
-        pCurrentMap->msOptKFs.insert(pKFi->mnId);
+        optimized_keyframes.insert(pKFi->mnId);
     }
     num_OptKF = lLocalKeyFrames.size();
 
@@ -1319,7 +1319,16 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
             maxKFid = pKFi->mnId;
         }
         // DEBUG LBA
-        pCurrentMap->msFixedKFs.insert(pKFi->mnId);
+        fixed_keyframes.insert(pKFi->mnId);
+    }
+
+    {
+        std::unique_lock lock(pCurrentMap->viewer_mutex, std::try_to_lock);
+        if (lock.owns_lock())
+        {
+            pCurrentMap->msOptKFs.swap(optimized_keyframes);
+            pCurrentMap->msFixedKFs.swap(fixed_keyframes);
+        }
     }
 
     // Set MapPoint vertices

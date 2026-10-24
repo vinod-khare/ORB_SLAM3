@@ -8,4 +8,4 @@ sudo apt install libboost-all-dev
 sudo apt install libspdlog-dev
 
 # install dependencies from vcpkg
-./.vcpkg/vcpkg install pangolin yaml-cpp g2o ms-gsl spdlog catch2
+./.vcpkg/vcpkg install 'hello-imgui[glfw-binding,opengl3-binding]' vtk yaml-cpp g2o ms-gsl spdlog catch2

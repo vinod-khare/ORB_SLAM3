@@ -16,74 +16,48 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef VIEWER_H
-#define VIEWER_H
+#pragma once
 
 #include "viewer_settings.h"
 
-#include <mutex>
+#include <atomic>
 
 namespace ORB_SLAM3
 {
-
 class FrameDrawer;
 class MapDrawer;
 class System;
 class Tracking;
+
 class Viewer
 {
   public:
-    Viewer(System *pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, const viewer_settings &settings);
-
-    void newParameterLoader(const viewer_settings &settings);
-
-    // Main thread function. Draw points, keyframes, the current camera pose and the last processed
-    // frame. Drawing is refreshed according to the camera fps. We use Pangolin.
+    Viewer(System *system, FrameDrawer *frame_drawer, MapDrawer *map_drawer, Tracking *tracker, const viewer_settings &settings);
     void Run();
-
     void RequestFinish();
-
     void RequestStop();
-
-    bool isFinished();
-
-    bool isStopped();
-
-    bool isStepByStep();
-
+    bool isFinished() const;
+    bool isStopped() const;
     void Release();
+    bool exit_requested() const;
+    void process_commands();
 
-    // void SetTrackingPause();
-
-    bool both;
+    bool both{false};
 
   private:
-    bool         Stop();
-
-    System      *mpSystem;
-    FrameDrawer *mpFrameDrawer;
-    MapDrawer   *mpMapDrawer;
-    Tracking    *mpTracker;
-
-    // 1/fps in ms
-    double       mT;
-    float        mImageViewerScale;
-
-    float        mViewpointX, mViewpointY, mViewpointZ, mViewpointF;
-
-    bool         CheckFinish();
-    void         SetFinish();
-    bool         mbFinishRequested;
-    bool         mbFinished;
-    std::mutex   mMutexFinish;
-
-    bool         mbStopped;
-    bool         mbStopRequested;
-    std::mutex   mMutexStop;
-
-    bool         mbStopTrack;
+    System           *_system;
+    FrameDrawer      *_frame_drawer;
+    MapDrawer        *_map_drawer;
+    Tracking         *_tracker;
+    viewer_settings   _settings;
+    float             _tracked_image_scale;
+    std::atomic<bool> _finish_requested{false};
+    std::atomic<bool> _finished{false};
+    std::atomic<bool> _stop_requested{false};
+    std::atomic<bool> _stopped{true};
+    std::atomic<bool> _exit_requested{false};
+    std::atomic<bool> _reset_requested{false};
+    std::atomic<bool> _localization_requested{false};
+    bool              _localization_active{false};
 };
-
 } // namespace ORB_SLAM3
-
-#endif // VIEWER_H

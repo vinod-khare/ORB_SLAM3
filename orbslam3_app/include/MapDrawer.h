@@ -16,60 +16,46 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MAPDRAWER_H
-#define MAPDRAWER_H
+#pragma once
 
 #include "Atlas.h"
-#include "KeyFrame.h"
-#include "MapPoint.h"
 #include "viewer_settings.h"
 
+#include <vtkSmartPointer.h>
+
+#include <array>
 #include <mutex>
 
-#include <pangolin/pangolin.h>
+#include <opencv2/core.hpp>
+
+class vtkRenderer;
+class vtkRenderWindow;
+class vtkWindowToImageFilter;
 
 namespace ORB_SLAM3
 {
-
 class MapDrawer
 {
   public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    MapDrawer(Atlas *pAtlas, const viewer_settings &settings);
+    MapDrawer(Atlas *atlas, const viewer_settings &settings);
+    ~MapDrawer();
+    void         SetCurrentCameraPose(const Sophus::SE3f &camera_pose);
+    Sophus::SE3f camera_pose();
+    cv::Mat      render(int width, int height, const std::array<bool, 5> &layers);
+    void         reset_view(bool top_view);
+    void         follow_camera(bool top_view);
+    void         navigate(float horizontal, float vertical, float zoom, bool pan);
+    void         release();
 
-    void   newParameterLoader(const viewer_settings &settings);
-
-    Atlas *mpAtlas;
-
-    void   DrawMapPoints();
-    void   DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph, const bool bDrawInertialGraph, const bool bDrawOptLba);
-    void   DrawCurrentCamera(pangolin::OpenGlMatrix &Twc);
-    void   SetCurrentCameraPose(const Sophus::SE3f &Tcw);
-    void   SetReferenceKeyFrame(KeyFrame *pKF);
-    void   GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M, pangolin::OpenGlMatrix &MOw);
+    Atlas       *mpAtlas;
 
   private:
-    float        mKeyFrameSize;
-    float        mKeyFrameLineWidth;
-    float        mGraphLineWidth;
-    float        mPointSize;
-    float        mCameraSize;
-    float        mCameraLineWidth;
-
-    Sophus::SE3f mCameraPose;
-
-    std::mutex   mMutexCamera;
-
-    float        mfFrameColors[6][3] = {
-        {0.0f, 0.0f, 1.0f},
-        {0.8f, 0.4f, 1.0f},
-        {1.0f, 0.2f, 0.4f},
-        {0.6f, 0.0f, 1.0f},
-        {1.0f, 1.0f, 0.0f},
-        {0.0f, 1.0f, 1.0f}
-    };
+    viewer_settings                         _settings;
+    Sophus::SE3f                            _camera_pose;
+    Sophus::SE3f                            _follow_pose;
+    std::mutex                              _camera_mutex;
+    vtkSmartPointer<vtkRenderer>            _renderer;
+    vtkSmartPointer<vtkRenderWindow>        _window;
+    vtkSmartPointer<vtkWindowToImageFilter> _capture;
 };
-
 } // namespace ORB_SLAM3
-
-#endif // MAPDRAWER_H

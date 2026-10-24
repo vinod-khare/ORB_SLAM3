@@ -23,339 +23,291 @@
 #include "System.h"
 #include "Tracking.h"
 
-#include <mutex>
+#include <unistd.h>
 
-#include <pangolin/pangolin.h>
+#include <algorithm>
+#include <array>
+#include <exception>
+
+#include <sys/resource.h>
+#include <sys/syscall.h>
+
+#define GLFW_INCLUDE_NONE
+#include <opencv2/imgproc.hpp>
+
+#include <GLFW/glfw3.h>
+#include <hello_imgui/hello_imgui.h>
+#include <hello_imgui/icons_font_awesome_4.h>
+#include <hello_imgui/texture_gpu.h>
+#include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
 {
-
-Viewer::Viewer(System *pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, const viewer_settings &settings)
-    : both(false), mpSystem(pSystem), mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpTracker(pTracking), mbFinishRequested(false), mbFinished(true), mbStopped(true),
-      mbStopRequested(false)
+namespace
 {
-    newParameterLoader(settings);
-    float fps = pSystem->GetCameraFrameRate();
-    if (fps < 1.f)
+void show_image(const HelloImGui::TextureGpuPtr &texture, bool flipped = false)
+{
+    if (!texture)
     {
-        fps = 30.f;
+        return;
     }
-    mT = 1e3 / fps;
-
-    mbStopTrack = false;
+    const auto  available = ImGui::GetContentRegionAvail();
+    const float scale     = std::min(available.x / texture->Width, available.y / texture->Height);
+    if (scale <= 0)
+    {
+        return;
+    }
+    const ImVec2 size(texture->Width * scale, texture->Height * scale);
+    const auto   cursor = ImGui::GetCursorPos();
+    ImGui::SetCursorPos(ImVec2(cursor.x + (available.x - size.x) * 0.5f, cursor.y + (available.y - size.y) * 0.5f));
+    ImGui::Image(texture->TextureID(), size, ImVec2(0, flipped ? 1 : 0), ImVec2(1, flipped ? 0 : 1));
 }
 
-void Viewer::newParameterLoader(const viewer_settings &settings)
+bool tool_button(const char *icon, const char *tooltip)
 {
-    mImageViewerScale = settings.image_view_scale;
-    mViewpointX       = settings.viewpoint_x;
-    mViewpointY       = settings.viewpoint_y;
-    mViewpointZ       = settings.viewpoint_z;
-    mViewpointF       = settings.viewpoint_f;
+    const bool clicked = ImGui::Button(icon);
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("%s", tooltip);
+    }
+    return clicked;
+}
+} // namespace
+
+Viewer::Viewer(System *system, FrameDrawer *frame_drawer, MapDrawer *map_drawer, Tracking *tracker, const viewer_settings &settings)
+    : _system(system), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _tracker(tracker), _settings(settings), _tracked_image_scale(tracker->GetImageScale())
+{
 }
 
 void Viewer::Run()
 {
-    mbFinished = false;
-    mbStopped  = false;
-
-    pangolin::CreateWindowAndBind("ORB-SLAM3: Map Viewer", 1024, 768);
-
-    // 3D Mouse handler requires depth testing to be enabled
-    glEnable(GL_DEPTH_TEST);
-
-    // Issue specific OpenGl we might need
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(175));
-    pangolin::Var<bool>         menuFollowCamera("menu.Follow Camera", false, true);
-    pangolin::Var<bool>         menuCamView("menu.Camera View", false, false);
-    pangolin::Var<bool>         menuTopView("menu.Top View", false, false);
-    // pangolin::Var<bool> menuSideView("menu.Side View",false,false);
-    pangolin::Var<bool>         menuShowPoints("menu.Show Points", true, true);
-    pangolin::Var<bool>         menuShowKeyFrames("menu.Show KeyFrames", true, true);
-    pangolin::Var<bool>         menuShowGraph("menu.Show Graph", false, true);
-    pangolin::Var<bool>         menuShowInertialGraph("menu.Show Inertial Graph", true, true);
-    pangolin::Var<bool>         menuLocalizationMode("menu.Localization Mode", false, true);
-    pangolin::Var<bool>         menuReset("menu.Reset", false, false);
-    pangolin::Var<bool>         menuStop("menu.Stop", false, false);
-    pangolin::Var<bool>         menuStepByStep("menu.Step By Step", false, true); // false, true
-    pangolin::Var<bool>         menuStep("menu.Step", false, false);
-
-    pangolin::Var<bool>         menuShowOptLba("menu.Show LBA opt", false, true);
-    // Define Camera Render Object (for view / scene browsing)
-    pangolin::OpenGlRenderState s_cam(pangolin::ProjectionMatrix(1024, 768, mViewpointF, mViewpointF, 512, 389, 0.1, 1000),
-                                      pangolin::ModelViewLookAt(mViewpointX, mViewpointY, mViewpointZ, 0, 0, 0, 0.0, -1.0, 0.0));
-
-    // Add named OpenGL viewport to window and provide 3D Handler
-    pangolin::View             &d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f / 768.0f).SetHandler(new pangolin::Handler3D(s_cam));
-
-    pangolin::OpenGlMatrix      Twc, Twr;
-    Twc.SetIdentity();
-    pangolin::OpenGlMatrix Ow; // Oriented with g in the z axis
-    Ow.SetIdentity();
-    cv::namedWindow("ORB-SLAM3: Current Frame");
-
-    bool bFollow           = true;
-    bool bLocalizationMode = false;
-    bool bStepByStep       = false;
-    bool bCameraView       = true;
-
-    if (mpTracker->mSensor == mpSystem->MONOCULAR || mpTracker->mSensor == mpSystem->STEREO || mpTracker->mSensor == mpSystem->RGBD)
+    if (setpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)), 10) != 0)
     {
-        menuShowGraph = true;
+        spdlog::warn("Could not lower viewer scheduling priority");
     }
-
-    float trackedImageScale = mpTracker->GetImageScale();
-
-    cout << "Starting the Viewer" << endl;
-    while (1)
+    _stopped = false;
+    try
     {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        HelloImGui::RunnerParams params;
+        params.appWindowParams.windowTitle              = "ORB-SLAM3";
+        params.appWindowParams.windowGeometry.size      = {1440, 900};
+        params.appWindowParams.restorePreviousGeometry  = true;
+        params.platformBackendType                      = HelloImGui::PlatformBackendType::Glfw;
+        params.rendererBackendType                      = HelloImGui::RendererBackendType::OpenGL3;
+        params.imGuiWindowParams.defaultImGuiWindowType = HelloImGui::DefaultImGuiWindowType::ProvideFullScreenDockSpace;
+        params.imGuiWindowParams.enableViewports        = false;
+        params.imGuiWindowParams.showMenuBar            = true;
+        params.imGuiWindowParams.showStatusBar          = true;
+        params.fpsIdling.enableIdling                   = false;
+        params.fpsIdling.fpsMax                         = 30;
+        params.iniFolderType                            = HelloImGui::IniFolderType::AppUserConfigFolder;
+        params.iniFilename                              = "orbslam3/viewer.ini";
+        params.iniFilename_useAppWindowTitle            = false;
+        params.dockingParams.dockingSplits              = {
+            {"MainDockSpace", "Controls", ImGuiDir_Left, 0.2f},
+            {"MainDockSpace",   "Camera", ImGuiDir_Down, 0.4f}
+        };
 
-        mpMapDrawer->GetCurrentOpenGLCameraMatrix(Twc, Ow);
-
-        if (mbStopTrack)
+        std::array<bool, 5>       layers{true, true, true, true, false};
+        bool                      follow{false};
+        bool                      top_view{false};
+        bool                      localization{false};
+        bool                      step_by_step{false};
+        HelloImGui::TextureGpuPtr map_texture;
+        HelloImGui::TextureGpuPtr left_texture;
+        HelloImGui::TextureGpuPtr right_texture;
+        params.callbacks.SetupImGuiStyle = []
         {
-            menuStepByStep = true;
-            mbStopTrack    = false;
-        }
-
-        if (menuFollowCamera && bFollow)
+            ImGui::StyleColorsLight();
+            auto &style          = ImGui::GetStyle();
+            style.FrameRounding  = 3;
+            style.WindowRounding = 0;
+        };
+        params.callbacks.ShowGui = [&]
         {
-            if (bCameraView)
+            if (_finish_requested)
             {
-                s_cam.Follow(Twc);
+                params.appShallExit = true;
             }
-            else
+            _stopped = _stop_requested.load();
+        };
+        params.callbacks.ShowStatus = [&] { ImGui::Text("Tracking %.1f FPS  |  UI %.1f FPS", _frame_drawer->get_tracking_fps(), ImGui::GetIO().Framerate); };
+        params.dockingParams.dockableWindows.emplace_back("Controls", "Controls",
+                                                          [&]
+                                                          {
+                                                              ImGui::SeparatorText("Tracking");
+                                                              if (ImGui::Checkbox("Localization only", &localization))
+                                                              {
+                                                                  _localization_requested = localization;
+                                                              }
+                                                              if (ImGui::Checkbox("Step by step", &step_by_step))
+                                                              {
+                                                                  _tracker->SetStepByStep(step_by_step);
+                                                              }
+                                                              ImGui::BeginDisabled(!step_by_step);
+                                                              if (tool_button(ICON_FA_STEP_FORWARD, "Process next frame"))
+                                                              {
+                                                                  _tracker->mbStep = true;
+                                                              }
+                                                              ImGui::EndDisabled();
+                                                              ImGui::SameLine();
+                                                              if (tool_button(ICON_FA_UNDO, "Reset active map"))
+                                                              {
+                                                                  localization            = false;
+                                                                  _localization_requested = false;
+                                                                  _tracker->SetStepByStep(false);
+                                                                  step_by_step     = false;
+                                                                  _reset_requested = true;
+                                                              }
+                                                              ImGui::SameLine();
+                                                              if (tool_button(ICON_FA_STOP, "Stop playback and save trajectories"))
+                                                              {
+                                                                  _tracker->SetStepByStep(false);
+                                                                  _exit_requested     = true;
+                                                                  params.appShallExit = true;
+                                                              }
+                                                              ImGui::SeparatorText("Map layers");
+                                                              ImGui::Checkbox("Map points", &layers[0]);
+                                                              ImGui::Checkbox("Keyframes", &layers[1]);
+                                                              ImGui::Checkbox("Covisibility graph", &layers[2]);
+                                                              ImGui::Checkbox("Inertial graph", &layers[3]);
+                                                              ImGui::Checkbox("Local BA colors", &layers[4]);
+                                                              ImGui::SeparatorText("View");
+                                                              if (ImGui::Checkbox("Follow camera", &follow) && follow)
+                                                              {
+                                                                  _map_drawer->reset_view(top_view);
+                                                              }
+                                                              if (tool_button(ICON_FA_CAMERA, "Camera view"))
+                                                              {
+                                                                  top_view = false;
+                                                                  _map_drawer->reset_view(false);
+                                                              }
+                                                              ImGui::SameLine();
+                                                              if (tool_button(ICON_FA_MAP, "Top view"))
+                                                              {
+                                                                  top_view = true;
+                                                                  _map_drawer->reset_view(true);
+                                                              }
+                                                              ImGui::SameLine();
+                                                              if (tool_button(ICON_FA_COLUMNS, "Restore pane layout"))
+                                                              {
+                                                                  params.dockingParams.layoutReset = true;
+                                                              }
+                                                          });
+        params.dockingParams.dockableWindows.emplace_back(
+            "Map", "MainDockSpace",
+            [&]
             {
-                s_cam.Follow(Ow);
-            }
-        }
-        else if (menuFollowCamera && !bFollow)
+                if (_stopped)
+                {
+                    return;
+                }
+                const auto available = ImGui::GetContentRegionAvail();
+                if (available.x < 1 || available.y < 1)
+                {
+                    return;
+                }
+                auto      *context = glfwGetCurrentContext();
+                const auto image   = _map_drawer->render(static_cast<int>(available.x), static_cast<int>(available.y), layers);
+                if (follow)
+                {
+                    _map_drawer->follow_camera(top_view);
+                }
+                glfwMakeContextCurrent(context);
+                cv::Mat rgba;
+                cv::cvtColor(image, rgba, cv::COLOR_RGB2RGBA);
+                map_texture = HelloImGui::CreateTextureGpuFromRgbaData(rgba.data, rgba.cols, rgba.rows);
+                show_image(map_texture, true);
+                if (ImGui::IsItemHovered())
+                {
+                    const auto &io       = ImGui::GetIO();
+                    const bool  dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left) || ImGui::IsMouseDragging(ImGuiMouseButton_Middle) || ImGui::IsMouseDragging(ImGuiMouseButton_Right);
+                    if (dragging || io.MouseWheel != 0)
+                    {
+                        follow = false;
+                        _map_drawer->navigate(dragging ? io.MouseDelta.x : 0, dragging ? io.MouseDelta.y : 0, io.MouseWheel,
+                                              io.KeyShift || ImGui::IsMouseDown(ImGuiMouseButton_Middle) || ImGui::IsMouseDown(ImGuiMouseButton_Right));
+                    }
+                }
+            });
+        const auto camera_pane = [&](bool right)
         {
-            if (bCameraView)
+            if (_stopped)
             {
-                s_cam.SetProjectionMatrix(pangolin::ProjectionMatrix(1024, 768, mViewpointF, mViewpointF, 512, 389, 0.1, 1000));
-                s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(mViewpointX, mViewpointY, mViewpointZ, 0, 0, 0, 0.0, -1.0, 0.0));
-                s_cam.Follow(Twc);
+                return;
             }
-            else
+            auto image = right ? _frame_drawer->DrawRightFrame(_tracked_image_scale) : _frame_drawer->DrawFrame(_tracked_image_scale);
+            if (image.empty())
             {
-                s_cam.SetProjectionMatrix(pangolin::ProjectionMatrix(1024, 768, 3000, 3000, 512, 389, 0.1, 1000));
-                s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(0, 0.01, 10, 0, 0, 0, 0.0, 0.0, 1.0));
-                s_cam.Follow(Ow);
+                return;
             }
-            bFollow = true;
-        }
-        else if (!menuFollowCamera && bFollow)
-        {
-            bFollow = false;
-        }
-
-        if (menuCamView)
-        {
-            menuCamView = false;
-            bCameraView = true;
-            s_cam.SetProjectionMatrix(pangolin::ProjectionMatrix(1024, 768, mViewpointF, mViewpointF, 512, 389, 0.1, 10000));
-            s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(mViewpointX, mViewpointY, mViewpointZ, 0, 0, 0, 0.0, -1.0, 0.0));
-            s_cam.Follow(Twc);
-        }
-
-        if (menuTopView && mpMapDrawer->mpAtlas->isImuInitialized())
-        {
-            menuTopView = false;
-            bCameraView = false;
-            s_cam.SetProjectionMatrix(pangolin::ProjectionMatrix(1024, 768, 3000, 3000, 512, 389, 0.1, 10000));
-            s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(0, 0.01, 50, 0, 0, 0, 0.0, 0.0, 1.0));
-            s_cam.Follow(Ow);
-        }
-
-        if (menuLocalizationMode && !bLocalizationMode)
-        {
-            mpSystem->ActivateLocalizationMode();
-            bLocalizationMode = true;
-        }
-        else if (!menuLocalizationMode && bLocalizationMode)
-        {
-            mpSystem->DeactivateLocalizationMode();
-            bLocalizationMode = false;
-        }
-
-        if (menuStepByStep && !bStepByStep)
-        {
-            // cout << "Viewer: step by step" << endl;
-            mpTracker->SetStepByStep(true);
-            bStepByStep = true;
-        }
-        else if (!menuStepByStep && bStepByStep)
-        {
-            mpTracker->SetStepByStep(false);
-            bStepByStep = false;
-        }
-
-        if (menuStep)
-        {
-            mpTracker->mbStep = true;
-            menuStep          = false;
-        }
-
-        d_cam.Activate(s_cam);
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        mpMapDrawer->DrawCurrentCamera(Twc);
-        if (menuShowKeyFrames || menuShowGraph || menuShowInertialGraph || menuShowOptLba)
-        {
-            mpMapDrawer->DrawKeyFrames(menuShowKeyFrames, menuShowGraph, menuShowInertialGraph, menuShowOptLba);
-        }
-        if (menuShowPoints)
-        {
-            mpMapDrawer->DrawMapPoints();
-        }
-
-        pangolin::FinishFrame();
-
-        cv::Mat toShow;
-        cv::Mat im = mpFrameDrawer->DrawFrame(trackedImageScale);
-
+            if (_settings.image_view_scale != 1.f)
+            {
+                cv::resize(image, image, {}, _settings.image_view_scale, _settings.image_view_scale);
+            }
+            cv::Mat rgba;
+            cv::cvtColor(image, rgba, cv::COLOR_BGR2RGBA);
+            auto &texture = right ? right_texture : left_texture;
+            texture       = HelloImGui::CreateTextureGpuFromRgbaData(rgba.data, rgba.cols, rgba.rows);
+            show_image(texture);
+        };
+        params.dockingParams.dockableWindows.emplace_back(both ? "Left camera" : "Camera", "Camera", [&] { camera_pane(false); });
         if (both)
         {
-            cv::Mat imRight = mpFrameDrawer->DrawRightFrame(trackedImageScale);
-            cv::hconcat(im, imRight, toShow);
+            params.dockingParams.dockingSplits.emplace_back("Camera", "RightCamera", ImGuiDir_Right, 0.5f);
+            params.dockingParams.dockableWindows.emplace_back("Right camera", "RightCamera", [&] { camera_pane(true); });
+        }
+        params.callbacks.BeforeExit = [&]
+        {
+            map_texture.reset();
+            left_texture.reset();
+            right_texture.reset();
+            auto *context = glfwGetCurrentContext();
+            _map_drawer->release();
+            glfwMakeContextCurrent(context);
+        };
+        spdlog::info("Starting ImGui viewer on a low-priority UI thread");
+        HelloImGui::Run(params);
+    }
+    catch (const std::exception &error)
+    {
+        spdlog::error("Viewer failed: {}", error.what());
+        _map_drawer->release();
+    }
+    _tracker->SetStepByStep(false);
+    _stopped  = true;
+    _finished = true;
+}
+
+void Viewer::process_commands()
+{
+    const bool localization = _localization_requested;
+    if (localization != _localization_active)
+    {
+        if (localization)
+        {
+            _system->ActivateLocalizationMode();
         }
         else
         {
-            toShow = im;
+            _system->DeactivateLocalizationMode();
         }
-
-        if (mImageViewerScale != 1.f)
-        {
-            int width  = toShow.cols * mImageViewerScale;
-            int height = toShow.rows * mImageViewerScale;
-            cv::resize(toShow, toShow, cv::Size(width, height));
-        }
-
-        cv::imshow("ORB-SLAM3: Current Frame", toShow);
-        cv::waitKey(mT);
-
-        if (menuReset)
-        {
-            menuShowGraph         = true;
-            menuShowInertialGraph = true;
-            menuShowKeyFrames     = true;
-            menuShowPoints        = true;
-            menuLocalizationMode  = false;
-            if (bLocalizationMode)
-            {
-                mpSystem->DeactivateLocalizationMode();
-            }
-            bLocalizationMode = false;
-            bFollow           = true;
-            menuFollowCamera  = true;
-            mpSystem->ResetActiveMap();
-            menuReset = false;
-        }
-
-        if (menuStop)
-        {
-            if (bLocalizationMode)
-            {
-                mpSystem->DeactivateLocalizationMode();
-            }
-
-            // Stop all threads
-            mpSystem->Shutdown();
-
-            // Save camera trajectory
-            mpSystem->SaveTrajectoryEuRoC("CameraTrajectory.txt");
-            mpSystem->SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory.txt");
-            menuStop = false;
-        }
-
-        if (Stop())
-        {
-            while (isStopped())
-            {
-                usleep(3000);
-            }
-        }
-
-        if (CheckFinish())
-        {
-            break;
-        }
+        _localization_active = localization;
     }
-
-    SetFinish();
-}
-
-void Viewer::RequestFinish()
-{
-    unique_lock<mutex> lock(mMutexFinish);
-    mbFinishRequested = true;
-}
-
-bool Viewer::CheckFinish()
-{
-    unique_lock<mutex> lock(mMutexFinish);
-    return mbFinishRequested;
-}
-
-void Viewer::SetFinish()
-{
-    unique_lock<mutex> lock(mMutexFinish);
-    mbFinished = true;
-}
-
-bool Viewer::isFinished()
-{
-    unique_lock<mutex> lock(mMutexFinish);
-    return mbFinished;
-}
-
-void Viewer::RequestStop()
-{
-    unique_lock<mutex> lock(mMutexStop);
-    if (!mbStopped)
+    if (_reset_requested.exchange(false))
     {
-        mbStopRequested = true;
+        _system->ResetActiveMap();
     }
 }
 
-bool Viewer::isStopped()
-{
-    unique_lock<mutex> lock(mMutexStop);
-    return mbStopped;
-}
-
-bool Viewer::Stop()
-{
-    unique_lock<mutex> lock(mMutexStop);
-    unique_lock<mutex> lock2(mMutexFinish);
-
-    if (mbFinishRequested)
-    {
-        return false;
-    }
-    else if (mbStopRequested)
-    {
-        mbStopped       = true;
-        mbStopRequested = false;
-        return true;
-    }
-
-    return false;
-}
-
+void Viewer::RequestFinish() { _finish_requested = true; }
+void Viewer::RequestStop() { _stop_requested = true; }
+bool Viewer::isFinished() const { return _finished; }
+bool Viewer::isStopped() const { return _stopped || _finished; }
+bool Viewer::exit_requested() const { return _exit_requested; }
 void Viewer::Release()
 {
-    unique_lock<mutex> lock(mMutexStop);
-    mbStopped = false;
+    _stop_requested = false;
+    _stopped        = _finished.load();
 }
-
-/*void Viewer::SetTrackingPause()
-{
-    mbStopTrack = true;
-}*/
-
 } // namespace ORB_SLAM3

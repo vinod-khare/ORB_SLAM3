@@ -38,6 +38,7 @@ FrameDrawer::FrameDrawer(Atlas *pAtlas) : both(false), mpAtlas(pAtlas)
 
 cv::Mat FrameDrawer::DrawFrame(float imageScale)
 {
+    _update_requested = true;
     cv::Mat                                im;
     vector<cv::KeyPoint>                   vIniKeys;     // Initialization: KeyPoints in reference frame
     vector<int>                            vMatches;     // Initialization: correspondeces with reference keypoints
@@ -46,15 +47,6 @@ cv::Mat FrameDrawer::DrawFrame(float imageScale)
     vector<pair<cv::Point2f, cv::Point2f>> vTracks;
     int                                    state;        // Tracking state
     vector<float>                          vCurrentDepth;
-
-    Frame                                  currentFrame;
-    vector<MapPoint *>                     vpLocalMap;
-    vector<cv::KeyPoint>                   vMatchesKeys;
-    vector<MapPoint *>                     vpMatchedMPs;
-    vector<cv::KeyPoint>                   vOutlierKeys;
-    vector<MapPoint *>                     vpOutlierMPs;
-    map<long unsigned int, cv::Point2f>    mProjectPoints;
-    map<long unsigned int, cv::Point2f>    mMatchedInImage;
 
     cv::Scalar                             standardColor(0, 255, 0);
     cv::Scalar                             odometryColor(255, 0, 0);
@@ -79,20 +71,11 @@ cv::Mat FrameDrawer::DrawFrame(float imageScale)
         }
         else if (mState == Tracking::OK)
         {
-            vCurrentKeys    = mvCurrentKeys;
-            vbVO            = mvbVO;
-            vbMap           = mvbMap;
+            vCurrentKeys  = mvCurrentKeys;
+            vbVO          = mvbVO;
+            vbMap         = mvbMap;
 
-            currentFrame    = mCurrentFrame;
-            vpLocalMap      = mvpLocalMap;
-            vMatchesKeys    = mvMatchedKeys;
-            vpMatchedMPs    = mvpMatchedMPs;
-            vOutlierKeys    = mvOutlierKeys;
-            vpOutlierMPs    = mvpOutlierMPs;
-            mProjectPoints  = mmProjectPoints;
-            mMatchedInImage = mmMatchedInImage;
-
-            vCurrentDepth   = mvCurrentDepth;
+            vCurrentDepth = mvCurrentDepth;
         }
         else if (mState == Tracking::LOST)
         {
@@ -189,6 +172,7 @@ cv::Mat FrameDrawer::DrawFrame(float imageScale)
 
 cv::Mat FrameDrawer::DrawRightFrame(float imageScale)
 {
+    _update_requested = true;
     cv::Mat              im;
     vector<cv::KeyPoint> vIniKeys;     // Initialization: KeyPoints in reference frame
     vector<int>          vMatches;     // Initialization: correspondeces with reference keypoints
@@ -362,37 +346,37 @@ void FrameDrawer::draw_text_info(cv::Mat &im, int nState, cv::Mat &imText)
     }
 }
 
-float FrameDrawer::get_tracking_fps()
-{
-    unique_lock<mutex> lock(_fps_mutex);
-    return _tracking_fps;
-}
+float FrameDrawer::get_tracking_fps() { return _tracking_fps.load(); }
 
-void FrameDrawer::update_tracking_fps()
+void  FrameDrawer::update_tracking_fps()
 {
-    const auto         now = std::chrono::steady_clock::now();
+    const auto now = std::chrono::steady_clock::now();
 
-    unique_lock<mutex> lock(_fps_mutex);
     if (_has_last_frame_time)
     {
         const float dt = std::chrono::duration<float>(now - _last_frame_time).count();
         if (dt > 0.f)
         {
-            const float instant_fps = 1.f / dt;
+            const float instant_fps  = 1.f / dt;
             // Exponential smoothing to keep the displayed value readable.
-            const float alpha       = 0.1f;
-            _tracking_fps           = (_tracking_fps > 0.f) ? (alpha * instant_fps + (1.f - alpha) * _tracking_fps) : instant_fps;
+            const float alpha        = 0.1f;
+            const float previous_fps = _tracking_fps.load();
+            _tracking_fps            = (previous_fps > 0.f) ? (alpha * instant_fps + (1.f - alpha) * previous_fps) : instant_fps;
         }
     }
     _last_frame_time     = now;
     _has_last_frame_time = true;
 }
 
-void FrameDrawer::Update(Tracking *pTracker)
+bool FrameDrawer::Update(Tracking *pTracker)
 {
     update_tracking_fps();
 
-    unique_lock<mutex> lock(mMutex);
+    unique_lock<mutex> lock(mMutex, std::try_to_lock);
+    if (!lock.owns_lock() || !_update_requested.exchange(false))
+    {
+        return false;
+    }
     if (!pTracker->mImColor.empty())
     {
         pTracker->mImColor.copyTo(mIm);
@@ -416,24 +400,9 @@ void FrameDrawer::Update(Tracking *pTracker)
         N = mvCurrentKeys.size();
     }
 
-    mvbVO           = vector<bool>(N, false);
-    mvbMap          = vector<bool>(N, false);
-    mbOnlyTracking  = pTracker->mbOnlyTracking;
-
-    // Variables for the new visualization
-    mCurrentFrame   = pTracker->mCurrentFrame;
-    mmProjectPoints = mCurrentFrame.mmProjectPoints;
-    mmMatchedInImage.clear();
-
-    mvpLocalMap = pTracker->GetLocalMapMPS();
-    mvMatchedKeys.clear();
-    mvMatchedKeys.reserve(N);
-    mvpMatchedMPs.clear();
-    mvpMatchedMPs.reserve(N);
-    mvOutlierKeys.clear();
-    mvOutlierKeys.reserve(N);
-    mvpOutlierMPs.clear();
-    mvpOutlierMPs.reserve(N);
+    mvbVO          = vector<bool>(N, false);
+    mvbMap         = vector<bool>(N, false);
+    mbOnlyTracking = pTracker->mbOnlyTracking;
 
     if (pTracker->mLastProcessedState == Tracking::NOT_INITIALIZED)
     {
@@ -457,18 +426,12 @@ void FrameDrawer::Update(Tracking *pTracker)
                     {
                         mvbVO[i] = true;
                     }
-
-                    mmMatchedInImage[pMP->mnId] = mvCurrentKeys[i].pt;
-                }
-                else
-                {
-                    mvpOutlierMPs.push_back(pMP);
-                    mvOutlierKeys.push_back(mvCurrentKeys[i]);
                 }
             }
         }
     }
     mState = static_cast<int>(pTracker->mLastProcessedState);
+    return true;
 }
 
 } // namespace ORB_SLAM3

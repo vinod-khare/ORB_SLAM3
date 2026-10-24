@@ -35,11 +35,11 @@ keypoint_extractor:
 
 # FAST, AGAST, GFTT, ORB, BRISK, SIFT, AKAZE
 keypoint_detector:
-  type: "SIFT"
+  type: "FAST"
 
 # ORB, SIFT, BRISK; independent of the detector
 keypoint_descriptor:
-  type: "SIFT"
+  type: "ORB"
 
 # brute_force or flann (LSH for binary descriptors, KD-tree for SIFT)
 descriptor_matcher:

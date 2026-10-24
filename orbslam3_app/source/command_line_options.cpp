@@ -14,17 +14,17 @@ namespace po = boost::program_options;
 command_line_options::command_line_options(int argc, char **argv)
 {
     po::options_description description("ORB-SLAM3 TUM-VI Example - Monocular / Stereo Modes\n\nUsage options");
-    description.add_options()("help,h", "Show this help message")("vocab,v", po::value<std::string>()->required(), "Path to ORB vocabulary file")(
-        "settings,s", po::value<std::string>()->required(), "Path to settings YAML file")("data.root", po::value<std::string>(), "Dataset root folder")(
-        "data.left", po::value<std::string>(), "Left image folder, absolute or relative to data.root")("data.right", po::value<std::string>(),
-                                                                                                       "Right image folder, absolute or relative to data.root")(
-        "data.imu", po::value<std::string>(), "IMU CSV file, absolute or relative to data.root")(
+    description.add_options()("help,h", "Show this help message")("vocab,v", po::value<std::string>()->required(),
+                                                                  "Path to ORB vocabulary file")("settings,s", po::value<std::string>()->required(), "Path to settings YAML file")(
+        "data.root", po::value<std::string>(), "Dataset root folder")("data.left", po::value<std::string>(), "Left image folder, absolute or relative to data.root")(
+        "data.right", po::value<std::string>(), "Right image folder, absolute or relative to data.root")("data.imu", po::value<std::string>(),
+                                                                                                         "IMU CSV file, absolute or relative to data.root")(
         "output,o", po::value<std::string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")("output-folder", po::value<std::string>(),
                                                                                                                 "Folder to write trajectory files into (created if needed)")(
         "save-colmap", po::bool_switch()->default_value(false), "Save COLMAP-compatible sparse model output")("save-ply", po::bool_switch()->default_value(false),
                                                                                                               "Save map points as PLY point cloud")(
-        "no-viewer", po::bool_switch()->default_value(false), "Run headless without the Pangolin viewer")("slam-type", po::value<std::string>()->default_value("mono"),
-                                                                                                          "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
+        "no-viewer", po::bool_switch()->default_value(false), "Run headless without the ImGui viewer")("slam-type", po::value<std::string>()->default_value("mono"),
+                                                                                                       "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
         "frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")("frames-stride", po::value<int>()->default_value(1), "Take every Nth frame (stride)")(
         "frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")("keypoint_detector.type", po::value<std::string>(),
                                                                                                             "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze)")(
@@ -64,7 +64,7 @@ command_line_options::command_line_options(int argc, char **argv)
 
     vocab_path    = values["vocab"].as<std::string>();
     settings_path = values["settings"].as<std::string>();
-    
+
     if (values.count("logging.pattern"))
     {
         logging_pattern = values["logging.pattern"].as<std::string>();
@@ -126,14 +126,14 @@ command_line_options::command_line_options(int argc, char **argv)
         output_folder = values["output-folder"].as<std::string>();
     }
 
-    frames_skip     = values["frames-skip"].as<int>();
-    frames_stride   = values["frames-stride"].as<int>();
-    frames_take     = values["frames-take"].as<int>();
-    save_colmap     = values["save-colmap"].as<bool>();
-    save_ply        = values["save-ply"].as<bool>();
-    use_viewer      = !values["no-viewer"].as<bool>();
-    slam_type       = values["slam-type"].as<std::string>();
-    overrides       = {values.count("keypoint_detector.type") ? values["keypoint_detector.type"].as<std::string>() : std::string{},
-                       values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
-                       values.count("descriptor_matcher.type") ? values["descriptor_matcher.type"].as<std::string>() : std::string{}};
+    frames_skip   = values["frames-skip"].as<int>();
+    frames_stride = values["frames-stride"].as<int>();
+    frames_take   = values["frames-take"].as<int>();
+    save_colmap   = values["save-colmap"].as<bool>();
+    save_ply      = values["save-ply"].as<bool>();
+    use_viewer    = !values["no-viewer"].as<bool>();
+    slam_type     = values["slam-type"].as<std::string>();
+    overrides     = {values.count("keypoint_detector.type") ? values["keypoint_detector.type"].as<std::string>() : std::string{},
+                     values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
+                     values.count("descriptor_matcher.type") ? values["descriptor_matcher.type"].as<std::string>() : std::string{}};
 }

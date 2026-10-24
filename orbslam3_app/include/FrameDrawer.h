@@ -23,6 +23,7 @@
 #include "MapPoint.h"
 #include "Tracking.h"
 
+#include <atomic>
 #include <chrono>
 #include <mutex>
 
@@ -41,7 +42,7 @@ class FrameDrawer
     FrameDrawer(Atlas *pAtlas);
 
     // Update info from the last processed frame.
-    void    Update(Tracking *pTracker);
+    bool    Update(Tracking *pTracker);
 
     // Draw last processed frame.
     cv::Mat DrawFrame(float imageScale = 1.f);
@@ -60,7 +61,7 @@ class FrameDrawer
     int                                    N;
     vector<cv::KeyPoint>                   mvCurrentKeys, mvCurrentKeysRight;
     vector<bool>                           mvbMap, mvbVO;
-    bool                                   mbOnlyTracking;
+    std::atomic<bool>                      mbOnlyTracking{false};
     int                                    mnTracked, mnTrackedVO;
     vector<cv::KeyPoint>                   mvIniKeys;
     vector<int>                            mvIniMatches;
@@ -73,22 +74,12 @@ class FrameDrawer
     std::mutex                             mMutex;
     vector<pair<cv::Point2f, cv::Point2f>> mvTracks;
 
-    Frame                                  mCurrentFrame;
-    vector<MapPoint *>                     mvpLocalMap;
-    vector<cv::KeyPoint>                   mvMatchedKeys;
-    vector<MapPoint *>                     mvpMatchedMPs;
-    vector<cv::KeyPoint>                   mvOutlierKeys;
-    vector<MapPoint *>                     mvpOutlierMPs;
-
-    map<long unsigned int, cv::Point2f>    mmProjectPoints;
-    map<long unsigned int, cv::Point2f>    mmMatchedInImage;
-
     void                                   update_tracking_fps();
 
-    std::mutex                             _fps_mutex;
     std::chrono::steady_clock::time_point  _last_frame_time;
     bool                                   _has_last_frame_time = false;
-    float                                  _tracking_fps        = 0.f;
+    std::atomic<float>                     _tracking_fps{0.f};
+    std::atomic<bool>                      _update_requested{true};
 };
 
 } // namespace ORB_SLAM3

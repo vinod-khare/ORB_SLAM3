@@ -31,6 +31,7 @@
 #include "keypoint_extractor.h"
 #include "place_vocabulary.h"
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -143,7 +144,7 @@ class Tracking
 
     // frames with estimated pose
     int                      mTrackedFr;
-    bool                     mbStep;
+    std::atomic<bool>        mbStep;
 
     // True if local mapping is deactivated and we are performing only localization
     bool                     mbOnlyTracking;
@@ -267,7 +268,7 @@ class Tracking
     std::function<void()>               mOnResetStart;
     std::function<void()>               mOnResetComplete;
 
-    bool                                bStepByStep;
+    std::atomic<bool>                   bStepByStep;
 
     // Atlas
     Atlas                              *mpAtlas;

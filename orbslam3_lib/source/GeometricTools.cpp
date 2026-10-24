@@ -49,11 +49,11 @@ bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poin
         max_pixel_error = std::max(max_pixel_error, static_cast<double>(max_errors[i]));
     }
 
-    cv::Mat camera_matrix = (cv::Mat_<double>(3, 3) << camera->getParameter(0), 0.0, camera->getParameter(2), 0.0, camera->getParameter(1), camera->getParameter(3), 0.0, 0.0, 1.0);
+    cv::Mat camera_matrix = cv::Mat(cv::Matx33d(camera->getParameter(0), 0.0, camera->getParameter(2), 0.0, camera->getParameter(1), camera->getParameter(3), 0.0, 0.0, 1.0));
     cv::Mat distortion_coefficients;
     if (is_fisheye)
     {
-        distortion_coefficients = (cv::Mat_<double>(4, 1) << camera->getParameter(4), camera->getParameter(5), camera->getParameter(6), camera->getParameter(7));
+        distortion_coefficients = cv::Mat(cv::Vec4d(camera->getParameter(4), camera->getParameter(5), camera->getParameter(6), camera->getParameter(7)));
     }
 
     cv::Mat          rotation_vector;

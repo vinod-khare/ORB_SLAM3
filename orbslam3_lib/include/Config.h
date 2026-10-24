@@ -40,6 +40,7 @@ class IMUConfig
 {
 };
 
+// TODO: safe delete
 class ConfigParser
 {
   public:

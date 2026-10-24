@@ -58,8 +58,8 @@ We have tested the library in **Ubuntu 16.04** and **18.04**, but it should be e
 ## C++26 Compiler
 Building the project requires a C++26-capable compiler and CMake 3.25 or newer.
 
-## Pangolin
-The app layer uses [Pangolin](https://github.com/stevenlovegrove/Pangolin) for visualization and user interface; the core `ORB_SLAM3` library does not depend on UI libraries. Download and install instructions can be found at: https://github.com/stevenlovegrove/Pangolin.
+## ImGui and VTK
+The app uses Dear ImGui through Hello ImGui (GLFW/OpenGL3 backend) for a single window with resizable, dockable map and camera panes. VTK renders the map off-screen; OpenCV camera images and keypoint overlays are uploaded as ImGui textures. Install `hello-imgui[glfw-binding,opengl3-binding]` and `vtk` through vcpkg. Pangolin is no longer required. The core `ORB_SLAM3` library remains independent of UI libraries.
 
 ## OpenCV
 We use [OpenCV](http://opencv.org) to manipulate images and features. Dowload and install instructions can be found at: http://opencv.org. **Required at leat 3.0. Tested with OpenCV 3.2.0 and 4.4.0**.
@@ -270,3 +270,10 @@ A flag in `include\Config.h` activates time measurements. It is necessary to unc
 
 # 9. Calibration
 You can find a tutorial for visual-inertial calibration and a detailed description of the contents of valid configuration files at  `Calibration_Tutorial.pdf`
+
+# `vcpkg`
+
+```
+./vcpkg install hello-imgui[glfw-binding,opengl3-binding]
+./vcpkg install opencv[contib,nonfree,vtk]
+```

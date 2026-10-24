@@ -3,8 +3,9 @@ cmake_minimum_required(VERSION 3.25)
 project(orbslam3_app LANGUAGES C CXX)
 
 find_package(Boost CONFIG REQUIRED COMPONENTS program_options)
-find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d highgui)
-find_package(Pangolin CONFIG REQUIRED)
+find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d)
+find_package(hello-imgui CONFIG REQUIRED)
+find_package(VTK CONFIG REQUIRED COMPONENTS CommonCore CommonDataModel RenderingCore RenderingOpenGL2)
 find_package(rapidcsv CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(Threads REQUIRED)
@@ -24,9 +25,10 @@ add_library(orbslam3_ui STATIC
     source/viewer_settings.cpp)
 target_compile_options(orbslam3_ui PRIVATE -Wall)
 target_include_directories(orbslam3_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(orbslam3_ui PUBLIC ORB_SLAM3 pango_display PRIVATE opencv_highgui)
+target_link_libraries(orbslam3_ui PUBLIC ORB_SLAM3 VTK::CommonCore PRIVATE hello-imgui::hello_imgui VTK::CommonDataModel VTK::RenderingCore VTK::RenderingOpenGL2 spdlog::spdlog)
+vtk_module_autoinit(TARGETS orbslam3_ui MODULES VTK::RenderingOpenGL2)
 
-add_executable(orbslam3_app
+hello_imgui_add_app(orbslam3_app
     source/command_line_options.cpp
     source/orbslam3.cpp)
 
