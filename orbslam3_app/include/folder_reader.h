@@ -69,12 +69,12 @@ class folder_reader
 
         if constexpr (stereo)
         {
-            frame.image_left  = cv::imread(_images[_index], cv::IMREAD_COLOR);
-            frame.image_right = cv::imread(_right_images[_index], cv::IMREAD_COLOR);
+            frame.image_left  = read_image_at_path(_images[_index]);
+            frame.image_right = read_image_at_path(_right_images[_index]);
         }
         else
         {
-            frame.image = cv::imread(_images[_index], cv::IMREAD_COLOR);
+            frame.image = read_image_at_path(_images[_index]);
         }
 
         if constexpr (inertial)
@@ -89,6 +89,7 @@ class folder_reader
 
   private:
     static bool                        is_numeric_stem(const std::string &s);
+    static cv::Mat                     read_image_at_path(const std::string &path);
     std::vector<ORB_SLAM3::IMU::Point> collect_imu(double timestamp, bool is_first_frame) const;
 
     std::vector<std::string>           _images;

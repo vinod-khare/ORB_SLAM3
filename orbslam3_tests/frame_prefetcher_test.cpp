@@ -88,6 +88,25 @@ TEST_CASE("Folder reader rejects malformed and non-finite IMU values")
     REQUIRE_THROWS_AS(folder_reader(settings), std::runtime_error);
 }
 
+TEST_CASE("Folder reader reports image decoding failures")
+{
+    const bool           stereo = GENERATE(false, true);
+    const image_sequence sequence;
+    folder_reader        reader(sequence.settings(stereo, false));
+    const std::string    filename = "1000000000.png";
+    std::filesystem::remove(sequence.directory / (stereo ? "right" : "left") / filename);
+
+    if (stereo)
+    {
+        REQUIRE_THROWS_AS(reader.read<orbslam3::frame_stereo>(), std::runtime_error);
+    }
+    else
+    {
+        REQUIRE_THROWS_AS(reader.read<orbslam3::frame_mono>(), std::runtime_error);
+        REQUIRE_THROWS_AS(reader.read_image(0), std::runtime_error);
+    }
+}
+
 TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
 {
     const bool           stereo                  = GENERATE(false, true);

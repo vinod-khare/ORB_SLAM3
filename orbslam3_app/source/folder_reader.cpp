@@ -197,7 +197,17 @@ const std::string                 &folder_reader::image_path(size_t idx) const {
 
 double                             folder_reader::timestamp(size_t idx) const { return _time_stamps.at(idx); }
 
-cv::Mat                            folder_reader::read_image(size_t idx) const { return cv::imread(_images.at(idx), cv::IMREAD_COLOR); }
+cv::Mat folder_reader::read_image(size_t idx) const { return read_image_at_path(_images.at(idx)); }
+
+cv::Mat folder_reader::read_image_at_path(const std::string &path)
+{
+    cv::Mat image = cv::imread(path, cv::IMREAD_COLOR);
+    if (image.empty())
+    {
+        throw std::runtime_error("Failed to load image at: " + path);
+    }
+    return image;
+}
 
 std::vector<ORB_SLAM3::IMU::Point> folder_reader::collect_imu(double timestamp, bool is_first_frame) const
 {
