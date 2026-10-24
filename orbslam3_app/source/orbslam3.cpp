@@ -246,7 +246,7 @@ int    main(int argc, char **argv)
 
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
-        std::unique_ptr<system_viewer_control>  viewer_controls;
+        system_viewer_control                  viewer_controls(SLAM, *SLAM.GetTracker());
         std::unique_ptr<ORB_SLAM3::Viewer>      viewer;
         std::jthread                            viewer_thread;
         if (use_viewer)
@@ -254,8 +254,7 @@ int    main(int argc, char **argv)
             frame_drawer       = std::make_unique<ORB_SLAM3::FrameDrawer>(*SLAM.GetAtlas());
             frame_drawer->both = stereo;
             map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(*SLAM.GetAtlas(), *ui_settings);
-            viewer_controls    = std::make_unique<system_viewer_control>(SLAM, *SLAM.GetTracker());
-            viewer             = std::make_unique<ORB_SLAM3::Viewer>(*viewer_controls, *frame_drawer, *map_drawer, image_scale, *ui_settings);
+            viewer             = std::make_unique<ORB_SLAM3::Viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, *ui_settings);
             viewer->both       = stereo;
             SLAM.GetTracker()->SetResetHooks(
                 [&viewer, &map_drawer]
