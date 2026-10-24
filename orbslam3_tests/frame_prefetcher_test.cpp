@@ -76,6 +76,18 @@ TEST_CASE("Folder reader rejects invalid frame sampling parameters")
     REQUIRE_THROWS_AS(folder_reader(settings), std::invalid_argument);
 }
 
+TEST_CASE("Folder reader rejects malformed and non-finite IMU values")
+{
+    const image_sequence sequence;
+    const auto           settings = sequence.settings(false, true);
+    const auto           row = GENERATE("950000000x,1,2,3,4,5,6", "950000000,nan,2,3,4,5,6", "950000000,1,2,3,4,5,inf");
+    std::ofstream        imu(sequence.directory / "imu.csv");
+    imu << row << '\n';
+    imu.close();
+
+    REQUIRE_THROWS_AS(folder_reader(settings), std::runtime_error);
+}
+
 TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
 {
     const bool           stereo                  = GENERATE(false, true);

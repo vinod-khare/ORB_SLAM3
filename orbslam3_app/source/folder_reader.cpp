@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -14,6 +15,31 @@
 
 namespace
 {
+double parse_imu_value(const std::string &value, const std::string &imu_path, size_t line_number)
+{
+    const std::string field = folder_reader::trim(value);
+    size_t             parsed_characters = 0;
+    double             parsed_value = 0.0;
+    try
+    {
+        parsed_value = std::stod(field, &parsed_characters);
+    }
+    catch (const std::invalid_argument &)
+    {
+        throw std::runtime_error("Invalid IMU CSV value at " + imu_path + ":" + std::to_string(line_number));
+    }
+    catch (const std::out_of_range &)
+    {
+        throw std::runtime_error("Invalid IMU CSV value at " + imu_path + ":" + std::to_string(line_number));
+    }
+
+    if (parsed_characters != field.size() || !std::isfinite(parsed_value))
+    {
+        throw std::runtime_error("Invalid IMU CSV value at " + imu_path + ":" + std::to_string(line_number));
+    }
+
+    return parsed_value;
+}
 } // namespace
 
 folder_reader::folder_reader(const settings &reader_settings)
@@ -127,7 +153,7 @@ folder_reader::folder_reader(const settings &reader_settings)
             size_t             column = 0;
             while (std::getline(row, value, ',') && column < 7)
             {
-                data[column++] = std::stod(trim(value));
+                data[column++] = parse_imu_value(value, imu_path, line_number);
             }
 
             if (column != 7 || std::getline(row, value, ','))
