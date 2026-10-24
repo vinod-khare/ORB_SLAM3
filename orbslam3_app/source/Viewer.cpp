@@ -20,8 +20,6 @@
 
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
-#include "System.h"
-#include "Tracking.h"
 
 #include <unistd.h>
 
@@ -74,8 +72,8 @@ bool tool_button(const char *icon, const char *tooltip)
 }
 } // namespace
 
-Viewer::Viewer(System &system, FrameDrawer &frame_drawer, MapDrawer &map_drawer, Tracking &tracker, const viewer_settings &settings)
-    : _system(system), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _tracker(tracker), _settings(settings), _tracked_image_scale(tracker.GetImageScale())
+Viewer::Viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings)
+    : _controls(controls), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _settings(settings), _tracked_image_scale(tracked_image_scale)
 {
 }
 
@@ -143,12 +141,12 @@ void Viewer::Run()
                 }
                 if (ImGui::Checkbox("Step by step", &step_by_step))
                 {
-                    _tracker.SetStepByStep(step_by_step);
+                    _controls.set_step_by_step(step_by_step);
                 }
                 ImGui::BeginDisabled(!step_by_step);
                 if (tool_button(ICON_FA_STEP_FORWARD, "Process next frame"))
                 {
-                    _tracker.mbStep = true;
+                    _controls.process_next_frame();
                 }
                 ImGui::EndDisabled();
                 ImGui::SameLine();
@@ -156,14 +154,14 @@ void Viewer::Run()
                 {
                     localization            = false;
                     _localization_requested = false;
-                    _tracker.SetStepByStep(false);
+                    _controls.set_step_by_step(false);
                     step_by_step     = false;
                     _reset_requested = true;
                 }
                 ImGui::SameLine();
                 if (tool_button(ICON_FA_STOP, "Stop playback and save trajectories"))
                 {
-                    _tracker.SetStepByStep(false);
+                    _controls.set_step_by_step(false);
                     _exit_requested     = true;
                     params.appShallExit = true;
                 }
@@ -283,7 +281,7 @@ void Viewer::Run()
         spdlog::error("Viewer failed: {}", error.what());
         _map_drawer.release();
     }
-    _tracker.SetStepByStep(false);
+    _controls.set_step_by_step(false);
     _stopped  = true;
     _finished = true;
 }
@@ -293,19 +291,12 @@ void Viewer::process_commands()
     const bool localization = _localization_requested;
     if (localization != _localization_active)
     {
-        if (localization)
-        {
-            _system.ActivateLocalizationMode();
-        }
-        else
-        {
-            _system.DeactivateLocalizationMode();
-        }
+        _controls.set_localization_mode(localization);
         _localization_active = localization;
     }
     if (_reset_requested.exchange(false))
     {
-        _system.ResetActiveMap();
+        _controls.reset_active_map();
     }
 }
 

@@ -24,6 +24,7 @@
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
 #include "System.h"
+#include "Tracking.h"
 #include "Viewer.h"
 #include "command_line_options.h"
 #include "frame_prefetcher.h"
@@ -50,6 +51,31 @@ struct data_paths
     std::string left;
     std::string right;
     std::string imu;
+};
+
+class system_viewer_control final : public ORB_SLAM3::viewer_control
+{
+  public:
+    system_viewer_control(ORB_SLAM3::System &system, ORB_SLAM3::Tracking &tracker) : _system(system), _tracker(tracker) {}
+
+    void set_step_by_step(bool enabled) override { _tracker.SetStepByStep(enabled); }
+    void process_next_frame() override { _tracker.mbStep = true; }
+    void set_localization_mode(bool enabled) override
+    {
+        if (enabled)
+        {
+            _system.ActivateLocalizationMode();
+        }
+        else
+        {
+            _system.DeactivateLocalizationMode();
+        }
+    }
+    void reset_active_map() override { _system.ResetActiveMap(); }
+
+  private:
+    ORB_SLAM3::System   &_system;
+    ORB_SLAM3::Tracking &_tracker;
 };
 
 std::string read_data_setting(const cv::FileStorage &settings, const std::string &name)
@@ -220,6 +246,7 @@ int    main(int argc, char **argv)
 
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
+        std::unique_ptr<system_viewer_control>  viewer_controls;
         std::unique_ptr<ORB_SLAM3::Viewer>      viewer;
         std::jthread                            viewer_thread;
         if (use_viewer)
@@ -227,7 +254,8 @@ int    main(int argc, char **argv)
             frame_drawer       = std::make_unique<ORB_SLAM3::FrameDrawer>(*SLAM.GetAtlas());
             frame_drawer->both = stereo;
             map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(*SLAM.GetAtlas(), *ui_settings);
-            viewer             = std::make_unique<ORB_SLAM3::Viewer>(SLAM, *frame_drawer, *map_drawer, *SLAM.GetTracker(), *ui_settings);
+            viewer_controls    = std::make_unique<system_viewer_control>(SLAM, *SLAM.GetTracker());
+            viewer             = std::make_unique<ORB_SLAM3::Viewer>(*viewer_controls, *frame_drawer, *map_drawer, image_scale, *ui_settings);
             viewer->both       = stereo;
             SLAM.GetTracker()->SetResetHooks(
                 [&viewer, &map_drawer]

@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "viewer_control.h"
 #include "viewer_settings.h"
 
 #include <atomic>
@@ -26,13 +27,11 @@ namespace ORB_SLAM3
 {
 class FrameDrawer;
 class MapDrawer;
-class System;
-class Tracking;
 
 class Viewer
 {
   public:
-    Viewer(System &system, FrameDrawer &frame_drawer, MapDrawer &map_drawer, Tracking &tracker, const viewer_settings &settings);
+    Viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings);
     void Run();
     void RequestFinish();
     void RequestStop();
@@ -45,10 +44,9 @@ class Viewer
     bool both{false};
 
   private:
-    System           &_system;
+    viewer_control   &_controls;
     FrameDrawer      &_frame_drawer;
     MapDrawer        &_map_drawer;
-    Tracking         &_tracker;
     viewer_settings   _settings;
     float             _tracked_image_scale;
     std::atomic<bool> _finish_requested{false};
