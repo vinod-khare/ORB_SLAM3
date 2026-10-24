@@ -16,9 +16,9 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef ATLAS_H
-#define ATLAS_H
+#pragma once
 
+#include "Frame.h"
 #include "GeometricCamera.h"
 #include "KannalaBrandt8.h"
 #include "KeyFrame.h"
@@ -26,24 +26,18 @@
 #include "MapPoint.h"
 #include "Pinhole.h"
 
+#include <map>
 #include <mutex>
 #include <set>
+#include <vector>
 
-#include <boost/serialization/export.hpp>
+#include <boost/serialization/access.hpp>
 #include <boost/serialization/vector.hpp>
 
 namespace ORB_SLAM3
 {
-class Map;
-class MapPoint;
-class KeyFrame;
 class KeyFrameDatabase;
-class Frame;
-class KannalaBrandt8;
-class Pinhole;
-
-// BOOST_CLASS_EXPORT_GUID(Pinhole, "Pinhole")
-// BOOST_CLASS_EXPORT_GUID(KannalaBrandt8, "KannalaBrandt8")
+class place_vocabulary;
 
 class Atlas
 {
@@ -54,24 +48,23 @@ class Atlas
         ar.template register_type<Pinhole>();
         ar.template register_type<KannalaBrandt8>();
 
-        // Save/load a set structure, the set structure is broken in libboost 1.58 for ubuntu 16.04, a vector is serializated
-        // ar & mspMaps;
+        // Boost serialization uses this vector instead of the map set for compatibility with older Boost releases.
         ar & mvpBackupMaps;
         ar & mvpCameras;
-        // Need to save/load the static Id from Frame, KeyFrame, MapPoint and Map
-        ar &Map::nNextId;
-        ar &Frame::nNextId;
-        ar &KeyFrame::nNextId;
-        ar &MapPoint::nNextId;
-        ar &GeometricCamera::nNextId;
+        // Persist the ID counters so newly created objects do not reuse loaded IDs.
+        ar & Map::nNextId;
+        ar & Frame::nNextId;
+        ar & KeyFrame::nNextId;
+        ar & MapPoint::nNextId;
+        ar & GeometricCamera::nNextId;
         ar & mnLastInitKFidMap;
     }
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    Atlas();
-    Atlas(int initKFid); // When its initialization the first map is created
+    Atlas() = default;
+    Atlas(int initKFid);
     ~Atlas();
 
     void                               CreateNewMap();
@@ -79,16 +72,12 @@ class Atlas
 
     unsigned long int                  GetLastInitKFid();
 
-    // Method for change components in the current map
     void                               AddKeyFrame(KeyFrame *pKF);
     void                               AddMapPoint(MapPoint *pMP);
-    // void EraseMapPoint(MapPoint* pMP);
-    // void EraseKeyFrame(KeyFrame* pKF);
 
-    GeometricCamera                   *AddCamera(GeometricCamera *pCam);
-    std::vector<GeometricCamera *>     GetAllCameras();
+    GeometricCamera *AddCamera(GeometricCamera *pCam);
+    std::vector<GeometricCamera *> GetAllCameras();
 
-    /* All methods without Map pointer work on current map */
     void                               SetReferenceMapPoints(const std::vector<MapPoint *> &vpMPs);
     void                               InformNewBigChange();
     int                                GetLastBigChangeIdx();
@@ -96,12 +85,11 @@ class Atlas
     long unsigned int                  MapPointsInMap();
     long unsigned                      KeyFramesInMap();
 
-    // Method for get data in current map
     std::vector<KeyFrame *>            GetAllKeyFrames();
     std::vector<MapPoint *>            GetAllMapPoints();
     std::vector<MapPoint *>            GetReferenceMapPoints();
 
-    vector<Map *>                      GetAllMaps();
+    std::vector<Map *> GetAllMaps();
 
     int                                CountMaps();
 
@@ -112,18 +100,16 @@ class Atlas
     Map                               *GetCurrentMap();
 
     void                               SetMapBad(Map *pMap);
-    void                               RemoveBadMaps();
 
     bool                               isInertial();
     void                               SetInertialSensor();
     void                               SetImuInitialized();
     bool                               isImuInitialized();
 
-    // Function for garantee the correction of serialization of this object
     void                               PreSave();
     void                               PostLoad();
 
-    map<long unsigned int, KeyFrame *> GetAtlasKeyframes();
+    std::map<long unsigned int, KeyFrame *> GetAtlasKeyframes();
 
     void                               SetKeyFrameDababase(KeyFrameDatabase *pKFDB);
     KeyFrameDatabase                  *GetKeyFrameDatabase();
@@ -136,26 +122,25 @@ class Atlas
     long unsigned int                  GetNumLivedMP();
 
   protected:
-    std::set<Map *>                mspMaps;
-    std::set<Map *>                mspBadMaps;
-    // Its necessary change the container from set to vector because libboost 1.58 and Ubuntu 16.04 have an error with this cointainer
-    std::vector<Map *>             mvpBackupMaps;
+    void CreateNewMapLocked();
 
-    Map                           *mpCurrentMap;
+    std::set<Map *> mspMaps;
+    // Retain maps removed from the active set while SLAM objects may still reference them.
+    std::set<Map *> mspOwnedMaps;
+    std::vector<Map *> mvpBackupMaps;
 
+    Map *mpCurrentMap{nullptr};
+
+    // Camera lifetime is managed by the settings/serialization owner, not by Atlas.
     std::vector<GeometricCamera *> mvpCameras;
 
-    unsigned long int              mnLastInitKFidMap;
+    unsigned long int mnLastInitKFidMap{0};
 
-    // Class references for the map reconstruction from the save file
-    KeyFrameDatabase              *mpKeyFrameDB;
-    place_vocabulary              *place_vocabulary_ptr;
+    KeyFrameDatabase *mpKeyFrameDB{nullptr};
+    place_vocabulary *place_vocabulary_ptr{nullptr};
 
-    // Mutex
-    std::mutex                     mMutexAtlas;
+    std::mutex mMutexAtlas;
 
 }; // class Atlas
 
 } // namespace ORB_SLAM3
-
-#endif // ATLAS_H

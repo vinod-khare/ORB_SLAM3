@@ -1798,7 +1798,6 @@ void LoopClosing::MergeLocal()
     pCurrentMap->IncreaseChangeIndex();
     pMergeMap->IncreaseChangeIndex();
 
-    mpAtlas->RemoveBadMaps();
 }
 
 void LoopClosing::MergeLocal2()
