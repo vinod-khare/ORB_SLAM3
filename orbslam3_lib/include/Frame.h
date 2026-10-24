@@ -26,6 +26,7 @@
 #include "place_vocabulary.h"
 #include "sophus/se3.hpp"
 
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -132,7 +133,7 @@ class Frame
 
     ConstraintPoseImu          *mpcpi;
 
-    bool                        imuIsPreintegrated();
+    bool                        imuIsPreintegrated() const;
     void                        setIntegrated();
 
     bool                        isSet() const;
@@ -320,7 +321,7 @@ class Frame
 
     bool        mbImuPreintegrated;
 
-    std::mutex *mpMutexImu;
+    std::shared_ptr<std::mutex> mpMutexImu{std::make_shared<std::mutex>()};
 
   public:
     // Number of KeyPoints extracted in the left and right images

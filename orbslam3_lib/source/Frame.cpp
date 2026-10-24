@@ -356,7 +356,6 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
         mVw.setZero();
     }
 
-    mpMutexImu = new std::mutex();
 }
 
 Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, cv::Mat &K, cv::Mat &distCoef, const float &bf,
@@ -438,8 +437,6 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
         mVw.setZero();
     }
 
-    mpMutexImu         = new std::mutex();
-
     // Set no stereo fisheye information
     Nleft              = -1;
     Nright             = -1;
@@ -484,7 +481,6 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, keypoint_extractor 
         mVw.setZero();
     }
 
-    mpMutexImu = new std::mutex();
 }
 
 void Frame::AssignFeaturesToGrid()
@@ -1162,7 +1158,7 @@ bool Frame::UnprojectStereo(const int &i, Eigen::Vector3f &x3D)
     }
 }
 
-bool Frame::imuIsPreintegrated()
+bool Frame::imuIsPreintegrated() const
 {
     unique_lock<std::mutex> lock(*mpMutexImu);
     return mbImuPreintegrated;
@@ -1201,7 +1197,6 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 
     extract_features(imLeft, pCamera, imRight, pCamera2);
 
-    mpMutexImu = new std::mutex();
 }
 
 void Frame::ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera)

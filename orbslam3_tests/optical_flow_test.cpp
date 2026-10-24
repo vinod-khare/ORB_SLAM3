@@ -10,6 +10,19 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
+TEST_CASE("Default and copied frames own a valid IMU integration lock")
+{
+    ORB_SLAM3::Frame frame;
+    REQUIRE_FALSE(frame.imuIsPreintegrated());
+
+    frame.setIntegrated();
+    REQUIRE(frame.imuIsPreintegrated());
+
+    frame.mK = cv::Mat::eye(3, 3, CV_32F);
+    const ORB_SLAM3::Frame copied(frame);
+    REQUIRE(copied.imuIsPreintegrated());
+}
+
 TEST_CASE("Optical flow reuses frame pyramids and matches raw image tracking")
 {
     cv::Mat previous_image(128, 128, CV_8UC1);
