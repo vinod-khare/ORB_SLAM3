@@ -2,6 +2,7 @@
 """End-to-end accuracy regression: run orbslam3_app headless and compare ATE against a stored baseline."""
 
 import argparse
+import csv
 import subprocess
 import sys
 from pathlib import Path
@@ -52,6 +53,14 @@ def evaluate(args):
     camchain = yaml.safe_load((settings_dir / settings["calibration"]["file"]).read_text())
     t_cam_imu = np.array(camchain["cam0"]["T_cam_imu"])
     num_images = sum(1 for _ in (data_root / settings["data"]["left"]).glob("*.png"))
+
+    with (args.output_folder / "statistics.csv").open(newline="") as statistics_file:
+        statistics = list(csv.DictReader(statistics_file))
+    if len(statistics) != num_images:
+        raise ValueError(f"Expected {num_images} statistics rows, got {len(statistics)}")
+    for frame_number, sample in enumerate(statistics, start=1):
+        if int(sample["frames"]) != frame_number or not all(np.isfinite(float(value)) for value in sample.values()):
+            raise ValueError(f"Invalid statistics for frame {frame_number}")
 
     est = load_estimate(args.output_folder / "f_trajectory.txt", t_cam_imu)
     tracked_ratio = est.num_poses / num_images

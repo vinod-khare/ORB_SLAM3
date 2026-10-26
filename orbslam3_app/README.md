@@ -27,6 +27,16 @@ Each processed frame logs statistics through `spdlog`, using the configured logg
 pattern. Playback ends with mean preprocessing/frontend times and totals for
 completed backend jobs. All durations are steady-clock wall times in milliseconds.
 
+The app also writes `statistics.csv` to `--output-folder` (or the current working
+directory when omitted), replacing any existing file. It contains a header and
+one numeric row per processed frame, including frames where tracking fails.
+Columns include frame ID, dataset `timestamp` in seconds, detected/matched counts,
+preprocessing/frontend milliseconds, processed-frame count, elapsed playback
+seconds, throughput FPS, cumulative preprocessing/frontend milliseconds, and each
+backend's completed-job count, last milliseconds, and total milliseconds. Backend
+values are snapshots at frame completion, not work attributed to that frame or
+the final shutdown totals. CSV output is independent of logging and viewer settings.
+
 - **Detected keypoints:** fresh detections across the input camera views. Flow-only
   frames report zero; descriptor recovery and keyframe promotion report their fresh
   detections.

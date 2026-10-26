@@ -33,7 +33,10 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
+#include <limits>
+#include <locale>
 #include <memory>
 #include <thread>
 
@@ -122,11 +125,11 @@ data_paths read_data_paths(const std::string &settings_path, const command_line_
     const std::string           root_value         = root_from_cli ? *options.data_root : read_data_setting(settings, "root");
     const std::filesystem::path root               = root_value.empty() ? settings_directory : resolve_path(root_from_cli ? std::filesystem::current_path() : settings_directory, root_value);
 
-    const auto                  read_path = [&](const std::optional<std::string> &option, const std::string &name) { return option.has_value() ? *option : read_data_setting(settings, name); };
+    const auto read_path = [&](const std::optional<std::string> &option, const std::string &name) { return option.has_value() ? *option : read_data_setting(settings, name); };
 
-    const std::string           left_value  = read_path(options.data_left, "left");
-    const std::string           right_value = read_path(options.data_right, "right");
-    const std::string           imu_value   = read_path(options.data_imu, "imu");
+    const std::string left_value  = read_path(options.data_left, "left");
+    const std::string right_value = read_path(options.data_right, "right");
+    const std::string imu_value   = read_path(options.data_imu, "imu");
 
     if (left_value.empty())
     {
@@ -163,7 +166,7 @@ int main(int argc, char **argv)
         const string &vocab_path    = options.vocab_path;
         const string &settings_path = options.settings_path;
 
-        string        output_folder;
+        string output_folder;
         if (options.output_folder.has_value())
         {
             output_folder = *options.output_folder;
@@ -174,6 +177,15 @@ int main(int argc, char **argv)
             }
             output_folder += "/";
         }
+
+        std::ofstream statistics_csv;
+        statistics_csv.exceptions(std::ios::failbit | std::ios::badbit);
+        statistics_csv.open(output_folder + "statistics.csv");
+        statistics_csv.imbue(std::locale::classic());
+        statistics_csv << std::setprecision(std::numeric_limits<double>::max_digits10);
+        statistics_csv << "frame_id,timestamp,detected_keypoints,matched_keypoints,preprocessing_ms,frontend_ms,frames,elapsed_seconds,throughput_fps,"
+                          "preprocessing_total_ms,frontend_total_ms,local_mapping_jobs,local_mapping_last_ms,local_mapping_total_ms,"
+                          "loop_closing_jobs,loop_closing_last_ms,loop_closing_total_ms,global_bundle_adjustment_jobs,global_bundle_adjustment_last_ms,global_bundle_adjustment_total_ms\n";
 
         const string output_filename = options.output_filename.value_or(string{});
         const bool   bFileName       = options.output_filename.has_value();
@@ -231,9 +243,9 @@ int main(int argc, char **argv)
                 std::make_unique<ORB_SLAM3::viewer_settings>(ORB_SLAM3::read_viewer_settings(settings_path, options.ground_truth_path, options.ground_truth_visible, slam_type == "mono"));
             ui_settings->camera_trajectory_visible = options.camera_trajectory_visible;
         }
-        const ORB_SLAM3::feature_overrides      overrides = options.overrides;
-        ORB_SLAM3::System                       SLAM(vocab_path, settings_path, sensor, 0, output_filename, overrides);
-        const float                             image_scale = SLAM.GetImageScale();
+        const ORB_SLAM3::feature_overrides overrides = options.overrides;
+        ORB_SLAM3::System                  SLAM(vocab_path, settings_path, sensor, 0, output_filename, overrides);
+        const float                        image_scale = SLAM.GetImageScale();
 
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
@@ -309,6 +321,14 @@ int main(int argc, char **argv)
                 const double frontend_ms = std::chrono::duration<double, std::milli>(frontend_time).count();
                 SLAM.record_frame_statistics(frame.preprocessing_ms, frontend_ms);
                 const auto statistics = SLAM.statistics().get_snapshot();
+
+                statistics_csv << statistics.frame.frame_id << ',' << statistics.frame.timestamp << ',' << statistics.frame.detected_keypoints << ',' << statistics.frame.matched_keypoints
+                               << ',' << statistics.frame.preprocessing_ms << ',' << statistics.frame.frontend_ms << ',' << statistics.frames << ',' << statistics.elapsed_seconds << ','
+                               << statistics.throughput_fps << ',' << statistics.preprocessing_total_ms << ',' << statistics.frontend_total_ms << ',' << statistics.local_mapping.jobs << ','
+                               << statistics.local_mapping.last_ms << ',' << statistics.local_mapping.total_ms << ',' << statistics.loop_closing.jobs << ',' << statistics.loop_closing.last_ms
+                               << ',' << statistics.loop_closing.total_ms << ',' << statistics.global_bundle_adjustment.jobs << ',' << statistics.global_bundle_adjustment.last_ms << ','
+                               << statistics.global_bundle_adjustment.total_ms << '\n';
+
                 spdlog::info("Frame {}/{}: detected={} matched={} preprocessing={:.3f} ms frontend={:.3f} ms throughput={:.1f} FPS | backend last completed: local={:.3f} ms ({} jobs) "
                              "loop={:.3f} ms ({} jobs) GBA={:.3f} ms ({} jobs)",
                              ni + 1, nImages, statistics.frame.detected_keypoints, statistics.frame.matched_keypoints, statistics.frame.preprocessing_ms, statistics.frame.frontend_ms,
@@ -328,6 +348,8 @@ int main(int argc, char **argv)
                     }
                 }
             }
+            
+            statistics_csv.close();
         }
         catch (...)
         {
