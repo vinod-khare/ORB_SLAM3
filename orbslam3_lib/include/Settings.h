@@ -109,6 +109,7 @@ class Settings
     keypoint_descriptor_type keypoint_descriptor() const { return _keypoint_descriptor; }
     descriptor_matcher_type  matcher_backend() const { return _descriptor_matcher; }
     bool                     use_optical_flow() const { return _use_optical_flow; }
+    int                      dbow_version() const { return _dbow_version; }
 
     std::string              atlasLoadFile() { return sLoadFrom_; }
     std::string              atlasSaveFile() { return sSaveto_; }
@@ -205,6 +206,7 @@ class Settings
     float                            scaleFactor_;
     int                              nLevels_;
     int                              initThFAST_, minThFAST_;
+    int                              _dbow_version{2};
     keypoint_detector_type           _keypoint_detector;
     keypoint_descriptor_type         _keypoint_descriptor{keypoint_descriptor_type::orb};
     descriptor_matcher_type          _descriptor_matcher{descriptor_matcher_type::brute_force};

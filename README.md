@@ -67,8 +67,13 @@ We use [OpenCV](http://opencv.org) to manipulate images and features. Dowload an
 ## Eigen3
 Required by g2o (see below). Download and install instructions can be found at: http://eigen.tuxfamily.org. **Required at least 3.1.0**.
 
-## DBoW2 and g2o (Included in Thirdparty folder)
-We use modified versions of the [DBoW2](https://github.com/dorian3d/DBoW2) library to perform place recognition and [g2o](https://github.com/RainerKuemmerle/g2o) library to perform non-linear optimizations. Both modified libraries (which are BSD) are included in the *Thirdparty* folder.
+## DBoW2, DBoW3 and g2o
+Install `dbow2`, `dbow3`, and `g2o` through vcpkg. Place recognition supports
+DBoW2 (default) or DBoW3 using the same ORB text vocabulary. Set `dbow_version: 3`
+in YAML, pass `--dbow_version 3`, or select **DBoW version** in the viewer's
+Tracking controls. Only values `2` and `3` are accepted; CLI overrides YAML.
+See the [app guide](orbslam3_app/README.md#dbow-place-recognition) for runtime
+switching and vocabulary-format details.
 
 ## Python
 Required to calculate the alignment of the trajectory with the ground truth. **Required Numpy module**.

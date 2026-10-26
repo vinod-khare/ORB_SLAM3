@@ -479,9 +479,9 @@ void Settings::read_imu(cv::FileStorage &settings, const std::string &config_fil
         imu_path = std::filesystem::absolute(config_file).parent_path() / imu_path;
     }
 
-    imu_path = imu_path.lexically_normal();
+    imu_path               = imu_path.lexically_normal();
     const auto calibration = load_calibration(imu_path);
-    const auto read_value = [&](const std::string &key)
+    const auto read_value  = [&](const std::string &key)
     {
         float value;
         try
@@ -499,15 +499,15 @@ void Settings::read_imu(cv::FileStorage &settings, const std::string &config_fil
         return value;
     };
 
-    noiseGyro_ = read_value("gyroscope_noise_density");
-    noiseAcc_ = read_value("accelerometer_noise_density");
-    gyroWalk_ = read_value("gyroscope_random_walk");
-    accWalk_ = read_value("accelerometer_random_walk");
+    noiseGyro_    = read_value("gyroscope_noise_density");
+    noiseAcc_     = read_value("accelerometer_noise_density");
+    gyroWalk_     = read_value("gyroscope_random_walk");
+    accWalk_      = read_value("accelerometer_random_walk");
     imuFrequency_ = read_value("update_rate");
     spdlog::info("Loaded IMU calibration from {}", imu_path.string());
 
     // Kalibr T_cam_imu maps IMU points into cam0, so Tbc is its inverse.
-    Tbc_          = read_transform(load_calibration(_calibration_file)["cam0"]["T_cam_imu"], "cam0.T_cam_imu", _calibration_file).inverse();
+    Tbc_ = read_transform(load_calibration(_calibration_file)["cam0"]["T_cam_imu"], "cam0.T_cam_imu", _calibration_file).inverse();
 
     bool found;
     readParameter<int>(settings, "IMU.InsertKFsWhenLost", found, false);
@@ -539,7 +539,12 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
         std::string directive;
         std::getline(stream, directive);
     }
-    const auto root      = YAML::Load(stream);
+    const auto root = YAML::Load(stream);
+    _dbow_version   = overrides.dbow_version ? *overrides.dbow_version : root["dbow_version"] ? root["dbow_version"].as<int>() : 2;
+    if (_dbow_version != 2 && _dbow_version != 3)
+    {
+        throw std::runtime_error("dbow_version must be 2 or 3");
+    }
     const auto extractor = root["keypoint_extractor"];
     if (!extractor || !extractor.IsMap())
     {

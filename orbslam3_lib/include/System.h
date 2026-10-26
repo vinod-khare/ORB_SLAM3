@@ -123,6 +123,8 @@ class System
     void         SetNextFrameColor(const cv::Mat &im_color);
     bool         can_precompute_optical_flow_pyramid() const;
     void         set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid);
+    int          dbow_version() const;
+    void         set_dbow_version(int version);
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void         ActivateLocalizationMode();

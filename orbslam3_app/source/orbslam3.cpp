@@ -72,6 +72,8 @@ class system_viewer_control final : public ORB_SLAM3::viewer_control
         }
     }
     void reset_active_map() override { _system.ResetActiveMap(); }
+    int  dbow_version() const override { return _system.dbow_version(); }
+    void set_dbow_version(int version) override { _system.set_dbow_version(version); }
 
   private:
     ORB_SLAM3::System   &_system;
@@ -246,7 +248,7 @@ int    main(int argc, char **argv)
 
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
-        system_viewer_control                  viewer_controls(SLAM, *SLAM.GetTracker());
+        system_viewer_control                   viewer_controls(SLAM, *SLAM.GetTracker());
         std::unique_ptr<ORB_SLAM3::Viewer>      viewer;
         std::jthread                            viewer_thread;
         if (use_viewer)

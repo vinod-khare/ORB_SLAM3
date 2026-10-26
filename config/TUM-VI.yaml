@@ -25,6 +25,9 @@ Camera.RGB: 1
 #--------------------------------------------------------------------------------------------
 # Feature Parameters
 #--------------------------------------------------------------------------------------------
+# Place-recognition backend: 2 (DBoW2) or 3 (DBoW3); CLI --dbow_version overrides this.
+dbow_version: 2
+
 TODO: combine the following into a single "keypoint" section
 keypoint_extractor:
   n_features: 1024

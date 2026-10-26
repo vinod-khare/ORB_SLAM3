@@ -57,5 +57,7 @@ class Viewer
     std::atomic<bool> _reset_requested{false};
     std::atomic<bool> _localization_requested{false};
     bool              _localization_active{false};
+    std::atomic<int>  _dbow_version{2};
+    std::atomic<bool> _dbow_error{false};
 };
 } // namespace ORB_SLAM3

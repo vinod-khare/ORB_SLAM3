@@ -11,6 +11,7 @@ add_executable(orbslam3_tests
     native_keypoints_test.cpp
     frame_prefetcher_test.cpp
     logging_options_test.cpp
+    place_vocabulary_test.cpp
     imu_settings_test.cpp
     pnp_test.cpp
     ../orbslam3_app/source/command_line_options.cpp)

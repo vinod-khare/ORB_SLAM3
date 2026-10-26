@@ -27,10 +27,11 @@ command_line_options::command_line_options(int argc, char **argv)
         "no-viewer", po::bool_switch()->default_value(false), "Run headless without the ImGui viewer")("slam-type", po::value<std::string>()->default_value("mono"),
                                                                                                        "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
         "frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")("frames-stride", po::value<int>()->default_value(1), "Take every Nth frame (stride)")(
-        "frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")("keypoint_detector.type", po::value<std::string>(),
-                                                                                                            "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze)")(
-        "keypoint_descriptor.type", po::value<std::string>(), "Keypoint descriptor (orb, sift, brisk)")("descriptor_matcher.type", po::value<std::string>(),
-                                                                                                        "Descriptor matcher (brute_force, flann)")(
+        "frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")(
+        "keypoint_detector.type", po::value<std::string>(), "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze)")("keypoint_descriptor.type", po::value<std::string>(),
+                                                                                                                              "Keypoint descriptor (orb, sift, brisk)")(
+        "descriptor_matcher.type", po::value<std::string>(), "Descriptor matcher (brute_force, flann)")("dbow_version", po::value<int>(),
+                                                                                                        "Place recognition backend: 2 or 3 (overrides YAML; default: 2)")(
         "logging.pattern", po::value<std::string>(), "spdlog output pattern; overrides logging.pattern in YAML (default: %+, spdlog default)")(
         "ground_truth.path", po::value<std::string>(), "Ground-truth trajectory file (TUM text or EuRoC/TUM-VI CSV)")("ground_truth.visible", po::value<bool>()->implicit_value(true),
                                                                                                                       "Initially display ground truth (true/false; default: false)")(
@@ -80,7 +81,12 @@ command_line_options::command_line_options(int argc, char **argv)
         std::string directive;
         std::getline(stream, directive);
     }
-    const auto root         = YAML::Load(stream);
+    const auto root = YAML::Load(stream);
+    dbow_version    = values.count("dbow_version") ? values["dbow_version"].as<int>() : root["dbow_version"] ? root["dbow_version"].as<int>() : 2;
+    if (dbow_version != 2 && dbow_version != 3)
+    {
+        throw std::runtime_error("dbow_version must be 2 or 3");
+    }
     const auto ground_truth = root["ground_truth"];
     if (ground_truth)
     {
@@ -188,5 +194,5 @@ command_line_options::command_line_options(int argc, char **argv)
     slam_type     = values["slam-type"].as<std::string>();
     overrides     = {values.count("keypoint_detector.type") ? values["keypoint_detector.type"].as<std::string>() : std::string{},
                      values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
-                     values.count("descriptor_matcher.type") ? values["descriptor_matcher.type"].as<std::string>() : std::string{}};
+                     values.count("descriptor_matcher.type") ? values["descriptor_matcher.type"].as<std::string>() : std::string{}, dbow_version};
 }

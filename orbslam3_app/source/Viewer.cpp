@@ -75,6 +75,7 @@ bool tool_button(const char *icon, const char *tooltip)
 Viewer::Viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings)
     : _controls(controls), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _settings(settings), _tracked_image_scale(tracked_image_scale)
 {
+    _dbow_version = controls.dbow_version();
 }
 
 void Viewer::Run()
@@ -135,6 +136,22 @@ void Viewer::Run()
             [&]
             {
                 ImGui::SeparatorText("Tracking");
+                int dbow_selection = _dbow_version.load() - 2;
+                if (ImGui::Combo("DBoW version", &dbow_selection,
+                                 "2\0"
+                                 "3\0"))
+                {
+                    _dbow_error   = false;
+                    _dbow_version = dbow_selection + 2;
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Reloads the same ORB text vocabulary; tracking waits while loading.");
+                }
+                if (_dbow_error)
+                {
+                    ImGui::TextWrapped("DBoW switch failed; previous backend retained. See log for details.");
+                }
                 if (ImGui::Checkbox("Localization only", &localization))
                 {
                     _localization_requested = localization;
@@ -288,6 +305,20 @@ void Viewer::Run()
 
 void Viewer::process_commands()
 {
+    const int requested = _dbow_version;
+    if (requested != _controls.dbow_version())
+    {
+        try
+        {
+            _controls.set_dbow_version(requested);
+        }
+        catch (const std::exception &error)
+        {
+            spdlog::error("Could not switch to DBoW{}: {}", requested, error.what());
+            _dbow_version = _controls.dbow_version();
+            _dbow_error   = true;
+        }
+    }
     const bool localization = _localization_requested;
     if (localization != _localization_active)
     {

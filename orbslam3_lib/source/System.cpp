@@ -115,47 +115,17 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     }
 
     mStrVocabularyFilePath = strVocFile;
+    mpVocabulary           = new place_vocabulary(strVocFile, settings_->dbow_version());
+    mpKeyFrameDatabase     = new KeyFrameDatabase(*mpVocabulary);
 
     if (mStrLoadAtlasFromFile.empty())
     {
-        // Load ORB Vocabulary
-        cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
-
-        mpVocabulary  = new place_vocabulary();
-        bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
-        if (!bVocLoad)
-        {
-            cerr << "Wrong path to vocabulary. " << endl;
-            cerr << "Falied to open at: " << strVocFile << endl;
-            exit(-1);
-        }
-        cout << "Vocabulary loaded!" << endl << endl;
-
-        // Create KeyFrame Database
-        mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
-
         // Create the Atlas
         cout << "Initialization of Atlas from scratch " << endl;
         mpAtlas = new Atlas(0);
     }
     else
     {
-        // Load ORB Vocabulary
-        cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
-
-        mpVocabulary  = new place_vocabulary();
-        bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
-        if (!bVocLoad)
-        {
-            cerr << "Wrong path to vocabulary. " << endl;
-            cerr << "Falied to open at: " << strVocFile << endl;
-            exit(-1);
-        }
-        cout << "Vocabulary loaded!" << endl << endl;
-
-        // Create KeyFrame Database
-        mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
-
         cout << "Load File" << endl;
 
         // Load the file with an earlier session
@@ -238,6 +208,9 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 }
 
 System::~System() = default;
+
+int  System::dbow_version() const { return mpVocabulary->version(); }
+void System::set_dbow_version(int version) { mpVocabulary->set_version(version); }
 
 void System::RegisterFrameFilenameForExport(const string &filename)
 {

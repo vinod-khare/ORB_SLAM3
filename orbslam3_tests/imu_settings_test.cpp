@@ -77,6 +77,24 @@ TEST_CASE("IMU settings come from Kalibr calibration", "[settings][imu]")
     REQUIRE(settings.Tbc().matrix().isApprox(Eigen::Matrix4f::Identity()));
 }
 
+TEST_CASE("Library settings select and validate DBoW independently of the app", "[settings][dbow]")
+{
+    imu_settings files;
+    files.write();
+    REQUIRE(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR).dbow_version() == 2);
+    files.config["dbow_version"] = 3;
+    files.write();
+    REQUIRE(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR).dbow_version() == 3);
+    ORB_SLAM3::feature_overrides overrides;
+    overrides.dbow_version = 2;
+    REQUIRE(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR, overrides).dbow_version() == 2);
+    files.config["dbow_version"] = 4;
+    files.write();
+    REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR), "dbow_version must be 2 or 3");
+    overrides.dbow_version = 0;
+    REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR, overrides), "dbow_version must be 2 or 3");
+}
+
 TEST_CASE("IMU calibration values must be present and positive finite numbers", "[settings][imu]")
 {
     imu_settings files;

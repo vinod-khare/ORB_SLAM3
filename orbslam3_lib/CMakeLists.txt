@@ -4,6 +4,7 @@ project(ORB_SLAM3 LANGUAGES C CXX)
 
 find_package(Boost CONFIG REQUIRED COMPONENTS serialization)
 find_package(DBoW2 CONFIG REQUIRED)
+find_package(DBow3 CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d calib3d imgcodecs video)
 find_package(OpenSSL REQUIRED)
@@ -27,6 +28,8 @@ if(NOT TARGET DBoW2::DBoW2)
 endif()
 
 add_library(ORB_SLAM3 SHARED
+        source/place_vocabulary.cpp
+        source/dbow3_vocabulary.cpp
         source/System.cpp
         source/Tracking.cpp
         source/LocalMapping.cpp
@@ -71,6 +74,7 @@ target_link_libraries(ORB_SLAM3 PUBLIC
         opencv_video
         Eigen3::Eigen
         DBoW2::DBoW2
+        DBow3::DBow3
         Sophus::Sophus
         g2o::core
         g2o::stuff

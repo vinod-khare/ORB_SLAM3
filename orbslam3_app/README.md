@@ -158,11 +158,37 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--keypoint_detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`); overrides `keypoint_detector.type` in the settings YAML.                                         |
 | `--keypoint_descriptor.type`                               | Independent OpenCV descriptor (`orb`, `sift`, `brisk`). |
 | `--descriptor_matcher.type`                                | OpenCV matcher (`brute_force`, `flann`); Hamming/LSH for binary data, L2/KD-tree for SIFT. |
+| `--dbow_version`                                           | Place-recognition backend (`2` or `3`); overrides YAML `dbow_version`. Default: `2`. |
 | `--no-viewer`                                              | Run headless without the ImGui viewer.                                                                                                                                      |
 | `--ground_truth.path`                                     | TUM trajectory or EuRoC/TUM-VI CSV file; overrides YAML `ground_truth.path`. |
 | `--ground_truth.visible [true/false]`                      | Initial ground-truth visibility; overrides YAML `ground_truth.visible` (default: false). |
 | `--camera_trajectory.visible [true/false]`                 | Initial full camera-trail visibility; overrides YAML `camera_trajectory.visible` (default: true). |
 | `--logging.pattern`                                       | spdlog output pattern; overrides `logging.pattern` in YAML. Default: `%+` (spdlog's built-in default). |
+
+## DBoW place recognition
+
+Both DBoW2 and DBoW3 are linked into the application. Install `dbow2` and `dbow3`
+through vcpkg before configuring the build. DBoW2 remains the default.
+
+Select DBoW3 with `--dbow_version 3`, or in the settings YAML:
+
+```yaml
+dbow_version: 3
+```
+
+Only integer values `2` and `3` are accepted; the command line overrides YAML.
+Both backends use the same ORB-SLAM text vocabulary (`ORBvoc.txt`) and the separate
+ORB place-recognition descriptors, regardless of the tracking descriptor selected.
+Use this text format when switching between backends; native DBoW3 binary/YAML
+vocabularies are not interchangeable with the DBoW2 text loader.
+
+During playback, use **Controls > Tracking > DBoW version** to switch backends.
+The selected backend loads the same vocabulary file between tracked frames;
+tracking and vocabulary queries wait until loading finishes. Keep that file
+unchanged during playback. Word/node IDs and saved-atlas vector types remain
+unchanged, so existing keyframes and the inverted index remain valid without a
+map reset. A failed switch is logged and shown in the GUI, retaining the previous
+backend. GUI changes apply only to the current run; they do not rewrite YAML.
 
 ## Logging
 

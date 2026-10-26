@@ -64,6 +64,24 @@ TEST_CASE("External timestamp file options are rejected")
     REQUIRE(settings.parse("logging: {}\n", {"times.txt"}).exit_code == 1);
 }
 
+TEST_CASE("DBoW version supports defaults, YAML, CLI precedence and validation", "[dbow]")
+{
+    const logging_settings settings;
+    REQUIRE(settings.parse("other: value\n").dbow_version == 2);
+    REQUIRE(settings.parse("dbow_version: 2\n").dbow_version == 2);
+    REQUIRE(settings.parse("dbow_version: 3\n").dbow_version == 3);
+    const auto cli = settings.parse("dbow_version: 3\n", {"--dbow_version", "2"});
+    REQUIRE(cli.dbow_version == 2);
+    REQUIRE(cli.overrides.dbow_version == 2);
+    REQUIRE(settings.parse("dbow_version: 2\n", {"--dbow_version=3"}).overrides.dbow_version == 3);
+    REQUIRE_THROWS_WITH(settings.parse("dbow_version: 4\n"), "dbow_version must be 2 or 3");
+    REQUIRE_THROWS_WITH(settings.parse("dbow_version: 2\n", {"--dbow_version", "0"}), "dbow_version must be 2 or 3");
+    REQUIRE_THROWS(settings.parse("dbow_version: [3]\n"));
+    REQUIRE_THROWS(settings.parse("dbow_version: null\n"));
+    REQUIRE_THROWS(settings.parse("dbow_version: 2.5\n"));
+    REQUIRE(settings.parse("other: value\n", {"--dbow_version", "invalid"}).exit_code == 1);
+}
+
 TEST_CASE("Ground truth options support YAML, CLI overrides and relative paths", "[ground_truth_options]")
 {
     const logging_settings settings;

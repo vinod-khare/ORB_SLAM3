@@ -31,5 +31,6 @@ class command_line_options
     bool                         save_ply      = false;
     bool                         use_viewer    = true;
     std::string                  slam_type     = "mono";
+    int                          dbow_version  = 2;
     ORB_SLAM3::feature_overrides overrides;
 };
