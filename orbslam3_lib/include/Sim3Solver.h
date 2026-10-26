@@ -117,8 +117,6 @@ class Sim3Solver
     float                        mSigma2;
 
     // Calibration
-    // cv::Mat mK1;
-    // cv::Mat mK2;
 
     GeometricCamera             *pCamera1, *pCamera2;
 };

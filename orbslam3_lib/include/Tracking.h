@@ -79,7 +79,6 @@ class Tracking
     KeyFrame    *GetLastKeyFrame() { return mpLastKeyFrame; }
 
     void         CreateMapInAtlas();
-    // std::mutex mMutexTracks;
 
     //--
     void         NewDataset();
@@ -172,7 +171,6 @@ class Tracking
 
     // Map initialization for monocular
     void                                MonocularInitialization();
-    // void CreateNewMapPoints();
     void                                CreateInitialMapMonocular();
 
     void                                CheckReplacedInLastFrame();
@@ -316,8 +314,6 @@ class Tracking
     bool                                mbRGB;
 
     list<MapPoint *>                    mlpTemporalPoints;
-
-    // int nMapChangeIndex;
 
     int                                 mnNumDataset;
 

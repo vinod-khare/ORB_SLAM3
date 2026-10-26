@@ -35,6 +35,7 @@
 #include <DBoW2/BowVector.h>
 #include <DBoW2/FeatureVector.h>
 #include <sophus/geometry.hpp>
+#include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
 {
@@ -75,7 +76,6 @@ class Frame
           const float &thDepth, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Destructor
-    // ~Frame();
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void                        extract_keypoints(int flag, const cv::Mat &im, const int x0, const int x1);
@@ -368,7 +368,7 @@ class Frame
                 }
             }
         }
-        cout << "Point distribution in Frame: left-> " << left << " --- right-> " << right << endl;
+        spdlog::debug("Point distribution in Frame: left={}, right={}", left, right);
     }
 
     Sophus::SE3<double> T_test;

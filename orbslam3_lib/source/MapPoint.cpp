@@ -22,6 +22,8 @@
 
 #include <mutex>
 
+#include <spdlog/spdlog.h>
+
 namespace ORB_SLAM3
 {
 
@@ -525,7 +527,6 @@ void MapPoint::UpdateNormalAndDepth()
         level = pRefKF->mvKeysRight[rightIndex - pRefKF->NLeft].octave;
     }
 
-    // const int level = pRefKF->mvKeysUn[observations[pRefKF]].octave;
     const float levelScaleFactor = pRefKF->mvScaleFactors[level];
     const int   nLevels          = pRefKF->mnScaleLevels;
 
@@ -599,13 +600,13 @@ int MapPoint::PredictScale(const float &currentDist, Frame *pF)
 
 void MapPoint::PrintObservations()
 {
-    cout << "MP_OBS: MP " << mnId << endl;
+    spdlog::debug("Observations for map point {}", mnId);
     for (map<KeyFrame *, tuple<int, int>>::iterator mit = mObservations.begin(), mend = mObservations.end(); mit != mend; mit++)
     {
         KeyFrame            *pKFi      = mit->first;
         tuple<int, int>      indexes   = mit->second;
         [[maybe_unused]] int leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
-        cout << "--OBS in KF " << pKFi->mnId << " in map " << pKFi->GetMap()->GetId() << endl;
+        spdlog::debug("Observed in keyframe {} in map {}", pKFi->mnId, pKFi->GetMap()->GetId());
     }
 }
 
@@ -658,7 +659,7 @@ void MapPoint::PostLoad(map<long unsigned int, KeyFrame *> &mpKFid, map<long uns
     mpRefKF = mpKFid[mBackupRefKFId];
     if (!mpRefKF)
     {
-        cout << "ERROR: MP without KF reference " << mBackupRefKFId << "; Num obs: " << nObs << endl;
+        spdlog::error("Map point without a keyframe reference: reference ID={}, observations={}", mBackupRefKFId, nObs);
     }
     mpReplaced = static_cast<MapPoint *>(NULL);
     if (mBackupReplacedId >= 0)

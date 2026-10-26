@@ -24,9 +24,12 @@
 
 #include <cmath>
 #include <limits>
+#include <sstream>
 #include <vector>
 
 #include <opencv2/core/core.hpp>
+
+#include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
 {
@@ -404,7 +407,9 @@ bool Sim3Solver::ComputeSim3(Eigen::Matrix3f &P1, Eigen::Matrix3f &P2)
         double nom   = (Pr1.array() * P3.array()).sum();
         if (abs(nom - cvnom) > 1e-3)
         {
-            std::cout << "sim3 solver: " << abs(nom - cvnom) << std::endl << nom << std::endl;
+            std::ostringstream solver_output;
+            solver_output << nom;
+            spdlog::debug("Sim3 solver numerator mismatch: delta={}, numerator={}", abs(nom - cvnom), solver_output.str());
         }
         Eigen::Array<float, 3, 3> aux_P3;
         aux_P3     = P3.array() * P3.array();
@@ -438,7 +443,6 @@ bool Sim3Solver::ComputeSim3(Eigen::Matrix3f &P1, Eigen::Matrix3f &P2)
     mT21i.setIdentity();
     Eigen::Matrix3f sRinv   = (1.0 / ms12i) * mR12i.transpose();
 
-    // sRinv.copyTo(mT21i.rowRange(0,3).colRange(0,3));
     mT21i.block<3, 3>(0, 0) = sRinv;
 
     Eigen::Vector3f tinv    = -sRinv * mt12i;

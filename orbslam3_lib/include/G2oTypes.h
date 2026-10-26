@@ -525,7 +525,6 @@ class EdgeInertialGS : public g2o::BaseMultiEdge<9, Vector9d>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    // EdgeInertialGS(IMU::Preintegrated* pInt);
     EdgeInertialGS(IMU::Preintegrated *pInt);
 
     virtual bool                  read(std::istream &is) { return false; }
@@ -829,8 +828,6 @@ class Edge4DoF : public g2o::BaseBinaryEdge<6, Vector6d, VertexPose4DoF, VertexP
         _error << LogSO3(VPi->estimate().Rcw[0] * VPj->estimate().Rcw[0].transpose() * dRij.transpose()),
             VPi->estimate().Rcw[0] * (-VPj->estimate().Rcw[0].transpose() * VPj->estimate().tcw[0]) + VPi->estimate().tcw[0] - dtij;
     }
-
-    // virtual void linearizeOplus(); // numerical implementation
 
     Eigen::Matrix4d dTij;
     Eigen::Matrix3d dRij;

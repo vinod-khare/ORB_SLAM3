@@ -23,6 +23,8 @@
 
 #include <mutex>
 
+#include <spdlog/spdlog.h>
+
 namespace ORB_SLAM3
 {
 
@@ -459,7 +461,7 @@ void KeyFrame::UpdateConnections(bool upParent)
     vPairs.reserve(KFcounter.size());
     if (!upParent)
     {
-        cout << "UPDATE_CONN: current KF " << mnId << endl;
+        spdlog::debug("Updating connections for keyframe {}", mnId);
     }
 
     // TODO: use modern iterators
@@ -467,7 +469,7 @@ void KeyFrame::UpdateConnections(bool upParent)
     {
         if (!upParent)
         {
-            cout << "  UPDATE_CONN: KF " << mit->first->mnId << " ; num matches: " << mit->second << endl;
+            spdlog::trace("Connected keyframe {} has {} matches", mit->first->mnId, mit->second);
         }
         if (mit->second > nmax)
         {
@@ -529,7 +531,7 @@ void KeyFrame::ChangeParent(KeyFrame *pKF)
     unique_lock<mutex> lockCon(mMutexConnections);
     if (pKF == this)
     {
-        cout << "ERROR: Change parent KF, the parent and child are the same KF" << endl;
+        spdlog::error("Cannot set a keyframe as its own parent");
         throw std::invalid_argument("The parent and child can not be the same");
     }
 
@@ -658,8 +660,8 @@ void KeyFrame::SetBadFlag()
             bool      bContinue = false;
 
             int       max       = -1;
-            KeyFrame *pC = nullptr;
-            KeyFrame *pP = nullptr;
+            KeyFrame *pC        = nullptr;
+            KeyFrame *pP        = nullptr;
 
             for (set<KeyFrame *>::iterator sit = mspChildrens.begin(), send = mspChildrens.end(); sit != send; sit++)
             {
@@ -1068,7 +1070,7 @@ void KeyFrame::PostLoad(map<long unsigned int, KeyFrame *> &mpKFid, map<long uns
     }
     else
     {
-        cout << "ERROR: There is not a main camera in KF " << mnId << endl;
+        spdlog::error("No main camera found in keyframe {}", mnId);
     }
     if (mnBackupIdCamera2 >= 0)
     {
@@ -1110,7 +1112,7 @@ bool KeyFrame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, flo
     // Check positive depth
     if (PcZ < 0.0f)
     {
-        cout << "Negative depth: " << PcZ << endl;
+        spdlog::debug("Negative depth: {}", PcZ);
         return false;
     }
 
@@ -1118,8 +1120,6 @@ bool KeyFrame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, flo
     float invz = 1.0f / PcZ;
     u          = fx * PcX * invz + cx;
     v          = fy * PcY * invz + cy;
-
-    // cout << "c";
 
     if (u < mnMinX || u > mnMaxX)
     {
@@ -1177,7 +1177,7 @@ bool KeyFrame::ProjectPointUnDistort(MapPoint *pMP, cv::Point2f &kp, float &u, f
     // Check positive depth
     if (PcZ < 0.0f)
     {
-        cout << "Negative depth: " << PcZ << endl;
+        spdlog::debug("Negative depth: {}", PcZ);
         return false;
     }
 

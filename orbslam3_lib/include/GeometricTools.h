@@ -19,12 +19,13 @@
 #ifndef GEOMETRIC_TOOLS_H
 #define GEOMETRIC_TOOLS_H
 
-#include <iostream>
+#include <sstream>
 
 #include <opencv2/core/core.hpp>
 
 #include <Eigen/Core>
 #include <sophus/se3.hpp>
+#include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
 {
@@ -49,10 +50,9 @@ class GeometricTools
     template <int rows, int cols> static bool CheckMatrices(const cv::Mat &cvMat, const Eigen::Matrix<float, rows, cols> &eigMat)
     {
         const float epsilon = 1e-3;
-        // std::cout << cvMat.cols - cols << cvMat.rows - rows << std::endl;
         if (rows != cvMat.rows || cols != cvMat.cols)
         {
-            std::cout << "wrong cvmat size\n";
+            spdlog::error("OpenCV matrix has the wrong dimensions");
             return false;
         }
         for (int i = 0; i < rows; i++)
@@ -61,8 +61,9 @@ class GeometricTools
             {
                 if ((cvMat.at<float>(i, j) > (eigMat(i, j) + epsilon)) || (cvMat.at<float>(i, j) < (eigMat(i, j) - epsilon)))
                 {
-                    std::cout << "cv mat:\n" << cvMat << std::endl;
-                    std::cout << "eig mat:\n" << eigMat << std::endl;
+                    std::ostringstream matrix_output;
+                    matrix_output << "OpenCV matrix:\n" << cvMat << "\nEigen matrix:\n" << eigMat;
+                    spdlog::debug("{}", matrix_output.str());
                     return false;
                 }
             }
@@ -79,8 +80,9 @@ class GeometricTools
             {
                 if ((eigMat1(i, j) > (eigMat2(i, j) + epsilon)) || (eigMat1(i, j) < (eigMat2(i, j) - epsilon)))
                 {
-                    std::cout << "eig mat 1:\n" << eigMat1 << std::endl;
-                    std::cout << "eig mat 2:\n" << eigMat2 << std::endl;
+                    std::ostringstream matrix_output;
+                    matrix_output << "Eigen matrix 1:\n" << eigMat1 << "\nEigen matrix 2:\n" << eigMat2;
+                    spdlog::debug("{}", matrix_output.str());
                     return false;
                 }
             }

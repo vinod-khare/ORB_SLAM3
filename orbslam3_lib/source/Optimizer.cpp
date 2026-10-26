@@ -551,7 +551,7 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
                 {
                     if (!VP1 || !VV1 || !VG1 || !VA1 || !VP2 || !VV2 || !VG2 || !VA2)
                     {
-                        cout << "Error" << VP1 << ", " << VV1 << ", " << VG1 << ", " << VA1 << ", " << VP2 << ", " << VV2 << ", " << VG2 << ", " << VA2 << endl;
+                        spdlog::error("Unable to build inertial edge: required graph vertex is missing");
                         continue;
                     }
                 }
@@ -559,7 +559,7 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
                 {
                     if (!VP1 || !VV1 || !VG1 || !VA1 || !VP2 || !VV2)
                     {
-                        cout << "Error" << VP1 << ", " << VV1 << ", " << VG1 << ", " << VA1 << ", " << VP2 << ", " << VV2 << endl;
+                        spdlog::error("Unable to build inertial edge: required graph vertex is missing");
                         continue;
                     }
                 }
@@ -599,7 +599,7 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
             }
             else
             {
-                cout << pKFi->mnId << " or " << pKFi->mPrevKF->mnId << " no imu" << endl;
+                spdlog::warn("Keyframe {} or its predecessor {} has no IMU preintegration", pKFi->mnId, pKFi->mPrevKF->mnId);
             }
         }
     }
@@ -2243,7 +2243,7 @@ void Optimizer::OptimizeEssentialGraph(KeyFrame *pCurKF, vector<KeyFrame *> &vpF
         }
         else
         {
-            cout << "ERROR: MapPoint has a reference KF from another map" << endl;
+            spdlog::error("Map point reference keyframe belongs to another map");
         }
     }
 }
@@ -2764,7 +2764,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int 
 
         if (!pKFi->mPrevKF)
         {
-            cout << "NOT INERTIAL LINK TO PREVIOUS FRAME!!!!" << endl;
+            spdlog::error("Missing inertial link to previous frame");
             continue;
         }
         if (pKFi->bImu && pKFi->mPrevKF->bImu && pKFi->mpImuPreintegrated)
@@ -2781,7 +2781,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int 
 
             if (!VP1 || !VV1 || !VG1 || !VA1 || !VP2 || !VV2 || !VG2 || !VA2)
             {
-                cerr << "Error " << VP1 << ", " << VV1 << ", " << VG1 << ", " << VA1 << ", " << VP2 << ", " << VV2 << ", " << VG2 << ", " << VA2 << endl;
+                spdlog::error("Unable to build inertial edge: required graph vertex is missing");
                 continue;
             }
 
@@ -2827,7 +2827,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int 
         }
         else
         {
-            cout << "ERROR building inertial edge" << endl;
+            spdlog::error("Unable to build inertial edge");
         }
     }
 
@@ -3002,7 +3002,6 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int 
         }
     }
 
-    // cout << "Total map points: " << lLocalMapPoints.size() << endl;
     for (map<int, int>::iterator mit = mVisEdges.begin(), mend = mVisEdges.end(); mit != mend; mit++)
     {
         assert(mit->second >= 3);
@@ -3065,7 +3064,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int 
     // TODO: Some convergence problems have been detected here
     if ((2 * err < err_end || isnan(err) || isnan(err_end)) && !bLarge) // bGN)
     {
-        cout << "FAIL LOCAL-INERTIAL BA!!!!" << endl;
+        spdlog::error("Local-inertial bundle adjustment failed");
         return;
     }
 
@@ -3325,7 +3324,6 @@ void Optimizer::InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &sc
     vpei.reserve(vpKFs.size());
     vector<pair<KeyFrame *, KeyFrame *>> vppUsedKF;
     vppUsedKF.reserve(vpKFs.size());
-    // std::cout << "build optimization graph" << std::endl;
 
     for (size_t i = 0; std::cmp_less(i, vpKFs.size()); i++)
     {
@@ -3339,7 +3337,7 @@ void Optimizer::InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &sc
             }
             if (!pKFi->mpImuPreintegrated)
             {
-                std::cout << "Not preintegrated measurement" << std::endl;
+                spdlog::error("Missing preintegrated IMU measurement");
             }
 
             pKFi->mpImuPreintegrated->SetNewBias(pKFi->mPrevKF->GetImuBias());
@@ -3353,7 +3351,7 @@ void Optimizer::InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &sc
             g2o::HyperGraph::Vertex *VS    = optimizer.vertex(maxKFid * 2 + 5);
             if (!VP1 || !VV1 || !VG || !VA || !VP2 || !VV2 || !VGDir || !VS)
             {
-                cout << "Error" << VP1 << ", " << VV1 << ", " << VG << ", " << VA << ", " << VP2 << ", " << VV2 << ", " << VGDir << ", " << VS << endl;
+                spdlog::error("Unable to build inertial edge: required graph vertex is missing");
 
                 continue;
             }
@@ -3529,7 +3527,7 @@ void Optimizer::InertialOptimization(Map *pMap, Eigen::Vector3d &bg, Eigen::Vect
             g2o::HyperGraph::Vertex *VS    = optimizer.vertex(maxKFid * 2 + 5);
             if (!VP1 || !VV1 || !VG || !VA || !VP2 || !VV2 || !VGDir || !VS)
             {
-                cout << "Error" << VP1 << ", " << VV1 << ", " << VG << ", " << VA << ", " << VP2 << ", " << VV2 << ", " << VGDir << ", " << VS << endl;
+                spdlog::error("Unable to build inertial edge: required graph vertex is missing");
 
                 continue;
             }
@@ -4456,7 +4454,6 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
     vector<EdgeAccRW *>    vear(N, (EdgeAccRW *)NULL);
     for (int i = 0; std::cmp_less(i, N); i++)
     {
-        // cout << "inserting inertial edge " << i << endl;
         KeyFrame *pKFi = vpOptimizableKFs[i];
 
         if (!pKFi->mPrevKF)
@@ -4478,7 +4475,7 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
 
             if (!VP1 || !VV1 || !VG1 || !VA1 || !VP2 || !VV2 || !VG2 || !VA2)
             {
-                cerr << "Error " << VP1 << ", " << VV1 << ", " << VG1 << ", " << VA1 << ", " << VP2 << ", " << VV2 << ", " << VG2 << ", " << VA2 << endl;
+                spdlog::error("Unable to build inertial edge: required graph vertex is missing");
                 continue;
             }
 

@@ -33,6 +33,8 @@
 #include <memory>
 #include <string>
 
+#include <spdlog/spdlog.h>
+
 namespace ORB_SLAM3
 {
 
@@ -126,12 +128,12 @@ class Settings
         {
             if (required)
             {
-                std::cerr << name << " required parameter does not exist, aborting..." << std::endl;
+                spdlog::error("{} required parameter does not exist, aborting...", name);
                 exit(-1);
             }
             else
             {
-                std::cerr << name << " optional parameter does not exist..." << std::endl;
+                spdlog::debug("{} optional parameter does not exist...", name);
                 found = false;
                 return T();
             }

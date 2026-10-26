@@ -34,7 +34,6 @@
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
-#include <iostream>
 #include <memory>
 #include <thread>
 
@@ -171,7 +170,7 @@ int main(int argc, char **argv)
             if (!std::filesystem::exists(output_folder))
             {
                 std::filesystem::create_directories(output_folder);
-                cout << "Created output folder: " << output_folder << endl;
+                spdlog::info("Created output folder: {}", output_folder);
             }
             output_folder += "/";
         }
@@ -180,7 +179,7 @@ int main(int argc, char **argv)
         const bool   bFileName       = options.output_filename.has_value();
         if (bFileName)
         {
-            cout << "Output filename: " << output_filename << endl;
+            spdlog::info("Output filename: {}", output_filename);
         }
 
         const int     frames_skip   = options.frames_skip;
@@ -193,7 +192,7 @@ int main(int argc, char **argv)
 
         if (slam_type != "mono" && slam_type != "mono-inertial" && slam_type != "stereo" && slam_type != "stereo-inertial")
         {
-            cerr << "ERROR: Invalid slam type: " << slam_type << ". Expected mono, mono-inertial, stereo or stereo-inertial" << endl;
+            spdlog::error("Invalid slam type: {}. Expected mono, mono-inertial, stereo or stereo-inertial", slam_type);
             return 1;
         }
         const bool       stereo          = slam_type == "stereo" || slam_type == "stereo-inertial";
@@ -205,27 +204,22 @@ int main(int argc, char **argv)
 
         if (frames_skip < 0 || frames_stride <= 0 || frames_take < 0)
         {
-            cerr << "ERROR: Invalid frame parameters (skip and take must be >= 0, "
-                    "stride must be > 0)"
-                 << endl;
+            spdlog::error("Invalid frame parameters (skip and take must be >= 0, stride must be > 0)");
             return 1;
         }
 
-        cout << "Loading sequence: " << left_image_dir << " using filename nanoseconds as timestamps...";
+        spdlog::info("Loading sequence: {} using filename nanoseconds as timestamps", left_image_dir);
 
         const folder_reader::settings reader_settings{left_image_dir, right_image_dir, frames_skip, frames_stride, frames_take, imu_csv_path};
         folder_reader                 reader(reader_settings);
-        cout << "LOADED!" << endl;
+        spdlog::info("Loaded sequence");
 
         const int nImages = static_cast<int>(reader.size());
         if (nImages <= 0)
         {
-            cerr << "ERROR: Failed to load images for sequence" << endl;
+            spdlog::error("Failed to load images for sequence");
             return 1;
         }
-
-        cout << endl << "-------" << endl;
-        cout.precision(17);
 
         // Create SLAM system
         const ORB_SLAM3::System::eSensor sensor =
@@ -373,20 +367,14 @@ int main(int argc, char **argv)
         if (save_colmap)
         {
             // Save COLMAP-compatible sparse model
-            cout << "\n📦 COLMAP Export\n"
-                 << "   ├─ Status: enabled (--save-colmap)\n"
-                 << "   └─ Output: " << output_folder << "\n"
-                 << endl;
+            spdlog::info("COLMAP export enabled; output: {}", output_folder);
             SLAM.SaveCOLMAP(output_folder);
         }
 
         if (save_ply)
         {
             const string ply_output = output_folder + "pointcloud.ply";
-            cout << "\n☁️  PLY Export\n"
-                 << "   ├─ Status: enabled (--save-ply)\n"
-                 << "   └─ Base file: " << ply_output << "\n"
-                 << endl;
+            spdlog::info("PLY export enabled; base file: {}", ply_output);
             SLAM.SavePointCloudPLY(ply_output);
         }
 
@@ -394,7 +382,7 @@ int main(int argc, char **argv)
     }
     catch (exception &e)
     {
-        cerr << "FATAL ERROR: " << e.what() << endl;
+        spdlog::critical("FATAL ERROR: {}", e.what());
         return 1;
     }
 }

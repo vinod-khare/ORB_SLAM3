@@ -197,8 +197,6 @@ class EdgeSim3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::V
         Eigen::Vector2d                    obs(_measurement);
         _error = obs - v1->pCamera1->project(v1->estimate().map(v2->estimate()));
     }
-
-    // virtual void linearizeOplus();
 };
 
 class EdgeInverseSim3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, VertexSim3Expmap>
@@ -217,8 +215,6 @@ class EdgeInverseSim3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d,
         Eigen::Vector2d                    obs(_measurement);
         _error = obs - v1->pCamera2->project((v1->estimate().inverse().map(v2->estimate())));
     }
-
-    // virtual void linearizeOplus();
 };
 
 } // namespace ORB_SLAM3

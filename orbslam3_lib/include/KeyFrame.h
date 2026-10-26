@@ -36,6 +36,7 @@
 
 #include <DBoW2/BowVector.h>
 #include <DBoW2/FeatureVector.h>
+#include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
 {
@@ -61,46 +62,6 @@ class KeyFrame
         ar &const_cast<int &>(mnGridRows);
         ar &const_cast<float &>(mfGridElementWidthInv);
         ar &const_cast<float &>(mfGridElementHeightInv);
-
-        // Variables of tracking
-        // ar & mnTrackReferenceForFrame;
-        // ar & mnFuseTargetForKF;
-        // Variables of local mapping
-        // ar & mnBALocalForKF;
-        // ar & mnBAFixedForKF;
-        // ar & mnNumberOfOpt;
-        // Variables used by KeyFrameDatabase
-        // ar & mnLoopQuery;
-        // ar & mnLoopWords;
-        // ar & mLoopScore;
-        // ar & mnRelocQuery;
-        // ar & mnRelocWords;
-        // ar & mRelocScore;
-        // ar & mnMergeQuery;
-        // ar & mnMergeWords;
-        // ar & mMergeScore;
-        // ar & mnPlaceRecognitionQuery;
-        // ar & mnPlaceRecognitionWords;
-        // ar & mPlaceRecognitionScore;
-        // ar & mbCurrentPlaceRecognition;
-        // Variables of loop closing
-        // serializeMatrix(ar,mTcwGBA,version);
-        // serializeMatrix(ar,mTcwBefGBA,version);
-        // serializeMatrix(ar,mVwbGBA,version);
-        // serializeMatrix(ar,mVwbBefGBA,version);
-        // ar & mBiasGBA;
-        // ar & mnBAGlobalForKF;
-        // Variables of Merging
-        // serializeMatrix(ar,mTcwMerge,version);
-        // serializeMatrix(ar,mTcwBefMerge,version);
-        // serializeMatrix(ar,mTwcBefMerge,version);
-        // serializeMatrix(ar,mVwbMerge,version);
-        // serializeMatrix(ar,mVwbBefMerge,version);
-        // ar & mBiasMerge;
-        // ar & mnMergeCorrectedForKF;
-        // ar & mnMergeForKF;
-        // ar & mfScaleMerge;
-        // ar & mnBALocalForMerge;
 
         // Scale
         ar & mfScale;
@@ -420,9 +381,6 @@ class KeyFrame
     std::vector<KeyFrame *>         mvpLoopCandKFs;
     std::vector<KeyFrame *>         mvpMergeCandKFs;
 
-    // bool mbHasHessian;
-    // cv::Mat mHessianPose;
-
     // The following variables need to be accessed trough a mutex to be thread safe.
   protected:
     // sophus poses
@@ -541,7 +499,7 @@ class KeyFrame
                 }
             }
         }
-        cout << "Point distribution in KeyFrame: left-> " << left << " --- right-> " << right << endl;
+        spdlog::debug("Point distribution in KeyFrame: left={}, right={}", left, right);
     }
 };
 

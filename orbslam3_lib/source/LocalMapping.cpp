@@ -105,7 +105,7 @@ void LocalMapping::Run()
                         {
                             if ((mTinit < 10.f) && (dist < 0.02))
                             {
-                                cout << "Not enough motion for initializing. Reseting..." << endl;
+                                spdlog::warn("Not enough motion for initialization; resetting active map");
                                 unique_lock<mutex> lock(mMutexReset);
                                 mbResetRequestedActiveMap = true;
                                 mpMapToReset              = mpCurrentKeyFrame->GetMap();
@@ -149,7 +149,7 @@ void LocalMapping::Run()
                         {
                             if (mTinit > 5.0f)
                             {
-                                cout << "start VIBA 1" << endl;
+                                spdlog::info("Starting VIBA stage 1");
                                 mpCurrentKeyFrame->GetMap()->SetIniertialBA1();
                                 if (mbMonocular)
                                 {
@@ -160,14 +160,14 @@ void LocalMapping::Run()
                                     InitializeIMU(1.f, 1e5, true);
                                 }
 
-                                cout << "end VIBA 1" << endl;
+                                spdlog::info("Finished VIBA stage 1");
                             }
                         }
                         else if (!mpCurrentKeyFrame->GetMap()->GetIniertialBA2())
                         {
                             if (mTinit > 15.0f)
                             {
-                                cout << "start VIBA 2" << endl;
+                                spdlog::info("Starting VIBA stage 2");
                                 mpCurrentKeyFrame->GetMap()->SetIniertialBA2();
                                 if (mbMonocular)
                                 {
@@ -178,7 +178,7 @@ void LocalMapping::Run()
                                     InitializeIMU(0.f, 0.f, true);
                                 }
 
-                                cout << "end VIBA 2" << endl;
+                                spdlog::info("Finished VIBA stage 2");
                             }
                         }
 
@@ -849,7 +849,7 @@ bool LocalMapping::Stop()
     if (mbStopRequested && !mbNotStop)
     {
         mbStopped = true;
-        cout << "Local Mapping STOP" << endl;
+        spdlog::debug("Local mapping stopped");
         return true;
     }
 
@@ -884,7 +884,7 @@ void LocalMapping::Release()
     }
     mlNewKeyFrames.clear();
 
-    cout << "Local Mapping RELEASE" << endl;
+    spdlog::debug("Local mapping released");
 }
 
 bool LocalMapping::AcceptKeyFrames()
@@ -1091,10 +1091,10 @@ void LocalMapping::RequestReset()
 {
     {
         unique_lock<mutex> lock(mMutexReset);
-        cout << "LM: Map reset recieved" << endl;
+        spdlog::debug("Local mapping map reset requested");
         mbResetRequested = true;
     }
-    cout << "LM: Map reset, waiting..." << endl;
+    spdlog::debug("Local mapping waiting for map reset");
 
     while (1)
     {
@@ -1107,18 +1107,18 @@ void LocalMapping::RequestReset()
         }
         usleep(3000);
     }
-    cout << "LM: Map reset, Done!!!" << endl;
+    spdlog::debug("Local mapping map reset completed");
 }
 
 void LocalMapping::RequestResetActiveMap(Map *pMap)
 {
     {
         unique_lock<mutex> lock(mMutexReset);
-        cout << "LM: Active map reset recieved" << endl;
+        spdlog::debug("Local mapping active-map reset requested");
         mbResetRequestedActiveMap = true;
         mpMapToReset              = pMap;
     }
-    cout << "LM: Active map reset, waiting..." << endl;
+    spdlog::debug("Local mapping waiting for active-map reset");
 
     while (1)
     {
@@ -1131,7 +1131,7 @@ void LocalMapping::RequestResetActiveMap(Map *pMap)
         }
         usleep(3000);
     }
-    cout << "LM: Active map reset, Done!!!" << endl;
+    spdlog::debug("Local mapping active-map reset completed");
 }
 
 void LocalMapping::ResetIfRequested()
@@ -1143,7 +1143,7 @@ void LocalMapping::ResetIfRequested()
         {
             executed_reset = true;
 
-            cout << "LM: Reseting Atlas in Local Mapping..." << endl;
+            spdlog::debug("Local mapping resetting Atlas");
             mlNewKeyFrames.clear();
             mlpRecentAddedMapPoints.clear();
             mbResetRequested          = false;
@@ -1157,13 +1157,13 @@ void LocalMapping::ResetIfRequested()
 
             mIdxInit                  = 0;
 
-            cout << "LM: End reseting Local Mapping..." << endl;
+            spdlog::debug("Local mapping Atlas reset completed");
         }
 
         if (mbResetRequestedActiveMap)
         {
             executed_reset = true;
-            cout << "LM: Reseting current map in Local Mapping..." << endl;
+            spdlog::debug("Local mapping resetting current map");
             mlNewKeyFrames.clear();
             mlpRecentAddedMapPoints.clear();
 
@@ -1175,12 +1175,12 @@ void LocalMapping::ResetIfRequested()
 
             mbResetRequested          = false;
             mbResetRequestedActiveMap = false;
-            cout << "LM: End reseting Local Mapping..." << endl;
+            spdlog::debug("Local mapping current-map reset completed");
         }
     }
     if (executed_reset)
     {
-        cout << "LM: Reset free the mutex" << endl;
+        spdlog::debug("Local mapping reset mutex released");
     }
 }
 
@@ -1318,7 +1318,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
 
     if (mScale < 1e-1)
     {
-        cout << "scale too small" << endl;
+        spdlog::warn("Scale estimate too small");
         bInitializing = false;
         return;
     }
@@ -1427,7 +1427,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
         }
         else
         {
-            cout << "KF " << pKF->mnId << " not set to inertial!! \n";
+            spdlog::warn("Keyframe {} is not inertial", pKF->mnId);
         }
 
         lpKFtoCheck.pop_front();
@@ -1492,7 +1492,6 @@ void LocalMapping::ScaleRefinement()
 {
     // Minimum number of keyframes to compute a solution
     // Minimum time (seconds) between first and last keyframe to compute a solution. Make the difference between monocular and stereo
-    // unique_lock<mutex> lock0(mMutexImuInit);
     if (mbResetRequested)
     {
         return;
@@ -1523,7 +1522,7 @@ void LocalMapping::ScaleRefinement()
 
     if (mScale < 1e-1) // 1e-1
     {
-        cout << "scale too small" << endl;
+        spdlog::warn("Scale estimate too small");
         bInitializing = false;
         return;
     }

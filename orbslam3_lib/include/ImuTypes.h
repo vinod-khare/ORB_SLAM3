@@ -21,7 +21,6 @@
 
 #include "SerializationUtils.h"
 
-#include <iostream>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -35,6 +34,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <sophus/se3.hpp>
+#include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
 {
@@ -112,7 +112,6 @@ class Calib
     Calib(const Calib &calib);
     Calib() { mbIsSet = false; }
 
-    // void Set(const cv::Mat &cvTbc, const float &ng, const float &na, const float &ngw, const float &naw);
     void Set(const Sophus::SE3<float> &sophTbc, const float &ng, const float &na, const float &ngw, const float &naw);
 
   public:
@@ -198,12 +197,11 @@ class Preintegrated
 
     void                       printMeasurements() const
     {
-        std::cout << "pint meas:\n";
+        spdlog::debug("Printing {} IMU measurements", mvMeasurements.size());
         for (size_t i = 0; i < mvMeasurements.size(); i++)
         {
-            std::cout << "meas " << mvMeasurements[i].t << std::endl;
+            spdlog::debug("IMU measurement timestamp: {}", mvMeasurements[i].t);
         }
-        std::cout << "end pint meas:\n";
     }
 
   public:

@@ -47,8 +47,6 @@ class Map
         ar & mnBigChangeIdx;
 
         // Save/load a set structure, the set structure is broken in libboost 1.58 for ubuntu 16.04, a vector is serializated
-        // ar & mspKeyFrames;
-        // ar & mspMapPoints;
         ar & mvpBackupKeyFrames;
         ar & mvpBackupMapPoints;
 
@@ -176,7 +174,6 @@ class Map
 
     long unsigned int       mnInitKFid;
     long unsigned int       mnMaxKFid;
-    // long unsigned int mnLastLoopKFid;
 
     // Index related to a big change in the map (loop closure, global BA)
     int                     mnBigChangeIdx;

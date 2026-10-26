@@ -2,12 +2,13 @@
 
 #include <filesystem>
 #include <fstream>
-#include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
 #include <boost/program_options.hpp>
 
+#include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
 
 namespace po = boost::program_options;
@@ -48,10 +49,11 @@ command_line_options::command_line_options(int argc, char **argv)
 
         if (values.count("help"))
         {
-            std::cout << description << "\nExample:\n"
-                      << "  " << argv[0] << " vocab.txt settings.yaml\n"
-                      << "  " << argv[0] << " --vocab vocab.txt --settings settings.yaml --data.root dataset --data.left cam0/data\n"
-                      << std::endl;
+            std::ostringstream help_output;
+            help_output << description << "\nExample:\n"
+                        << "  " << argv[0] << " vocab.txt settings.yaml\n"
+                        << "  " << argv[0] << " --vocab vocab.txt --settings settings.yaml --data.root dataset --data.left cam0/data\n";
+            spdlog::info("{}", help_output.str());
             exit_code = 0;
             return;
         }
@@ -60,9 +62,11 @@ command_line_options::command_line_options(int argc, char **argv)
     }
     catch (const po::error &error)
     {
-        std::cerr << "ERROR: " << error.what() << std::endl << std::endl;
-        std::cerr << "Usage: " << argv[0] << " VOCABULARY_FILE SETTINGS_FILE [OPTIONS]\n\n";
-        std::cerr << description << std::endl;
+        std::ostringstream error_output;
+        error_output << "ERROR: " << error.what() << "\n\n"
+                     << "Usage: " << argv[0] << " VOCABULARY_FILE SETTINGS_FILE [OPTIONS]\n\n"
+                     << description;
+        spdlog::error("{}", error_output.str());
         exit_code = 1;
         return;
     }
@@ -193,6 +197,6 @@ command_line_options::command_line_options(int argc, char **argv)
     use_viewer    = !values["no-viewer"].as<bool>();
     slam_type     = values["slam-type"].as<std::string>();
     overrides     = {values.count("keypoint_detector.type") ? values["keypoint_detector.type"].as<std::string>() : std::string{},
-                     values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
-                     values.count("descriptor_matcher.type") ? values["descriptor_matcher.type"].as<std::string>() : std::string{}, dbow_version};
+                 values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
+                 values.count("descriptor_matcher.type") ? values["descriptor_matcher.type"].as<std::string>() : std::string{}, dbow_version};
 }

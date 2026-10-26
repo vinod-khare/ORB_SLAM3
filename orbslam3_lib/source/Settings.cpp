@@ -25,7 +25,6 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <stdexcept>
 
 #include <opencv2/core/eigen.hpp>
@@ -169,19 +168,19 @@ template <> float Settings::readParameter<float>(cv::FileStorage &fSettings, con
     {
         if (required)
         {
-            std::cerr << name << " required parameter does not exist, aborting..." << std::endl;
+            spdlog::error("{} required parameter does not exist, aborting...", name);
             exit(-1);
         }
         else
         {
-            std::cerr << name << " optional parameter does not exist..." << std::endl;
+            spdlog::debug("{} optional parameter does not exist...", name);
             found = false;
             return 0.0f;
         }
     }
     else if (!node.isReal())
     {
-        std::cerr << name << " parameter must be a real number, aborting..." << std::endl;
+        spdlog::error("{} parameter must be a real number, aborting...", name);
         exit(-1);
     }
     else
@@ -198,19 +197,19 @@ template <> int Settings::readParameter<int>(cv::FileStorage &fSettings, const s
     {
         if (required)
         {
-            std::cerr << name << " required parameter does not exist, aborting..." << std::endl;
+            spdlog::error("{} required parameter does not exist, aborting...", name);
             exit(-1);
         }
         else
         {
-            std::cerr << name << " optional parameter does not exist..." << std::endl;
+            spdlog::debug("{} optional parameter does not exist...", name);
             found = false;
             return 0;
         }
     }
     else if (!node.isInt())
     {
-        std::cerr << name << " parameter must be an integer number, aborting..." << std::endl;
+        spdlog::error("{} parameter must be an integer number, aborting...", name);
         exit(-1);
     }
     else
@@ -227,19 +226,19 @@ template <> string Settings::readParameter<string>(cv::FileStorage &fSettings, c
     {
         if (required)
         {
-            std::cerr << name << " required parameter does not exist, aborting..." << std::endl;
+            spdlog::error("{} required parameter does not exist, aborting...", name);
             exit(-1);
         }
         else
         {
-            std::cerr << name << " optional parameter does not exist..." << std::endl;
+            spdlog::debug("{} optional parameter does not exist...", name);
             found = false;
             return string();
         }
     }
     else if (!node.isString())
     {
-        std::cerr << name << " parameter must be a string, aborting..." << std::endl;
+        spdlog::error("{} parameter must be a string, aborting...", name);
         exit(-1);
     }
     else
@@ -256,12 +255,12 @@ template <> cv::Mat Settings::readParameter<cv::Mat>(cv::FileStorage &fSettings,
     {
         if (required)
         {
-            std::cerr << name << " required parameter does not exist, aborting..." << std::endl;
+            spdlog::error("{} required parameter does not exist, aborting...", name);
             exit(-1);
         }
         else
         {
-            std::cerr << name << " optional parameter does not exist..." << std::endl;
+            spdlog::debug("{} optional parameter does not exist...", name);
             found = false;
             return cv::Mat();
         }
@@ -282,14 +281,13 @@ Settings::Settings(const std::string &config_file, const int &sensor, const feat
     cv::FileStorage fSettings(config_file, cv::FileStorage::READ);
     if (!fSettings.isOpened())
     {
-        cerr << "[ERROR]: could not open configuration file at: " << config_file << endl;
-        cerr << "Aborting..." << endl;
+        spdlog::critical("Could not open configuration file at: {}. Aborting...", config_file);
 
         exit(-1);
     }
     else
     {
-        cout << "Loading settings from " << config_file << endl;
+        spdlog::info("Loading settings from {}", config_file);
     }
 
     const cv::FileNode calibration = fSettings["calibration"];
@@ -305,38 +303,38 @@ Settings::Settings(const std::string &config_file, const int &sensor, const feat
     _calibration_file = _calibration_file.lexically_normal();
 
     read_cameras(fSettings);
-    cout << "\t-Loaded camera calibration from " << _calibration_file.string() << endl;
+    spdlog::info("Loaded camera calibration from {}", _calibration_file.string());
 
     // Read image info
     readImageInfo(fSettings);
-    cout << "\t-Loaded image info" << endl;
+    spdlog::info("Loaded image info");
 
     if (sensor_ == System::IMU_MONOCULAR || sensor_ == System::IMU_STEREO || sensor_ == System::IMU_RGBD)
     {
         read_imu(fSettings, config_file);
-        cout << "\t-Loaded IMU calibration" << endl;
+        spdlog::info("Loaded IMU calibration");
     }
 
     if (sensor_ == System::RGBD || sensor_ == System::IMU_RGBD)
     {
         readRGBD(fSettings);
-        cout << "\t-Loaded RGB-D calibration" << endl;
+        spdlog::info("Loaded RGB-D calibration");
     }
 
     read_features(fSettings, config_file, overrides);
     spdlog::info("Loaded feature settings");
     readLoadAndSave(fSettings);
-    cout << "\t-Loaded Atlas settings" << endl;
+    spdlog::info("Loaded Atlas settings");
     readOtherParameters(fSettings);
-    cout << "\t-Loaded misc parameters" << endl;
+    spdlog::info("Loaded misc parameters");
 
     if (bNeedToRectify_)
     {
         precomputeRectificationMaps();
-        cout << "\t-Computed rectification maps" << endl;
+        spdlog::info("Computed rectification maps");
     }
 
-    cout << "----------------------------------" << endl;
+    spdlog::info("----------------------------------");
 }
 
 void Settings::read_cameras(cv::FileStorage &settings)
@@ -587,7 +585,7 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
     {
         if (!optical_flow_node.isInt())
         {
-            std::cerr << "Tracking.useOpticalFlow must be 0 or 1, aborting..." << std::endl;
+            spdlog::error("Tracking.useOpticalFlow must be 0 or 1, aborting...");
             exit(-1);
         }
 
@@ -595,7 +593,7 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
 
         if (use_optical_flow != 0 && use_optical_flow != 1)
         {
-            std::cerr << "Tracking.useOpticalFlow must be 0 or 1, aborting..." << std::endl;
+            spdlog::error("Tracking.useOpticalFlow must be 0 or 1, aborting...");
             exit(-1);
         }
     }

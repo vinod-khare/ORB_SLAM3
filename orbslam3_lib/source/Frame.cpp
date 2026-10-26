@@ -31,6 +31,8 @@
 #include <array>
 #include <thread>
 
+#include <spdlog/spdlog.h>
+
 namespace ORB_SLAM3
 {
 
@@ -670,7 +672,7 @@ bool Frame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float 
     // Check positive depth
     if (PcZ < 0.0f)
     {
-        cout << "Negative depth: " << PcZ << endl;
+        spdlog::debug("Negative depth: {}", PcZ);
         return false;
     }
 
