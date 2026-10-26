@@ -300,26 +300,21 @@ class Frame
 
     int                                 mnDataset;
 
-#ifdef REGISTER_TIMES
-    double feature_extraction_time;
-    double mTimeStereoMatch;
-#endif
-
   private:
     // Undistort keypoints given OpenCV distortion parameters.
     // Only for the RGB-D case. Stereo must be already rectified!
     // (called in the constructor).
-    void        UndistortKeyPoints();
+    void                        UndistortKeyPoints();
 
     // Computes image bounds for the undistorted image (called in the constructor).
-    void        ComputeImageBounds(const cv::Mat &imLeft);
+    void                        ComputeImageBounds(const cv::Mat &imLeft);
 
     // Assign keypoints to the grid for speed up feature matching (called in the constructor).
-    void        AssignFeaturesToGrid();
+    void                        AssignFeaturesToGrid();
 
-    bool        mbIsSet;
+    bool                        mbIsSet;
 
-    bool        mbImuPreintegrated;
+    bool                        mbImuPreintegrated;
 
     std::shared_ptr<std::mutex> mpMutexImu{std::make_shared<std::mutex>()};
 

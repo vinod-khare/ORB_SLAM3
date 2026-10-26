@@ -46,10 +46,6 @@ Frame::Frame()
     : mpcpi(nullptr), mbHasPose(false), mbHasVelocity(false), mpImuPreintegrated(nullptr), mpPrevFrame(nullptr), mpImuPreintegratedFrame(nullptr), mpReferenceKF(nullptr), mbIsSet(false),
       mbImuPreintegrated(false)
 {
-#ifdef REGISTER_TIMES
-    mTimeStereoMatch        = 0;
-    feature_extraction_time = 0;
-#endif
 }
 
 // Copy Constructor
@@ -94,11 +90,6 @@ Frame::Frame(const Frame &frame)
 
     mmProjectPoints  = frame.mmProjectPoints;
     mmMatchedInImage = frame.mmMatchedInImage;
-
-#ifdef REGISTER_TIMES
-    mTimeStereoMatch        = frame.mTimeStereoMatch;
-    feature_extraction_time = frame.feature_extraction_time;
-#endif
 }
 
 const std::vector<cv::Mat> &Frame::get_optical_flow_pyramid(const cv::Mat &image)
@@ -133,10 +124,6 @@ Frame::Frame(Frame &previous, double timestamp) : Frame(static_cast<const Frame 
     imgLeft.release();
     imgRight.release();
     set_tracked_features({}, {});
-#ifdef REGISTER_TIMES
-    feature_extraction_time = 0;
-    mTimeStereoMatch        = 0;
-#endif
 }
 
 void Frame::set_tracked_features(std::vector<cv::KeyPoint> keys, std::vector<MapPoint *> points, std::vector<cv::KeyPoint> native_keys)
@@ -212,9 +199,6 @@ void Frame::extract_features(const cv::Mat &left, GeometricCamera *camera, const
             mGridRight[x][y].clear();
         }
     }
-#ifdef REGISTER_TIMES
-    const auto extraction_start = std::chrono::steady_clock::now();
-#endif
     if (right.empty())
     {
         extract_keypoints(0, left, 0, 1000);
@@ -225,15 +209,10 @@ void Frame::extract_features(const cv::Mat &left, GeometricCamera *camera, const
         const auto *right_fisheye_camera = right_camera ? static_cast<KannalaBrandt8 *>(right_camera) : nullptr;
         thread      left_worker(&Frame::extract_keypoints, this, 0, left, left_camera ? left_camera->mvLappingArea[0] : 0, left_camera ? left_camera->mvLappingArea[1] : 0);
         thread      right_worker(&Frame::extract_keypoints, this, 1, right, right_fisheye_camera ? right_fisheye_camera->mvLappingArea[0] : 0,
-                                 right_fisheye_camera ? right_fisheye_camera->mvLappingArea[1] : 0);
+                            right_fisheye_camera ? right_fisheye_camera->mvLappingArea[1] : 0);
         left_worker.join();
         right_worker.join();
     }
-#ifdef REGISTER_TIMES
-    feature_extraction_time = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extraction_start).count();
-    const auto stereo_start = std::chrono::steady_clock::now();
-    mTimeStereoMatch        = 0;
-#endif
     Nleft  = right_camera ? static_cast<int>(mvKeys.size()) : -1;
     Nright = right_camera ? static_cast<int>(mvKeysRight.size()) : -1;
     N      = static_cast<int>(mvKeys.size() + (right_camera ? mvKeysRight.size() : 0));
@@ -280,12 +259,6 @@ void Frame::extract_features(const cv::Mat &left, GeometricCamera *camera, const
     {
         ComputeStereoMatches();
     }
-#ifdef REGISTER_TIMES
-    if (!right.empty())
-    {
-        mTimeStereoMatch = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - stereo_start).count();
-    }
-#endif
     if (right_camera)
     {
         mvKeysUn = mvKeys;
@@ -355,7 +328,6 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     {
         mVw.setZero();
     }
-
 }
 
 Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, cv::Mat &K, cv::Mat &distCoef, const float &bf,
@@ -377,15 +349,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     mvInvLevelSigma2  = left_keypoint_extractor->get_inverse_scale_sigma_squares();
 
     // ORB extraction
-#ifdef REGISTER_TIMES
-    std::chrono::steady_clock::time_point time_StartExtORB = std::chrono::steady_clock::now();
-#endif
     extract_keypoints(0, imGray, 0, 0);
-#ifdef REGISTER_TIMES
-    std::chrono::steady_clock::time_point time_EndExtORB = std::chrono::steady_clock::now();
-
-    feature_extraction_time                              = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(time_EndExtORB - time_StartExtORB).count();
-#endif
 
     N = mvKeys.size();
 
@@ -480,7 +444,6 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, keypoint_extractor 
     {
         mVw.setZero();
     }
-
 }
 
 void Frame::AssignFeaturesToGrid()
@@ -1196,7 +1159,6 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     mtlr              = mTlr.translation();
 
     extract_features(imLeft, pCamera, imRight, pCamera2);
-
 }
 
 void Frame::ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera)

@@ -184,12 +184,6 @@ class System
     const processing_statistics &statistics() const { return _statistics; }
     void                         record_frame_statistics(double preprocessing_ms, double frontend_ms);
 
-#ifdef REGISTER_TIMES
-    void InsertRectTime(double &time);
-    void InsertResizeTime(double &time);
-    void InsertTrackTime(double &time);
-#endif
-
   private:
     void                      stop_workers();
 

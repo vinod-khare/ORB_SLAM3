@@ -19,9 +19,6 @@
 #ifndef ORB_SLAM3_SETTINGS_H
 #define ORB_SLAM3_SETTINGS_H
 
-// Flag to activate the measurement of time in each process (track,localmap, place recognition).
-// #define REGISTER_TIMES
-
 #include "CameraModels/GeometricCamera.h"
 #include "descriptor_matcher_type.h"
 #include "feature_overrides.h"
