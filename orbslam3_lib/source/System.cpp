@@ -30,6 +30,7 @@
 #include <cmath>
 #include <filesystem>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
@@ -47,11 +48,10 @@
 
 #include <openssl/evp.h>
 #include <openssl/md5.h>
+#include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
 {
-
-Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr, const string &strSequence, const feature_overrides &overrides)
     : mSensor(sensor), mbReset(false), mbResetActiveMap(false), mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false), mbShutDown(false)
@@ -169,7 +169,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     // Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     cout << "Seq. Name: " << strSequence << endl;
-    mpTracker       = new Tracking(this, mpVocabulary, mpAtlas, mpKeyFrameDatabase, mSensor, settings_.get(), strSequence);
+    mpTracker = new Tracking(this, mpVocabulary, mpAtlas, mpKeyFrameDatabase, mSensor, settings_.get(), strSequence);
 
     // Initialize the Local Mapping thread and launch
     mpLocalMapper =
@@ -201,9 +201,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
 
     // usleep(10*1000*1000);
-
-    // Fix verbosity
-    Verbose::SetTh(Verbose::VERBOSITY_QUIET);
 
     try
     {
@@ -605,7 +602,7 @@ void System::Shutdown()
 
     if (!mStrSaveAtlasToFile.empty())
     {
-        Verbose::PrintMess("Atlas saving to file " + mStrSaveAtlasToFile, Verbose::VERBOSITY_NORMAL);
+        spdlog::debug("Atlas saving to file " + mStrSaveAtlasToFile);
         SaveAtlas(FileType::BINARY_FILE);
     }
 
@@ -1228,9 +1225,9 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, Map *pMap)
 
 void System::SaveCOLMAP(const string &strDir)
 {
-    Verbose::PrintMess("", Verbose::VERBOSITY_NORMAL);
-    Verbose::PrintMess("✨ [SaveCOLMAP] Exporting COLMAP-compatible sparse model", Verbose::VERBOSITY_NORMAL);
-    Verbose::PrintMess("📁 [SaveCOLMAP] Output directory: " + strDir, Verbose::VERBOSITY_NORMAL);
+    spdlog::debug("");
+    spdlog::debug("✨ [SaveCOLMAP] Exporting COLMAP-compatible sparse model");
+    spdlog::debug("📁 [SaveCOLMAP] Output directory: " + strDir);
 
     // Locate the largest map (same logic as SaveTrajectoryEuRoC)
     vector<Map *> vpMaps     = mpAtlas->GetAllMaps();
@@ -1246,7 +1243,7 @@ void System::SaveCOLMAP(const string &strDir)
     }
     if (!pBiggerMap)
     {
-        Verbose::PrintMess("❌ [SaveCOLMAP] No map found. Nothing to export.", Verbose::VERBOSITY_NORMAL);
+        spdlog::debug("❌ [SaveCOLMAP] No map found. Nothing to export.");
         return;
     }
 
@@ -1376,7 +1373,7 @@ void System::SaveCOLMAP(const string &strDir)
             Tcw = last_Tcw;
             std::ostringstream oss;
             oss << "⚠️  [SaveCOLMAP] Using last pose for dropped frame, ts=" << std::fixed << std::setprecision(6) << *lT;
-            Verbose::PrintMess(oss.str(), Verbose::VERBOSITY_VERBOSE);
+            spdlog::trace(oss.str());
             ++dropped;
         }
 
@@ -1422,18 +1419,18 @@ void System::SaveCOLMAP(const string &strDir)
     {
         std::ostringstream oss;
         oss << "✅ [SaveCOLMAP] Export complete. Frames exported: " << exported << ", with last-pose fallback for " << dropped << " dropped frames";
-        Verbose::PrintMess(oss.str(), Verbose::VERBOSITY_NORMAL);
+        spdlog::debug(oss.str());
     }
-    Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/cameras.txt", Verbose::VERBOSITY_NORMAL);
-    Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/images.txt   (COLMAP Tcw, qw qx qy qz)", Verbose::VERBOSITY_NORMAL);
-    Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/points3D.txt (empty, fill with point_triangulator)", Verbose::VERBOSITY_NORMAL);
-    Verbose::PrintMess("📄 [SaveCOLMAP] " + strDir + "/poses_debug.csv (Twc, qx qy qz qw)", Verbose::VERBOSITY_NORMAL);
+    spdlog::debug("📄 [SaveCOLMAP] " + strDir + "/cameras.txt");
+    spdlog::debug("📄 [SaveCOLMAP] " + strDir + "/images.txt   (COLMAP Tcw, qw qx qy qz)");
+    spdlog::debug("📄 [SaveCOLMAP] " + strDir + "/points3D.txt (empty, fill with point_triangulator)");
+    spdlog::debug("📄 [SaveCOLMAP] " + strDir + "/poses_debug.csv (Twc, qx qy qz qw)");
 }
 
 void System::SavePointCloudPLY(const string &filename)
 {
-    Verbose::PrintMess("", Verbose::VERBOSITY_NORMAL);
-    Verbose::PrintMess("☁️  [SavePointCloudPLY] Exporting map points to PLY", Verbose::VERBOSITY_NORMAL);
+    spdlog::debug("");
+    spdlog::debug("☁️  [SavePointCloudPLY] Exporting map points to PLY");
 
     std::filesystem::path base_path(filename);
     std::filesystem::path out_dir = base_path.parent_path();
@@ -1467,7 +1464,7 @@ void System::SavePointCloudPLY(const string &filename)
 
     if (vpMaps.empty())
     {
-        Verbose::PrintMess("❌ [SavePointCloudPLY] No valid maps found. Nothing to export.", Verbose::VERBOSITY_NORMAL);
+        spdlog::debug("❌ [SavePointCloudPLY] No valid maps found. Nothing to export.");
         return;
     }
 
@@ -1578,7 +1575,7 @@ void System::SavePointCloudPLY(const string &filename)
         std::ofstream fply(out_file.string());
         if (!fply.is_open())
         {
-            Verbose::PrintMess("❌ [SavePointCloudPLY] Failed to open file: " + out_file.string(), Verbose::VERBOSITY_NORMAL);
+            spdlog::debug("❌ [SavePointCloudPLY] Failed to open file: " + out_file.string());
             continue;
         }
 
@@ -1606,7 +1603,7 @@ void System::SavePointCloudPLY(const string &filename)
 
         std::ostringstream ok;
         ok << "✅ [SavePointCloudPLY] Wrote " << points.size() << " points to " << out_file.string();
-        Verbose::PrintMess(ok.str(), Verbose::VERBOSITY_NORMAL);
+        spdlog::debug(ok.str());
     }
 }
 

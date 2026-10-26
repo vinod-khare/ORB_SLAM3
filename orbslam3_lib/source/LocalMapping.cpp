@@ -28,6 +28,7 @@
 #include <mutex>
 
 #include <gsl/gsl>
+#include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
 {
@@ -1433,7 +1434,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
         }
     }
 
-    Verbose::PrintMess("Global Bundle Adjustment finished\nUpdating map ...", Verbose::VERBOSITY_NORMAL);
+    spdlog::debug("Global Bundle Adjustment finished\nUpdating map ...");
 
     // Get Map Mutex
     unique_lock<mutex> lock(mpAtlas->GetCurrentMap()->mMutexMapUpdate);
@@ -1476,7 +1477,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
                 }
                 else
                 {
-                    Verbose::PrintMess("Child velocity empty!! ", Verbose::VERBOSITY_NORMAL);
+                    spdlog::debug("Child velocity empty!! ");
                 }
 
                 pChild->mBiasGBA        = pChild->GetImuBias();
@@ -1537,7 +1538,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
         }
     }
 
-    Verbose::PrintMess("Map updated!", Verbose::VERBOSITY_NORMAL);
+    spdlog::debug("Map updated!");
 
     mnKFs = vpKF.size();
     mIdxInit++;

@@ -23,7 +23,6 @@
 #include "feature_overrides.h"
 #include "processing_statistics.h"
 
-#include <iostream>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -38,32 +37,6 @@ namespace ORB_SLAM3
 
 using std::string;
 using std::vector;
-
-class Verbose
-{
-  public:
-    enum eLevel
-    {
-        VERBOSITY_QUIET        = 0,
-        VERBOSITY_NORMAL       = 1,
-        VERBOSITY_VERBOSE      = 2,
-        VERBOSITY_VERY_VERBOSE = 3,
-        VERBOSITY_DEBUG        = 4
-    };
-
-    static eLevel th;
-
-  public:
-    static void PrintMess(std::string str, eLevel lev)
-    {
-        if (lev <= th)
-        {
-            std::cout << str << std::endl;
-        }
-    }
-
-    static void SetTh(eLevel _th) { th = _th; }
-};
 
 class Atlas;
 class KeyFrameDatabase;
