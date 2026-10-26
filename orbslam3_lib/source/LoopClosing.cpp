@@ -31,10 +31,10 @@
 namespace ORB_SLAM3
 {
 
-LoopClosing::LoopClosing(Atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC)
-    : mbResetRequested(false), mbResetActiveMapRequested(false), mbFinishRequested(false), mbFinished(true), mpAtlas(pAtlas), mpKeyFrameDB(pDB), place_vocabulary_ptr(pVoc), mpMatchedKF(NULL),
-      mbLoopDetected(false), mnLoopNumCoincidences(0), mnLoopNumNotFound(0), mbMergeDetected(false), mnMergeNumCoincidences(0), mnMergeNumNotFound(0), mLastLoopKFid(0), mbRunningGBA(false),
-      mbFinishedGBA(true), mbStopGBA(false), mpThreadGBA(NULL), mbFixScale(bFixScale), mnFullBAIdx(0), mbActiveLC(bActiveLC)
+LoopClosing::LoopClosing(processing_statistics &statistics, Atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC)
+    : _statistics(statistics), mbResetRequested(false), mbResetActiveMapRequested(false), mbFinishRequested(false), mbFinished(true), mpAtlas(pAtlas), mpKeyFrameDB(pDB),
+      place_vocabulary_ptr(pVoc), mpMatchedKF(NULL), mbLoopDetected(false), mnLoopNumCoincidences(0), mnLoopNumNotFound(0), mbMergeDetected(false), mnMergeNumCoincidences(0),
+      mnMergeNumNotFound(0), mLastLoopKFid(0), mbRunningGBA(false), mbFinishedGBA(true), mbStopGBA(false), mbFixScale(bFixScale), mnFullBAIdx(0), mbActiveLC(bActiveLC)
 {
     mnCovisibilityConsistencyTh = 3;
     mpLastCurrentKF             = static_cast<KeyFrame *>(NULL);
@@ -74,6 +74,8 @@ LoopClosing::LoopClosing(Atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary 
     mnCorrectionGBA   = 0;
 }
 
+LoopClosing::~LoopClosing() { stop_global_bundle_adjustment(); }
+
 void LoopClosing::SetTracker(Tracking *pTracker) { mpTracker = pTracker; }
 
 void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper) { mpLocalMapper = pLocalMapper; }
@@ -90,6 +92,7 @@ void LoopClosing::Run()
 
         if (CheckNewKeyFrames())
         {
+            const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::LOOP_CLOSING);
             if (mpLastCurrentKF)
             {
                 mpLastCurrentKF->mvpLoopCandKFs.clear();
@@ -975,27 +978,16 @@ void LoopClosing::CorrectLoop()
 {
     // cout << "Loop detected!" << endl;
 
-    // Send a stop signal to Local Mapping
-    // Avoid new keyframes are inserted while correcting the loop
-    mpLocalMapper->RequestStop();
-    mpLocalMapper->EmptyQueue(); // Proccess keyframes in the queue
-
     // If a Global Bundle Adjustment is running, abort it
     if (isRunningGBA())
     {
         cout << "Stoping Global Bundle Adjustment...";
-        unique_lock<mutex> lock(mMutexGBA);
-        mbStopGBA = true;
-
-        mnFullBAIdx++;
-
-        if (mpThreadGBA)
-        {
-            mpThreadGBA->detach();
-            delete mpThreadGBA;
-        }
+        stop_global_bundle_adjustment();
         cout << "  Done!!" << endl;
     }
+
+    mpLocalMapper->RequestStop();
+    mpLocalMapper->EmptyQueue();
 
     // Wait until Local Mapping has effectively stopped
     while (!mpLocalMapper->isStopped())
@@ -1212,12 +1204,13 @@ void LoopClosing::CorrectLoop()
     // Launch a new thread to perform Global Bundle Adjustment (Only if few keyframes, if not it would take too much time)
     if (!pLoopMap->isImuInitialized() || (pLoopMap->KeyFramesInMap() < 200 && mpAtlas->CountMaps() == 1))
     {
+        stop_global_bundle_adjustment();
         mbRunningGBA    = true;
         mbFinishedGBA   = false;
         mbStopGBA       = false;
         mnCorrectionGBA = mnNumCorrection;
 
-        mpThreadGBA     = new thread(&LoopClosing::RunGlobalBundleAdjustment, this, pLoopMap, mpCurrentKF->mnId);
+        _global_ba_thread = std::jthread(&LoopClosing::RunGlobalBundleAdjustment, this, pLoopMap, mpCurrentKF->mnId);
     }
 
     // Loop closed. Release Local Mapping.
@@ -1244,16 +1237,7 @@ void LoopClosing::MergeLocal()
     //  If a Global Bundle Adjustment is running, abort it
     if (isRunningGBA())
     {
-        unique_lock<mutex> lock(mMutexGBA);
-        mbStopGBA = true;
-
-        mnFullBAIdx++;
-
-        if (mpThreadGBA)
-        {
-            mpThreadGBA->detach();
-            delete mpThreadGBA;
-        }
+        stop_global_bundle_adjustment();
         bRelaunchBA = true;
     }
 
@@ -1786,10 +1770,11 @@ void LoopClosing::MergeLocal()
     if (bRelaunchBA && (!pCurrentMap->isImuInitialized() || (pCurrentMap->KeyFramesInMap() < 200 && mpAtlas->CountMaps() == 1)))
     {
         // Launch a new thread to perform Global Bundle Adjustment
+        stop_global_bundle_adjustment();
         mbRunningGBA  = true;
         mbFinishedGBA = false;
         mbStopGBA     = false;
-        mpThreadGBA   = new thread(&LoopClosing::RunGlobalBundleAdjustment, this, pMergeMap, mpCurrentKF->mnId);
+        _global_ba_thread = std::jthread(&LoopClosing::RunGlobalBundleAdjustment, this, pMergeMap, mpCurrentKF->mnId);
     }
 
     mpMergeMatchedKF->AddMergeEdge(mpCurrentKF);
@@ -1823,16 +1808,7 @@ void LoopClosing::MergeLocal2()
     //  If a Global Bundle Adjustment is running, abort it
     if (isRunningGBA())
     {
-        unique_lock<mutex> lock(mMutexGBA);
-        mbStopGBA = true;
-
-        mnFullBAIdx++;
-
-        if (mpThreadGBA)
-        {
-            mpThreadGBA->detach();
-            delete mpThreadGBA;
-        }
+        stop_global_bundle_adjustment();
         bRelaunchBA = true;
     }
 
@@ -2290,6 +2266,7 @@ void LoopClosing::ResetIfRequested()
 
 void LoopClosing::RunGlobalBundleAdjustment(Map *pActiveMap, unsigned long nLoopKF)
 {
+    const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::GLOBAL_BUNDLE_ADJUSTMENT);
     Verbose::PrintMess("Starting Global Bundle Adjustment", Verbose::VERBOSITY_NORMAL);
 
 #ifdef REGISTER_TIMES
@@ -2544,6 +2521,23 @@ void LoopClosing::RunGlobalBundleAdjustment(Map *pActiveMap, unsigned long nLoop
         mbFinishedGBA = true;
         mbRunningGBA  = false;
     }
+}
+
+void LoopClosing::stop_global_bundle_adjustment()
+{
+    {
+        const std::lock_guard lock(mMutexGBA);
+        mbStopGBA = true;
+        ++mnFullBAIdx;
+    }
+    if (_global_ba_thread.joinable())
+    {
+        _global_ba_thread.request_stop();
+        _global_ba_thread.join();
+    }
+    const std::lock_guard lock(mMutexGBA);
+    mbRunningGBA  = false;
+    mbFinishedGBA = true;
 }
 
 void LoopClosing::RequestFinish()

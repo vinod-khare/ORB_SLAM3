@@ -32,10 +32,10 @@
 namespace ORB_SLAM3
 {
 
-LocalMapping::LocalMapping(System *pSys, Atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName)
-    : mScale(1.0), mInitSect(0), mIdxInit(0), mIdxIteration(0), mbNotBA1(true), mbNotBA2(true), mpSystem(pSys), mbMonocular(bMonocular), mbInertial(bInertial), mbResetRequested(false),
-      mbResetRequestedActiveMap(false), mbFinishRequested(false), mbFinished(true), mpAtlas(pAtlas), mbAbortBA(false), mbStopped(false), mbStopRequested(false), mbNotStop(false),
-      mbAcceptKeyFrames(true), bInitializing(false), infoInertial(Eigen::MatrixXd::Zero(9, 9))
+LocalMapping::LocalMapping(processing_statistics &statistics, System *pSys, Atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName)
+    : mScale(1.0), mInitSect(0), mIdxInit(0), mIdxIteration(0), mbNotBA1(true), mbNotBA2(true), _statistics(statistics), mpSystem(pSys), mbMonocular(bMonocular), mbInertial(bInertial),
+      mbResetRequested(false), mbResetRequestedActiveMap(false), mbFinishRequested(false), mbFinished(true), mpAtlas(pAtlas), mbAbortBA(false), mbStopped(false), mbStopRequested(false),
+      mbNotStop(false), mbAcceptKeyFrames(true), bInitializing(false), infoInertial(Eigen::MatrixXd::Zero(9, 9))
 {
     mnMatchesInliers = 0;
 
@@ -68,6 +68,7 @@ void LocalMapping::Run()
         // Check if there are keyframes in the queue
         if (CheckNewKeyFrames() && !mbBadImu)
         {
+            const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::LOCAL_MAPPING);
 #ifdef REGISTER_TIMES
             double                                timeLBA_ms          = 0;
             double                                timeKFCulling_ms    = 0;

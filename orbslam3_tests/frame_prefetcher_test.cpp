@@ -133,6 +133,7 @@ TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
         const auto prepared = prefetch.read();
         REQUIRE(prepared.filename == reference.image_path(index));
         REQUIRE(prepared.timestamp == reference.timestamp(index));
+        REQUIRE(prepared.preprocessing_ms > 0.0);
 
         cv::Mat expected_color = reference.read_image(index);
         if (image_scale != 1.f)

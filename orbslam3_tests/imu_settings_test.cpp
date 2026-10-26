@@ -60,6 +60,41 @@ update_rate: 200.0
 };
 } // namespace
 
+TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shutdown]")
+{
+    imu_settings files;
+    files.write();
+    const auto vocabulary_path = files.directory / "vocabulary.txt";
+    {
+        std::ofstream vocabulary(vocabulary_path);
+        vocabulary << "2 1 0 0\n";
+        for (int word = 0; word < 2; ++word)
+        {
+            vocabulary << "0 1";
+            for (int column = 0; column < 32; ++column)
+            {
+                vocabulary << ' ' << word * 255;
+            }
+            vocabulary << " 1\n";
+        }
+    }
+
+    const bool        explicit_shutdown = GENERATE(false, true);
+    ORB_SLAM3::System system(vocabulary_path.string(), files.path.string(), ORB_SLAM3::System::MONOCULAR);
+    const cv::Mat     image(512, 512, CV_8UC1, cv::Scalar(0));
+    system.TrackMonocular(image, 1.0);
+    system.record_frame_statistics(2.0, 3.0);
+    REQUIRE(system.statistics().get_snapshot().frames == 1);
+    REQUIRE(system.statistics().get_snapshot().frame.frontend_ms == 3.0);
+    if (explicit_shutdown)
+    {
+        system.Shutdown();
+        REQUIRE(system.isShutDown());
+        system.Shutdown();
+        REQUIRE(system.statistics().get_snapshot().frames == 1);
+    }
+}
+
 TEST_CASE("IMU settings come from Kalibr calibration", "[settings][imu]")
 {
     imu_settings files;

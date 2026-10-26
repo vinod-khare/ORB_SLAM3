@@ -19,7 +19,46 @@ Set `Tracking.useOpticalFlow: 1` to use a flow-first frontend in monocular/stere
 - A flow frame selected for keyframe insertion is first promoted to a fully extracted frame and revalidated against the map. Keyframes always contain current-image descriptors and, for stereo, fresh stereo correspondences/depth. Ordinary stereo flow frames use existing 2D–3D map correspondences, not newly triangulated depth.
 - Keyframe selection compares flow inliers against the sampled left-camera population, rather than treating the deliberately bounded track count as a loss of the full stereo feature population.
 
-Shutdown reports flow-only frames, feature-extracted frames, and flow recovery attempts. The app also reports playback throughput including input/prefetch waits; the existing median/mean tracking times exclude those waits. Compare both timing measures and trajectory accuracy on the same sequence before drawing performance conclusions.
+Shutdown reports flow-only frames, feature-extracted frames, and flow recovery attempts. The app also reports playback throughput including input/prefetch waits; the mean frontend time excludes those waits. Compare both timing measures and trajectory accuracy on the same sequence before drawing performance conclusions.
+
+## Processing Statistics
+
+Each processed frame logs statistics through `spdlog`, using the configured logging
+pattern. Playback ends with mean preprocessing/frontend times and totals for
+completed backend jobs. All durations are steady-clock wall times in milliseconds.
+
+- **Detected keypoints:** fresh detections across the input camera views. Flow-only
+  frames report zero; descriptor recovery and keyframe promotion report their fresh
+  detections.
+- **Matched keypoints:** final non-outlier feature observations associated with map
+  points, counted only when tracking succeeds. These are not tentative descriptor
+  candidates or the number of stereo depth matches. Stereo observations can share
+  a map point.
+- **Preprocessing:** elapsed input preparation in the prefetch worker, including
+  image loading, resize, grayscale, CLAHE, optional optical-flow pyramid creation,
+  and stereo synchronization. Waiting for space in the prepared-frame queue is
+  excluded. This is preparation latency, not summed left/right CPU time.
+- **Frontend:** the synchronous `TrackMonocular`/`TrackStereo` call, including
+  internal image adaptation, feature extraction, matching, and pose estimation.
+  Viewer publication and statistics logging are excluded.
+- **Backend:** latest completed job time, job count, and cumulative elapsed work
+  for local mapping (including local BA), loop detection/correction/merging, and
+  global bundle adjustment. Idle worker sleeps are excluded; aborted jobs are
+  included. Independent workers overlap, so their durations must not be added to
+  frontend time to estimate frame latency. No completed jobs is shown as zero
+  jobs, rather than an implied zero-cost backend. Shutdown joins backend workers
+  before sampling its summary; pending queued jobs are not guaranteed to run.
+- **Throughput:** processed frames divided by elapsed playback time, including
+  input waits and preceding viewer/logging work, rather than reciprocal tracking
+  time or dataset timestamps. The final Playback line includes the full loop.
+
+`System::statistics().get_snapshot()` returns a thread-safe value copy containing
+the latest frame ID, dataset timestamp, counts and timings, playback totals/FPS,
+and the three backend samples. Collection has bounded storage and no logging or
+UI dependency. `System` owns the collector directly; workers borrow it and are
+joined on shutdown or destruction. A future ImGui panel can poll this API and
+append samples to its own plot buffers, using the frame ID/job counts to detect new samples. Workers
+never render or hold the statistics mutex while a consumer logs or plots.
 
 ## Viewer keypoints
 

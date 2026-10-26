@@ -21,6 +21,7 @@
 
 #include "ImuTypes.h"
 #include "feature_overrides.h"
+#include "processing_statistics.h"
 
 #include <iostream>
 #include <list>
@@ -206,6 +207,10 @@ class System
     Tracking                 *GetTracker() const;
     float                     GetCameraFrameRate() const;
 
+    processing_statistics       &statistics() { return _statistics; }
+    const processing_statistics &statistics() const { return _statistics; }
+    void                         record_frame_statistics(double preprocessing_ms, double frontend_ms);
+
 #ifdef REGISTER_TIMES
     void InsertRectTime(double &time);
     void InsertResizeTime(double &time);
@@ -213,6 +218,8 @@ class System
 #endif
 
   private:
+    void                      stop_workers();
+
     // Keep filename history aligned with tracker frame-pose history in System,
     // so Tracking remains unchanged.
     void                      RegisterFrameFilenameForExport(const string &filename);
@@ -249,8 +256,10 @@ class System
 
     // System threads: Local Mapping and Loop Closing.
     // The Tracking thread "lives" in the main execution thread that creates the System object.
-    std::thread              *mptLocalMapping;
-    std::thread              *mptLoopClosing;
+    processing_statistics     _statistics;
+    std::mutex                _shutdown_mutex;
+    std::jthread              _local_mapping_thread;
+    std::jthread              _loop_closing_thread;
 
     // Reset flag
     std::mutex                mMutexReset;

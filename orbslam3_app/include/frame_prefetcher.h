@@ -19,6 +19,7 @@ class frame_prefetcher
         cv::Mat                            color;
         std::vector<cv::Mat>               optical_flow_pyramid;
         double                             timestamp{};
+        double                             preprocessing_ms{};
         std::vector<ORB_SLAM3::IMU::Point> imu;
         std::string                        filename;
     };

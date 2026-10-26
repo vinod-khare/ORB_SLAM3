@@ -1,7 +1,9 @@
 #include "frame_prefetcher.h"
 
 #include "Frame.h"
+#include "time_this.h"
 
+#include <chrono>
 #include <optional>
 #include <utility>
 
@@ -138,65 +140,77 @@ void frame_prefetcher::run(std::stop_token stop_token)
                 }
             }
 
-            frame prepared;
-            prepared.filename = _reader.image_path(index);
-            if (_inertial)
+            frame                               prepared;
+            std::chrono::steady_clock::duration preprocessing_time{};
             {
-                auto input         = _reader.read<orbslam3::frame_mono_inertial>();
-                prepared.image     = std::move(input.image);
-                prepared.timestamp = input.timestamp;
-                prepared.imu       = std::move(input.imu);
-            }
-            else
-            {
-                auto input         = _reader.read<orbslam3::frame_mono>();
-                prepared.image     = std::move(input.image);
-                prepared.timestamp = input.timestamp;
-            }
-
-            if (prepared.image.empty())
-            {
-                throw std::runtime_error("Failed to load image at: " + prepared.filename);
-            }
-
-            cv::Size size;
-            if (_image_scale != 1.f)
-            {
-                size = cv::Size(static_cast<int>(prepared.image.cols * _image_scale), static_cast<int>(prepared.image.rows * _image_scale));
-            }
-            if (_stereo)
-            {
+                const ORB_SLAM3::time_this timer(preprocessing_time);
+                prepared.filename = _reader.image_path(index);
+                if (_inertial)
                 {
-                    std::lock_guard<std::mutex> lock(_mutex);
-                    right_size = size;
+                    auto input         = _reader.read<orbslam3::frame_mono_inertial>();
+                    prepared.image     = std::move(input.image);
+                    prepared.timestamp = input.timestamp;
+                    prepared.imu       = std::move(input.imu);
                 }
-                _ready.notify_all();
-            }
-            preprocess_image(prepared.image, size, *clahe, _image_scale != 1.f, _stereo ? nullptr : &prepared.color);
-            if (_precompute_optical_flow)
-            {
-                prepared.optical_flow_pyramid = ORB_SLAM3::Frame::build_optical_flow_pyramid(prepared.image);
-            }
-            if (_stereo)
-            {
-                std::unique_lock<std::mutex> lock(_mutex);
-                if (!_ready.wait(lock, stop_token, [&right_images, &right_finished] { return !right_images.empty() || right_finished; }))
+                else
                 {
-                    return;
+                    auto input         = _reader.read<orbslam3::frame_mono>();
+                    prepared.image     = std::move(input.image);
+                    prepared.timestamp = input.timestamp;
                 }
-                if (right_images.empty())
+
+                if (prepared.image.empty())
                 {
-                    if (right_error)
+                    throw std::runtime_error("Failed to load image at: " + prepared.filename);
+                }
+
+                cv::Size size;
+                if (_image_scale != 1.f)
+                {
+                    size = cv::Size(static_cast<int>(prepared.image.cols * _image_scale), static_cast<int>(prepared.image.rows * _image_scale));
+                }
+
+                if (_stereo)
+                {
                     {
-                        std::rethrow_exception(right_error);
+                        std::lock_guard<std::mutex> lock(_mutex);
+                        right_size = size;
                     }
-                    throw std::runtime_error("Right image stream ended before the left image stream");
+                    _ready.notify_all();
                 }
-                prepared.image_right = std::move(right_images.front());
-                right_images.pop_front();
-                lock.unlock();
-                _ready.notify_all();
+
+                preprocess_image(prepared.image, size, *clahe, _image_scale != 1.f, _stereo ? nullptr : &prepared.color);
+                if (_precompute_optical_flow)
+                {
+                    prepared.optical_flow_pyramid = ORB_SLAM3::Frame::build_optical_flow_pyramid(prepared.image);
+                }
+
+                if (_stereo)
+                {
+                    std::unique_lock<std::mutex> lock(_mutex);
+                    if (!_ready.wait(lock, stop_token, [&right_images, &right_finished] { return !right_images.empty() || right_finished; }))
+                    {
+                        return;
+                    }
+                    if (right_images.empty())
+                    {
+                        if (right_error)
+                        {
+                            std::rethrow_exception(right_error);
+                        }
+                        throw std::runtime_error("Right image stream ended before the left image stream");
+                    }
+                    prepared.image_right = std::move(right_images.front());
+
+                    right_images.pop_front();
+                    
+                    lock.unlock();
+
+                    _ready.notify_all();
+                }
             }
+
+            prepared.preprocessing_ms = std::chrono::duration<double, std::milli>(preprocessing_time).count();
 
             {
                 std::lock_guard<std::mutex> lock(_mutex);

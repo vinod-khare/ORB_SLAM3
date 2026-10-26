@@ -25,6 +25,7 @@
 #include "LocalMapping.h"
 #include "Tracking.h"
 #include "place_vocabulary.h"
+#include "processing_statistics.h"
 
 #include <mutex>
 #include <thread>
@@ -48,7 +49,8 @@ class LoopClosing
     typedef map<KeyFrame *, g2o::Sim3, std::less<KeyFrame *>, Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3>>> KeyFrameAndPose;
 
   public:
-    LoopClosing(Atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
+    LoopClosing(processing_statistics &statistics, Atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
+    ~LoopClosing();
 
     void SetTracker(Tracking *pTracker);
 
@@ -77,6 +79,8 @@ class LoopClosing
     }
 
     void RequestFinish();
+
+    void stop_global_bundle_adjustment();
 
     bool isFinished();
 
@@ -113,6 +117,8 @@ class LoopClosing
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   protected:
+    processing_statistics       &_statistics;
+
     bool                         CheckNewKeyFrames();
 
     // Methods to implement the new place recognition algorithm
@@ -209,7 +215,7 @@ class LoopClosing
     bool                         mbFinishedGBA;
     bool                         mbStopGBA;
     std::mutex                   mMutexGBA;
-    std::thread                 *mpThreadGBA;
+    std::jthread                 _global_ba_thread;
 
     // Fix scale in the stereo/RGB-D case
     bool                         mbFixScale;

@@ -28,9 +28,9 @@
 #include "Viewer.h"
 #include "command_line_options.h"
 #include "frame_prefetcher.h"
+#include "time_this.h"
 #include "viewer_settings.h"
 
-#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
@@ -149,8 +149,7 @@ data_paths read_data_paths(const std::string &settings_path, const command_line_
 }
 } // namespace
 
-double ttrack_tot = 0;
-int    main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     try
     {
@@ -225,10 +224,6 @@ int    main(int argc, char **argv)
             return 1;
         }
 
-        // Vector for tracking time statistics
-        vector<float> vTimesTrack;
-        vTimesTrack.resize(nImages);
-
         cout << endl << "-------" << endl;
         cout.precision(17);
 
@@ -281,10 +276,12 @@ int    main(int argc, char **argv)
             }
         };
 
-        int        proccIm        = 0;
-        const auto playback_start = std::chrono::steady_clock::now();
+        int                                 proccIm = 0;
+        std::chrono::steady_clock::duration playback_time{};
         try
         {
+            const ORB_SLAM3::time_this playback_timer(playback_time);
+            SLAM.statistics().start();
             frame_prefetcher prefetch(reader, stereo, inertial, image_scale, SLAM.can_precompute_optical_flow_pyramid());
             for (int ni = 0; ni < nImages; ni++, proccIm++)
             {
@@ -296,9 +293,6 @@ int    main(int argc, char **argv)
                         break;
                     }
                 }
-                std::cout << "Image: " << ni << "/" << nImages << "\r";
-                std::cout.flush();
-
                 auto frame = prefetch.read();
                 SLAM.set_next_optical_flow_pyramid(std::move(frame.optical_flow_pyramid));
                 if (!stereo)
@@ -306,15 +300,26 @@ int    main(int argc, char **argv)
                     SLAM.SetNextFrameColor(frame.color);
                 }
 
-                const auto tracking_start = std::chrono::steady_clock::now();
-                if (stereo)
+                std::chrono::steady_clock::duration frontend_time{};
                 {
-                    SLAM.TrackStereo(frame.image, frame.image_right, frame.timestamp, frame.imu, frame.filename);
+                    const ORB_SLAM3::time_this timer(frontend_time);
+                    if (stereo)
+                    {
+                        SLAM.TrackStereo(frame.image, frame.image_right, frame.timestamp, frame.imu, frame.filename);
+                    }
+                    else
+                    {
+                        SLAM.TrackMonocular(frame.image, frame.timestamp, frame.imu, frame.filename);
+                    }
                 }
-                else
-                {
-                    SLAM.TrackMonocular(frame.image, frame.timestamp, frame.imu, frame.filename);
-                }
+                const double frontend_ms = std::chrono::duration<double, std::milli>(frontend_time).count();
+                SLAM.record_frame_statistics(frame.preprocessing_ms, frontend_ms);
+                const auto statistics = SLAM.statistics().get_snapshot();
+                spdlog::info("Frame {}/{}: detected={} matched={} preprocessing={:.3f} ms frontend={:.3f} ms throughput={:.1f} FPS | backend last completed: local={:.3f} ms ({} jobs) "
+                             "loop={:.3f} ms ({} jobs) GBA={:.3f} ms ({} jobs)",
+                             ni + 1, nImages, statistics.frame.detected_keypoints, statistics.frame.matched_keypoints, statistics.frame.preprocessing_ms, statistics.frame.frontend_ms,
+                             statistics.throughput_fps, statistics.local_mapping.last_ms, statistics.local_mapping.jobs, statistics.loop_closing.last_ms, statistics.loop_closing.jobs,
+                             statistics.global_bundle_adjustment.last_ms, statistics.global_bundle_adjustment.jobs);
                 if (viewer)
                 {
                     auto *tracker = SLAM.GetTracker();
@@ -328,11 +333,6 @@ int    main(int argc, char **argv)
                         map_drawer->break_camera_trajectory();
                     }
                 }
-                const auto   tracking_end  = std::chrono::steady_clock::now();
-
-                const double ttrack        = std::chrono::duration<double>(tracking_end - tracking_start).count();
-                ttrack_tot                += ttrack;
-                vTimesTrack[ni]            = ttrack;
             }
         }
         catch (...)
@@ -341,12 +341,20 @@ int    main(int argc, char **argv)
             SLAM.Shutdown();
             throw;
         }
-        const double playback_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - playback_start).count();
+        const double playback_seconds = std::chrono::duration<double>(playback_time).count();
         spdlog::info("Playback: {} frames in {:.3f} s ({:.1f} frames/s), including input/prefetch waits", proccIm, playback_seconds, proccIm / playback_seconds);
 
         // Stop all threads
         stop_viewer();
         SLAM.Shutdown();
+
+        const auto   statistics       = SLAM.statistics().get_snapshot();
+        const double processed_frames = static_cast<double>(statistics.frames);
+        spdlog::info("Processing summary: {} frames, mean preprocessing={:.3f} ms, mean frontend={:.3f} ms", statistics.frames,
+                     processed_frames > 0.0 ? statistics.preprocessing_total_ms / processed_frames : 0.0, processed_frames > 0.0 ? statistics.frontend_total_ms / processed_frames : 0.0);
+        spdlog::info("Backend completed work: local={} jobs/{:.3f} ms, loop={} jobs/{:.3f} ms, GBA={} jobs/{:.3f} ms (independent workers; times overlap)", statistics.local_mapping.jobs,
+                     statistics.local_mapping.total_ms, statistics.loop_closing.jobs, statistics.loop_closing.total_ms, statistics.global_bundle_adjustment.jobs,
+                     statistics.global_bundle_adjustment.total_ms);
 
         // Save camera trajectory
         if (bFileName)
@@ -380,21 +388,6 @@ int    main(int argc, char **argv)
                  << "   └─ Base file: " << ply_output << "\n"
                  << endl;
             SLAM.SavePointCloudPLY(ply_output);
-        }
-
-        // Tracking time statistics
-        vTimesTrack.resize(proccIm);
-        sort(vTimesTrack.begin(), vTimesTrack.end());
-        float totaltime = 0;
-        for (int ni = 0; ni < proccIm; ni++)
-        {
-            totaltime += vTimesTrack[ni];
-        }
-        cout << "-------" << endl << endl;
-        if (proccIm > 0)
-        {
-            cout << "median tracking time: " << vTimesTrack[proccIm / 2] << endl;
-            cout << "mean tracking time: " << totaltime / proccIm << endl;
         }
 
         return 0;

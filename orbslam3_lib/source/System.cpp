@@ -172,8 +172,8 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpTracker       = new Tracking(this, mpVocabulary, mpAtlas, mpKeyFrameDatabase, mSensor, settings_.get(), strSequence);
 
     // Initialize the Local Mapping thread and launch
-    mpLocalMapper   = new LocalMapping(this, mpAtlas, mSensor == MONOCULAR || mSensor == IMU_MONOCULAR, mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD, strSequence);
-    mptLocalMapping = new thread(&ORB_SLAM3::LocalMapping::Run, mpLocalMapper);
+    mpLocalMapper =
+        new LocalMapping(_statistics, this, mpAtlas, mSensor == MONOCULAR || mSensor == IMU_MONOCULAR, mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD, strSequence);
     mpLocalMapper->mInitFr      = initFr;
     mpLocalMapper->mThFarPoints = settings_->thFarPoints();
     if (mpLocalMapper->mThFarPoints != 0)
@@ -188,8 +188,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     // Initialize the Loop Closing thread and launch
     //  mSensor!=MONOCULAR && mSensor!=IMU_MONOCULAR
-    mpLoopCloser   = new LoopClosing(mpAtlas, mpKeyFrameDatabase, mpVocabulary, mSensor != MONOCULAR, activeLC); // mSensor!=MONOCULAR);
-    mptLoopClosing = new thread(&ORB_SLAM3::LoopClosing::Run, mpLoopCloser);
+    mpLoopCloser = new LoopClosing(_statistics, mpAtlas, mpKeyFrameDatabase, mpVocabulary, mSensor != MONOCULAR, activeLC); // mSensor!=MONOCULAR);
 
     // Set pointers between threads
     mpTracker->SetLocalMapper(mpLocalMapper);
@@ -205,12 +204,44 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     // Fix verbosity
     Verbose::SetTh(Verbose::VERBOSITY_QUIET);
+
+    try
+    {
+        _local_mapping_thread = std::jthread(&LocalMapping::Run, mpLocalMapper);
+        _loop_closing_thread  = std::jthread(&LoopClosing::Run, mpLoopCloser);
+    }
+    catch (...)
+    {
+        stop_workers();
+        throw;
+    }
 }
 
-System::~System() = default;
+System::~System() { stop_workers(); }
 
 int  System::dbow_version() const { return mpVocabulary->version(); }
 void System::set_dbow_version(int version) { mpVocabulary->set_version(version); }
+
+void System::record_frame_statistics(double preprocessing_ms, double frontend_ms)
+{
+    const auto                         &frame = mpTracker->mCurrentFrame;
+    processing_statistics::frame_sample sample{.frame_id           = frame.mnId,
+                                               .timestamp          = frame.mTimeStamp,
+                                               .detected_keypoints = frame.flow_only ? 0 : frame.mvKeys.size() + frame.mvKeysRight.size(),
+                                               .preprocessing_ms   = preprocessing_ms,
+                                               .frontend_ms        = frontend_ms};
+    if (mpTracker->mState == Tracking::OK)
+    {
+        for (std::size_t index = 0; index < frame.mvpMapPoints.size(); ++index)
+        {
+            if (frame.mvpMapPoints[index] && index < frame.mvbOutlier.size() && !frame.mvbOutlier[index])
+            {
+                ++sample.matched_keypoints;
+            }
+        }
+    }
+    _statistics.record_frame(sample);
+}
 
 void System::RegisterFrameFilenameForExport(const string &filename)
 {
@@ -540,33 +571,37 @@ void System::ResetActiveMap()
     mbResetActiveMap = true;
 }
 
+void System::stop_workers()
+{
+    mpLoopCloser->RequestFinish();
+    if (_loop_closing_thread.joinable())
+    {
+        _loop_closing_thread.join();
+    }
+    mpLoopCloser->stop_global_bundle_adjustment();
+    mpLocalMapper->RequestFinish();
+    if (_local_mapping_thread.joinable())
+    {
+        _local_mapping_thread.join();
+    }
+}
+
 void System::Shutdown()
 {
+    const std::lock_guard shutdown_lock(_shutdown_mutex);
     {
         unique_lock<mutex> lock(mMutexReset);
+        if (mbShutDown)
+        {
+            return;
+        }
         mbShutDown = true;
     }
 
     cout << "Shutdown" << endl;
     mpTracker->report_flow_statistics();
 
-    mpLocalMapper->RequestFinish();
-    mpLoopCloser->RequestFinish();
-
-    // Wait until all thread have effectively stopped
-    /*while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() || mpLoopCloser->isRunningGBA())
-    {
-        if(!mpLocalMapper->isFinished())
-            cout << "mpLocalMapper is not finished" << endl;*/
-    /*if(!mpLoopCloser->isFinished())
-        cout << "mpLoopCloser is not finished" << endl;
-    if(mpLoopCloser->isRunningGBA()){
-        cout << "mpLoopCloser is running GBA" << endl;
-        cout << "break anyway..." << endl;
-        break;
-    }*/
-    /*usleep(5000);
-}*/
+    stop_workers();
 
     if (!mStrSaveAtlasToFile.empty())
     {
