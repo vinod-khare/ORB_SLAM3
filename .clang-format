@@ -44,28 +44,30 @@ AlignArrayOfStructures: Right
 # Align consecutive macro definitions
 AlignConsecutiveMacros:
   Enabled: true
-  AcrossEmptyLines: true
-  AcrossComments: true
+  AcrossEmptyLines: false
+  AcrossComments: false
 
 # Align consecutive assignments (=), including compound operators
 AlignConsecutiveAssignments:
   Enabled: true
-  AcrossEmptyLines: true
-  AcrossComments: true
+  AcrossEmptyLines: false
+  AcrossComments: false
   AlignCompound: true
   PadOperators: true
 
 # Align consecutive bit-field widths
 AlignConsecutiveBitFields:
   Enabled: true
-  AcrossEmptyLines: true
-  AcrossComments: true
+  AcrossEmptyLines: false
+  AcrossComments: false
 
 # Align consecutive variable declarations
 AlignConsecutiveDeclarations:
   Enabled: true
-  AcrossEmptyLines: true
-  AcrossComments: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignFunctionDeclarations: true
+  AlignFunctionPointers: true
 
 # Align the backslash of escaped newlines (Left = flush-left column)
 AlignEscapedNewlines: Left
@@ -76,4 +78,4 @@ AlignOperands: Align
 # Align trailing line comments
 AlignTrailingComments:
   Kind: Always
-  OverEmptyLines: 1
+  OverEmptyLines: 0
