@@ -192,20 +192,20 @@ class System
     // Information from most recent processed frame
     // You can call this right after TrackMonocular (or stereo or RGBD)
     int          GetTrackingState();
-    std::vector<MapPoint *>   GetTrackedMapPoints();
-    std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
+    std::vector<MapPoint *>      GetTrackedMapPoints();
+    std::vector<cv::KeyPoint>    GetTrackedKeyPointsUn();
 
     // For debugging
-    double                    GetTimeFromIMUInit();
-    bool                      isLost();
-    bool                      isFinished();
+    double                       GetTimeFromIMUInit();
+    bool                         isLost();
+    bool                         isFinished();
 
-    void                      ChangeDataset();
+    void                         ChangeDataset();
 
-    float                     GetImageScale();
-    Atlas                    *GetAtlas() const;
-    Tracking                 *GetTracker() const;
-    float                     GetCameraFrameRate() const;
+    float                        GetImageScale();
+    Atlas                       *GetAtlas() const;
+    Tracking                    *GetTracker() const;
+    float                        GetCameraFrameRate() const;
 
     processing_statistics       &statistics() { return _statistics; }
     const processing_statistics &statistics() const { return _statistics; }
