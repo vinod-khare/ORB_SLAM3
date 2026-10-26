@@ -32,6 +32,7 @@ class Viewer
 {
   public:
     Viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings);
+
     void Run();
     void RequestFinish();
     void RequestStop();

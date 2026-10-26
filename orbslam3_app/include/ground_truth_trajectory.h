@@ -16,6 +16,7 @@ class ground_truth_trajectory
 {
   public:
     explicit ground_truth_trajectory(const std::string &path, const Sophus::SE3d &body_to_camera = {});
+
     const trajectory_samples      &samples() const;
     std::optional<Sophus::SE3d>    pose_at(double timestamp) const;
     std::optional<Eigen::Matrix4d> alignment(const trajectory_samples &estimate, bool correct_scale) const;

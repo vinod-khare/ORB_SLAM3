@@ -95,7 +95,6 @@ class descriptor_matcher
 
   protected:
     float radius_by_viewing_cos(const float &viewCos);
-
     void  compute_three_maxima(std::vector<int> *histo, const int L, int &ind1, int &ind2, int &ind3);
 
     float _nearest_neighbor_ratio;

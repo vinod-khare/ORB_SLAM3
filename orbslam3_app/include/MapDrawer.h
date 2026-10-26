@@ -58,7 +58,6 @@ class MapDrawer
     void         release();
 
   private:
-    // TODO: introduce a map-view data source to keep Atlas traversal out of the renderer.
     Atlas                                         &_atlas;
     viewer_settings                               _settings;
     ground_truth_trajectory                       _ground_truth;
