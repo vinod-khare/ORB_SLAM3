@@ -29,10 +29,6 @@ namespace ORB_SLAM3
 class Pinhole : public GeometricCamera
 {
 
-    friend class boost::serialization::access;
-
-    template <class Archive> void serialize(Archive &ar, const unsigned int version) { ar &boost::serialization::base_object<GeometricCamera>(*this); }
-
   public:
     Pinhole()
     {
@@ -62,23 +58,23 @@ class Pinhole : public GeometricCamera
         }
     }
 
-    cv::Point2f                 project(const cv::Point3f &p3D);
-    Eigen::Vector2d             project(const Eigen::Vector3d &v3D);
-    Eigen::Vector2f             project(const Eigen::Vector3f &v3D);
-    Eigen::Vector2f             projectMat(const cv::Point3f &p3D);
+    cv::Point2f     project(const cv::Point3f &p3D);
+    Eigen::Vector2d project(const Eigen::Vector3d &v3D);
+    Eigen::Vector2f project(const Eigen::Vector3f &v3D);
+    Eigen::Vector2f projectMat(const cv::Point3f &p3D);
 
-    float                       uncertainty2(const Eigen::Matrix<double, 2, 1> &p2D);
+    float uncertainty2(const Eigen::Matrix<double, 2, 1> &p2D);
 
-    Eigen::Vector3f             unprojectEig(const cv::Point2f &p2D);
-    cv::Point3f                 unproject(const cv::Point2f &p2D);
+    Eigen::Vector3f unprojectEig(const cv::Point2f &p2D);
+    cv::Point3f     unproject(const cv::Point2f &p2D);
 
     Eigen::Matrix<double, 2, 3> projectJac(const Eigen::Vector3d &v3D);
 
-    bool                        ReconstructWithTwoViews(const std::vector<cv::KeyPoint> &vKeys1, const std::vector<cv::KeyPoint> &vKeys2, const std::vector<int> &vMatches12, Sophus::SE3f &T21,
-                                                        std::vector<cv::Point3f> &vP3D, std::vector<bool> &vbTriangulated);
+    bool ReconstructWithTwoViews(const std::vector<cv::KeyPoint> &vKeys1, const std::vector<cv::KeyPoint> &vKeys2, const std::vector<int> &vMatches12, Sophus::SE3f &T21,
+                                 std::vector<cv::Point3f> &vP3D, std::vector<bool> &vbTriangulated);
 
-    cv::Mat                     toK();
-    Eigen::Matrix3f             toK_();
+    cv::Mat         toK();
+    Eigen::Matrix3f toK_();
 
     bool epipolarConstrain(GeometricCamera *pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel,
                            const float unc);
@@ -92,7 +88,7 @@ class Pinhole : public GeometricCamera
     friend std::ostream &operator<<(std::ostream &os, const Pinhole &ph);
     friend std::istream &operator>>(std::istream &os, Pinhole &ph);
 
-    bool                 IsEqual(GeometricCamera *pCam);
+    bool IsEqual(GeometricCamera *pCam);
 
   private:
     // Parameters vector corresponds to

@@ -19,14 +19,9 @@
 #ifndef IMUTYPES_H
 #define IMUTYPES_H
 
-#include "SerializationUtils.h"
-
 #include <mutex>
 #include <utility>
 #include <vector>
-
-#include <boost/serialization/serialization.hpp>
-#include <boost/serialization/vector.hpp>
 
 #include <opencv2/core/core.hpp>
 
@@ -64,18 +59,6 @@ class Point
 // IMU biases (gyro and accelerometer)
 class Bias
 {
-    friend class boost::serialization::access;
-    template <class Archive> void serialize(Archive &ar, const unsigned int version)
-    {
-        ar & bax;
-        ar & bay;
-        ar & baz;
-
-        ar & bwx;
-        ar & bwy;
-        ar & bwz;
-    }
-
   public:
     Bias() : bax(0), bay(0), baz(0), bwx(0), bwy(0), bwz(0) {}
     Bias(const float &b_acc_x, const float &b_acc_y, const float &b_acc_z, const float &b_ang_vel_x, const float &b_ang_vel_y, const float &b_ang_vel_z)
@@ -94,18 +77,6 @@ class Bias
 // IMU calibration (Tbc, Tcb, noise)
 class Calib
 {
-    friend class boost::serialization::access;
-    template <class Archive> void serialize(Archive &ar, const unsigned int version)
-    {
-        serializeSophusSE3(ar, mTcb, version);
-        serializeSophusSE3(ar, mTbc, version);
-
-        ar &boost::serialization::make_array(Cov.diagonal().data(), Cov.diagonal().size());
-        ar &boost::serialization::make_array(CovWalk.diagonal().data(), CovWalk.diagonal().size());
-
-        ar & mbIsSet;
-    }
-
   public:
     Calib(const Sophus::SE3<float> &Tbc, const float &ng, const float &na, const float &ngw, const float &naw) { Set(Tbc, ng, na, ngw, naw); }
 
@@ -139,63 +110,38 @@ class IntegratedRotation
 // Preintegration of Imu Measurements
 class Preintegrated
 {
-    friend class boost::serialization::access;
-    template <class Archive> void serialize(Archive &ar, const unsigned int version)
-    {
-        ar & dT;
-        ar &boost::serialization::make_array(C.data(), C.size());
-        ar &boost::serialization::make_array(Info.data(), Info.size());
-        ar &boost::serialization::make_array(Nga.diagonal().data(), Nga.diagonal().size());
-        ar &boost::serialization::make_array(NgaWalk.diagonal().data(), NgaWalk.diagonal().size());
-        ar & b;
-        ar &boost::serialization::make_array(dR.data(), dR.size());
-        ar &boost::serialization::make_array(dV.data(), dV.size());
-        ar &boost::serialization::make_array(dP.data(), dP.size());
-        ar &boost::serialization::make_array(JRg.data(), JRg.size());
-        ar &boost::serialization::make_array(JVg.data(), JVg.size());
-        ar &boost::serialization::make_array(JVa.data(), JVa.size());
-        ar &boost::serialization::make_array(JPg.data(), JPg.size());
-        ar &boost::serialization::make_array(JPa.data(), JPa.size());
-        ar &boost::serialization::make_array(avgA.data(), avgA.size());
-        ar &boost::serialization::make_array(avgW.data(), avgW.size());
-
-        ar & bu;
-        ar &boost::serialization::make_array(db.data(), db.size());
-        ar & mvMeasurements;
-    }
-
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Preintegrated(const Bias &b_, const Calib &calib);
     Preintegrated(Preintegrated *pImuPre);
     Preintegrated() {}
     ~Preintegrated() {}
-    void                       CopyFrom(Preintegrated *pImuPre);
-    void                       Initialize(const Bias &b_);
-    void                       IntegrateNewMeasurement(const Eigen::Vector3f &acceleration, const Eigen::Vector3f &angVel, const float &dt);
-    void                       Reintegrate();
-    void                       MergePrevious(Preintegrated *pPrev);
-    void                       SetNewBias(const Bias &bu_);
-    IMU::Bias                  GetDeltaBias(const Bias &b_);
+    void      CopyFrom(Preintegrated *pImuPre);
+    void      Initialize(const Bias &b_);
+    void      IntegrateNewMeasurement(const Eigen::Vector3f &acceleration, const Eigen::Vector3f &angVel, const float &dt);
+    void      Reintegrate();
+    void      MergePrevious(Preintegrated *pPrev);
+    void      SetNewBias(const Bias &bu_);
+    IMU::Bias GetDeltaBias(const Bias &b_);
 
-    Eigen::Matrix3f            GetDeltaRotation(const Bias &b_);
-    Eigen::Vector3f            GetDeltaVelocity(const Bias &b_);
-    Eigen::Vector3f            GetDeltaPosition(const Bias &b_);
+    Eigen::Matrix3f GetDeltaRotation(const Bias &b_);
+    Eigen::Vector3f GetDeltaVelocity(const Bias &b_);
+    Eigen::Vector3f GetDeltaPosition(const Bias &b_);
 
-    Eigen::Matrix3f            GetUpdatedDeltaRotation();
-    Eigen::Vector3f            GetUpdatedDeltaVelocity();
-    Eigen::Vector3f            GetUpdatedDeltaPosition();
+    Eigen::Matrix3f GetUpdatedDeltaRotation();
+    Eigen::Vector3f GetUpdatedDeltaVelocity();
+    Eigen::Vector3f GetUpdatedDeltaPosition();
 
-    Eigen::Matrix3f            GetOriginalDeltaRotation();
-    Eigen::Vector3f            GetOriginalDeltaVelocity();
-    Eigen::Vector3f            GetOriginalDeltaPosition();
+    Eigen::Matrix3f GetOriginalDeltaRotation();
+    Eigen::Vector3f GetOriginalDeltaVelocity();
+    Eigen::Vector3f GetOriginalDeltaPosition();
 
     Eigen::Matrix<float, 6, 1> GetDeltaBias();
 
-    Bias                       GetOriginalBias();
-    Bias                       GetUpdatedBias();
+    Bias GetOriginalBias();
+    Bias GetUpdatedBias();
 
-    void                       printMeasurements() const
+    void printMeasurements() const
     {
         spdlog::debug("Printing {} IMU measurements", mvMeasurements.size());
         for (size_t i = 0; i < mvMeasurements.size(); i++)
@@ -211,28 +157,21 @@ class Preintegrated
     Eigen::DiagonalMatrix<float, 6> Nga, NgaWalk;
 
     // Values for the original bias (when integration was computed)
-    Bias                            b;
-    Eigen::Matrix3f                 dR;
-    Eigen::Vector3f                 dV, dP;
-    Eigen::Matrix3f                 JRg, JVg, JVa, JPg, JPa;
-    Eigen::Vector3f                 avgA, avgW;
+    Bias            b;
+    Eigen::Matrix3f dR;
+    Eigen::Vector3f dV, dP;
+    Eigen::Matrix3f JRg, JVg, JVa, JPg, JPa;
+    Eigen::Vector3f avgA, avgW;
 
   private:
     // Updated bias
-    Bias                       bu;
+    Bias bu;
     // Dif between original and updated bias
     // This is used to compute the updated values of the preintegration
     Eigen::Matrix<float, 6, 1> db;
 
     struct integrable
     {
-        template <class Archive> void serialize(Archive &ar, const unsigned int version)
-        {
-            ar &boost::serialization::make_array(a.data(), a.size());
-            ar &boost::serialization::make_array(w.data(), w.size());
-            ar & t;
-        }
-
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         integrable() {}
         integrable(const Eigen::Vector3f &a_, const Eigen::Vector3f &w_, const float &t_) : a(a_), w(w_), t(t_) {}
@@ -242,7 +181,7 @@ class Preintegrated
 
     std::vector<integrable> mvMeasurements;
 
-    std::mutex              mMutex;
+    std::mutex mMutex;
 };
 
 // Lie Algebra Functions

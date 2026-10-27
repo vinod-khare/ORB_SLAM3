@@ -19,6 +19,8 @@
 #ifndef FRAMEDRAWER_H
 #define FRAMEDRAWER_H
 
+#include "keypoint.h"
+
 #include <atomic>
 #include <chrono>
 #include <mutex>
@@ -39,7 +41,6 @@ class Tracking;
 class FrameDrawer
 {
   public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     explicit FrameDrawer(Atlas &atlas);
 
     // Update info from the last processed frame.
@@ -58,17 +59,17 @@ class FrameDrawer
     void draw_text_info(cv::Mat &im, int nState, cv::Mat &imText);
 
     // Info of the frame to be drawn
-    cv::Mat                   mIm, mImRight;
-    int                       N;
-    std::vector<cv::KeyPoint> mvCurrentKeys, mvCurrentKeysRight;
-    std::vector<bool>         mvbMap, mvbVO;
-    std::atomic<bool>         mbOnlyTracking{false};
-    int                       mnTracked, mnTrackedVO;
-    std::vector<cv::KeyPoint> mvIniKeys;
-    std::vector<int>          mvIniMatches;
-    int                       mState;
-    std::vector<float>        mvCurrentDepth;
-    float                     mThDepth;
+    cv::Mat               mIm, mImRight;
+    int                   N;
+    std::vector<keypoint> mvCurrentKeys, mvCurrentKeysRight;
+    std::vector<bool>     mvbMap, mvbVO;
+    std::atomic<bool>     mbOnlyTracking{false};
+    int                   mnTracked, mnTrackedVO;
+    std::vector<keypoint> mvIniKeys;
+    std::vector<int>      mvIniMatches;
+    int                   mState;
+    std::vector<float>    mvCurrentDepth;
+    float                 mThDepth;
 
     Atlas &_atlas;
 

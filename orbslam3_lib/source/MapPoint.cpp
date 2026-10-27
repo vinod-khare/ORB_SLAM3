@@ -148,10 +148,12 @@ void MapPoint::AddObservation(KeyFrame *pKF, int idx)
     unique_lock<mutex> lock(mMutexFeatures);
     tuple<int, int>    indexes;
 
-    if (!_has_color && idx >= 0 && static_cast<std::size_t>(idx) < pKF->keypoint_colors.size())
+    if (!_has_color && idx >= 0 && static_cast<std::size_t>(idx) < static_cast<std::size_t>(pKF->N))
     {
-        _color     = pKF->keypoint_colors[idx];
-        _has_color = true;
+        const bool  right = pKF->NLeft >= 0 && idx >= pKF->NLeft;
+        const auto &key   = right ? pKF->mvKeysRight[idx - pKF->NLeft] : pKF->mvKeys[idx];
+        _color            = key.color;
+        _has_color        = key.has_color;
     }
 
     if (mObservations.count(pKF))
@@ -634,72 +636,6 @@ void MapPoint::UpdateMap(Map *pMap)
 {
     unique_lock<mutex> lock(mMutexMap);
     mpMap = pMap;
-}
-
-void MapPoint::PreSave(set<KeyFrame *> &spKF, set<MapPoint *> &spMP)
-{
-    mBackupReplacedId = -1;
-    if (mpReplaced && spMP.find(mpReplaced) != spMP.end())
-    {
-        mBackupReplacedId = mpReplaced->mnId;
-    }
-
-    mBackupObservationsId1.clear();
-    mBackupObservationsId2.clear();
-    // Save the id and position in each KF who view it
-    for (std::map<KeyFrame *, std::tuple<int, int>>::const_iterator it = mObservations.begin(), end = mObservations.end(); it != end; ++it)
-    {
-        KeyFrame *pKFi = it->first;
-        if (spKF.find(pKFi) != spKF.end())
-        {
-            mBackupObservationsId1[it->first->mnId] = get<0>(it->second);
-            mBackupObservationsId2[it->first->mnId] = get<1>(it->second);
-        }
-        else
-        {
-            EraseObservation(pKFi);
-        }
-    }
-
-    // Save the id of the reference KF
-    if (spKF.find(mpRefKF) != spKF.end())
-    {
-        mBackupRefKFId = mpRefKF->mnId;
-    }
-}
-
-void MapPoint::PostLoad(map<long unsigned int, KeyFrame *> &mpKFid, map<long unsigned int, MapPoint *> &mpMPid)
-{
-    mpRefKF = mpKFid[mBackupRefKFId];
-    if (!mpRefKF)
-    {
-        spdlog::error("Map point without a keyframe reference: reference ID={}, observations={}", mBackupRefKFId, nObs);
-    }
-    mpReplaced = static_cast<MapPoint *>(NULL);
-    if (mBackupReplacedId >= 0)
-    {
-        map<long unsigned int, MapPoint *>::iterator it = mpMPid.find(mBackupReplacedId);
-        if (it != mpMPid.end())
-        {
-            mpReplaced = it->second;
-        }
-    }
-
-    mObservations.clear();
-
-    for (map<long unsigned int, int>::const_iterator it = mBackupObservationsId1.begin(), end = mBackupObservationsId1.end(); it != end; ++it)
-    {
-        KeyFrame                                   *pKFi    = mpKFid[it->first];
-        map<long unsigned int, int>::const_iterator it2     = mBackupObservationsId2.find(it->first);
-        std::tuple<int, int>                        indexes = tuple<int, int>(it->second, it2->second);
-        if (pKFi)
-        {
-            mObservations[pKFi] = indexes;
-        }
-    }
-
-    mBackupObservationsId1.clear();
-    mBackupObservationsId2.clear();
 }
 
 } // namespace ORB_SLAM3

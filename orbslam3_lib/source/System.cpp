@@ -33,19 +33,8 @@
 #include <sstream>
 #include <thread>
 
-#include <boost/archive/binary_iarchive.hpp>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/xml_iarchive.hpp>
-#include <boost/archive/xml_oarchive.hpp>
-#include <boost/serialization/base_object.hpp>
-#include <boost/serialization/string.hpp>
-
 #include <opencv2/imgcodecs.hpp>
 
-#include <openssl/evp.h>
-#include <openssl/md5.h>
 #include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
@@ -95,9 +84,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     settings_ = std::make_unique<Settings>(strSettingsFile, mSensor, overrides);
 
-    mStrLoadAtlasFromFile = settings_->atlasLoadFile();
-    mStrSaveAtlasToFile   = settings_->atlasSaveFile();
-
     std::ostringstream settings_output;
     settings_output << *settings_;
     spdlog::info("{}", settings_output.str());
@@ -113,37 +99,8 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpVocabulary           = new place_vocabulary(strVocFile, settings_->dbow_version());
     mpKeyFrameDatabase     = new KeyFrameDatabase(*mpVocabulary);
 
-    if (mStrLoadAtlasFromFile.empty())
-    {
-        // Create the Atlas
-        spdlog::info("Initialization of Atlas from scratch");
-        mpAtlas = new Atlas(0);
-    }
-    else
-    {
-        spdlog::info("Loading Atlas from file");
-
-        // Load the file with an earlier session
-        spdlog::info("Initialization of Atlas from file: {}", mStrLoadAtlasFromFile);
-        bool isRead = LoadAtlas(FileType::BINARY_FILE);
-
-        if (!isRead)
-        {
-            spdlog::error("Failed to load Atlas; try another session or vocabulary file");
-            exit(-1);
-        }
-        const auto descriptor         = settings_->keypoint_descriptor();
-        const int  descriptor_columns = descriptor == keypoint_descriptor_type::sift ? 128 : descriptor == keypoint_descriptor_type::brisk ? 64 : 32;
-        const int  descriptor_type    = descriptor == keypoint_descriptor_type::sift ? CV_32F : CV_8U;
-        for (const auto *keyframe : mpAtlas->GetAllKeyFrames())
-        {
-            if (keyframe->mDescriptors.cols != descriptor_columns || keyframe->mDescriptors.type() != descriptor_type)
-            {
-                throw std::runtime_error("Atlas tracking descriptors do not match keypoint_descriptor.type; use the descriptor that created the atlas");
-            }
-        }
-        mpAtlas->CreateNewMap();
-    }
+    spdlog::info("Initialization of Atlas from scratch");
+    mpAtlas = new Atlas(0);
 
     if (mSensor == IMU_STEREO || mSensor == IMU_MONOCULAR || mSensor == IMU_RGBD)
     {
@@ -619,12 +576,6 @@ void System::Shutdown()
     mpTracker->report_flow_statistics();
 
     stop_workers();
-
-    if (!mStrSaveAtlasToFile.empty())
-    {
-        spdlog::debug("Atlas saving to file " + mStrSaveAtlasToFile);
-        SaveAtlas(FileType::BINARY_FILE);
-    }
 }
 
 bool System::isShutDown()
@@ -1461,7 +1412,7 @@ vector<MapPoint *> System::GetTrackedMapPoints()
     return mTrackedMapPoints;
 }
 
-vector<cv::KeyPoint> System::GetTrackedKeyPointsUn()
+vector<keypoint> System::GetTrackedKeyPointsUn()
 {
     unique_lock<mutex> lock(mMutexState);
     return mTrackedKeyPointsUn;
@@ -1522,151 +1473,5 @@ Atlas *System::GetAtlas() const { return mpAtlas; }
 Tracking *System::GetTracker() const { return mpTracker; }
 
 float System::GetCameraFrameRate() const { return settings_->fps(); }
-
-void System::SaveAtlas(int type)
-{
-    if (!mStrSaveAtlasToFile.empty())
-    {
-
-        // Save the current session
-        mpAtlas->PreSave();
-
-        string pathSaveFileName = "./";
-        pathSaveFileName        = pathSaveFileName.append(mStrSaveAtlasToFile);
-        pathSaveFileName        = pathSaveFileName.append(".osa");
-
-        string      strVocabularyChecksum = CalculateCheckSum(mStrVocabularyFilePath, TEXT_FILE);
-        std::size_t found                 = mStrVocabularyFilePath.find_last_of("/\\");
-        string      strVocabularyName     = mStrVocabularyFilePath.substr(found + 1);
-
-        if (type == TEXT_FILE) // File text
-        {
-            spdlog::info("Writing Atlas text file");
-            std::remove(pathSaveFileName.c_str());
-            std::ofstream                 ofs(pathSaveFileName, std::ios::binary);
-            boost::archive::text_oarchive oa(ofs);
-
-            oa << strVocabularyName;
-            oa << strVocabularyChecksum;
-            oa << mpAtlas;
-            spdlog::info("Finished writing Atlas text file");
-        }
-        else if (type == BINARY_FILE) // File binary
-        {
-            spdlog::info("Writing Atlas binary file");
-            std::remove(pathSaveFileName.c_str());
-            std::ofstream                   ofs(pathSaveFileName, std::ios::binary);
-            boost::archive::binary_oarchive oa(ofs);
-            oa << strVocabularyName;
-            oa << strVocabularyChecksum;
-            oa << mpAtlas;
-            spdlog::info("Finished writing Atlas binary file");
-        }
-    }
-}
-
-bool System::LoadAtlas(int type)
-{
-    string strFileVoc, strVocChecksum;
-    bool   isRead = false;
-
-    string pathLoadFileName = "./";
-    pathLoadFileName        = pathLoadFileName.append(mStrLoadAtlasFromFile);
-    pathLoadFileName        = pathLoadFileName.append(".osa");
-
-    if (type == TEXT_FILE) // File text
-    {
-        spdlog::info("Reading Atlas text file");
-        std::ifstream ifs(pathLoadFileName, std::ios::binary);
-        if (!ifs.good())
-        {
-            spdlog::error("Atlas file not found: {}", pathLoadFileName);
-            return false;
-        }
-        boost::archive::text_iarchive ia(ifs);
-        ia >> strFileVoc;
-        ia >> strVocChecksum;
-        ia >> mpAtlas;
-        spdlog::info("Finished loading Atlas text file");
-        isRead = true;
-    }
-    else if (type == BINARY_FILE) // File binary
-    {
-        spdlog::info("Reading Atlas binary file");
-        std::ifstream ifs(pathLoadFileName, std::ios::binary);
-        if (!ifs.good())
-        {
-            spdlog::error("Atlas file not found: {}", pathLoadFileName);
-            return false;
-        }
-        boost::archive::binary_iarchive ia(ifs);
-        ia >> strFileVoc;
-        ia >> strVocChecksum;
-        ia >> mpAtlas;
-        spdlog::info("Finished loading Atlas binary file");
-        isRead = true;
-    }
-
-    if (isRead)
-    {
-        // Check if the vocabulary is the same
-        string strInputVocabularyChecksum = CalculateCheckSum(mStrVocabularyFilePath, TEXT_FILE);
-
-        if (strInputVocabularyChecksum.compare(strVocChecksum) != 0)
-        {
-            spdlog::error("The loaded vocabulary does not match the session vocabulary: {}", strFileVoc);
-            return false; // Both are differents
-        }
-
-        mpAtlas->SetKeyFrameDababase(mpKeyFrameDatabase);
-        mpAtlas->Setplace_vocabulary(mpVocabulary);
-        mpAtlas->PostLoad();
-
-        return true;
-    }
-    return false;
-}
-
-string System::CalculateCheckSum(string filename, int type)
-{
-    string checksum = "";
-
-    unsigned char c[MD5_DIGEST_LENGTH];
-
-    std::ios_base::openmode flags = std::ios::in;
-    if (type == BINARY_FILE) // Binary file
-    {
-        flags = std::ios::in | std::ios::binary;
-    }
-
-    ifstream f(filename.c_str(), flags);
-    if (!f.is_open())
-    {
-        spdlog::error("Unable to open input file for MD5 hash: {}", filename);
-        return checksum;
-    }
-
-    std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> md5_context(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
-    char                                                    buffer[1024];
-
-    EVP_DigestInit_ex(md5_context.get(), EVP_md5(), nullptr);
-    while (int count = f.readsome(buffer, sizeof(buffer)))
-    {
-        EVP_DigestUpdate(md5_context.get(), buffer, count);
-    }
-
-    f.close();
-
-    EVP_DigestFinal_ex(md5_context.get(), c, nullptr);
-
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
-    {
-        char aux[10];
-        sprintf(aux, "%02x", c[i]);
-        checksum = checksum + aux;
-    }
-
-    return checksum;
-}
 
 } // namespace ORB_SLAM3

@@ -26,9 +26,13 @@ class frame_drawer_fixture : public ORB_SLAM3::FrameDrawer
         mbOnlyTracking     = false;
         mIm                = cv::Mat::zeros(160, 240, image_type);
         mImRight           = mIm.clone();
-        mvCurrentKeys      = right ? std::vector<cv::KeyPoint>(2) : keys;
-        mvCurrentKeysRight = right ? keys : std::vector<cv::KeyPoint>{};
-        const auto offset  = right ? mvCurrentKeys.size() : 0;
+        mvCurrentKeys      = right ? std::vector<ORB_SLAM3::keypoint>(2) : std::vector<ORB_SLAM3::keypoint>{};
+        mvCurrentKeysRight = right ? std::vector<ORB_SLAM3::keypoint>{} : std::vector<ORB_SLAM3::keypoint>{};
+        for (const auto &key : keys)
+        {
+            (right ? mvCurrentKeysRight : mvCurrentKeys).emplace_back(key);
+        }
+        const auto offset = right ? mvCurrentKeys.size() : 0;
         mvbMap.assign(offset + keys.size(), false);
         mvbVO.assign(offset + keys.size(), false);
         mvbMap[offset]     = true;
@@ -128,10 +132,14 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     ORB_SLAM3::Frame frame(input, 0.0, &extractor, nullptr, &camera, distortion, 10.f, 40.f);
     REQUIRE(frame.N >= 2);
     frame.SetPose(Sophus::SE3f{});
-    frame.mnDataset = 0;
+    frame.mnDataset   = 0;
+    frame.color_image = cv::Mat(128, 128, CV_8UC3, cv::Scalar(0, 0, 0));
+    for (int index = 0; index < 2; ++index)
+    {
+        const auto &position                                                      = frame.mvKeys[index].pt;
+        frame.color_image.at<cv::Vec3b>(cvRound(position.y), cvRound(position.x)) = index == 0 ? cv::Vec3b(0, 0, 255) : cv::Vec3b(255, 0, 0);
+    }
     ORB_SLAM3::KeyFrame keyframe(frame, &map, nullptr, &camera);
-    keyframe.keypoint_colors[0] = {255, 0, 0};
-    keyframe.keypoint_colors[1] = {0, 0, 255};
     ORB_SLAM3::MapPoint red(Eigen::Vector3f(-0.2f, 0.f, 0.f), &keyframe, &map);
     ORB_SLAM3::MapPoint blue(Eigen::Vector3f(0.2f, 0.f, 0.f), &keyframe, &map);
     red.AddObservation(&keyframe, 0);

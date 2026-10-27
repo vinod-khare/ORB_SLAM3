@@ -137,7 +137,7 @@ vector<KeyFrame *> KeyFrameDatabase::DetectLoopCandidates(KeyFrame *pKF, float m
     list<pair<float, KeyFrame *>> lScoreAndMatch;
 
     // Only compare against those keyframes that share enough words
-    int                           maxCommonWords = 0;
+    int maxCommonWords = 0;
     for (list<KeyFrame *>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
     {
         if ((*lit)->mnLoopWords > maxCommonWords)
@@ -148,7 +148,7 @@ vector<KeyFrame *> KeyFrameDatabase::DetectLoopCandidates(KeyFrame *pKF, float m
 
     int minCommonWords = maxCommonWords * 0.8f;
 
-    int nscores        = 0;
+    int nscores = 0;
 
     // Compute similarity score. Retain the matches whose score is higher than minScore
     for (list<KeyFrame *>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
@@ -159,7 +159,7 @@ vector<KeyFrame *> KeyFrameDatabase::DetectLoopCandidates(KeyFrame *pKF, float m
         {
             nscores++;
 
-            float si         = mpVoc->score(pKF->mBowVec, pKFi->mBowVec);
+            float si = mpVoc->score(pKF->mBowVec, pKFi->mBowVec);
 
             pKFi->mLoopScore = si;
             if (si >= minScore)
@@ -180,12 +180,12 @@ vector<KeyFrame *> KeyFrameDatabase::DetectLoopCandidates(KeyFrame *pKF, float m
     // Lets now accumulate score by covisibility
     for (list<pair<float, KeyFrame *>>::iterator it = lScoreAndMatch.begin(), itend = lScoreAndMatch.end(); it != itend; it++)
     {
-        KeyFrame          *pKFi      = it->second;
-        vector<KeyFrame *> vpNeighs  = pKFi->GetBestCovisibilityKeyFrames(10);
+        KeyFrame          *pKFi     = it->second;
+        vector<KeyFrame *> vpNeighs = pKFi->GetBestCovisibilityKeyFrames(10);
 
-        float              bestScore = it->first;
-        float              accScore  = it->first;
-        KeyFrame          *pBestKF   = pKFi;
+        float     bestScore = it->first;
+        float     accScore  = it->first;
+        KeyFrame *pBestKF   = pKFi;
         for (vector<KeyFrame *>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++)
         {
             KeyFrame *pKF2 = *vit;
@@ -208,7 +208,7 @@ vector<KeyFrame *> KeyFrameDatabase::DetectLoopCandidates(KeyFrame *pKF, float m
     }
 
     // Return all those keyframes with a score higher than 0.75*bestScore
-    float              minScoreToRetain = 0.75f * bestAccScore;
+    float minScoreToRetain = 0.75f * bestAccScore;
 
     set<KeyFrame *>    spAlreadyAddedKF;
     vector<KeyFrame *> vpLoopCandidates;
@@ -287,7 +287,7 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
         list<pair<float, KeyFrame *>> lScoreAndMatch;
 
         // Only compare against those keyframes that share enough words
-        int                           maxCommonWords = 0;
+        int maxCommonWords = 0;
         for (list<KeyFrame *>::iterator lit = lKFsSharingWordsLoop.begin(), lend = lKFsSharingWordsLoop.end(); lit != lend; lit++)
         {
             if ((*lit)->mnLoopWords > maxCommonWords)
@@ -298,7 +298,7 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
 
         int minCommonWords = maxCommonWords * 0.8f;
 
-        int nscores        = 0;
+        int nscores = 0;
 
         // Compute similarity score. Retain the matches whose score is higher than minScore
         for (list<KeyFrame *>::iterator lit = lKFsSharingWordsLoop.begin(), lend = lKFsSharingWordsLoop.end(); lit != lend; lit++)
@@ -309,7 +309,7 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
             {
                 nscores++;
 
-                float si         = mpVoc->score(pKF->mBowVec, pKFi->mBowVec);
+                float si = mpVoc->score(pKF->mBowVec, pKFi->mBowVec);
 
                 pKFi->mLoopScore = si;
                 if (si >= minScore)
@@ -327,12 +327,12 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
             // Lets now accumulate score by covisibility
             for (list<pair<float, KeyFrame *>>::iterator it = lScoreAndMatch.begin(), itend = lScoreAndMatch.end(); it != itend; it++)
             {
-                KeyFrame          *pKFi      = it->second;
-                vector<KeyFrame *> vpNeighs  = pKFi->GetBestCovisibilityKeyFrames(10);
+                KeyFrame          *pKFi     = it->second;
+                vector<KeyFrame *> vpNeighs = pKFi->GetBestCovisibilityKeyFrames(10);
 
-                float              bestScore = it->first;
-                float              accScore  = it->first;
-                KeyFrame          *pBestKF   = pKFi;
+                float     bestScore = it->first;
+                float     accScore  = it->first;
+                KeyFrame *pBestKF   = pKFi;
                 for (vector<KeyFrame *>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++)
                 {
                     KeyFrame *pKF2 = *vit;
@@ -355,7 +355,7 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
             }
 
             // Return all those keyframes with a score higher than 0.75*bestScore
-            float           minScoreToRetain = 0.75f * bestAccScore;
+            float minScoreToRetain = 0.75f * bestAccScore;
 
             set<KeyFrame *> spAlreadyAddedKF;
             vpLoopCand.reserve(lAccScoreAndMatch.size());
@@ -380,7 +380,7 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
         list<pair<float, KeyFrame *>> lScoreAndMatch;
 
         // Only compare against those keyframes that share enough words
-        int                           maxCommonWords = 0;
+        int maxCommonWords = 0;
         for (list<KeyFrame *>::iterator lit = lKFsSharingWordsMerge.begin(), lend = lKFsSharingWordsMerge.end(); lit != lend; lit++)
         {
             if ((*lit)->mnMergeWords > maxCommonWords)
@@ -391,7 +391,7 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
 
         int minCommonWords = maxCommonWords * 0.8f;
 
-        int nscores        = 0;
+        int nscores = 0;
 
         // Compute similarity score. Retain the matches whose score is higher than minScore
         for (list<KeyFrame *>::iterator lit = lKFsSharingWordsMerge.begin(), lend = lKFsSharingWordsMerge.end(); lit != lend; lit++)
@@ -402,7 +402,7 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
             {
                 nscores++;
 
-                float si          = mpVoc->score(pKF->mBowVec, pKFi->mBowVec);
+                float si = mpVoc->score(pKF->mBowVec, pKFi->mBowVec);
 
                 pKFi->mMergeScore = si;
                 if (si >= minScore)
@@ -420,12 +420,12 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
             // Lets now accumulate score by covisibility
             for (list<pair<float, KeyFrame *>>::iterator it = lScoreAndMatch.begin(), itend = lScoreAndMatch.end(); it != itend; it++)
             {
-                KeyFrame          *pKFi      = it->second;
-                vector<KeyFrame *> vpNeighs  = pKFi->GetBestCovisibilityKeyFrames(10);
+                KeyFrame          *pKFi     = it->second;
+                vector<KeyFrame *> vpNeighs = pKFi->GetBestCovisibilityKeyFrames(10);
 
-                float              bestScore = it->first;
-                float              accScore  = it->first;
-                KeyFrame          *pBestKF   = pKFi;
+                float     bestScore = it->first;
+                float     accScore  = it->first;
+                KeyFrame *pBestKF   = pKFi;
                 for (vector<KeyFrame *>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++)
                 {
                     KeyFrame *pKF2 = *vit;
@@ -448,7 +448,7 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
             }
 
             // Return all those keyframes with a score higher than 0.75*bestScore
-            float           minScoreToRetain = 0.75f * bestAccScore;
+            float minScoreToRetain = 0.75f * bestAccScore;
 
             set<KeyFrame *> spAlreadyAddedKF;
             vpMergeCand.reserve(lAccScoreAndMatch.size());
@@ -537,7 +537,7 @@ void KeyFrameDatabase::DetectBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &v
 
     list<pair<float, KeyFrame *>> lScoreAndMatch;
 
-    int                           nscores = 0;
+    int nscores = 0;
 
     // Compute similarity score.
     for (list<KeyFrame *>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
@@ -564,12 +564,12 @@ void KeyFrameDatabase::DetectBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &v
     // Lets now accumulate score by covisibility
     for (list<pair<float, KeyFrame *>>::iterator it = lScoreAndMatch.begin(), itend = lScoreAndMatch.end(); it != itend; it++)
     {
-        KeyFrame          *pKFi      = it->second;
-        vector<KeyFrame *> vpNeighs  = pKFi->GetBestCovisibilityKeyFrames(10);
+        KeyFrame          *pKFi     = it->second;
+        vector<KeyFrame *> vpNeighs = pKFi->GetBestCovisibilityKeyFrames(10);
 
-        float              bestScore = it->first;
-        float              accScore  = bestScore;
-        KeyFrame          *pBestKF   = pKFi;
+        float     bestScore = it->first;
+        float     accScore  = bestScore;
+        KeyFrame *pBestKF   = pKFi;
         for (vector<KeyFrame *>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++)
         {
             KeyFrame *pKF2 = *vit;
@@ -669,11 +669,11 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &
         }
     }
 
-    int                           minCommonWords = maxCommonWords * 0.8f;
+    int minCommonWords = maxCommonWords * 0.8f;
 
     list<pair<float, KeyFrame *>> lScoreAndMatch;
 
-    int                           nscores = 0;
+    int nscores = 0;
 
     // Compute similarity score.
     for (list<KeyFrame *>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
@@ -700,12 +700,12 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &
     // Lets now accumulate score by covisibility
     for (list<pair<float, KeyFrame *>>::iterator it = lScoreAndMatch.begin(), itend = lScoreAndMatch.end(); it != itend; it++)
     {
-        KeyFrame          *pKFi      = it->second;
-        vector<KeyFrame *> vpNeighs  = pKFi->GetBestCovisibilityKeyFrames(10);
+        KeyFrame          *pKFi     = it->second;
+        vector<KeyFrame *> vpNeighs = pKFi->GetBestCovisibilityKeyFrames(10);
 
-        float              bestScore = it->first;
-        float              accScore  = bestScore;
-        KeyFrame          *pBestKF   = pKFi;
+        float     bestScore = it->first;
+        float     accScore  = bestScore;
+        KeyFrame *pBestKF   = pKFi;
         for (vector<KeyFrame *>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++)
         {
             KeyFrame *pKF2 = *vit;
@@ -800,11 +800,11 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
         }
     }
 
-    int                           minCommonWords = maxCommonWords * 0.8f;
+    int minCommonWords = maxCommonWords * 0.8f;
 
     list<pair<float, KeyFrame *>> lScoreAndMatch;
 
-    int                           nscores = 0;
+    int nscores = 0;
 
     // Compute similarity score.
     for (list<KeyFrame *>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
@@ -831,12 +831,12 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
     // Lets now accumulate score by covisibility
     for (list<pair<float, KeyFrame *>>::iterator it = lScoreAndMatch.begin(), itend = lScoreAndMatch.end(); it != itend; it++)
     {
-        KeyFrame          *pKFi      = it->second;
-        vector<KeyFrame *> vpNeighs  = pKFi->GetBestCovisibilityKeyFrames(10);
+        KeyFrame          *pKFi     = it->second;
+        vector<KeyFrame *> vpNeighs = pKFi->GetBestCovisibilityKeyFrames(10);
 
-        float              bestScore = it->first;
-        float              accScore  = bestScore;
-        KeyFrame          *pBestKF   = pKFi;
+        float     bestScore = it->first;
+        float     accScore  = bestScore;
+        KeyFrame *pBestKF   = pKFi;
         for (vector<KeyFrame *>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++)
         {
             KeyFrame *pKF2 = *vit;
@@ -883,16 +883,6 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
     }
 
     return vpRelocCandidates;
-}
-
-void KeyFrameDatabase::Setplace_vocabulary(place_vocabulary *pORBVoc)
-{
-    place_vocabulary **ptr;
-    ptr  = (place_vocabulary **)(&mpVoc);
-    *ptr = pORBVoc;
-
-    mvInvertedFile.clear();
-    mvInvertedFile.resize(mpVoc->size());
 }
 
 } // namespace ORB_SLAM3

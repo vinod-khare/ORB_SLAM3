@@ -68,13 +68,13 @@ using namespace std;
 namespace ORB_SLAM3
 {
 
-const int    PATCH_SIZE      = 31;
-const int    HALF_PATCH_SIZE = 15;
-const int    EDGE_THRESHOLD  = 19;
+const int PATCH_SIZE      = 31;
+const int HALF_PATCH_SIZE = 15;
+const int EDGE_THRESHOLD  = 19;
 
 static float intensity_centroid_angle(const Mat &image, Point2f pt, const vector<int> &u_max)
 {
-    int          m_01 = 0, m_10 = 0;
+    int m_01 = 0, m_10 = 0;
 
     const uchar *center = &image.at<uchar>(cvRound(pt.y), cvRound(pt.x));
 
@@ -167,7 +167,7 @@ keypoint_extractor::keypoint_extractor(int _nfeatures, float _scaleFactor, int _
     float factor                   = 1.0f / scaleFactor;
     float nDesiredFeaturesPerScale = nfeatures * (1 - factor) / (1 - (float)pow((double)factor, (double)nlevels));
 
-    int   sumFeatures              = 0;
+    int sumFeatures = 0;
     for (int level = 0; level < nlevels - 1; level++)
     {
         mnFeaturesPerLevel[level]  = cvRound(nDesiredFeaturesPerScale);
@@ -214,10 +214,10 @@ void keypoint_distribution_node::divide_node(keypoint_distribution_node &n1, key
     const int halfY = ceil(static_cast<float>(BR.y - UL.y) / 2);
 
     // Define boundaries of childs
-    n1.UL           = UL;
-    n1.UR           = cv::Point2i(UL.x + halfX, UL.y);
-    n1.BL           = cv::Point2i(UL.x, UL.y + halfY);
-    n1.BR           = cv::Point2i(UL.x + halfX, UL.y + halfY);
+    n1.UL = UL;
+    n1.UR = cv::Point2i(UL.x + halfX, UL.y);
+    n1.BL = cv::Point2i(UL.x, UL.y + halfY);
+    n1.BR = cv::Point2i(UL.x + halfX, UL.y + halfY);
     n1.vKeys.reserve(vKeys.size());
 
     n2.UL = n1.UR;
@@ -308,11 +308,11 @@ vector<cv::KeyPoint> keypoint_extractor::distribute_keypoints(const vector<cv::K
                                                               const int &level)
 {
     // Compute how many initial nodes
-    const int                            nIni = std::max(1, cvRound(static_cast<float>(maxX - minX) / (maxY - minY)));
+    const int nIni = std::max(1, cvRound(static_cast<float>(maxX - minX) / (maxY - minY)));
 
-    const float                          hX   = static_cast<float>(maxX - minX) / nIni;
+    const float hX = static_cast<float>(maxX - minX) / nIni;
 
-    list<keypoint_distribution_node>     lNodes;
+    list<keypoint_distribution_node> lNodes;
 
     vector<keypoint_distribution_node *> vpIniNodes;
     vpIniNodes.resize(nIni);
@@ -356,9 +356,9 @@ vector<cv::KeyPoint> keypoint_extractor::distribute_keypoints(const vector<cv::K
         }
     }
 
-    bool                                            bFinish   = false;
+    bool bFinish = false;
 
-    int                                             iteration = 0;
+    int iteration = 0;
 
     vector<pair<int, keypoint_distribution_node *>> vSizeAndPointerToNode;
     vSizeAndPointerToNode.reserve(lNodes.size() * 4);
@@ -367,9 +367,9 @@ vector<cv::KeyPoint> keypoint_extractor::distribute_keypoints(const vector<cv::K
     {
         iteration++;
 
-        int prevSize  = lNodes.size();
+        int prevSize = lNodes.size();
 
-        lit           = lNodes.begin();
+        lit = lNodes.begin();
 
         int nToExpand = 0;
 
@@ -448,7 +448,7 @@ vector<cv::KeyPoint> keypoint_extractor::distribute_keypoints(const vector<cv::K
             while (!bFinish)
             {
 
-                prevSize                                                                  = lNodes.size();
+                prevSize = lNodes.size();
 
                 vector<pair<int, keypoint_distribution_node *>> vPrevSizeAndPointerToNode = vSizeAndPointerToNode;
                 vSizeAndPointerToNode.clear();
@@ -518,8 +518,8 @@ vector<cv::KeyPoint> keypoint_extractor::distribute_keypoints(const vector<cv::K
     vResultKeys.reserve(nfeatures);
     for (const keypoint_distribution_node &node : lNodes)
     {
-        const auto bestKey = std::max_element(node.vKeys.begin(), node.vKeys.end(), [](const cv::KeyPoint &left, const cv::KeyPoint &right) { return left.response < right.response; });
-        vResultKeys.push_back(*bestKey);
+        const auto bestKey = std::max_element(node.vKeys.begin(), node.vKeys.end(), [](const keypoint &left, const keypoint &right) { return left.response < right.response; });
+        vResultKeys.push_back(static_cast<const cv::KeyPoint &>(*bestKey));
     }
 
     return vResultKeys;
@@ -597,10 +597,10 @@ void keypoint_extractor::compute_keypoints(vector<vector<KeyPoint>> &allKeypoint
 
     for (int level = 0; level < nlevels; ++level)
     {
-        const int            minBorderX = EDGE_THRESHOLD - 3;
-        const int            minBorderY = minBorderX;
-        const int            maxBorderX = mvImagePyramid[level].cols - EDGE_THRESHOLD + 3;
-        const int            maxBorderY = mvImagePyramid[level].rows - EDGE_THRESHOLD + 3;
+        const int minBorderX = EDGE_THRESHOLD - 3;
+        const int minBorderY = minBorderX;
+        const int maxBorderX = mvImagePyramid[level].cols - EDGE_THRESHOLD + 3;
+        const int maxBorderY = mvImagePyramid[level].rows - EDGE_THRESHOLD + 3;
 
         vector<cv::KeyPoint> vToDistributeKeys;
         vToDistributeKeys.reserve(nfeatures * 10);
@@ -671,12 +671,12 @@ void keypoint_extractor::compute_keypoints(vector<vector<KeyPoint>> &allKeypoint
         vector<KeyPoint> &keypoints = allKeypoints[level];
         keypoints.reserve(nfeatures);
 
-        keypoints                 = distribute_keypoints(vToDistributeKeys, minBorderX, maxBorderX, minBorderY, maxBorderY, mnFeaturesPerLevel[level], level);
+        keypoints = distribute_keypoints(vToDistributeKeys, minBorderX, maxBorderX, minBorderY, maxBorderY, mnFeaturesPerLevel[level], level);
 
         const int scaledPatchSize = PATCH_SIZE * mvScaleFactor[level];
 
         // Add border to coordinates and scale information
-        const int nkps            = keypoints.size();
+        const int nkps = keypoints.size();
         for (int i = 0; i < nkps; i++)
         {
             keypoints[i].pt.x += minBorderX;
@@ -694,9 +694,8 @@ void keypoint_extractor::compute_keypoints(vector<vector<KeyPoint>> &allKeypoint
     }
 }
 
-int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<KeyPoint> &_keypoints, OutputArray _descriptors, std::vector<int> &vLappingArea)
+int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<keypoint> &_keypoints, OutputArray _descriptors, std::vector<int> &vLappingArea)
 {
-    display_keypoints_.clear();
     _keypoints.clear();
     _place_descriptors.release();
     _descriptors.release();
@@ -767,7 +766,6 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<K
     }
     const auto count = output_keys.size();
     _keypoints.resize(count);
-    display_keypoints_.resize(count);
     if (count == 0)
     {
         return 0;
@@ -779,10 +777,9 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<K
     int stereo_index = static_cast<int>(count) - 1;
     for (std::size_t index = 0; index < count; ++index)
     {
-        const auto &key            = output_keys[index];
-        const int   target         = key.pt.x >= vLappingArea[0] && key.pt.x <= vLappingArea[1] ? stereo_index-- : mono_index++;
-        _keypoints[target]         = key;
-        display_keypoints_[target] = output_display[index];
+        const auto &key    = output_keys[index];
+        const int   target = key.pt.x >= vLappingArea[0] && key.pt.x <= vLappingArea[1] ? stereo_index-- : mono_index++;
+        _keypoints[target] = keypoint(key, output_display[index]);
         descriptors.row(static_cast<int>(index)).copyTo(output_descriptors.row(target));
         place_descriptors.row(static_cast<int>(index)).copyTo(_place_descriptors.row(target));
     }

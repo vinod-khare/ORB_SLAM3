@@ -2,12 +2,10 @@ cmake_minimum_required(VERSION 3.25)
 
 project(ORB_SLAM3 LANGUAGES C CXX)
 
-find_package(Boost CONFIG REQUIRED COMPONENTS serialization)
 find_package(DBoW2 CONFIG REQUIRED)
 find_package(DBow3 CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d calib3d imgcodecs video)
-find_package(OpenSSL REQUIRED)
 find_package(Sophus CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(g2o CONFIG REQUIRED)
@@ -83,8 +81,6 @@ target_link_libraries(ORB_SLAM3 PUBLIC
         g2o::types_sim3
         g2o::solver_dense
         g2o::solver_eigen
-        Boost::serialization
-        OpenSSL::Crypto
 )
 
 target_link_libraries(ORB_SLAM3 PRIVATE yaml-cpp::yaml-cpp magic_enum::magic_enum Microsoft.GSL::GSL spdlog::spdlog)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "keypoint.h"
+
 #include <list>
 #include <vector>
 
@@ -13,9 +15,9 @@ class keypoint_distribution_node
   public:
     keypoint_distribution_node() : bNoMore(false) {}
 
-    void                                            divide_node(keypoint_distribution_node &n1, keypoint_distribution_node &n2, keypoint_distribution_node &n3, keypoint_distribution_node &n4);
+    void divide_node(keypoint_distribution_node &n1, keypoint_distribution_node &n2, keypoint_distribution_node &n3, keypoint_distribution_node &n4);
 
-    std::vector<cv::KeyPoint>                       vKeys;
+    std::vector<keypoint>                           vKeys;
     cv::Point2i                                     UL, UR, BL, BR;
     std::list<keypoint_distribution_node>::iterator lit;
     bool                                            bNoMore;

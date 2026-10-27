@@ -30,16 +30,14 @@
 namespace ORB_SLAM3
 {
 
-Atlas::Atlas(int initKFid) : mnLastInitKFidMap(initKFid)
-{
-    CreateNewMap();
-}
+Atlas::Atlas(int initKFid) : mnLastInitKFidMap(initKFid) { CreateNewMap(); }
 
 Atlas::~Atlas()
 {
-    mspOwnedMaps.insert(mvpBackupMaps.begin(), mvpBackupMaps.end());
     for (Map *map : mspOwnedMaps)
+    {
         delete map;
+    }
 }
 
 void Atlas::CreateNewMap()
@@ -70,14 +68,20 @@ void Atlas::CreateNewMapLocked()
 void Atlas::ChangeMap(Map *pMap)
 {
     if (!pMap)
+    {
         throw std::invalid_argument("Cannot change to a null map");
+    }
 
     std::lock_guard<std::mutex> lock(mMutexAtlas);
     if (!mspMaps.contains(pMap) || pMap->IsBad())
+    {
         throw std::invalid_argument("Cannot change to a map that is not active in this atlas");
+    }
 
     if (mpCurrentMap)
+    {
         mpCurrentMap->SetStoredMap();
+    }
 
     mpCurrentMap = pMap;
     mpCurrentMap->SetCurrentMap();
@@ -105,23 +109,31 @@ void Atlas::AddMapPoint(MapPoint *pMP)
 GeometricCamera *Atlas::AddCamera(GeometricCamera *pCam)
 {
     if (!pCam)
+    {
         throw std::invalid_argument("Cannot add a null camera to the atlas");
+    }
 
     std::lock_guard<std::mutex> lock(mMutexAtlas);
     for (GeometricCamera *existing_camera : mvpCameras)
     {
         if (!existing_camera || pCam->GetType() != existing_camera->GetType())
+        {
             continue;
+        }
 
         if (pCam->GetType() == GeometricCamera::CAM_PINHOLE)
         {
             if (static_cast<Pinhole *>(existing_camera)->IsEqual(pCam))
+            {
                 return existing_camera;
+            }
         }
         else if (pCam->GetType() == GeometricCamera::CAM_FISHEYE)
         {
             if (static_cast<KannalaBrandt8 *>(existing_camera)->IsEqual(pCam))
+            {
                 return existing_camera;
+            }
         }
     }
 
@@ -186,7 +198,7 @@ std::vector<MapPoint *> Atlas::GetReferenceMapPoints()
 std::vector<Map *> Atlas::GetAllMaps()
 {
     std::lock_guard<std::mutex> lock(mMutexAtlas);
-    std::vector<Map *> vMaps(mspMaps.begin(), mspMaps.end());
+    std::vector<Map *>          vMaps(mspMaps.begin(), mspMaps.end());
     std::sort(vMaps.begin(), vMaps.end(), [](Map *left, Map *right) { return left->GetId() < right->GetId(); });
     return vMaps;
 }
@@ -201,14 +213,15 @@ void Atlas::clearMap()
 {
     std::lock_guard<std::mutex> lock(mMutexAtlas);
     if (mpCurrentMap)
+    {
         mpCurrentMap->clear();
+    }
 }
 
 void Atlas::clearAtlas()
 {
     std::lock_guard<std::mutex> lock(mMutexAtlas);
     mspMaps.clear();
-    mvpBackupMaps.clear();
     mpCurrentMap      = nullptr;
     mnLastInitKFidMap = 0;
 }
@@ -217,7 +230,9 @@ Map *Atlas::GetCurrentMap()
 {
     std::lock_guard<std::mutex> lock(mMutexAtlas);
     if (!mpCurrentMap || mpCurrentMap->IsBad())
+    {
         CreateNewMapLocked();
+    }
 
     return mpCurrentMap;
 }
@@ -225,7 +240,9 @@ Map *Atlas::GetCurrentMap()
 void Atlas::SetMapBad(Map *pMap)
 {
     if (!pMap)
+    {
         throw std::invalid_argument("Cannot mark a null map as bad");
+    }
 
     std::lock_guard<std::mutex> lock(mMutexAtlas);
     mspOwnedMaps.insert(pMap);
@@ -257,90 +274,10 @@ bool Atlas::isImuInitialized()
     return mpCurrentMap->isImuInitialized();
 }
 
-void Atlas::PreSave()
-{
-    std::lock_guard<std::mutex> lock(mMutexAtlas);
-    if (mpCurrentMap)
-    {
-        if (!mspMaps.empty() && mnLastInitKFidMap < mpCurrentMap->GetMaxKFid())
-        {
-            mnLastInitKFidMap = mpCurrentMap->GetMaxKFid() + 1; // The init KF is the next of current maximum
-        }
-    }
-
-    mvpBackupMaps.assign(mspMaps.begin(), mspMaps.end());
-    std::sort(mvpBackupMaps.begin(), mvpBackupMaps.end(), [](Map *left, Map *right) { return left->GetId() < right->GetId(); });
-
-    std::set<GeometricCamera *> spCams(mvpCameras.begin(), mvpCameras.end());
-    for (auto it = mvpBackupMaps.begin(); it != mvpBackupMaps.end();)
-    {
-        Map *pMi = *it;
-        if (!pMi || pMi->IsBad())
-        {
-            it = mvpBackupMaps.erase(it);
-            continue;
-        }
-
-        if (pMi->GetAllKeyFrames().empty())
-        {
-            pMi->SetBad();
-            mspMaps.erase(pMi);
-            it = mvpBackupMaps.erase(it);
-            continue;
-        }
-        pMi->PreSave(spCams);
-        ++it;
-    }
-}
-
-void Atlas::PostLoad()
-{
-    std::lock_guard<std::mutex> lock(mMutexAtlas);
-    std::map<unsigned int, GeometricCamera *> mpCams;
-    for (GeometricCamera *pCam : mvpCameras)
-        mpCams[pCam->GetId()] = pCam;
-
-    mspMaps.clear();
-    for (Map *pMi : mvpBackupMaps)
-    {
-        if (!pMi)
-            continue;
-
-        mspOwnedMaps.insert(pMi);
-        mspMaps.insert(pMi);
-        pMi->PostLoad(mpKeyFrameDB, place_vocabulary_ptr, mpCams);
-    }
-    mvpBackupMaps.clear();
-}
-
-void Atlas::SetKeyFrameDababase(KeyFrameDatabase *pKFDB)
-{
-    std::lock_guard<std::mutex> lock(mMutexAtlas);
-    mpKeyFrameDB = pKFDB;
-}
-
-KeyFrameDatabase *Atlas::GetKeyFrameDatabase()
-{
-    std::lock_guard<std::mutex> lock(mMutexAtlas);
-    return mpKeyFrameDB;
-}
-
-void Atlas::Setplace_vocabulary(place_vocabulary *pORBVoc)
-{
-    std::lock_guard<std::mutex> lock(mMutexAtlas);
-    place_vocabulary_ptr = pORBVoc;
-}
-
-place_vocabulary *Atlas::Getplace_vocabulary()
-{
-    std::lock_guard<std::mutex> lock(mMutexAtlas);
-    return place_vocabulary_ptr;
-}
-
 long unsigned int Atlas::GetNumLivedKF()
 {
     std::lock_guard<std::mutex> lock(mMutexAtlas);
-    long unsigned int num = 0;
+    long unsigned int           num = 0;
     for (Map *pMap_i : mspMaps)
     {
         num += pMap_i->GetAllKeyFrames().size();
@@ -352,7 +289,7 @@ long unsigned int Atlas::GetNumLivedKF()
 long unsigned int Atlas::GetNumLivedMP()
 {
     std::lock_guard<std::mutex> lock(mMutexAtlas);
-    long unsigned int num = 0;
+    long unsigned int           num = 0;
     for (Map *pMap_i : mspMaps)
     {
         num += pMap_i->GetAllMapPoints().size();
@@ -363,9 +300,9 @@ long unsigned int Atlas::GetNumLivedMP()
 
 std::map<long unsigned int, KeyFrame *> Atlas::GetAtlasKeyframes()
 {
-    std::lock_guard<std::mutex> lock(mMutexAtlas);
+    std::lock_guard<std::mutex>             lock(mMutexAtlas);
     std::map<long unsigned int, KeyFrame *> mpIdKFs;
-    for (Map *pMap_i : mvpBackupMaps)
+    for (Map *pMap_i : mspMaps)
     {
         std::vector<KeyFrame *> vpKFs_Mi = pMap_i->GetAllKeyFrames();
 

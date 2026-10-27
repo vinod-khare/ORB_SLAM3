@@ -323,7 +323,6 @@ Settings::Settings(const std::string &config_file, const int &sensor, const feat
 
     read_features(fSettings, config_file, overrides);
     spdlog::info("Loaded feature settings");
-    readLoadAndSave(fSettings);
     spdlog::info("Loaded Atlas settings");
     readOtherParameters(fSettings);
     spdlog::info("Loaded misc parameters");
@@ -620,14 +619,6 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
     }
 
     _use_optical_flow = overrides.use_optical_flow.value_or(use_optical_flow == 1);
-}
-
-void Settings::readLoadAndSave(cv::FileStorage &fSettings)
-{
-    bool found;
-
-    sLoadFrom_ = readParameter<string>(fSettings, "System.LoadAtlasFromFile", found, false);
-    sSaveto_   = readParameter<string>(fSettings, "System.SaveAtlasToFile", found, false);
 }
 
 void Settings::readOtherParameters(cv::FileStorage &fSettings)

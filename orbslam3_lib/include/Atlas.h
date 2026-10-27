@@ -31,9 +31,6 @@
 #include <set>
 #include <vector>
 
-#include <boost/serialization/access.hpp>
-#include <boost/serialization/vector.hpp>
-
 namespace ORB_SLAM3
 {
 class KeyFrameDatabase;
@@ -41,25 +38,6 @@ class place_vocabulary;
 
 class Atlas
 {
-    friend class boost::serialization::access;
-
-    template <class Archive> void serialize(Archive &ar, const unsigned int version)
-    {
-        ar.template register_type<Pinhole>();
-        ar.template register_type<KannalaBrandt8>();
-
-        // Boost serialization uses this vector instead of the map set for compatibility with older Boost releases.
-        ar & mvpBackupMaps;
-        ar & mvpCameras;
-        // Persist the ID counters so newly created objects do not reuse loaded IDs.
-        ar & Map::nNextId;
-        ar & Frame::nNextId;
-        ar & KeyFrame::nNextId;
-        ar & MapPoint::nNextId;
-        ar & GeometricCamera::nNextId;
-        ar & mnLastInitKFidMap;
-    }
-
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -67,59 +45,50 @@ class Atlas
     Atlas(int initKFid);
     ~Atlas();
 
-    void                               CreateNewMap();
-    void                               ChangeMap(Map *pMap);
+    void CreateNewMap();
+    void ChangeMap(Map *pMap);
 
-    unsigned long int                  GetLastInitKFid();
+    unsigned long int GetLastInitKFid();
 
-    void                               AddKeyFrame(KeyFrame *pKF);
-    void                               AddMapPoint(MapPoint *pMP);
+    void AddKeyFrame(KeyFrame *pKF);
+    void AddMapPoint(MapPoint *pMP);
 
-    GeometricCamera *AddCamera(GeometricCamera *pCam);
+    GeometricCamera               *AddCamera(GeometricCamera *pCam);
     std::vector<GeometricCamera *> GetAllCameras();
 
-    void                               SetReferenceMapPoints(const std::vector<MapPoint *> &vpMPs);
-    void                               InformNewBigChange();
-    int                                GetLastBigChangeIdx();
+    void SetReferenceMapPoints(const std::vector<MapPoint *> &vpMPs);
+    void InformNewBigChange();
+    int  GetLastBigChangeIdx();
 
-    long unsigned int                  MapPointsInMap();
-    long unsigned                      KeyFramesInMap();
+    long unsigned int MapPointsInMap();
+    long unsigned     KeyFramesInMap();
 
-    std::vector<KeyFrame *>            GetAllKeyFrames();
-    std::vector<MapPoint *>            GetAllMapPoints();
-    std::vector<MapPoint *>            GetReferenceMapPoints();
+    std::vector<KeyFrame *> GetAllKeyFrames();
+    std::vector<MapPoint *> GetAllMapPoints();
+    std::vector<MapPoint *> GetReferenceMapPoints();
 
     std::vector<Map *> GetAllMaps();
 
-    int                                CountMaps();
+    int CountMaps();
 
-    void                               clearMap();
+    void clearMap();
 
-    void                               clearAtlas();
+    void clearAtlas();
 
-    Map                               *GetCurrentMap();
+    Map *GetCurrentMap();
 
-    void                               SetMapBad(Map *pMap);
+    void SetMapBad(Map *pMap);
 
-    bool                               isInertial();
-    void                               SetInertialSensor();
-    void                               SetImuInitialized();
-    bool                               isImuInitialized();
-
-    void                               PreSave();
-    void                               PostLoad();
+    bool isInertial();
+    void SetInertialSensor();
+    void SetImuInitialized();
+    bool isImuInitialized();
 
     std::map<long unsigned int, KeyFrame *> GetAtlasKeyframes();
 
-    void                               SetKeyFrameDababase(KeyFrameDatabase *pKFDB);
-    KeyFrameDatabase                  *GetKeyFrameDatabase();
+    long unsigned int GetNumLivedKF();
 
-    void                               Setplace_vocabulary(place_vocabulary *pORBVoc);
-    place_vocabulary                  *Getplace_vocabulary();
-
-    long unsigned int                  GetNumLivedKF();
-
-    long unsigned int                  GetNumLivedMP();
+    long unsigned int GetNumLivedMP();
 
   protected:
     void CreateNewMapLocked();
@@ -127,17 +96,12 @@ class Atlas
     std::set<Map *> mspMaps;
     // Retain maps removed from the active set while SLAM objects may still reference them.
     std::set<Map *> mspOwnedMaps;
-    std::vector<Map *> mvpBackupMaps;
-
-    Map *mpCurrentMap{nullptr};
+    Map            *mpCurrentMap{nullptr};
 
     // Camera lifetime is managed by the settings/serialization owner, not by Atlas.
     std::vector<GeometricCamera *> mvpCameras;
 
     unsigned long int mnLastInitKFidMap{0};
-
-    KeyFrameDatabase *mpKeyFrameDB{nullptr};
-    place_vocabulary *place_vocabulary_ptr{nullptr};
 
     std::mutex mMutexAtlas;
 

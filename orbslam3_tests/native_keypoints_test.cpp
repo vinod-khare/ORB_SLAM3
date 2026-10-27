@@ -79,17 +79,20 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     frame.SetPose(Sophus::SE3f{});
     frame.mnDataset   = 0;
     frame.color_image = cv::Mat(128, 128, CV_8UC3, cv::Scalar(10, 30, 200));
-    ORB_SLAM3::Map      map;
-    ORB_SLAM3::KeyFrame keyframe(frame, &map, nullptr, &camera);
-    REQUIRE(keyframe.keypoint_colors[0] == frame.keypoint_color(0));
-    keyframe.keypoint_colors[1] = {10, 40, 220};
+    ORB_SLAM3::Map map;
+    const auto     second_keypoint                                                          = frame.mvKeys[1].pt;
+    frame.color_image.at<cv::Vec3b>(cvRound(second_keypoint.y), cvRound(second_keypoint.x)) = cv::Vec3b(220, 40, 10);
+    ORB_SLAM3::KeyFrame colored_keyframe(frame, &map, nullptr, &camera);
+    REQUIRE(colored_keyframe.mvKeys[0].color == frame.keypoint_color(0));
+    const std::array<unsigned char, 3> second_color{10, 40, 220};
+    REQUIRE(colored_keyframe.mvKeys[1].color == second_color);
     ORB_SLAM3::MapPoint                point;
     const std::array<unsigned char, 3> white{255, 255, 255};
     REQUIRE(point.color() == white);
-    point.AddObservation(&keyframe, 0);
-    REQUIRE(point.color() == keyframe.keypoint_colors[0]);
-    point.AddObservation(&keyframe, 1);
-    REQUIRE(point.color() == keyframe.keypoint_colors[0]);
+    point.AddObservation(&colored_keyframe, 0);
+    REQUIRE(point.color() == colored_keyframe.mvKeys[0].color);
+    point.AddObservation(&colored_keyframe, 1);
+    REQUIRE(point.color() == colored_keyframe.mvKeys[0].color);
 }
 
 TEST_CASE("Display keypoints retain detector metadata without changing tracking keypoints", "[native_keypoints]")
@@ -102,13 +105,11 @@ TEST_CASE("Display keypoints retain detector metadata without changing tracking 
     cv::RNG                       random(71);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     cv::GaussianBlur(image, image, cv::Size(3, 3), 0.7);
-    std::vector<int>          overlap{100, 200};
-    std::vector<cv::KeyPoint> tracking_keys;
-    cv::Mat                   descriptors;
-    const int                 mono_count  = extractor(image, cv::noArray(), tracking_keys, descriptors, overlap);
-    const auto                native_keys = extractor.get_display_keypoints();
+    std::vector<int>                 overlap{100, 200};
+    std::vector<ORB_SLAM3::keypoint> tracking_keys;
+    cv::Mat                          descriptors;
+    const int                        mono_count = extractor(image, cv::noArray(), tracking_keys, descriptors, overlap);
     REQUIRE_FALSE(tracking_keys.empty());
-    REQUIRE(native_keys.size() == tracking_keys.size());
     REQUIRE(descriptors.rows == static_cast<int>(tracking_keys.size()));
     REQUIRE(descriptors.cols == 32);
     REQUIRE(mono_count > 0);
@@ -128,7 +129,7 @@ TEST_CASE("Display keypoints retain detector metadata without changing tracking 
             {
                 continue;
             }
-            const auto &native = native_keys[index];
+            const auto &native = tracking_key.display;
             REQUIRE(native.pt == tracking_key.pt);
             REQUIRE(tracking_key.size == static_cast<int>(31 * scales[level]));
             REQUIRE(tracking_key.angle >= 0);
@@ -152,8 +153,8 @@ TEST_CASE("Display keypoints retain detector metadata without changing tracking 
         }
     }
 
-    std::vector<cv::KeyPoint> repeated_keys;
-    cv::Mat                   repeated_descriptors;
+    std::vector<ORB_SLAM3::keypoint> repeated_keys;
+    cv::Mat                          repeated_descriptors;
     REQUIRE(extractor(image, cv::noArray(), repeated_keys, repeated_descriptors, overlap) == mono_count);
     REQUIRE(cv::norm(descriptors, repeated_descriptors, cv::NORM_INF) == 0);
     for (std::size_t index = 0; index < tracking_keys.size(); ++index)
@@ -164,7 +165,6 @@ TEST_CASE("Display keypoints retain detector metadata without changing tracking 
     }
     extractor(cv::Mat::zeros(image.size(), CV_8UC1), cv::noArray(), repeated_keys, repeated_descriptors, overlap);
     REQUIRE(repeated_keys.empty());
-    REQUIRE(extractor.get_display_keypoints().empty());
 }
 
 TEST_CASE("Keypoint extraction supports portrait images", "[native_keypoints]")
@@ -175,9 +175,9 @@ TEST_CASE("Keypoint extraction supports portrait images", "[native_keypoints]")
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     cv::GaussianBlur(image, image, cv::Size(3, 3), 0.7);
 
-    std::vector<int>          overlap{0, 0};
-    std::vector<cv::KeyPoint> keypoints;
-    cv::Mat                   descriptors;
+    std::vector<int>                 overlap{0, 0};
+    std::vector<ORB_SLAM3::keypoint> keypoints;
+    cv::Mat                          descriptors;
 
     extractor(image, cv::noArray(), keypoints, descriptors, overlap);
 
@@ -197,9 +197,9 @@ TEST_CASE("OpenCV descriptors are selectable independently of the detector", "[n
     cv::RNG            random(71);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     cv::GaussianBlur(image, image, cv::Size(3, 3), 0.7);
-    std::vector<int>          overlap{100, 200};
-    std::vector<cv::KeyPoint> keys;
-    cv::Mat                   descriptors;
+    std::vector<int>      overlap{100, 200};
+    std::vector<keypoint> keys;
+    cv::Mat               descriptors;
     extractor(image, cv::noArray(), keys, descriptors, overlap);
     REQUIRE_FALSE(keys.empty());
     REQUIRE(descriptors.rows == static_cast<int>(keys.size()));
@@ -208,10 +208,9 @@ TEST_CASE("OpenCV descriptors are selectable independently of the detector", "[n
     REQUIRE(extractor.get_place_descriptors().cols == 32);
     REQUIRE(descriptors.type() == (descriptor == keypoint_descriptor_type::sift ? CV_32F : CV_8U));
     REQUIRE(descriptors.cols == (descriptor == keypoint_descriptor_type::sift ? 128 : descriptor == keypoint_descriptor_type::brisk ? 64 : 32));
-    REQUIRE(extractor.get_display_keypoints().size() == keys.size());
-    std::vector<cv::KeyPoint> repeated_keys;
-    cv::Mat                   repeated_descriptors;
-    const auto                place_descriptors = extractor.get_place_descriptors().clone();
+    std::vector<keypoint> repeated_keys;
+    cv::Mat               repeated_descriptors;
+    const auto            place_descriptors = extractor.get_place_descriptors().clone();
     extractor(image, cv::noArray(), repeated_keys, repeated_descriptors, overlap);
     REQUIRE(cv::norm(descriptors, repeated_descriptors, cv::NORM_INF) == 0);
     REQUIRE(cv::norm(place_descriptors, extractor.get_place_descriptors(), cv::NORM_INF) == 0);
@@ -229,9 +228,9 @@ TEST_CASE("Keypoint extraction handles small pyramid levels", "[native_keypoints
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     cv::GaussianBlur(image, image, cv::Size(3, 3), 0.7);
 
-    std::vector<int>          overlap{0, 0};
-    std::vector<cv::KeyPoint> keypoints;
-    cv::Mat                   descriptors;
+    std::vector<int>                 overlap{0, 0};
+    std::vector<ORB_SLAM3::keypoint> keypoints;
+    cv::Mat                          descriptors;
 
     extractor(image, cv::noArray(), keypoints, descriptors, overlap);
 

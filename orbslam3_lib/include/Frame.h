@@ -23,6 +23,7 @@
 #include "Eigen/Core"
 #include "ImuTypes.h"
 #include "Settings.h"
+#include "keypoint.h"
 #include "place_vocabulary.h"
 #include "sophus/se3.hpp"
 
@@ -65,7 +66,7 @@ class Frame
     // Calibration/state for a new image, without detecting or describing features.
     Frame(Frame &previous, double timestamp);
     void extract_features(const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right = cv::Mat(), GeometricCamera *right_camera = nullptr);
-    void set_tracked_features(std::vector<cv::KeyPoint> keys, std::vector<MapPoint *> points, std::vector<cv::KeyPoint> native_keys = {});
+    void set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points);
     bool reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers = 50);
     bool flow_only{false};
     int  flow_candidates{};
@@ -233,11 +234,8 @@ class Frame
     // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
     // In the stereo case, mvKeysUn is redundant as images must be rectified.
     // In the RGB-D case, RGB images can be distorted.
-    std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
-    std::vector<cv::KeyPoint> mvKeysUn;
-
-    // Display-only detector metadata, aligned with mvKeys/mvKeysRight; never used for matching.
-    std::vector<cv::KeyPoint> display_keys, display_keys_right;
+    std::vector<keypoint> mvKeys, mvKeysRight;
+    std::vector<keypoint> mvKeysUn;
 
     // Corresponding stereo coordinate and depth for each keypoint.
     std::vector<MapPoint *> mvpMapPoints;

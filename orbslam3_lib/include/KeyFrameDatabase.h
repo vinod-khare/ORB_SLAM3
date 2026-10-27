@@ -29,10 +29,6 @@
 #include <set>
 #include <vector>
 
-#include <boost/serialization/base_object.hpp>
-#include <boost/serialization/list.hpp>
-#include <boost/serialization/vector.hpp>
-
 namespace ORB_SLAM3
 {
 
@@ -42,50 +38,39 @@ class Map;
 
 class KeyFrameDatabase
 {
-    friend class boost::serialization::access;
-
-    template <class Archive> void serialize(Archive &ar, const unsigned int version) { ar & mvBackupInvertedFileId; }
-
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     KeyFrameDatabase() {}
     KeyFrameDatabase(const place_vocabulary &voc);
 
-    void                    add(KeyFrame *pKF);
+    void add(KeyFrame *pKF);
 
-    void                    erase(KeyFrame *pKF);
+    void erase(KeyFrame *pKF);
 
-    void                    clear();
-    void                    clearMap(Map *pMap);
+    void clear();
+    void clearMap(Map *pMap);
 
     // Loop Detection(DEPRECATED)
     std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame *pKF, float minScore);
 
     // Loop and Merge Detection
-    void                    DetectCandidates(KeyFrame *pKF, float minScore, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand);
-    void                    DetectBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nMinWords);
-    void                    DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nNumCandidates);
+    void DetectCandidates(KeyFrame *pKF, float minScore, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand);
+    void DetectBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nMinWords);
+    void DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nNumCandidates);
 
     // Relocalization
     std::vector<KeyFrame *> DetectRelocalizationCandidates(Frame *F, Map *pMap);
 
-    void                    PreSave();
-    void                    PostLoad(map<long unsigned int, KeyFrame *> mpKFid);
-    void                    Setplace_vocabulary(place_vocabulary *pORBVoc);
-
   protected:
     // Associated vocabulary
-    const place_vocabulary              *mpVoc;
+    const place_vocabulary *mpVoc;
 
     // Inverted file
-    std::vector<list<KeyFrame *>>        mvInvertedFile;
-
-    // For save relation without pointer, this is necessary for save/load function
-    std::vector<list<long unsigned int>> mvBackupInvertedFileId;
+    std::vector<list<KeyFrame *>> mvInvertedFile;
 
     // Mutex
-    std::mutex                           mMutex;
+    std::mutex mMutex;
 };
 
 } // namespace ORB_SLAM3

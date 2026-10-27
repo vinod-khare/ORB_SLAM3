@@ -21,6 +21,7 @@
 
 #include "ImuTypes.h"
 #include "feature_overrides.h"
+#include "keypoint.h"
 #include "processing_statistics.h"
 
 #include <list>
@@ -60,13 +61,6 @@ class System
         IMU_MONOCULAR = 3,
         IMU_STEREO    = 4,
         IMU_RGBD      = 5,
-    };
-
-    // File type
-    enum FileType
-    {
-        TEXT_FILE   = 0,
-        BINARY_FILE = 1,
     };
 
   public:
@@ -163,9 +157,9 @@ class System
 
     // Information from most recent processed frame
     // You can call this right after TrackMonocular (or stereo or RGBD)
-    int                       GetTrackingState();
-    std::vector<MapPoint *>   GetTrackedMapPoints();
-    std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
+    int                     GetTrackingState();
+    std::vector<MapPoint *> GetTrackedMapPoints();
+    std::vector<keypoint>   GetTrackedKeyPointsUn();
 
     // For debugging
     double GetTimeFromIMUInit();
@@ -189,11 +183,6 @@ class System
     // Keep filename history aligned with tracker frame-pose history in System,
     // so Tracking remains unchanged.
     void RegisterFrameFilenameForExport(const string &filename);
-
-    void SaveAtlas(int type);
-    bool LoadAtlas(int type);
-
-    string CalculateCheckSum(string filename, int type);
 
     // Input sensor
     eSensor mSensor;
@@ -241,19 +230,16 @@ class System
     bool mbShutDown;
 
     // Tracking state
-    int                       mTrackingState;
-    std::vector<MapPoint *>   mTrackedMapPoints;
-    std::vector<cv::KeyPoint> mTrackedKeyPointsUn;
-    std::mutex                mMutexState;
+    int                     mTrackingState;
+    std::vector<MapPoint *> mTrackedMapPoints;
+    std::vector<keypoint>   mTrackedKeyPointsUn;
+    std::mutex              mMutexState;
 
     // One filename per tracked frame pose entry (same cardinality as
     // mpTracker->mlRelativeFramePoses when exported).
     std::list<string> mlFrameFilenames{};
 
     //
-    string mStrLoadAtlasFromFile;
-    string mStrSaveAtlasToFile;
-
     string mStrVocabularyFilePath;
 
     std::unique_ptr<Settings> settings_;

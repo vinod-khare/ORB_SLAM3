@@ -11,7 +11,9 @@ InsertBraces: true
 ColumnLimit: 192
 
 # ── Include sorting & grouping ───────────────────────────────────────────────
-SortIncludes: CaseSensitive
+SortIncludes:
+  Enabled: true
+  IgnoreCase: false
 IncludeBlocks: Regroup
 IncludeCategories:
   # Group 1 — Project-local quoted headers ("System.h", "folder_reader.h", …)

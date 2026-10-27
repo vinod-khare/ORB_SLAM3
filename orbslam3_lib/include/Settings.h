@@ -65,39 +65,39 @@ class Settings
     /*
      * Ostream operator overloading to dump settings to the terminal
      */
-    friend std::ostream     &operator<<(std::ostream &output, const Settings &s);
+    friend std::ostream &operator<<(std::ostream &output, const Settings &s);
 
     /*
      * Getter methods
      */
-    CameraType               cameraType() { return cameraType_; }
-    GeometricCamera         *camera1() { return calibration1_; }
-    GeometricCamera         *camera2() { return calibration2_; }
-    cv::Mat                  camera1DistortionCoef() { return cv::Mat(vPinHoleDistorsion1_.size(), 1, CV_32F, vPinHoleDistorsion1_.data()); }
-    cv::Mat                  camera2DistortionCoef() { return cv::Mat(vPinHoleDistorsion2_.size(), 1, CV_32F, vPinHoleDistorsion2_.data()); }
+    CameraType       cameraType() { return cameraType_; }
+    GeometricCamera *camera1() { return calibration1_; }
+    GeometricCamera *camera2() { return calibration2_; }
+    cv::Mat          camera1DistortionCoef() { return cv::Mat(vPinHoleDistorsion1_.size(), 1, CV_32F, vPinHoleDistorsion1_.data()); }
+    cv::Mat          camera2DistortionCoef() { return cv::Mat(vPinHoleDistorsion2_.size(), 1, CV_32F, vPinHoleDistorsion2_.data()); }
 
-    Sophus::SE3f             Tlr() { return Tlr_; }
-    float                    bf() { return bf_; }
-    float                    b() { return b_; }
-    float                    thDepth() { return thDepth_; }
+    Sophus::SE3f Tlr() { return Tlr_; }
+    float        bf() { return bf_; }
+    float        b() { return b_; }
+    float        thDepth() { return thDepth_; }
 
-    bool                     needToUndistort() { return bNeedToUndistort_; }
+    bool needToUndistort() { return bNeedToUndistort_; }
 
-    cv::Size                 newImSize() { return newImSize_; }
-    float                    fps() { return fps_; }
-    bool                     rgb() { return bRGB_; }
-    bool                     needToResize() { return bNeedToResize1_; }
-    bool                     needToRectify() { return bNeedToRectify_; }
+    cv::Size newImSize() { return newImSize_; }
+    float    fps() { return fps_; }
+    bool     rgb() { return bRGB_; }
+    bool     needToResize() { return bNeedToResize1_; }
+    bool     needToRectify() { return bNeedToRectify_; }
 
-    float                    noiseGyro() { return noiseGyro_; }
-    float                    noiseAcc() { return noiseAcc_; }
-    float                    gyroWalk() { return gyroWalk_; }
-    float                    accWalk() { return accWalk_; }
-    float                    imuFrequency() { return imuFrequency_; }
-    Sophus::SE3f             Tbc() { return Tbc_; }
-    bool                     insertKFsWhenLost() { return insertKFsWhenLost_; }
+    float        noiseGyro() { return noiseGyro_; }
+    float        noiseAcc() { return noiseAcc_; }
+    float        gyroWalk() { return gyroWalk_; }
+    float        accWalk() { return accWalk_; }
+    float        imuFrequency() { return imuFrequency_; }
+    Sophus::SE3f Tbc() { return Tbc_; }
+    bool         insertKFsWhenLost() { return insertKFsWhenLost_; }
 
-    float                    depthMapFactor() { return depthMapFactor_; }
+    float depthMapFactor() { return depthMapFactor_; }
 
     int                      nFeatures() { return nFeatures_; }
     int                      nLevels() { return nLevels_; }
@@ -110,15 +110,12 @@ class Settings
     bool                     use_optical_flow() const { return _use_optical_flow; }
     int                      dbow_version() const { return _dbow_version; }
 
-    std::string              atlasLoadFile() { return sLoadFrom_; }
-    std::string              atlasSaveFile() { return sSaveto_; }
+    float thFarPoints() { return thFarPoints_; }
 
-    float                    thFarPoints() { return thFarPoints_; }
-
-    cv::Mat                  M1l() { return M1l_; }
-    cv::Mat                  M2l() { return M2l_; }
-    cv::Mat                  M1r() { return M1r_; }
-    cv::Mat                  M2r() { return M2r_; }
+    cv::Mat M1l() { return M1l_; }
+    cv::Mat M2l() { return M2l_; }
+    cv::Mat M1r() { return M1r_; }
+    cv::Mat M2r() { return M2r_; }
 
   private:
     template <typename T> T readParameter(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required = true)
@@ -145,19 +142,18 @@ class Settings
         }
     }
 
-    void                             read_cameras(cv::FileStorage &settings);
-    void                             readImageInfo(cv::FileStorage &fSettings);
-    void                             read_imu(cv::FileStorage &settings, const std::string &config_file);
-    void                             readRGBD(cv::FileStorage &fSettings);
-    void                             read_features(cv::FileStorage &fSettings, const std::string &config_file, const feature_overrides &overrides);
-    void                             readLoadAndSave(cv::FileStorage &fSettings);
-    void                             readOtherParameters(cv::FileStorage &fSettings);
+    void read_cameras(cv::FileStorage &settings);
+    void readImageInfo(cv::FileStorage &fSettings);
+    void read_imu(cv::FileStorage &settings, const std::string &config_file);
+    void readRGBD(cv::FileStorage &fSettings);
+    void read_features(cv::FileStorage &fSettings, const std::string &config_file, const feature_overrides &overrides);
+    void readOtherParameters(cv::FileStorage &fSettings);
 
-    void                             precomputeRectificationMaps();
+    void precomputeRectificationMaps();
 
-    int                              sensor_;
-    std::filesystem::path            _calibration_file; // Kalibr camchain file
-    CameraType                       cameraType_;       // Camera type
+    int                   sensor_;
+    std::filesystem::path _calibration_file; // Kalibr camchain file
+    CameraType            cameraType_;       // Camera type
 
     /*
      * Visual stuff
@@ -166,60 +162,55 @@ class Settings
     std::unique_ptr<GeometricCamera> originalCalib1_, originalCalib2_;
     std::vector<float>               vPinHoleDistorsion1_, vPinHoleDistorsion2_;
 
-    cv::Size                         originalImSize_, newImSize_;
-    float                            fps_;
-    bool                             bRGB_;
+    cv::Size originalImSize_, newImSize_;
+    float    fps_;
+    bool     bRGB_;
 
-    bool                             bNeedToUndistort_;
-    bool                             bNeedToRectify_;
-    bool                             bNeedToResize1_, bNeedToResize2_;
+    bool bNeedToUndistort_;
+    bool bNeedToRectify_;
+    bool bNeedToResize1_, bNeedToResize2_;
 
-    Sophus::SE3f                     Tlr_;
-    float                            thDepth_;
-    float                            bf_, b_;
+    Sophus::SE3f Tlr_;
+    float        thDepth_;
+    float        bf_, b_;
 
     /*
      * Rectification stuff
      */
-    cv::Mat                          M1l_, M2l_;
-    cv::Mat                          M1r_, M2r_;
+    cv::Mat M1l_, M2l_;
+    cv::Mat M1r_, M2r_;
 
     /*
      * Inertial stuff
      */
-    float                            noiseGyro_, noiseAcc_;
-    float                            gyroWalk_, accWalk_;
-    float                            imuFrequency_;
-    Sophus::SE3f                     Tbc_;
-    bool                             insertKFsWhenLost_;
+    float        noiseGyro_, noiseAcc_;
+    float        gyroWalk_, accWalk_;
+    float        imuFrequency_;
+    Sophus::SE3f Tbc_;
+    bool         insertKFsWhenLost_;
 
     /*
      * RGBD stuff
      */
-    float                            depthMapFactor_;
+    float depthMapFactor_;
 
     /*
      * ORB stuff
      */
-    int                              nFeatures_;
-    float                            scaleFactor_;
-    int                              nLevels_;
-    int                              initThFAST_, minThFAST_;
-    int                              _dbow_version{2};
-    keypoint_detector_type           _keypoint_detector;
-    keypoint_descriptor_type         _keypoint_descriptor{keypoint_descriptor_type::orb};
-    descriptor_matcher_type          _descriptor_matcher{descriptor_matcher_type::brute_force};
-    bool                             _use_optical_flow{false};
-
-    /*
-     * Save & load maps
-     */
-    std::string                      sLoadFrom_, sSaveto_;
+    int                      nFeatures_;
+    float                    scaleFactor_;
+    int                      nLevels_;
+    int                      initThFAST_, minThFAST_;
+    int                      _dbow_version{2};
+    keypoint_detector_type   _keypoint_detector;
+    keypoint_descriptor_type _keypoint_descriptor{keypoint_descriptor_type::orb};
+    descriptor_matcher_type  _descriptor_matcher{descriptor_matcher_type::brute_force};
+    bool                     _use_optical_flow{false};
 
     /*
      * Other stuff
      */
-    float                            thFarPoints_;
+    float thFarPoints_;
 };
 }; // namespace ORB_SLAM3
 

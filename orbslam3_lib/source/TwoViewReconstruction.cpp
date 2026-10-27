@@ -29,7 +29,7 @@ namespace ORB_SLAM3
 {
 TwoViewReconstruction::TwoViewReconstruction(const Eigen::Matrix3f &k, float sigma, int iterations)
 {
-    mK             = k;
+    mK = k;
 
     mSigma         = sigma;
     mSigma2        = sigma * sigma;
@@ -42,8 +42,18 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint> &vKeys1,
     mvKeys1.clear();
     mvKeys2.clear();
 
-    mvKeys1 = vKeys1;
-    mvKeys2 = vKeys2;
+    mvKeys1.clear();
+    mvKeys2.clear();
+    mvKeys1.reserve(vKeys1.size());
+    mvKeys2.reserve(vKeys2.size());
+    for (const auto &key : vKeys1)
+    {
+        mvKeys1.emplace_back(key);
+    }
+    for (const auto &key : vKeys2)
+    {
+        mvKeys2.emplace_back(key);
+    }
 
     // Fill structures with current keypoints and matches with reference frame
     // Reference Frame: 1, Current Frame: 2
@@ -63,7 +73,7 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint> &vKeys1,
         }
     }
 
-    const int      N = mvMatches12.size();
+    const int N = mvMatches12.size();
 
     // Indices for minimum set selection
     vector<size_t> vAllIndices;
@@ -87,10 +97,10 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint> &vKeys1,
         // Select a minimum set
         for (size_t j = 0; j < 8; j++)
         {
-            int randi                = DUtils::Random::RandomInt(0, vAvailableIndices.size() - 1);
-            int idx                  = vAvailableIndices[randi];
+            int randi = DUtils::Random::RandomInt(0, vAvailableIndices.size() - 1);
+            int idx   = vAvailableIndices[randi];
 
-            mvSets[it][j]            = idx;
+            mvSets[it][j] = idx;
 
             vAvailableIndices[randi] = vAvailableIndices.back();
             vAvailableIndices.pop_back();
@@ -102,8 +112,8 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint> &vKeys1,
     float           SH, SF;
     Eigen::Matrix3f H, F;
 
-    thread          threadH(&TwoViewReconstruction::FindHomography, this, ref(vbMatchesInliersH), ref(SH), ref(H));
-    thread          threadF(&TwoViewReconstruction::FindFundamental, this, ref(vbMatchesInliersF), ref(SF), ref(F));
+    thread threadH(&TwoViewReconstruction::FindHomography, this, ref(vbMatchesInliersH), ref(SH), ref(H));
+    thread threadF(&TwoViewReconstruction::FindFundamental, this, ref(vbMatchesInliersF), ref(SF), ref(F));
 
     // Wait until both threads have finished
     threadH.join();
@@ -114,7 +124,7 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint> &vKeys1,
     {
         return false;
     }
-    float RH          = SH / (SH + SF);
+    float RH = SH / (SH + SF);
 
     float minParallax = 1.0;
 
@@ -132,7 +142,7 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint> &vKeys1,
 void TwoViewReconstruction::FindHomography(vector<bool> &vbMatchesInliers, float &score, Eigen::Matrix3f &H21)
 {
     // Number of putative matches
-    const int           N = mvMatches12.size();
+    const int N = mvMatches12.size();
 
     // Normalize coordinates
     vector<cv::Point2f> vPn1, vPn2;
@@ -142,8 +152,8 @@ void TwoViewReconstruction::FindHomography(vector<bool> &vbMatchesInliers, float
     Eigen::Matrix3f T2inv = T2.inverse();
 
     // Best Results variables
-    score                 = 0.0;
-    vbMatchesInliers      = vector<bool>(N, false);
+    score            = 0.0;
+    vbMatchesInliers = vector<bool>(N, false);
 
     // Iteration variables
     vector<cv::Point2f> vPn1i(8);
@@ -158,7 +168,7 @@ void TwoViewReconstruction::FindHomography(vector<bool> &vbMatchesInliers, float
         // Select a minimum set
         for (size_t j = 0; j < 8; j++)
         {
-            int idx  = mvSets[it][j];
+            int idx = mvSets[it][j];
 
             vPn1i[j] = vPn1[mvMatches12[idx].first];
             vPn2i[j] = vPn2[mvMatches12[idx].second];
@@ -168,7 +178,7 @@ void TwoViewReconstruction::FindHomography(vector<bool> &vbMatchesInliers, float
         H21i               = T2inv * Hn * T1;
         H12i               = H21i.inverse();
 
-        currentScore       = CheckHomography(H21i, H12i, vbCurrentInliers, mSigma);
+        currentScore = CheckHomography(H21i, H12i, vbCurrentInliers, mSigma);
 
         if (currentScore > score)
         {
@@ -182,7 +192,7 @@ void TwoViewReconstruction::FindHomography(vector<bool> &vbMatchesInliers, float
 void TwoViewReconstruction::FindFundamental(vector<bool> &vbMatchesInliers, float &score, Eigen::Matrix3f &F21)
 {
     // Number of putative matches
-    const int           N = vbMatchesInliers.size();
+    const int N = vbMatchesInliers.size();
 
     // Normalize coordinates
     vector<cv::Point2f> vPn1, vPn2;
@@ -192,8 +202,8 @@ void TwoViewReconstruction::FindFundamental(vector<bool> &vbMatchesInliers, floa
     Eigen::Matrix3f T2t = T2.transpose();
 
     // Best Results variables
-    score               = 0.0;
-    vbMatchesInliers    = vector<bool>(N, false);
+    score            = 0.0;
+    vbMatchesInliers = vector<bool>(N, false);
 
     // Iteration variables
     vector<cv::Point2f> vPn1i(8);
@@ -208,7 +218,7 @@ void TwoViewReconstruction::FindFundamental(vector<bool> &vbMatchesInliers, floa
         // Select a minimum set
         for (int j = 0; j < 8; j++)
         {
-            int idx  = mvSets[it][j];
+            int idx = mvSets[it][j];
 
             vPn1i[j] = vPn1[mvMatches12[idx].first];
             vPn2i[j] = vPn2[mvMatches12[idx].second];
@@ -216,9 +226,9 @@ void TwoViewReconstruction::FindFundamental(vector<bool> &vbMatchesInliers, floa
 
         Eigen::Matrix3f Fn = ComputeF21(vPn1i, vPn2i);
 
-        F21i               = T2t * Fn * T1;
+        F21i = T2t * Fn * T1;
 
-        currentScore       = CheckFundamental(F21i, vbCurrentInliers, mSigma);
+        currentScore = CheckFundamental(F21i, vbCurrentInliers, mSigma);
 
         if (currentScore > score)
         {
@@ -231,26 +241,26 @@ void TwoViewReconstruction::FindFundamental(vector<bool> &vbMatchesInliers, floa
 
 Eigen::Matrix3f TwoViewReconstruction::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2)
 {
-    const int       N = vP1.size();
+    const int N = vP1.size();
 
     Eigen::MatrixXf A(2 * N, 9);
 
     for (int i = 0; i < N; i++)
     {
-        const float u1  = vP1[i].x;
-        const float v1  = vP1[i].y;
-        const float u2  = vP2[i].x;
-        const float v2  = vP2[i].y;
+        const float u1 = vP1[i].x;
+        const float v1 = vP1[i].y;
+        const float u2 = vP2[i].x;
+        const float v2 = vP2[i].y;
 
-        A(2 * i, 0)     = 0.0;
-        A(2 * i, 1)     = 0.0;
-        A(2 * i, 2)     = 0.0;
-        A(2 * i, 3)     = -u1;
-        A(2 * i, 4)     = -v1;
-        A(2 * i, 5)     = -1;
-        A(2 * i, 6)     = v2 * u1;
-        A(2 * i, 7)     = v2 * v1;
-        A(2 * i, 8)     = v2;
+        A(2 * i, 0) = 0.0;
+        A(2 * i, 1) = 0.0;
+        A(2 * i, 2) = 0.0;
+        A(2 * i, 3) = -u1;
+        A(2 * i, 4) = -v1;
+        A(2 * i, 5) = -1;
+        A(2 * i, 6) = v2 * u1;
+        A(2 * i, 7) = v2 * v1;
+        A(2 * i, 8) = v2;
 
         A(2 * i + 1, 0) = u1;
         A(2 * i + 1, 1) = v1;
@@ -263,7 +273,7 @@ Eigen::Matrix3f TwoViewReconstruction::ComputeH21(const vector<cv::Point2f> &vP1
         A(2 * i + 1, 8) = -u2;
     }
 
-    Eigen::JacobiSVD<Eigen::MatrixXf>           svd(A, Eigen::ComputeFullV);
+    Eigen::JacobiSVD<Eigen::MatrixXf> svd(A, Eigen::ComputeFullV);
 
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> H(svd.matrixV().col(8).data());
 
@@ -272,7 +282,7 @@ Eigen::Matrix3f TwoViewReconstruction::ComputeH21(const vector<cv::Point2f> &vP1
 
 Eigen::Matrix3f TwoViewReconstruction::ComputeF21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2)
 {
-    const int       N = vP1.size();
+    const int N = vP1.size();
 
     Eigen::MatrixXf A(N, 9);
 
@@ -283,42 +293,42 @@ Eigen::Matrix3f TwoViewReconstruction::ComputeF21(const vector<cv::Point2f> &vP1
         const float u2 = vP2[i].x;
         const float v2 = vP2[i].y;
 
-        A(i, 0)        = u2 * u1;
-        A(i, 1)        = u2 * v1;
-        A(i, 2)        = u2;
-        A(i, 3)        = v2 * u1;
-        A(i, 4)        = v2 * v1;
-        A(i, 5)        = v2;
-        A(i, 6)        = u1;
-        A(i, 7)        = v1;
-        A(i, 8)        = 1;
+        A(i, 0) = u2 * u1;
+        A(i, 1) = u2 * v1;
+        A(i, 2) = u2;
+        A(i, 3) = v2 * u1;
+        A(i, 4) = v2 * v1;
+        A(i, 5) = v2;
+        A(i, 6) = u1;
+        A(i, 7) = v1;
+        A(i, 8) = 1;
     }
 
-    Eigen::JacobiSVD<Eigen::MatrixXf>           svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::JacobiSVD<Eigen::MatrixXf> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
 
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Fpre(svd.matrixV().col(8).data());
 
-    Eigen::JacobiSVD<Eigen::Matrix3f>           svd2(Fpre, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::JacobiSVD<Eigen::Matrix3f> svd2(Fpre, Eigen::ComputeFullU | Eigen::ComputeFullV);
 
-    Eigen::Vector3f                             w = svd2.singularValues();
-    w(2)                                          = 0;
+    Eigen::Vector3f w = svd2.singularValues();
+    w(2)              = 0;
 
     return svd2.matrixU() * Eigen::DiagonalMatrix<float, 3>(w) * svd2.matrixV().transpose();
 }
 
 float TwoViewReconstruction::CheckHomography(const Eigen::Matrix3f &H21, const Eigen::Matrix3f &H12, vector<bool> &vbMatchesInliers, float sigma)
 {
-    const int   N      = mvMatches12.size();
+    const int N = mvMatches12.size();
 
-    const float h11    = H21(0, 0);
-    const float h12    = H21(0, 1);
-    const float h13    = H21(0, 2);
-    const float h21    = H21(1, 0);
-    const float h22    = H21(1, 1);
-    const float h23    = H21(1, 2);
-    const float h31    = H21(2, 0);
-    const float h32    = H21(2, 1);
-    const float h33    = H21(2, 2);
+    const float h11 = H21(0, 0);
+    const float h12 = H21(0, 1);
+    const float h13 = H21(0, 2);
+    const float h21 = H21(1, 0);
+    const float h22 = H21(1, 1);
+    const float h23 = H21(1, 2);
+    const float h31 = H21(2, 0);
+    const float h32 = H21(2, 1);
+    const float h33 = H21(2, 2);
 
     const float h11inv = H12(0, 0);
     const float h12inv = H12(0, 1);
@@ -332,34 +342,34 @@ float TwoViewReconstruction::CheckHomography(const Eigen::Matrix3f &H21, const E
 
     vbMatchesInliers.resize(N);
 
-    float       score          = 0;
+    float score = 0;
 
-    const float th             = 5.991;
+    const float th = 5.991;
 
     const float invSigmaSquare = 1.0 / (sigma * sigma);
 
     for (int i = 0; i < N; i++)
     {
-        bool                bIn         = true;
+        bool bIn = true;
 
-        const cv::KeyPoint &kp1         = mvKeys1[mvMatches12[i].first];
-        const cv::KeyPoint &kp2         = mvKeys2[mvMatches12[i].second];
+        const cv::KeyPoint &kp1 = mvKeys1[mvMatches12[i].first];
+        const cv::KeyPoint &kp2 = mvKeys2[mvMatches12[i].second];
 
-        const float         u1          = kp1.pt.x;
-        const float         v1          = kp1.pt.y;
-        const float         u2          = kp2.pt.x;
-        const float         v2          = kp2.pt.y;
+        const float u1 = kp1.pt.x;
+        const float v1 = kp1.pt.y;
+        const float u2 = kp2.pt.x;
+        const float v2 = kp2.pt.y;
 
         // Reprojection error in first image
         // x2in1 = H12*x2
 
-        const float         w2in1inv    = 1.0 / (h31inv * u2 + h32inv * v2 + h33inv);
-        const float         u2in1       = (h11inv * u2 + h12inv * v2 + h13inv) * w2in1inv;
-        const float         v2in1       = (h21inv * u2 + h22inv * v2 + h23inv) * w2in1inv;
+        const float w2in1inv = 1.0 / (h31inv * u2 + h32inv * v2 + h33inv);
+        const float u2in1    = (h11inv * u2 + h12inv * v2 + h13inv) * w2in1inv;
+        const float v2in1    = (h21inv * u2 + h22inv * v2 + h23inv) * w2in1inv;
 
-        const float         squareDist1 = (u1 - u2in1) * (u1 - u2in1) + (v1 - v2in1) * (v1 - v2in1);
+        const float squareDist1 = (u1 - u2in1) * (u1 - u2in1) + (v1 - v2in1) * (v1 - v2in1);
 
-        const float         chiSquare1  = squareDist1 * invSigmaSquare;
+        const float chiSquare1 = squareDist1 * invSigmaSquare;
 
         if (chiSquare1 > th)
         {
@@ -373,13 +383,13 @@ float TwoViewReconstruction::CheckHomography(const Eigen::Matrix3f &H21, const E
         // Reprojection error in second image
         // x1in2 = H21*x1
 
-        const float w1in2inv    = 1.0 / (h31 * u1 + h32 * v1 + h33);
-        const float u1in2       = (h11 * u1 + h12 * v1 + h13) * w1in2inv;
-        const float v1in2       = (h21 * u1 + h22 * v1 + h23) * w1in2inv;
+        const float w1in2inv = 1.0 / (h31 * u1 + h32 * v1 + h33);
+        const float u1in2    = (h11 * u1 + h12 * v1 + h13) * w1in2inv;
+        const float v1in2    = (h21 * u1 + h22 * v1 + h23) * w1in2inv;
 
         const float squareDist2 = (u2 - u1in2) * (u2 - u1in2) + (v2 - v1in2) * (v2 - v1in2);
 
-        const float chiSquare2  = squareDist2 * invSigmaSquare;
+        const float chiSquare2 = squareDist2 * invSigmaSquare;
 
         if (chiSquare2 > th)
         {
@@ -405,7 +415,7 @@ float TwoViewReconstruction::CheckHomography(const Eigen::Matrix3f &H21, const E
 
 float TwoViewReconstruction::CheckFundamental(const Eigen::Matrix3f &F21, vector<bool> &vbMatchesInliers, float sigma)
 {
-    const int   N   = mvMatches12.size();
+    const int N = mvMatches12.size();
 
     const float f11 = F21(0, 0);
     const float f12 = F21(0, 1);
@@ -419,37 +429,37 @@ float TwoViewReconstruction::CheckFundamental(const Eigen::Matrix3f &F21, vector
 
     vbMatchesInliers.resize(N);
 
-    float       score          = 0;
+    float score = 0;
 
-    const float th             = 3.841;
-    const float thScore        = 5.991;
+    const float th      = 3.841;
+    const float thScore = 5.991;
 
     const float invSigmaSquare = 1.0 / (sigma * sigma);
 
     for (int i = 0; i < N; i++)
     {
-        bool                bIn         = true;
+        bool bIn = true;
 
-        const cv::KeyPoint &kp1         = mvKeys1[mvMatches12[i].first];
-        const cv::KeyPoint &kp2         = mvKeys2[mvMatches12[i].second];
+        const cv::KeyPoint &kp1 = mvKeys1[mvMatches12[i].first];
+        const cv::KeyPoint &kp2 = mvKeys2[mvMatches12[i].second];
 
-        const float         u1          = kp1.pt.x;
-        const float         v1          = kp1.pt.y;
-        const float         u2          = kp2.pt.x;
-        const float         v2          = kp2.pt.y;
+        const float u1 = kp1.pt.x;
+        const float v1 = kp1.pt.y;
+        const float u2 = kp2.pt.x;
+        const float v2 = kp2.pt.y;
 
         // Reprojection error in second image
         // l2=F21x1=(a2,b2,c2)
 
-        const float         a2          = f11 * u1 + f12 * v1 + f13;
-        const float         b2          = f21 * u1 + f22 * v1 + f23;
-        const float         c2          = f31 * u1 + f32 * v1 + f33;
+        const float a2 = f11 * u1 + f12 * v1 + f13;
+        const float b2 = f21 * u1 + f22 * v1 + f23;
+        const float c2 = f31 * u1 + f32 * v1 + f33;
 
-        const float         num2        = a2 * u2 + b2 * v2 + c2;
+        const float num2 = a2 * u2 + b2 * v2 + c2;
 
-        const float         squareDist1 = num2 * num2 / (a2 * a2 + b2 * b2);
+        const float squareDist1 = num2 * num2 / (a2 * a2 + b2 * b2);
 
-        const float         chiSquare1  = squareDist1 * invSigmaSquare;
+        const float chiSquare1 = squareDist1 * invSigmaSquare;
 
         if (chiSquare1 > th)
         {
@@ -463,15 +473,15 @@ float TwoViewReconstruction::CheckFundamental(const Eigen::Matrix3f &F21, vector
         // Reprojection error in second image
         // l1 =x2tF21=(a1,b1,c1)
 
-        const float a1          = f11 * u2 + f21 * v2 + f31;
-        const float b1          = f12 * u2 + f22 * v2 + f32;
-        const float c1          = f13 * u2 + f23 * v2 + f33;
+        const float a1 = f11 * u2 + f21 * v2 + f31;
+        const float b1 = f12 * u2 + f22 * v2 + f32;
+        const float c1 = f13 * u2 + f23 * v2 + f33;
 
-        const float num1        = a1 * u1 + b1 * v1 + c1;
+        const float num1 = a1 * u1 + b1 * v1 + c1;
 
         const float squareDist2 = num1 * num1 / (a1 * a1 + b1 * b1);
 
-        const float chiSquare2  = squareDist2 * invSigmaSquare;
+        const float chiSquare2 = squareDist2 * invSigmaSquare;
 
         if (chiSquare2 > th)
         {
@@ -516,24 +526,24 @@ bool TwoViewReconstruction::ReconstructF(vector<bool> &vbMatchesInliers, Eigen::
     // Recover the 4 motion hypotheses
     DecomposeE(E21, R1, R2, t);
 
-    Eigen::Vector3f     t1 = t;
-    Eigen::Vector3f     t2 = -t;
+    Eigen::Vector3f t1 = t;
+    Eigen::Vector3f t2 = -t;
 
     // Reconstruct with the 4 hyphoteses and check
     vector<cv::Point3f> vP3D1, vP3D2, vP3D3, vP3D4;
     vector<bool>        vbTriangulated1, vbTriangulated2, vbTriangulated3, vbTriangulated4;
     float               parallax1, parallax2, parallax3, parallax4;
 
-    int                 nGood1   = CheckRT(R1, t1, mvKeys1, mvKeys2, mvMatches12, vbMatchesInliers, K, vP3D1, 4.0 * mSigma2, vbTriangulated1, parallax1);
-    int                 nGood2   = CheckRT(R2, t1, mvKeys1, mvKeys2, mvMatches12, vbMatchesInliers, K, vP3D2, 4.0 * mSigma2, vbTriangulated2, parallax2);
-    int                 nGood3   = CheckRT(R1, t2, mvKeys1, mvKeys2, mvMatches12, vbMatchesInliers, K, vP3D3, 4.0 * mSigma2, vbTriangulated3, parallax3);
-    int                 nGood4   = CheckRT(R2, t2, mvKeys1, mvKeys2, mvMatches12, vbMatchesInliers, K, vP3D4, 4.0 * mSigma2, vbTriangulated4, parallax4);
+    int nGood1 = CheckRT(R1, t1, mvKeys1, mvKeys2, mvMatches12, vbMatchesInliers, K, vP3D1, 4.0 * mSigma2, vbTriangulated1, parallax1);
+    int nGood2 = CheckRT(R2, t1, mvKeys1, mvKeys2, mvMatches12, vbMatchesInliers, K, vP3D2, 4.0 * mSigma2, vbTriangulated2, parallax2);
+    int nGood3 = CheckRT(R1, t2, mvKeys1, mvKeys2, mvMatches12, vbMatchesInliers, K, vP3D3, 4.0 * mSigma2, vbTriangulated3, parallax3);
+    int nGood4 = CheckRT(R2, t2, mvKeys1, mvKeys2, mvMatches12, vbMatchesInliers, K, vP3D4, 4.0 * mSigma2, vbTriangulated4, parallax4);
 
-    int                 maxGood  = max(nGood1, max(nGood2, max(nGood3, nGood4)));
+    int maxGood = max(nGood1, max(nGood2, max(nGood3, nGood4)));
 
-    int                 nMinGood = max(static_cast<int>(0.9 * N), minTriangulated);
+    int nMinGood = max(static_cast<int>(0.9 * N), minTriangulated);
 
-    int                 nsimilar = 0;
+    int nsimilar = 0;
     if (nGood1 > 0.7 * maxGood)
     {
         nsimilar++;
@@ -565,7 +575,7 @@ bool TwoViewReconstruction::ReconstructF(vector<bool> &vbMatchesInliers, Eigen::
             vP3D           = vP3D1;
             vbTriangulated = vbTriangulated1;
 
-            T21            = Sophus::SE3f(R1, t1);
+            T21 = Sophus::SE3f(R1, t1);
             return true;
         }
     }
@@ -576,7 +586,7 @@ bool TwoViewReconstruction::ReconstructF(vector<bool> &vbMatchesInliers, Eigen::
             vP3D           = vP3D2;
             vbTriangulated = vbTriangulated2;
 
-            T21            = Sophus::SE3f(R2, t1);
+            T21 = Sophus::SE3f(R2, t1);
             return true;
         }
     }
@@ -587,7 +597,7 @@ bool TwoViewReconstruction::ReconstructF(vector<bool> &vbMatchesInliers, Eigen::
             vP3D           = vP3D3;
             vbTriangulated = vbTriangulated3;
 
-            T21            = Sophus::SE3f(R1, t2);
+            T21 = Sophus::SE3f(R1, t2);
             return true;
         }
     }
@@ -598,7 +608,7 @@ bool TwoViewReconstruction::ReconstructF(vector<bool> &vbMatchesInliers, Eigen::
             vP3D           = vP3D4;
             vbTriangulated = vbTriangulated4;
 
-            T21            = Sophus::SE3f(R2, t2);
+            T21 = Sophus::SE3f(R2, t2);
             return true;
         }
     }
@@ -621,8 +631,8 @@ bool TwoViewReconstruction::ReconstructH(vector<bool> &vbMatchesInliers, Eigen::
     // We recover 8 motion hypotheses using the method of Faugeras et al.
     // Motion and structure from motion in a piecewise planar environment.
     // International Journal of Pattern Recognition and Artificial Intelligence, 1988
-    Eigen::Matrix3f                   invK = K.inverse();
-    Eigen::Matrix3f                   A    = invK * H21 * K;
+    Eigen::Matrix3f invK = K.inverse();
+    Eigen::Matrix3f A    = invK * H21 * K;
 
     Eigen::JacobiSVD<Eigen::Matrix3f> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
     Eigen::Matrix3f                   U  = svd.matrixU();
@@ -630,11 +640,11 @@ bool TwoViewReconstruction::ReconstructH(vector<bool> &vbMatchesInliers, Eigen::
     Eigen::Matrix3f                   Vt = V.transpose();
     Eigen::Vector3f                   w  = svd.singularValues();
 
-    float                             s  = U.determinant() * Vt.determinant();
+    float s = U.determinant() * Vt.determinant();
 
-    float                             d1 = w(0);
-    float                             d2 = w(1);
-    float                             d3 = w(2);
+    float d1 = w(0);
+    float d2 = w(1);
+    float d3 = w(2);
 
     if (d1 / d2 < 1.00001 || d2 / d3 < 1.00001)
     {
@@ -648,43 +658,43 @@ bool TwoViewReconstruction::ReconstructH(vector<bool> &vbMatchesInliers, Eigen::
     vn.reserve(8);
 
     // n'=[x1 0 x3] 4 posibilities e1=e3=1, e1=1 e3=-1, e1=-1 e3=1, e1=e3=-1
-    float aux1       = sqrt((d1 * d1 - d2 * d2) / (d1 * d1 - d3 * d3));
-    float aux3       = sqrt((d2 * d2 - d3 * d3) / (d1 * d1 - d3 * d3));
-    float x1[]       = {aux1, aux1, -aux1, -aux1};
-    float x3[]       = {aux3, -aux3, aux3, -aux3};
+    float aux1 = sqrt((d1 * d1 - d2 * d2) / (d1 * d1 - d3 * d3));
+    float aux3 = sqrt((d2 * d2 - d3 * d3) / (d1 * d1 - d3 * d3));
+    float x1[] = {aux1, aux1, -aux1, -aux1};
+    float x3[] = {aux3, -aux3, aux3, -aux3};
 
     // case d'=d2
     float aux_stheta = sqrt((d1 * d1 - d2 * d2) * (d2 * d2 - d3 * d3)) / ((d1 + d3) * d2);
 
-    float ctheta     = (d2 * d2 + d1 * d3) / ((d1 + d3) * d2);
-    float stheta[]   = {aux_stheta, -aux_stheta, -aux_stheta, aux_stheta};
+    float ctheta   = (d2 * d2 + d1 * d3) / ((d1 + d3) * d2);
+    float stheta[] = {aux_stheta, -aux_stheta, -aux_stheta, aux_stheta};
 
     for (int i = 0; i < 4; i++)
     {
         Eigen::Matrix3f Rp;
         Rp.setZero();
-        Rp(0, 0)          = ctheta;
-        Rp(0, 2)          = -stheta[i];
-        Rp(1, 1)          = 1.f;
-        Rp(2, 0)          = stheta[i];
-        Rp(2, 2)          = ctheta;
+        Rp(0, 0) = ctheta;
+        Rp(0, 2) = -stheta[i];
+        Rp(1, 1) = 1.f;
+        Rp(2, 0) = stheta[i];
+        Rp(2, 2) = ctheta;
 
         Eigen::Matrix3f R = s * U * Rp * Vt;
         vR.push_back(R);
 
         Eigen::Vector3f tp;
-        tp(0)              = x1[i];
-        tp(1)              = 0;
-        tp(2)              = -x3[i];
-        tp                *= d1 - d3;
+        tp(0)  = x1[i];
+        tp(1)  = 0;
+        tp(2)  = -x3[i];
+        tp    *= d1 - d3;
 
-        Eigen::Vector3f t  = U * tp;
+        Eigen::Vector3f t = U * tp;
         vt.push_back(t / t.norm());
 
         Eigen::Vector3f np;
-        np(0)             = x1[i];
-        np(1)             = 0;
-        np(2)             = x3[i];
+        np(0) = x1[i];
+        np(1) = 0;
+        np(2) = x3[i];
 
         Eigen::Vector3f n = V * np;
         if (n(2) < 0)
@@ -697,35 +707,35 @@ bool TwoViewReconstruction::ReconstructH(vector<bool> &vbMatchesInliers, Eigen::
     // case d'=-d2
     float aux_sphi = sqrt((d1 * d1 - d2 * d2) * (d2 * d2 - d3 * d3)) / ((d1 - d3) * d2);
 
-    float cphi     = (d1 * d3 - d2 * d2) / ((d1 - d3) * d2);
-    float sphi[]   = {aux_sphi, -aux_sphi, -aux_sphi, aux_sphi};
+    float cphi   = (d1 * d3 - d2 * d2) / ((d1 - d3) * d2);
+    float sphi[] = {aux_sphi, -aux_sphi, -aux_sphi, aux_sphi};
 
     for (int i = 0; i < 4; i++)
     {
         Eigen::Matrix3f Rp;
         Rp.setZero();
-        Rp(0, 0)          = cphi;
-        Rp(0, 2)          = sphi[i];
-        Rp(1, 1)          = -1;
-        Rp(2, 0)          = sphi[i];
-        Rp(2, 2)          = -cphi;
+        Rp(0, 0) = cphi;
+        Rp(0, 2) = sphi[i];
+        Rp(1, 1) = -1;
+        Rp(2, 0) = sphi[i];
+        Rp(2, 2) = -cphi;
 
         Eigen::Matrix3f R = s * U * Rp * Vt;
         vR.push_back(R);
 
         Eigen::Vector3f tp;
-        tp(0)              = x1[i];
-        tp(1)              = 0;
-        tp(2)              = x3[i];
-        tp                *= d1 + d3;
+        tp(0)  = x1[i];
+        tp(1)  = 0;
+        tp(2)  = x3[i];
+        tp    *= d1 + d3;
 
-        Eigen::Vector3f t  = U * tp;
+        Eigen::Vector3f t = U * tp;
         vt.push_back(t / t.norm());
 
         Eigen::Vector3f np;
-        np(0)             = x1[i];
-        np(1)             = 0;
-        np(2)             = x3[i];
+        np(0) = x1[i];
+        np(1) = 0;
+        np(2) = x3[i];
 
         Eigen::Vector3f n = V * np;
         if (n(2) < 0)
@@ -777,7 +787,7 @@ bool TwoViewReconstruction::ReconstructH(vector<bool> &vbMatchesInliers, Eigen::
     return false;
 }
 
-void TwoViewReconstruction::Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2f> &vNormalizedPoints, Eigen::Matrix3f &T)
+void TwoViewReconstruction::Normalize(const vector<keypoint> &vKeys, vector<cv::Point2f> &vNormalizedPoints, Eigen::Matrix3f &T)
 {
     float     meanX = 0;
     float     meanY = 0;
@@ -791,19 +801,19 @@ void TwoViewReconstruction::Normalize(const vector<cv::KeyPoint> &vKeys, vector<
         meanY += vKeys[i].pt.y;
     }
 
-    meanX          = meanX / N;
-    meanY          = meanY / N;
+    meanX = meanX / N;
+    meanY = meanY / N;
 
     float meanDevX = 0;
     float meanDevY = 0;
 
     for (int i = 0; i < N; i++)
     {
-        vNormalizedPoints[i].x  = vKeys[i].pt.x - meanX;
-        vNormalizedPoints[i].y  = vKeys[i].pt.y - meanY;
+        vNormalizedPoints[i].x = vKeys[i].pt.x - meanX;
+        vNormalizedPoints[i].y = vKeys[i].pt.y - meanY;
 
-        meanDevX               += fabs(vNormalizedPoints[i].x);
-        meanDevY               += fabs(vNormalizedPoints[i].y);
+        meanDevX += fabs(vNormalizedPoints[i].x);
+        meanDevY += fabs(vNormalizedPoints[i].y);
     }
 
     meanDevX = meanDevX / N;
@@ -826,7 +836,7 @@ void TwoViewReconstruction::Normalize(const vector<cv::KeyPoint> &vKeys, vector<
     T(2, 2) = 1.f;
 }
 
-int TwoViewReconstruction::CheckRT(const Eigen::Matrix3f &R, const Eigen::Vector3f &t, const vector<cv::KeyPoint> &vKeys1, const vector<cv::KeyPoint> &vKeys2, const vector<Match> &vMatches12,
+int TwoViewReconstruction::CheckRT(const Eigen::Matrix3f &R, const Eigen::Vector3f &t, const vector<keypoint> &vKeys1, const vector<keypoint> &vKeys2, const vector<Match> &vMatches12,
                                    vector<bool> &vbMatchesInliers, const Eigen::Matrix3f &K, vector<cv::Point3f> &vP3D, float th2, vector<bool> &vbGood, float &parallax)
 {
     // Calibration parameters
@@ -835,7 +845,7 @@ int TwoViewReconstruction::CheckRT(const Eigen::Matrix3f &R, const Eigen::Vector
     const float cx = K(0, 2);
     const float cy = K(1, 2);
 
-    vbGood         = vector<bool>(vKeys1.size(), false);
+    vbGood = vector<bool>(vKeys1.size(), false);
     vP3D.resize(vKeys1.size());
 
     vector<float> vCosParallax;
@@ -851,13 +861,13 @@ int TwoViewReconstruction::CheckRT(const Eigen::Matrix3f &R, const Eigen::Vector
 
     // Camera 2 Projection Matrix K[R|t]
     Eigen::Matrix<float, 3, 4> P2;
-    P2.block<3, 3>(0, 0)  = R;
-    P2.block<3, 1>(0, 3)  = t;
-    P2                    = K * P2;
+    P2.block<3, 3>(0, 0) = R;
+    P2.block<3, 1>(0, 3) = t;
+    P2                   = K * P2;
 
-    Eigen::Vector3f O2    = -R.transpose() * t;
+    Eigen::Vector3f O2 = -R.transpose() * t;
 
-    int             nGood = 0;
+    int nGood = 0;
 
     for (size_t i = 0, iend = vMatches12.size(); i < iend; i++)
     {
@@ -869,9 +879,9 @@ int TwoViewReconstruction::CheckRT(const Eigen::Matrix3f &R, const Eigen::Vector
         const cv::KeyPoint &kp1 = vKeys1[vMatches12[i].first];
         const cv::KeyPoint &kp2 = vKeys2[vMatches12[i].second];
 
-        Eigen::Vector3f     p3dC1;
-        Eigen::Vector3f     x_p1(kp1.pt.x, kp1.pt.y, 1);
-        Eigen::Vector3f     x_p2(kp2.pt.x, kp2.pt.y, 1);
+        Eigen::Vector3f p3dC1;
+        Eigen::Vector3f x_p1(kp1.pt.x, kp1.pt.y, 1);
+        Eigen::Vector3f x_p2(kp2.pt.x, kp2.pt.y, 1);
 
         GeometricTools::Triangulate(x_p1, x_p2, P1, P2, p3dC1);
 
@@ -882,13 +892,13 @@ int TwoViewReconstruction::CheckRT(const Eigen::Matrix3f &R, const Eigen::Vector
         }
 
         // Check parallax
-        Eigen::Vector3f normal1     = p3dC1 - O1;
-        float           dist1       = normal1.norm();
+        Eigen::Vector3f normal1 = p3dC1 - O1;
+        float           dist1   = normal1.norm();
 
-        Eigen::Vector3f normal2     = p3dC1 - O2;
-        float           dist2       = normal2.norm();
+        Eigen::Vector3f normal2 = p3dC1 - O2;
+        float           dist2   = normal2.norm();
 
-        float           cosParallax = normal1.dot(normal2) / (dist1 * dist2);
+        float cosParallax = normal1.dot(normal2) / (dist1 * dist2);
 
         // Check depth in front of first camera (only if enough parallax, as "infinite" points can easily go to negative depth)
         if (p3dC1(2) <= 0 && cosParallax < 0.99998)
@@ -906,9 +916,9 @@ int TwoViewReconstruction::CheckRT(const Eigen::Matrix3f &R, const Eigen::Vector
 
         // Check reprojection error in first image
         float im1x, im1y;
-        float invZ1        = 1.0 / p3dC1(2);
-        im1x               = fx * p3dC1(0) * invZ1 + cx;
-        im1y               = fy * p3dC1(1) * invZ1 + cy;
+        float invZ1 = 1.0 / p3dC1(2);
+        im1x        = fx * p3dC1(0) * invZ1 + cx;
+        im1y        = fy * p3dC1(1) * invZ1 + cy;
 
         float squareError1 = (im1x - kp1.pt.x) * (im1x - kp1.pt.x) + (im1y - kp1.pt.y) * (im1y - kp1.pt.y);
 
@@ -919,9 +929,9 @@ int TwoViewReconstruction::CheckRT(const Eigen::Matrix3f &R, const Eigen::Vector
 
         // Check reprojection error in second image
         float im2x, im2y;
-        float invZ2        = 1.0 / p3dC2(2);
-        im2x               = fx * p3dC2(0) * invZ2 + cx;
-        im2y               = fy * p3dC2(1) * invZ2 + cy;
+        float invZ2 = 1.0 / p3dC2(2);
+        im2x        = fx * p3dC2(0) * invZ2 + cx;
+        im2y        = fy * p3dC2(1) * invZ2 + cy;
 
         float squareError2 = (im2x - kp2.pt.x) * (im2x - kp2.pt.x) + (im2y - kp2.pt.y) * (im2y - kp2.pt.y);
 
@@ -960,11 +970,11 @@ void TwoViewReconstruction::DecomposeE(const Eigen::Matrix3f &E, Eigen::Matrix3f
 
     Eigen::JacobiSVD<Eigen::Matrix3f> svd(E, Eigen::ComputeFullU | Eigen::ComputeFullV);
 
-    Eigen::Matrix3f                   U  = svd.matrixU();
-    Eigen::Matrix3f                   Vt = svd.matrixV().transpose();
+    Eigen::Matrix3f U  = svd.matrixU();
+    Eigen::Matrix3f Vt = svd.matrixV().transpose();
 
-    t                                    = U.col(2);
-    t                                    = t / t.norm();
+    t = U.col(2);
+    t = t / t.norm();
 
     Eigen::Matrix3f W;
     W.setZero();
@@ -972,7 +982,7 @@ void TwoViewReconstruction::DecomposeE(const Eigen::Matrix3f &E, Eigen::Matrix3f
     W(1, 0) = 1;
     W(2, 2) = 1;
 
-    R1      = U * W * Vt;
+    R1 = U * W * Vt;
     if (R1.determinant() < 0)
     {
         R1 = -R1;

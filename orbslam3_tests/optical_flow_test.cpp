@@ -129,13 +129,11 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     previous.mpLastKeyFrame = nullptr;
     previous.mnDataset      = 0;
     REQUIRE(previous.N > 0);
-    REQUIRE(previous.display_keys.size() == previous.mvKeys.size());
-    REQUIRE(previous.display_keys_right.size() == previous.mvKeysRight.size());
-    REQUIRE(previous.display_keys.front().size == 7 * previous.mvScaleFactors[previous.mvKeys.front().octave]);
-    REQUIRE(previous.display_keys.front().angle == -1);
+    REQUIRE(previous.mvKeys.front().display.size == 7 * previous.mvScaleFactors[previous.mvKeys.front().octave]);
+    REQUIRE(previous.mvKeys.front().display.angle == -1);
     const ORB_SLAM3::Frame copied(previous);
-    REQUIRE(copied.display_keys.front().size == previous.display_keys.front().size);
-    REQUIRE(copied.display_keys_right.size() == previous.display_keys_right.size());
+    REQUIRE(copied.mvKeys.front().display.size == previous.mvKeys.front().display.size);
+    REQUIRE(copied.mvKeysRight.size() == previous.mvKeysRight.size());
     REQUIRE_FALSE(previous.mDescriptors.empty());
     previous.get_optical_flow_pyramid(image);
     previous.flow_candidates = 200;
@@ -145,8 +143,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(ORB_SLAM3::Frame::nNextId == next_id + 1);
     REQUIRE(current.flow_only);
     REQUIRE(current.N == 0);
-    REQUIRE(current.display_keys.empty());
-    REQUIRE(current.display_keys_right.empty());
+    REQUIRE(current.mvKeys.empty());
+    REQUIRE(current.mvKeysRight.empty());
     REQUIRE(current.mDescriptors.empty());
     REQUIRE(current.mDescriptorsRight.empty());
     REQUIRE(current.optical_flow_pyramid.empty());
@@ -158,16 +156,16 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     ORB_SLAM3::MapPoint point;
     cv::KeyPoint        tracked(73.25f, 81.75f, 31.0f);
     const cv::KeyPoint  native_tracked(tracked.pt, 7.f, -1.f);
-    current.set_tracked_features({tracked}, {&point}, {native_tracked});
+    current.set_tracked_features({ORB_SLAM3::keypoint(tracked, native_tracked)}, {&point});
     current.flow_candidates = 100;
     current.flow_tracks     = 1;
     REQUIRE(current.N == 1);
     REQUIRE(current.mvKeys.front().pt == tracked.pt);
-    REQUIRE(current.display_keys.front().pt == tracked.pt);
-    REQUIRE(current.display_keys.front().size == 7.f);
-    REQUIRE(current.display_keys.front().angle == -1.f);
+    REQUIRE(current.mvKeys.front().display.pt == tracked.pt);
+    REQUIRE(current.mvKeys.front().display.size == 7.f);
+    REQUIRE(current.mvKeys.front().display.angle == -1.f);
     REQUIRE(current.mvKeys.front().size == 31.f);
-    REQUIRE(current.display_keys_right.empty());
+    REQUIRE(current.mvKeysRight.empty());
     std::vector<cv::Point2f> expected_undistorted;
     cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected_undistorted, calibration, distortion, cv::noArray(), calibration);
     REQUIRE(cv::norm(current.mvKeysUn.front().pt - expected_undistorted.front()) < 0.001);
@@ -215,10 +213,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(std::all_of(current.mvpMapPoints.begin(), current.mvpMapPoints.end(), [](const auto *entry) { return entry == nullptr; }));
     REQUIRE(current.mvKeys.size() == previous.mvKeys.size());
     REQUIRE(current.mvKeysRight.size() == previous.mvKeysRight.size());
-    REQUIRE(current.display_keys.size() == previous.display_keys.size());
-    REQUIRE(current.display_keys_right.size() == previous.display_keys_right.size());
-    REQUIRE(current.display_keys.front().size == previous.display_keys.front().size);
-    REQUIRE(current.display_keys.front().angle == previous.display_keys.front().angle);
+    REQUIRE(current.mvKeys.front().display.size == previous.mvKeys.front().display.size);
+    REQUIRE(current.mvKeys.front().display.angle == previous.mvKeys.front().display.angle);
     REQUIRE(current.mvLeftToRightMatch == previous.mvLeftToRightMatch);
     REQUIRE(current.mvDepth == previous.mvDepth);
     REQUIRE(current.mBowVec.empty());
@@ -303,8 +299,8 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
 {
     ORB_SLAM3::Frame frame;
     frame.mDistCoef = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::MapPoint       point;
-    std::vector<cv::KeyPoint> keys;
+    ORB_SLAM3::MapPoint              point;
+    std::vector<ORB_SLAM3::keypoint> keys;
     for (int i = 0; i < 100; ++i)
     {
         keys.emplace_back(static_cast<float>(16 + (i % 4) * 32), static_cast<float>(16 + ((i / 4) % 4) * 32), 31.0f);
@@ -319,13 +315,13 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
     REQUIRE(frame.reliable_flow_inliers({128, 128})); // exactly 60%
     frame.mvbOutlier[40] = true;
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(std::vector<cv::KeyPoint>(100, cv::KeyPoint(16, 16, 31)), std::vector<ORB_SLAM3::MapPoint *>(100, &point));
+    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(100, ORB_SLAM3::keypoint(16, 16, 31)), std::vector<ORB_SLAM3::MapPoint *>(100, &point));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(std::vector<cv::KeyPoint>(keys.begin(), keys.begin() + 49), std::vector<ORB_SLAM3::MapPoint *>(49, &point));
+    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 49), std::vector<ORB_SLAM3::MapPoint *>(49, &point));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(std::vector<cv::KeyPoint>(keys.begin(), keys.begin() + 50), std::vector<ORB_SLAM3::MapPoint *>(50, &point));
+    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 50), std::vector<ORB_SLAM3::MapPoint *>(50, &point));
     REQUIRE(frame.reliable_flow_inliers({128, 128}));
-    std::vector<cv::KeyPoint> six_cells;
+    std::vector<ORB_SLAM3::keypoint> six_cells;
     for (int i = 0; i < 60; ++i)
     {
         six_cells.emplace_back(static_cast<float>(16 + (i % 3) * 32), static_cast<float>(16 + ((i / 3) % 2) * 32), 31.0f);

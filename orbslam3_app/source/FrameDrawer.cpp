@@ -42,16 +42,16 @@ cv::Mat FrameDrawer::DrawFrame(float imageScale)
 {
     _update_requested = true;
     cv::Mat                                im;
-    vector<cv::KeyPoint>                   vIniKeys;     // Initialization: KeyPoints in reference frame
+    vector<keypoint>                       vIniKeys;     // Initialization: KeyPoints in reference frame
     vector<int>                            vMatches;     // Initialization: correspondeces with reference keypoints
-    vector<cv::KeyPoint>                   vCurrentKeys; // KeyPoints in current frame
+    vector<keypoint>                       vCurrentKeys; // KeyPoints in current frame
     vector<bool>                           vbVO, vbMap;  // Tracked MapPoints in current frame
     vector<pair<cv::Point2f, cv::Point2f>> vTracks;
-    int                                    state;        // Tracking state
+    int                                    state; // Tracking state
     vector<float>                          vCurrentDepth;
 
-    cv::Scalar                             standardColor(0, 255, 0);
-    cv::Scalar                             odometryColor(255, 0, 0);
+    cv::Scalar standardColor(0, 255, 0);
+    cv::Scalar odometryColor(255, 0, 0);
 
     // Copy variables within scoped mutex
     {
@@ -73,9 +73,9 @@ cv::Mat FrameDrawer::DrawFrame(float imageScale)
         }
         else if (mState == Tracking::OK)
         {
-            vCurrentKeys  = mvCurrentKeys;
-            vbVO          = mvbVO;
-            vbMap         = mvbMap;
+            vCurrentKeys = mvCurrentKeys;
+            vbVO         = mvbVO;
+            vbMap        = mvbMap;
 
             vCurrentDepth = mvCurrentDepth;
         }
@@ -144,7 +144,7 @@ cv::Mat FrameDrawer::DrawFrame(float imageScale)
         {
             if (vbVO[i] || vbMap[i])
             {
-                auto key  = vCurrentKeys[i];
+                auto key  = vCurrentKeys[i].display;
                 key.pt   /= imageScale;
                 key.size /= imageScale;
 
@@ -175,13 +175,13 @@ cv::Mat FrameDrawer::DrawFrame(float imageScale)
 cv::Mat FrameDrawer::DrawRightFrame(float imageScale)
 {
     _update_requested = true;
-    cv::Mat              im;
-    vector<cv::KeyPoint> vIniKeys;     // Initialization: KeyPoints in reference frame
-    vector<int>          vMatches;     // Initialization: correspondeces with reference keypoints
-    vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
-    vector<bool>         vbVO, vbMap;  // Tracked MapPoints in current frame
-    int                  state;        // Tracking state
-    std::size_t          left_key_count{};
+    cv::Mat          im;
+    vector<keypoint> vIniKeys;     // Initialization: KeyPoints in reference frame
+    vector<int>      vMatches;     // Initialization: correspondeces with reference keypoints
+    vector<keypoint> vCurrentKeys; // KeyPoints in current frame
+    vector<bool>     vbVO, vbMap;  // Tracked MapPoints in current frame
+    int              state;        // Tracking state
+    std::size_t      left_key_count{};
 
     // Copy variables within scoped mutex
     {
@@ -258,7 +258,7 @@ cv::Mat FrameDrawer::DrawRightFrame(float imageScale)
         {
             if (vbVO[i + left_key_count] || vbMap[i + left_key_count])
             {
-                auto key  = vCurrentKeys[i];
+                auto key  = vCurrentKeys[i].display;
                 key.pt   /= imageScale;
                 key.size /= imageScale;
 
@@ -331,14 +331,14 @@ void FrameDrawer::draw_text_info(cv::Mat &im, int nState, cv::Mat &imText)
         s_fps << std::fixed << std::setprecision(1) << get_tracking_fps() << " FPS";
     }
 
-    int       baseline     = 0;
-    cv::Size  textSize     = cv::getTextSize(s.str(), cv::FONT_HERSHEY_PLAIN, 1, 1, &baseline);
+    int      baseline = 0;
+    cv::Size textSize = cv::getTextSize(s.str(), cv::FONT_HERSHEY_PLAIN, 1, 1, &baseline);
 
     const int lineHeight   = textSize.height + 10;
     const int nLines       = s_fps.str().empty() ? 1 : 2;
     const int bannerHeight = nLines * lineHeight;
 
-    imText                 = cv::Mat(im.rows + bannerHeight, im.cols, im.type());
+    imText = cv::Mat(im.rows + bannerHeight, im.cols, im.type());
     im.copyTo(imText.rowRange(0, im.rows).colRange(0, im.cols));
     imText.rowRange(im.rows, imText.rows) = cv::Mat::zeros(bannerHeight, im.cols, im.type());
     cv::putText(imText, s.str(), cv::Point(5, im.rows + lineHeight - 5), cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255, 255, 255), 1, 8);
@@ -350,7 +350,7 @@ void FrameDrawer::draw_text_info(cv::Mat &im, int nState, cv::Mat &imText)
 
 float FrameDrawer::get_tracking_fps() { return _tracking_fps.load(); }
 
-void  FrameDrawer::update_tracking_fps()
+void FrameDrawer::update_tracking_fps()
 {
     const auto now = std::chrono::steady_clock::now();
 
@@ -359,7 +359,7 @@ void  FrameDrawer::update_tracking_fps()
         const float dt = std::chrono::duration<float>(now - _last_frame_time).count();
         if (dt > 0.f)
         {
-            const float instant_fps  = 1.f / dt;
+            const float instant_fps = 1.f / dt;
             // Exponential smoothing to keep the displayed value readable.
             const float alpha        = 0.1f;
             const float previous_fps = _tracking_fps.load();
@@ -387,13 +387,13 @@ bool FrameDrawer::Update(Tracking *pTracker)
     {
         pTracker->mImGray.copyTo(mIm);
     }
-    mvCurrentKeys  = pTracker->mCurrentFrame.display_keys;
+    mvCurrentKeys  = pTracker->mCurrentFrame.mvKeys;
     mThDepth       = pTracker->mCurrentFrame.mThDepth;
     mvCurrentDepth = pTracker->mCurrentFrame.mvDepth;
 
     if (both)
     {
-        mvCurrentKeysRight = pTracker->mCurrentFrame.display_keys_right;
+        mvCurrentKeysRight = pTracker->mCurrentFrame.mvKeysRight;
         pTracker->mImRight.copyTo(mImRight);
         N = mvCurrentKeys.size() + mvCurrentKeysRight.size();
     }

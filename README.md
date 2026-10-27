@@ -9,6 +9,14 @@ ORB-SLAM3 is the first real-time SLAM library able to perform **Visual, Visual-I
 
 This repository also includes a folder-based dataset runner. See the [ORB-SLAM3 app user guide](orbslam3_app/README.md) for build, input, and usage instructions and a list of the app's current features.
 
+## Formatting C++ code
+
+Run `./format.sh` to format C++ sources, headers, and inline/template files in
+place using the repository's `.clang-format`. Install `clang-format` and ensure
+it is available on `PATH` first. The script works from any working directory
+and includes tracked and non-ignored untracked files, skipping deleted files
+and symbolic links. Ignored build and dependency directories are excluded.
+
 We provide examples to run ORB-SLAM3 in the [EuRoC dataset](http://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets) using stereo or monocular, with or without IMU, and in the [TUM-VI dataset](https://vision.in.tum.de/data/datasets/visual-inertial-dataset) using fisheye stereo or monocular, with or without IMU. Videos of some example executions can be found at [ORB-SLAM3 channel](https://www.youtube.com/channel/UCXVt-kXG6T95Z4tVaYlU80Q).
 
 This software is based on [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2) developed by [Raul Mur-Artal](http://webdiis.unizar.es/~raulmur/), [Juan D. Tardos](http://webdiis.unizar.es/~jdtardos/), [J. M. M. Montiel](http://webdiis.unizar.es/~josemari/) and [Dorian Galvez-Lopez](http://doriangalvez.com/) ([DBoW2](https://github.com/dorian3d/DBoW2)).
