@@ -286,6 +286,58 @@ After an intentional accuracy change, refresh the baseline and commit it:
 ```sh
 .venv/bin/python orbslam3_tests/regression/regression.py --output-folder .build/Release/regression/stereo --skip-run --update-baseline
 ```
+## TUM-VI Stereo Benchmark
+
+[`orbslam3_tests/benchmark/tumvi_benchmark.py`](../orbslam3_tests/benchmark/tumvi_benchmark.py)
+runs all extracted `dataset-*` directories under `.data/tumvi` sequentially,
+headless, in stereo mode, processing every frame. Build the app first and install
+the existing regression dependencies in a virtual environment:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r orbslam3_tests/regression/requirements.txt
+.venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py
+```
+
+Each sequence needs `mav0/cam0/data`, `mav0/cam1/data`, `dso/camchain.yaml`,
+and `mav0/mocap0/data.csv` for accuracy evaluation. The benchmark copies the
+selected settings template, replacing dataset/calibration paths with absolute
+per-sequence paths; it never edits the template. Feature settings are preserved.
+Missing inputs, crashes, timeouts, and evaluation failures are reported without
+stopping the remaining sequences; any failure gives a nonzero exit status.
+
+Outputs default to `.data/benchmark/tumvi`: `summary.md`, `summary.csv`, and
+`summary.json`, plus a directory per sequence containing generated settings,
+`app.log`, trajectories, and the original per-frame `statistics.csv`.
+Reports are updated after every sequence. JSON includes pooled aggregates;
+CSV contains one row per sequence, including failure details.
+
+- Accuracy: translation ATE RMSE after timestamp matching (10 ms tolerance),
+  camera-to-body conversion, and SE(3) alignment without scale correction;
+  tracked-frame ratio and matched-pose count. TUM-VI mocap generally covers only
+  the start/end room, not the entire route. Pooled ATE weights squared errors by
+  matched-pose count after independent per-sequence alignments.
+- Frame statistics: mean, median, p95, min, and max of detected/matched keypoint
+  counts and preprocessing/frontend milliseconds, both per sequence and pooled.
+- Cumulative statistics: frame count, elapsed playback time, throughput, summed
+  preprocessing/frontend time, and worker job counts/times. Worker totals are
+  last-frame CSV snapshots, may exclude shutdown work, and overlap in time.
+  Playback throughput excludes startup/shutdown; `wall_seconds` includes them
+  for new runs and is unavailable when re-evaluating. Failed/incomplete runs do
+  not enter pooled frame statistics; accuracy failures retain complete statistics.
+
+Options: `--datasets-root DIR`, `--output-folder DIR`, `--app PATH`,
+`--vocab PATH`, `--settings PATH`, repeated `--sequence dataset-room1_512_16`,
+and `--timeout SECONDS` (per sequence, default unlimited). Existing runs are
+protected: use `--overwrite` to rerun or `--skip-run` to re-evaluate the saved
+outputs/settings. Selected sequences replace the summary for that invocation.
+
+Run the fast synthetic integration checks without processing a dataset:
+
+```sh
+.venv/bin/python -m unittest discover -s orbslam3_tests/benchmark -p 'tumvi_benchmark_test.py'
+```
+
 ## Keypoint Detector Benchmark
 
 [`orbslam3_tests/benchmark/detector_benchmark.py`](../orbslam3_tests/benchmark/detector_benchmark.py) runs `orbslam3_app` headless once per detector (selected with `--keypoint_detector.type`, or `keypoint_detector: { type: ... }` in the settings YAML), scores each trajectory against mocap ground truth using the regression test's evaluation, and prints a Markdown table. Descriptor and matcher choices come from the settings YAML.

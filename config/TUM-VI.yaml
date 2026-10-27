@@ -49,7 +49,7 @@ descriptor_matcher:
   type: "flann"
 
 # Flow-first tracking with descriptor recovery/keyframes (0: off, 1: on)
-Tracking.useOpticalFlow: 1
+Tracking.useOpticalFlow: 0
 
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
