@@ -697,7 +697,6 @@ void keypoint_extractor::compute_keypoints(vector<vector<KeyPoint>> &allKeypoint
 int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<keypoint> &_keypoints, OutputArray _descriptors, std::vector<int> &vLappingArea)
 {
     _keypoints.clear();
-    _place_descriptors.release();
     _descriptors.release();
     if (_image.empty())
     {
@@ -772,16 +771,16 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<k
     }
     _descriptors.create(static_cast<int>(count), descriptors.cols, descriptors.type());
     Mat output_descriptors = _descriptors.getMat();
-    _place_descriptors.create(static_cast<int>(count), 32, CV_8U);
-    int mono_index   = 0;
-    int stereo_index = static_cast<int>(count) - 1;
+    int mono_index         = 0;
+    int stereo_index       = static_cast<int>(count) - 1;
     for (std::size_t index = 0; index < count; ++index)
     {
-        const auto &key    = output_keys[index];
-        const int   target = key.pt.x >= vLappingArea[0] && key.pt.x <= vLappingArea[1] ? stereo_index-- : mono_index++;
-        _keypoints[target] = keypoint(key, output_display[index]);
+        const auto &key                     = output_keys[index];
+        const int   target                  = key.pt.x >= vLappingArea[0] && key.pt.x <= vLappingArea[1] ? stereo_index-- : mono_index++;
+        _keypoints[target]                  = keypoint(key, output_display[index]);
+        _keypoints[target].descriptor       = descriptors.row(static_cast<int>(index));
+        _keypoints[target].place_descriptor = place_descriptors.row(static_cast<int>(index));
         descriptors.row(static_cast<int>(index)).copyTo(output_descriptors.row(target));
-        place_descriptors.row(static_cast<int>(index)).copyTo(_place_descriptors.row(target));
     }
     return mono_index;
 }

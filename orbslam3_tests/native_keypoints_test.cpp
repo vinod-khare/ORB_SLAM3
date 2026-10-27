@@ -203,21 +203,27 @@ TEST_CASE("OpenCV descriptors are selectable independently of the detector", "[n
     extractor(image, cv::noArray(), keys, descriptors, overlap);
     REQUIRE_FALSE(keys.empty());
     REQUIRE(descriptors.rows == static_cast<int>(keys.size()));
-    REQUIRE(extractor.get_place_descriptors().rows == descriptors.rows);
-    REQUIRE(extractor.get_place_descriptors().type() == CV_8U);
-    REQUIRE(extractor.get_place_descriptors().cols == 32);
     REQUIRE(descriptors.type() == (descriptor == keypoint_descriptor_type::sift ? CV_32F : CV_8U));
     REQUIRE(descriptors.cols == (descriptor == keypoint_descriptor_type::sift ? 128 : descriptor == keypoint_descriptor_type::brisk ? 64 : 32));
+    REQUIRE(cv::norm(descriptor_matrix(keys), descriptors, cv::NORM_INF) == 0);
+    for (std::size_t index = 0; index < keys.size(); ++index)
+    {
+        REQUIRE(keys[index].descriptor.type() == descriptors.type());
+        REQUIRE(keys[index].descriptor.cols == descriptors.cols);
+        REQUIRE(keys[index].place_descriptor.type() == CV_8U);
+        REQUIRE(keys[index].place_descriptor.cols == 32);
+    }
     std::vector<keypoint> repeated_keys;
     cv::Mat               repeated_descriptors;
-    const auto            place_descriptors = extractor.get_place_descriptors().clone();
     extractor(image, cv::noArray(), repeated_keys, repeated_descriptors, overlap);
     REQUIRE(cv::norm(descriptors, repeated_descriptors, cv::NORM_INF) == 0);
-    REQUIRE(cv::norm(place_descriptors, extractor.get_place_descriptors(), cv::NORM_INF) == 0);
+    for (std::size_t index = 0; index < keys.size(); ++index)
+    {
+        REQUIRE(cv::norm(keys[index].place_descriptor, repeated_keys[index].place_descriptor, cv::NORM_INF) == 0);
+    }
     extractor(cv::Mat(), cv::noArray(), keys, descriptors, overlap);
     REQUIRE(keys.empty());
     REQUIRE(descriptors.empty());
-    REQUIRE(extractor.get_place_descriptors().empty());
 }
 
 TEST_CASE("Keypoint extraction handles small pyramid levels", "[native_keypoints]")

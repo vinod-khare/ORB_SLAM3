@@ -247,9 +247,7 @@ class Frame
     DBoW2::BowVector     mBowVec;
     DBoW2::FeatureVector mFeatVec;
 
-    // ORB descriptor, each row associated to a keypoint.
-    cv::Mat mDescriptors, mDescriptorsRight;
-    cv::Mat place_descriptors, place_descriptors_right;
+    const cv::Mat &descriptor(std::size_t index) const { return Nleft >= 0 && index >= static_cast<std::size_t>(Nleft) ? mvKeysRight[index - Nleft].descriptor : mvKeys[index].descriptor; }
 
     // MapPoints associated to keypoints, NULL pointer if no association.
     // Flag to identify outlier associations.

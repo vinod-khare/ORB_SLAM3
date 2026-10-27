@@ -57,25 +57,22 @@ Frame::Frame(const Frame &frame)
       place_vocabulary_ptr(frame.place_vocabulary_ptr), left_keypoint_extractor(frame.left_keypoint_extractor), right_keypoint_extractor(frame.right_keypoint_extractor),
       mTimeStamp(frame.mTimeStamp), optical_flow_pyramid(frame.optical_flow_pyramid), mK(frame.mK.clone()), mK_(Converter::toMatrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()),
       mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys), mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn), mvpMapPoints(frame.mvpMapPoints),
-      mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mDescriptors(frame.mDescriptors.clone()),
-      mDescriptorsRight(frame.mDescriptorsRight.clone()), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias), mImuCalib(frame.mImuCalib),
-      mpImuPreintegrated(frame.mpImuPreintegrated), mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame), mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame),
-      mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor),
-      mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
-      mNameFile(frame.mNameFile), mnDataset(frame.mnDataset), mbIsSet(frame.mbIsSet), mbImuPreintegrated(frame.mbImuPreintegrated), mpMutexImu(frame.mpMutexImu), Nleft(frame.Nleft),
-      Nright(frame.Nright), monoLeft(frame.monoLeft), monoRight(frame.monoRight), mvLeftToRightMatch(frame.mvLeftToRightMatch), mvRightToLeftMatch(frame.mvRightToLeftMatch),
-      mvStereo3Dpoints(frame.mvStereo3Dpoints)
+      mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias),
+      mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated), mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame),
+      mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame), mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor),
+      mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2),
+      mvInvLevelSigma2(frame.mvInvLevelSigma2), mNameFile(frame.mNameFile), mnDataset(frame.mnDataset), mbIsSet(frame.mbIsSet), mbImuPreintegrated(frame.mbImuPreintegrated),
+      mpMutexImu(frame.mpMutexImu), Nleft(frame.Nleft), Nright(frame.Nright), monoLeft(frame.monoLeft), monoRight(frame.monoRight), mvLeftToRightMatch(frame.mvLeftToRightMatch),
+      mvRightToLeftMatch(frame.mvRightToLeftMatch), mvStereo3Dpoints(frame.mvStereo3Dpoints)
 {
-    color_image             = frame.color_image;
-    color_image_right       = frame.color_image_right;
-    color_is_rgb            = frame.color_is_rgb;
-    flow_only               = frame.flow_only;
-    flow_candidates         = frame.flow_candidates;
-    flow_tracks             = frame.flow_tracks;
-    flow_inliers            = frame.flow_inliers;
-    flow_occupied_cells     = frame.flow_occupied_cells;
-    place_descriptors       = frame.place_descriptors.clone();
-    place_descriptors_right = frame.place_descriptors_right.clone();
+    color_image         = frame.color_image;
+    color_image_right   = frame.color_image_right;
+    color_is_rgb        = frame.color_is_rgb;
+    flow_only           = frame.flow_only;
+    flow_candidates     = frame.flow_candidates;
+    flow_tracks         = frame.flow_tracks;
+    flow_inliers        = frame.flow_inliers;
+    flow_occupied_cells = frame.flow_occupied_cells;
     for (int i = 0; i < FRAME_GRID_COLS; i++)
     {
         for (int j = 0; j < FRAME_GRID_ROWS; j++)
@@ -174,18 +171,19 @@ Frame::Frame(Frame &previous, double timestamp) : Frame(static_cast<const Frame 
 void Frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points)
 {
     CV_Assert(keys.size() == points.size());
-    flow_only    = true;
-    mvKeys       = std::move(keys);
+    flow_only = true;
+    mvKeys    = std::move(keys);
+    for (auto &key : mvKeys)
+    {
+        key.descriptor.release();
+        key.place_descriptor.release();
+    }
     mvpMapPoints = std::move(points);
     N            = static_cast<int>(mvKeys.size());
     Nleft        = Nleft != -1 ? N : -1;
     Nright       = Nleft != -1 ? 0 : -1;
     monoLeft = monoRight = -1;
     mvKeysRight.clear();
-    mDescriptors.release();
-    mDescriptorsRight.release();
-    place_descriptors.release();
-    place_descriptors_right.release();
     mBowVec.clear();
     mFeatVec.clear();
     mvbOutlier.assign(N, false);
@@ -223,10 +221,6 @@ void Frame::extract_features(const cv::Mat &left, GeometricCamera *camera, const
     flow_only = false;
     mvKeys.clear();
     mvKeysRight.clear();
-    mDescriptors.release();
-    mDescriptorsRight.release();
-    place_descriptors.release();
-    place_descriptors_right.release();
     mBowVec.clear();
     mFeatVec.clear();
     mmProjectPoints.clear();
@@ -292,8 +286,6 @@ void Frame::extract_features(const cv::Mat &left, GeometricCamera *camera, const
         imgLeft  = left.clone();
         imgRight = right.clone();
         ComputeStereoFishEyeMatches(camera, right_camera);
-        cv::vconcat(mDescriptors, mDescriptorsRight, mDescriptors);
-        cv::vconcat(place_descriptors, place_descriptors_right, place_descriptors);
     }
     else if (!right.empty())
     {
@@ -543,13 +535,13 @@ void Frame::extract_keypoints(int flag, const cv::Mat &im, const int x0, const i
     vector<int> vLapping = {x0, x1};
     if (flag == 0)
     {
-        monoLeft          = (*left_keypoint_extractor)(im, cv::Mat(), mvKeys, mDescriptors, vLapping);
-        place_descriptors = left_keypoint_extractor->get_place_descriptors().clone();
+        cv::Mat descriptors;
+        monoLeft = (*left_keypoint_extractor)(im, cv::Mat(), mvKeys, descriptors, vLapping);
     }
     else
     {
-        monoRight               = (*right_keypoint_extractor)(im, cv::Mat(), mvKeysRight, mDescriptorsRight, vLapping);
-        place_descriptors_right = right_keypoint_extractor->get_place_descriptors().clone();
+        cv::Mat descriptors;
+        monoRight = (*right_keypoint_extractor)(im, cv::Mat(), mvKeysRight, descriptors, vLapping);
     }
 }
 
@@ -870,7 +862,9 @@ void Frame::ComputeBoW()
 {
     if (mBowVec.empty())
     {
-        vector<cv::Mat> vCurrentDesc = Converter::toDescriptorVector(place_descriptors);
+        auto       vCurrentDesc      = place_descriptor_vector(mvKeys);
+        const auto right_descriptors = place_descriptor_vector(mvKeysRight);
+        vCurrentDesc.insert(vCurrentDesc.end(), right_descriptors.begin(), right_descriptors.end());
         place_vocabulary_ptr->transform(vCurrentDesc, mBowVec, mFeatVec, 4);
     }
 }
@@ -1006,10 +1000,10 @@ void Frame::ComputeStereoMatches()
         float  bestDist = descriptor_matcher::high_distance_threshold;
         size_t bestIdxR = 0;
 
-        const cv::Mat &dL = mDescriptors.row(iL);
+        const cv::Mat &dL = mvKeys[iL].descriptor;
 
         // Compare descriptor to right keypoints
-        const auto ranked_candidates = descriptor_matcher::rank_candidates(dL, mDescriptorsRight, vCandidates);
+        const auto ranked_candidates = descriptor_matcher::rank_candidates(dL, mvKeysRight, vCandidates);
         for (const auto iR : ranked_candidates)
         {
             const cv::KeyPoint &kpR = mvKeysRight[iR];
@@ -1023,7 +1017,7 @@ void Frame::ComputeStereoMatches()
 
             if (uR >= minU && uR <= maxU)
             {
-                const cv::Mat &dR   = mDescriptorsRight.row(iR);
+                const cv::Mat &dR   = mvKeysRight[iR].descriptor;
                 const float    dist = descriptor_matcher::descriptor_distance(dL, dR);
 
                 if (dist < bestDist)
@@ -1217,8 +1211,8 @@ void Frame::ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera
     vector<keypoint> stereoLeft(mvKeys.begin() + monoLeft, mvKeys.end());
     vector<keypoint> stereoRight(mvKeysRight.begin() + monoRight, mvKeysRight.end());
 
-    cv::Mat stereoDescLeft  = mDescriptors.rowRange(monoLeft, mDescriptors.rows);
-    cv::Mat stereoDescRight = mDescriptorsRight.rowRange(monoRight, mDescriptorsRight.rows);
+    cv::Mat stereoDescLeft  = descriptor_matrix(mvKeys, monoLeft);
+    cv::Mat stereoDescRight = descriptor_matrix(mvKeysRight, monoRight);
 
     mvLeftToRightMatch = vector<int>(Nleft, -1);
     mvRightToLeftMatch = vector<int>(Nright, -1);

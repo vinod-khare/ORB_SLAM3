@@ -106,6 +106,41 @@ std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, co
     return result;
 }
 
+std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, const std::vector<size_t> &indices, const std::function<const cv::Mat &(size_t)> &get_descriptor)
+{
+    cv::Mat candidates;
+    for (const auto index : indices)
+    {
+        candidates.push_back(get_descriptor(index));
+    }
+    std::vector<std::vector<cv::DMatch>> matches;
+    knn_match(query, candidates, matches, std::max(1, static_cast<int>(indices.size())));
+    std::vector<size_t> result;
+    if (!matches.empty())
+    {
+        for (const auto &match : matches.front())
+        {
+            result.push_back(indices[match.trainIdx]);
+        }
+    }
+    return result;
+}
+
+std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, const std::vector<keypoint> &train, const std::vector<size_t> &indices)
+{
+    return rank_candidates(query, indices, [&train](size_t index) -> const cv::Mat & { return train[index].descriptor; });
+}
+
+std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, const Frame &train, const std::vector<size_t> &indices, bool right)
+{
+    return rank_candidates(query, indices, [&train, right](size_t index) -> const cv::Mat & { return right ? train.mvKeysRight[index].descriptor : train.descriptor(index); });
+}
+
+std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, const KeyFrame &train, const std::vector<size_t> &indices, bool right)
+{
+    return rank_candidates(query, indices, [&train, right](size_t index) -> const cv::Mat & { return right ? train.mvKeysRight[index].descriptor : train.descriptor(index); });
+}
+
 int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> &vpMapPoints, const float th, const bool bFarPoints, const float thFarPoints)
 {
     int nmatches = 0, left = 0, right = 0;
@@ -142,8 +177,8 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                 r *= th;
             }
 
-            const auto vIndices = rank_candidates(pMP->GetDescriptor(), F.mDescriptors,
-                                                  F.GetFeaturesInArea(pMP->mTrackProjX, pMP->mTrackProjY, r * F.mvScaleFactors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel));
+            const auto vIndices =
+                rank_candidates(pMP->GetDescriptor(), F, F.GetFeaturesInArea(pMP->mTrackProjX, pMP->mTrackProjY, r * F.mvScaleFactors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel));
 
             if (!vIndices.empty())
             {
@@ -177,7 +212,7 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                         }
                     }
 
-                    const cv::Mat &d = F.mDescriptors.row(idx);
+                    const cv::Mat &d = F.descriptor(idx);
 
                     const float dist = descriptor_distance(MPdescriptor, d);
 
@@ -230,8 +265,8 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                 float r = radius_by_viewing_cos(pMP->mTrackViewCosR);
 
                 const auto vIndices =
-                    rank_candidates(pMP->GetDescriptor(), F.mDescriptors.rowRange(F.Nleft, F.N),
-                                    F.GetFeaturesInArea(pMP->mTrackProjXR, pMP->mTrackProjYR, r * F.mvScaleFactors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel, true));
+                    rank_candidates(pMP->GetDescriptor(), F,
+                                    F.GetFeaturesInArea(pMP->mTrackProjXR, pMP->mTrackProjYR, r * F.mvScaleFactors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel, true), true);
 
                 if (vIndices.empty())
                 {
@@ -259,7 +294,7 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                         }
                     }
 
-                    const cv::Mat &d = F.mDescriptors.row(idx + F.Nleft);
+                    const cv::Mat &d = F.descriptor(idx + F.Nleft);
 
                     const float dist = descriptor_distance(MPdescriptor, d);
 
@@ -361,7 +396,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
                     continue;
                 }
 
-                const cv::Mat &dKF = pKF->mDescriptors.row(realIdxKF);
+                const cv::Mat &dKF = pKF->descriptor(realIdxKF);
 
                 float bestDist1 = 256;
                 int   bestIdxF  = -1;
@@ -371,7 +406,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
                 int   bestIdxFR  = -1;
                 float bestDist2R = 256;
 
-                const auto ranked_indices = rank_candidates(dKF, F.mDescriptors, std::vector<size_t>(vIndicesF.begin(), vIndicesF.end()));
+                const auto ranked_indices = rank_candidates(dKF, F, std::vector<size_t>(vIndicesF.begin(), vIndicesF.end()));
                 for (size_t iF = 0; iF < ranked_indices.size(); iF++)
                 {
                     if (F.Nleft == -1)
@@ -383,7 +418,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
                             continue;
                         }
 
-                        const cv::Mat &dF = F.mDescriptors.row(realIdxF);
+                        const cv::Mat &dF = F.descriptor(realIdxF);
 
                         const float dist = descriptor_distance(dKF, dF);
 
@@ -407,7 +442,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
                             continue;
                         }
 
-                        const cv::Mat &dF = F.mDescriptors.row(realIdxF);
+                        const cv::Mat &dF = F.descriptor(realIdxF);
 
                         const float dist = descriptor_distance(dKF, dF);
 
@@ -609,7 +644,7 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
         // Search in a radius
         const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), pKF->mDescriptors, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
+        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
 
         if (vIndices.empty())
         {
@@ -636,7 +671,7 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
                 continue;
             }
 
-            const cv::Mat &dKF = pKF->mDescriptors.row(idx);
+            const cv::Mat &dKF = pKF->descriptor(idx);
 
             const float dist = descriptor_distance(dMP, dKF);
 
@@ -737,7 +772,7 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3<float> 
         // Search in a radius
         const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), pKF->mDescriptors, pKF->GetFeaturesInArea(u, v, radius));
+        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF, pKF->GetFeaturesInArea(u, v, radius));
 
         if (vIndices.empty())
         {
@@ -764,7 +799,7 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3<float> 
                 continue;
             }
 
-            const cv::Mat &dKF = pKF->mDescriptors.row(idx);
+            const cv::Mat &dKF = pKF->descriptor(idx);
 
             const float dist = descriptor_distance(dMP, dKF);
 
@@ -810,15 +845,14 @@ int descriptor_matcher::search_for_initialization(Frame &F1, Frame &F2, vector<c
             continue;
         }
 
-        auto vIndices2 =
-            rank_candidates(F1.mDescriptors.row(static_cast<int>(i1)), F2.mDescriptors, F2.GetFeaturesInArea(vbPrevMatched[i1].x, vbPrevMatched[i1].y, windowSize, level1, level1));
+        auto vIndices2 = rank_candidates(F1.mvKeysUn[i1].descriptor, F2, F2.GetFeaturesInArea(vbPrevMatched[i1].x, vbPrevMatched[i1].y, windowSize, level1, level1));
 
         if (vIndices2.empty())
         {
             continue;
         }
 
-        cv::Mat d1 = F1.mDescriptors.row(i1);
+        const cv::Mat &d1 = F1.mvKeysUn[i1].descriptor;
 
         float bestDist  = INT_MAX;
         float bestDist2 = INT_MAX;
@@ -828,7 +862,7 @@ int descriptor_matcher::search_for_initialization(Frame &F1, Frame &F2, vector<c
         {
             size_t i2 = *vit;
 
-            cv::Mat d2 = F2.mDescriptors.row(i2);
+            const cv::Mat &d2 = F2.mvKeysUn[i2].descriptor;
 
             float dist = descriptor_distance(d1, d2);
 
@@ -925,12 +959,10 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vec
     const vector<keypoint>     &vKeysUn1     = pKF1->mvKeysUn;
     const DBoW2::FeatureVector &vFeatVec1    = pKF1->mFeatVec;
     const vector<MapPoint *>    vpMapPoints1 = pKF1->GetMapPointMatches();
-    const cv::Mat              &Descriptors1 = pKF1->mDescriptors;
 
     const vector<keypoint>     &vKeysUn2     = pKF2->mvKeysUn;
     const DBoW2::FeatureVector &vFeatVec2    = pKF2->mFeatVec;
     const vector<MapPoint *>    vpMapPoints2 = pKF2->GetMapPointMatches();
-    const cv::Mat              &Descriptors2 = pKF2->mDescriptors;
 
     vpMatches12 = vector<MapPoint *>(vpMapPoints1.size(), static_cast<MapPoint *>(NULL));
     vector<bool> vbMatched2(vpMapPoints2.size(), false);
@@ -972,13 +1004,13 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vec
                     continue;
                 }
 
-                const cv::Mat &d1 = Descriptors1.row(idx1);
+                const cv::Mat &d1 = pKF1->descriptor(idx1);
 
                 float bestDist1 = 256;
                 int   bestIdx2  = -1;
                 float bestDist2 = 256;
 
-                const auto ranked_indices = rank_candidates(d1, Descriptors2, std::vector<size_t>(f2it->second.begin(), f2it->second.end()));
+                const auto ranked_indices = rank_candidates(d1, *pKF2, std::vector<size_t>(f2it->second.begin(), f2it->second.end()));
                 for (const auto idx2 : ranked_indices)
                 {
 
@@ -999,7 +1031,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vec
                         continue;
                     }
 
-                    const cv::Mat &d2 = Descriptors2.row(idx2);
+                    const cv::Mat &d2 = pKF2->descriptor(idx2);
 
                     float dist = descriptor_distance(d1, d2);
 
@@ -1169,12 +1201,12 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
 
                 const bool bRight1 = (pKF1->NLeft == -1 || std::cmp_less(idx1, pKF1->NLeft)) ? false : true;
 
-                const cv::Mat &d1 = pKF1->mDescriptors.row(idx1);
+                const cv::Mat &d1 = pKF1->descriptor(idx1);
 
                 float bestDist = low_distance_threshold;
                 int   bestIdx2 = -1;
 
-                const auto ranked_indices = rank_candidates(d1, pKF2->mDescriptors, std::vector<size_t>(f2it->second.begin(), f2it->second.end()));
+                const auto ranked_indices = rank_candidates(d1, *pKF2, std::vector<size_t>(f2it->second.begin(), f2it->second.end()));
                 for (auto idx2 : ranked_indices)
                 {
 
@@ -1196,7 +1228,7 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
                         }
                     }
 
-                    const cv::Mat &d2 = pKF2->mDescriptors.row(idx2);
+                    const cv::Mat &d2 = pKF2->descriptor(idx2);
 
                     const float dist = descriptor_distance(d1, d2);
 
@@ -1440,8 +1472,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
         // Search in a radius
         const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices =
-            rank_candidates(pMP->GetDescriptor(), bRight ? pKF->mDescriptors.rowRange(pKF->NLeft, pKF->N) : pKF->mDescriptors, pKF->GetFeaturesInArea(uv(0), uv(1), radius, bRight));
+        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius, bRight), bRight);
 
         if (vIndices.empty())
         {
@@ -1502,7 +1533,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
                 idx += pKF->NLeft;
             }
 
-            const cv::Mat &dKF = pKF->mDescriptors.row(idx);
+            const cv::Mat &dKF = pKF->descriptor(bRight ? idx + pKF->NLeft : idx);
 
             const float dist = descriptor_distance(dMP, dKF);
 
@@ -1623,7 +1654,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<Map
         // Search in a radius
         const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), pKF->mDescriptors, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
+        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
 
         if (vIndices.empty())
         {
@@ -1646,7 +1677,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<Map
                 continue;
             }
 
-            const cv::Mat &dKF = pKF->mDescriptors.row(idx);
+            const cv::Mat &dKF = pKF->descriptor(idx);
 
             float dist = descriptor_distance(dMP, dKF);
 
@@ -1774,7 +1805,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         // Search in a radius
         const float radius = th * pKF2->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), pKF2->mDescriptors, pKF2->GetFeaturesInArea(u, v, radius));
+        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF2, pKF2->GetFeaturesInArea(u, v, radius));
 
         if (vIndices.empty())
         {
@@ -1797,7 +1828,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
                 continue;
             }
 
-            const cv::Mat &dKF = pKF2->mDescriptors.row(idx);
+            const cv::Mat &dKF = pKF2->descriptor(idx);
 
             const float dist = descriptor_distance(dMP, dKF);
 
@@ -1868,7 +1899,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         // Search in a radius of 2.5*sigma(ScaleLevel)
         const float radius = th * pKF1->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), pKF1->mDescriptors, pKF1->GetFeaturesInArea(u, v, radius));
+        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF1, pKF1->GetFeaturesInArea(u, v, radius));
 
         if (vIndices.empty())
         {
@@ -1891,7 +1922,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
                 continue;
             }
 
-            const cv::Mat &dKF = pKF1->mDescriptors.row(idx);
+            const cv::Mat &dKF = pKF1->descriptor(idx);
 
             const float dist = descriptor_distance(dMP, dKF);
 
@@ -2008,7 +2039,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
 
                 const cv::Mat dMP = pMP->GetDescriptor();
 
-                vIndices2      = rank_candidates(dMP, CurrentFrame.mDescriptors, vIndices2);
+                vIndices2      = rank_candidates(dMP, CurrentFrame, vIndices2);
                 float bestDist = 256;
                 int   bestIdx2 = -1;
 
@@ -2034,7 +2065,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
                         }
                     }
 
-                    const cv::Mat &d = CurrentFrame.mDescriptors.row(i2);
+                    const cv::Mat &d = CurrentFrame.descriptor(i2);
 
                     const float dist = descriptor_distance(dMP, d);
 
@@ -2098,7 +2129,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
 
                     const cv::Mat dMP = pMP->GetDescriptor();
 
-                    vIndices2      = rank_candidates(dMP, CurrentFrame.mDescriptors.rowRange(CurrentFrame.Nleft, CurrentFrame.N), vIndices2);
+                    vIndices2      = rank_candidates(dMP, CurrentFrame, vIndices2, true);
                     float bestDist = 256;
                     int   bestIdx2 = -1;
 
@@ -2113,7 +2144,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
                             }
                         }
 
-                        const cv::Mat &d = CurrentFrame.mDescriptors.row(i2 + CurrentFrame.Nleft);
+                        const cv::Mat &d = CurrentFrame.descriptor(i2 + CurrentFrame.Nleft);
 
                         const float dist = descriptor_distance(dMP, d);
 
@@ -2236,8 +2267,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, KeyFrame *pKF,
                 // Search in a window
                 const float radius = th * CurrentFrame.mvScaleFactors[nPredictedLevel];
 
-                const auto vIndices2 =
-                    rank_candidates(pMP->GetDescriptor(), CurrentFrame.mDescriptors, CurrentFrame.GetFeaturesInArea(uv(0), uv(1), radius, nPredictedLevel - 1, nPredictedLevel + 1));
+                const auto vIndices2 = rank_candidates(pMP->GetDescriptor(), CurrentFrame, CurrentFrame.GetFeaturesInArea(uv(0), uv(1), radius, nPredictedLevel - 1, nPredictedLevel + 1));
 
                 if (vIndices2.empty())
                 {
@@ -2257,7 +2287,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, KeyFrame *pKF,
                         continue;
                     }
 
-                    const cv::Mat &d = CurrentFrame.mDescriptors.row(i2);
+                    const cv::Mat &d = CurrentFrame.descriptor(i2);
 
                     const float dist = descriptor_distance(dMP, d);
 

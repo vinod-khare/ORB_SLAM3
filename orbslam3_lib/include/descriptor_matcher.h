@@ -25,6 +25,7 @@
 #include "descriptor_matcher_type.h"
 #include "sophus/sim3.hpp"
 
+#include <functional>
 #include <vector>
 
 #include <opencv2/core/core.hpp>
@@ -44,6 +45,10 @@ class descriptor_matcher
     static cv::Ptr<cv::DescriptorMatcher> create(const cv::Mat &descriptors);
     static void                           knn_match(const cv::Mat &query, const cv::Mat &train, std::vector<std::vector<cv::DMatch>> &matches, int neighbors = 2);
     static std::vector<size_t>            rank_candidates(const cv::Mat &query, const cv::Mat &train, const std::vector<size_t> &indices);
+    static std::vector<size_t>            rank_candidates(const cv::Mat &query, const std::vector<size_t> &indices, const std::function<const cv::Mat &(size_t)> &get_descriptor);
+    static std::vector<size_t>            rank_candidates(const cv::Mat &query, const std::vector<keypoint> &train, const std::vector<size_t> &indices);
+    static std::vector<size_t>            rank_candidates(const cv::Mat &query, const Frame &train, const std::vector<size_t> &indices, bool right = false);
+    static std::vector<size_t>            rank_candidates(const cv::Mat &query, const KeyFrame &train, const std::vector<size_t> &indices, bool right = false);
 
     // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
     // Used to track the local map (Tracking)

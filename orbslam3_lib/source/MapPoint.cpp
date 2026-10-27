@@ -103,7 +103,7 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, Frame *pFrame, const i
     mfMaxDistance = dist * levelScaleFactor;
     mfMinDistance = mfMaxDistance / pFrame->mvScaleFactors[nLevels - 1];
 
-    pFrame->mDescriptors.row(idxF).copyTo(mDescriptor);
+    pFrame->descriptor(idxF).copyTo(mDescriptor);
     _color     = pFrame->keypoint_color(idxF);
     _has_color = !(pFrame->Nleft >= 0 && idxF >= pFrame->Nleft ? pFrame->color_image_right : pFrame->color_image).empty();
 
@@ -400,11 +400,11 @@ void MapPoint::ComputeDistinctiveDescriptors()
 
             if (leftIndex != -1)
             {
-                vDescriptors.push_back(pKF->mDescriptors.row(leftIndex));
+                vDescriptors.push_back(pKF->descriptor(leftIndex));
             }
             if (rightIndex != -1)
             {
-                vDescriptors.push_back(pKF->mDescriptors.row(rightIndex));
+                vDescriptors.push_back(pKF->descriptor(rightIndex));
             }
         }
     }

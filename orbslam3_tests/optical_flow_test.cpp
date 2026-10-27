@@ -134,7 +134,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     const ORB_SLAM3::Frame copied(previous);
     REQUIRE(copied.mvKeys.front().display.size == previous.mvKeys.front().display.size);
     REQUIRE(copied.mvKeysRight.size() == previous.mvKeysRight.size());
-    REQUIRE_FALSE(previous.mDescriptors.empty());
+    REQUIRE_FALSE(previous.mvKeys.front().descriptor.empty());
     previous.get_optical_flow_pyramid(image);
     previous.flow_candidates = 200;
     const auto       next_id = ORB_SLAM3::Frame::nNextId;
@@ -145,8 +145,6 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.N == 0);
     REQUIRE(current.mvKeys.empty());
     REQUIRE(current.mvKeysRight.empty());
-    REQUIRE(current.mDescriptors.empty());
-    REQUIRE(current.mDescriptorsRight.empty());
     REQUIRE(current.optical_flow_pyramid.empty());
     REQUIRE(current.flow_candidates == 0);
     REQUIRE(current.mpPrevFrame == &previous);
@@ -156,7 +154,10 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     ORB_SLAM3::MapPoint point;
     cv::KeyPoint        tracked(73.25f, 81.75f, 31.0f);
     const cv::KeyPoint  native_tracked(tracked.pt, 7.f, -1.f);
-    current.set_tracked_features({ORB_SLAM3::keypoint(tracked, native_tracked)}, {&point});
+    ORB_SLAM3::keypoint tracked_feature(tracked, native_tracked);
+    tracked_feature.descriptor       = cv::Mat::ones(1, 32, CV_8U);
+    tracked_feature.place_descriptor = cv::Mat::ones(1, 32, CV_8U);
+    current.set_tracked_features({tracked_feature}, {&point});
     current.flow_candidates = 100;
     current.flow_tracks     = 1;
     REQUIRE(current.N == 1);
@@ -165,6 +166,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mvKeys.front().display.size == 7.f);
     REQUIRE(current.mvKeys.front().display.angle == -1.f);
     REQUIRE(current.mvKeys.front().size == 31.f);
+    REQUIRE(current.mvKeys.front().descriptor.empty());
+    REQUIRE(current.mvKeys.front().place_descriptor.empty());
     REQUIRE(current.mvKeysRight.empty());
     std::vector<cv::Point2f> expected_undistorted;
     cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected_undistorted, calibration, distortion, cv::noArray(), calibration);
@@ -172,7 +175,6 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mvpMapPoints.front() == &point);
     REQUIRE(current.mvuRight.front() == -1);
     REQUIRE(current.mvDepth.front() == -1);
-    REQUIRE(current.mDescriptors.empty());
     REQUIRE(current.Nleft == (camera_kind == 2 ? 1 : -1));
     REQUIRE(current.mvKeysRight.empty());
     if (camera_kind == 2)
@@ -207,8 +209,18 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.GetVelocity().isApprox(Eigen::Vector3f(4, 5, 6)));
     REQUIRE(current.optical_flow_pyramid.front().data == pyramid_data);
     REQUIRE(current.N == previous.N);
-    REQUIRE(current.mDescriptors.rows == current.N);
-    REQUIRE(cv::norm(current.mDescriptors, previous.mDescriptors, cv::NORM_INF) == 0);
+    auto current_descriptors = descriptor_matrix(current.mvKeys);
+    if (current.Nleft >= 0)
+    {
+        current_descriptors.push_back(descriptor_matrix(current.mvKeysRight));
+    }
+    auto previous_descriptors = descriptor_matrix(previous.mvKeys);
+    if (previous.Nleft >= 0)
+    {
+        previous_descriptors.push_back(descriptor_matrix(previous.mvKeysRight));
+    }
+    REQUIRE(current_descriptors.rows == current.N);
+    REQUIRE(cv::norm(current_descriptors, previous_descriptors, cv::NORM_INF) == 0);
     REQUIRE(current.mvpMapPoints.size() == static_cast<std::size_t>(current.N));
     REQUIRE(std::all_of(current.mvpMapPoints.begin(), current.mvpMapPoints.end(), [](const auto *entry) { return entry == nullptr; }));
     REQUIRE(current.mvKeys.size() == previous.mvKeys.size());

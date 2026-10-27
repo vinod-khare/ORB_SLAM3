@@ -2,7 +2,7 @@
 
 # Dataset paths (child paths may also be absolute)
 data:
-  root:  "../.data/tumvi/dataset-corridor2_512_16/mav0"
+  root:  "../.data/tumvi/dataset-corridor1_512_16/mav0"
   left:  "cam0/data"
   right: "cam1/data"
   imu:   "imu0/data.csv"
@@ -10,8 +10,8 @@ data:
 # Kalibr camchain file providing intrinsics, distortion, resolution, cam0->cam1 and IMU->cam0 extrinsics
 # (relative paths are resolved from this file)
 calibration:
-  file: "../.data/tumvi/dataset-corridor2_512_16/dso/camchain.yaml"
-  imu_file: "../.data/tumvi/dataset-corridor2_512_16/dso/imu_config.yaml"
+  file: "../.data/tumvi/dataset-corridor1_512_16/dso/camchain.yaml"
+  imu_file: "../.data/tumvi/dataset-corridor1_512_16/dso/imu_config.yaml"
 
 # Close/Far threshold. Baseline times.
 Stereo.ThDepth: 40.0
@@ -26,7 +26,7 @@ Camera.RGB: 1
 # Feature Parameters
 #--------------------------------------------------------------------------------------------
 # Place-recognition backend: 2 (DBoW2) or 3 (DBoW3); CLI --dbow_version overrides this.
-dbow_version: 2
+dbow_version: 3
 
 TODO: combine the following into a single "keypoint" section
 keypoint_extractor:
@@ -53,7 +53,7 @@ tracking:
 # Viewer Parameters
 #--------------------------------------------------------------------------------------------
 ground_truth:
-  path: "../.data/tumvi/dataset-corridor2_512_16/mav0/mocap0/data.csv"
+  path: "../.data/tumvi/dataset-corridor1_512_16/mav0/mocap0/data.csv"
   visible: false
 
 camera_trajectory:

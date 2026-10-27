@@ -55,8 +55,6 @@ class keypoint_extractor
 
     keypoint_detector_type get_detector_type() const { return _detector_type; }
 
-    const cv::Mat &get_place_descriptors() const { return _place_descriptors; }
-
     std::vector<cv::Mat> mvImagePyramid;
 
   protected:
@@ -89,7 +87,6 @@ class keypoint_extractor
     keypoint_descriptor_type _descriptor_type;
     cv::Ptr<cv::Feature2D>   _descriptor;
     cv::Ptr<cv::Feature2D>   _place_descriptor;
-    cv::Mat                  _place_descriptors;
 };
 
 } // namespace ORB_SLAM3

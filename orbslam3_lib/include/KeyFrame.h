@@ -224,8 +224,7 @@ class KeyFrame
     const std::vector<keypoint> mvKeysUn;
     const std::vector<float>    mvuRight; // negative value for monocular points
     const std::vector<float>    mvDepth;  // negative value for monocular points
-    const cv::Mat               mDescriptors;
-    cv::Mat                     place_descriptors;
+    const cv::Mat &descriptor(std::size_t index) const { return NLeft >= 0 && index >= static_cast<std::size_t>(NLeft) ? mvKeysRight[index - NLeft].descriptor : mvKeys[index].descriptor; }
 
     // BoW
     DBoW2::BowVector     mBowVec;
