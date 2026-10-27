@@ -10,7 +10,7 @@ class command_line_options
   public:
     command_line_options(int argc, char **argv);
 
-    std::optional<int>           exit_code;
+    std::optional<int> exit_code;
 
     std::string                  vocab_path;
     std::string                  settings_path;

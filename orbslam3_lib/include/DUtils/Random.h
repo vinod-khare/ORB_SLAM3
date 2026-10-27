@@ -21,16 +21,16 @@ class Random
   public:
     class UnrepeatedRandomizer;
 
-    static void                 SeedRand();
-    static void                 SeedRandOnce();
-    static void                 SeedRand(int seed);
-    static void                 SeedRandOnce(int seed);
+    static void SeedRand();
+    static void SeedRandOnce();
+    static void SeedRand(int seed);
+    static void SeedRandOnce(int seed);
 
     template <class T> static T RandomValue() { return static_cast<T>(rand()) / static_cast<T>(RAND_MAX); }
 
     template <class T> static T RandomValue(T min, T max) { return RandomValue<T>() * (max - min) + min; }
 
-    static int                  RandomInt(int min, int max);
+    static int RandomInt(int min, int max);
 
     template <class T> static T RandomGaussianValue(T mean, T sigma)
     {
@@ -60,13 +60,13 @@ class Random::UnrepeatedRandomizer
     UnrepeatedRandomizer(const UnrepeatedRandomizer &randomizer);
     UnrepeatedRandomizer &operator=(const UnrepeatedRandomizer &randomizer);
 
-    int                   get();
-    bool                  empty() const { return m_values.empty(); }
-    unsigned int          left() const { return static_cast<unsigned int>(m_values.size()); }
-    void                  reset();
+    int          get();
+    bool         empty() const { return m_values.empty(); }
+    unsigned int left() const { return static_cast<unsigned int>(m_values.size()); }
+    void         reset();
 
   protected:
-    void             createValues();
+    void createValues();
 
     int              m_min;
     int              m_max;

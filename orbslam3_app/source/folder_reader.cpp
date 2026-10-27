@@ -17,9 +17,9 @@ namespace
 {
 double parse_imu_value(const std::string &value, const std::string &imu_path, size_t line_number)
 {
-    const std::string field = folder_reader::trim(value);
-    size_t             parsed_characters = 0;
-    double             parsed_value = 0.0;
+    const std::string field             = folder_reader::trim(value);
+    size_t            parsed_characters = 0;
+    double            parsed_value      = 0.0;
     try
     {
         parsed_value = std::stod(field, &parsed_characters);
@@ -49,12 +49,12 @@ folder_reader::folder_reader(const settings &reader_settings)
         throw std::invalid_argument("Frame skip and take must be non-negative, and frame stride must be positive");
     }
 
-    const std::string       &left_image_path  = reader_settings.left_image_path;
-    const std::string       &right_image_path = reader_settings.right_image_path;
-    int                      frames_skip      = reader_settings.frames_skip;
-    const int                frames_stride    = reader_settings.frames_stride;
-    const int                frames_take      = reader_settings.frames_take;
-    const std::string       &imu_path         = reader_settings.imu_path;
+    const std::string &left_image_path  = reader_settings.left_image_path;
+    const std::string &right_image_path = reader_settings.right_image_path;
+    int                frames_skip      = reader_settings.frames_skip;
+    const int          frames_stride    = reader_settings.frames_stride;
+    const int          frames_take      = reader_settings.frames_take;
+    const std::string &imu_path         = reader_settings.imu_path;
 
     std::vector<std::string> allImages;
     std::vector<double>      allTimestamps;
@@ -78,8 +78,7 @@ folder_reader::folder_reader(const settings &reader_settings)
         const std::string stem = entry.path().stem().string();
         if (!is_numeric_stem(stem))
         {
-            throw std::runtime_error("Invalid image filename for timestamp inference: " + entry.path().string() +
-                                     ". Expected numeric nanosecond timestamp in the filename stem.");
+            throw std::runtime_error("Invalid image filename for timestamp inference: " + entry.path().string() + ". Expected numeric nanosecond timestamp in the filename stem.");
         }
 
         const double timestamp_seconds = std::stod(stem) / 1e9;
@@ -191,11 +190,11 @@ folder_reader::folder_reader(const settings &reader_settings)
     spdlog::info("✅ [folder_reader] Final loaded frames: {} (skip={}, stride={}, take={})", _images.size(), frames_skip, frames_stride, frames_take);
 }
 
-size_t                             folder_reader::size() const { return _images.size(); }
+size_t folder_reader::size() const { return _images.size(); }
 
-const std::string                 &folder_reader::image_path(size_t idx) const { return _images.at(idx); }
+const std::string &folder_reader::image_path(size_t idx) const { return _images.at(idx); }
 
-double                             folder_reader::timestamp(size_t idx) const { return _time_stamps.at(idx); }
+double folder_reader::timestamp(size_t idx) const { return _time_stamps.at(idx); }
 
 cv::Mat folder_reader::read_image(size_t idx) const { return read_image_at_path(_images.at(idx)); }
 

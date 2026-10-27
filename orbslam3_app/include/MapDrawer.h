@@ -58,7 +58,7 @@ class MapDrawer
     void         release();
 
   private:
-    Atlas                                         &_atlas;
+    Atlas                                        &_atlas;
     viewer_settings                               _settings;
     ground_truth_trajectory                       _ground_truth;
     std::optional<Eigen::Matrix4d>                _ground_truth_alignment;

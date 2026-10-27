@@ -34,7 +34,7 @@ class Sim3Solver
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const std::vector<MapPoint *> &vpMatched12, const bool bFixScale = true, const vector<KeyFrame *> vpKeyFrameMatchedMP = vector<KeyFrame *>());
 
-    void            SetRansacParameters(double probability = 0.99, int minInliers = 6, int maxIterations = 300);
+    void SetRansacParameters(double probability = 0.99, int minInliers = 6, int maxIterations = 300);
 
     Eigen::Matrix4f find(std::vector<bool> &vbInliers12, int &nInliers);
 
@@ -58,8 +58,8 @@ class Sim3Solver
 
   protected:
     // KeyFrames and matches
-    KeyFrame                    *mpKF1;
-    KeyFrame                    *mpKF2;
+    KeyFrame *mpKF1;
+    KeyFrame *mpKF2;
 
     std::vector<Eigen::Vector3f> mvX3Dc1;
     std::vector<Eigen::Vector3f> mvX3Dc2;
@@ -72,53 +72,53 @@ class Sim3Solver
     std::vector<size_t>          mvnMaxError1;
     std::vector<size_t>          mvnMaxError2;
 
-    int                          N;
-    int                          mN1;
+    int N;
+    int mN1;
 
     // Current Estimation
-    Eigen::Matrix3f              mR12i;
-    Eigen::Vector3f              mt12i;
-    float                        ms12i;
-    Eigen::Matrix4f              mT12i;
-    Eigen::Matrix4f              mT21i;
-    std::vector<bool>            mvbInliersi;
-    int                          mnInliersi;
+    Eigen::Matrix3f   mR12i;
+    Eigen::Vector3f   mt12i;
+    float             ms12i;
+    Eigen::Matrix4f   mT12i;
+    Eigen::Matrix4f   mT21i;
+    std::vector<bool> mvbInliersi;
+    int               mnInliersi;
 
     // Current Ransac State
-    int                          mnIterations;
-    std::vector<bool>            mvbBestInliers;
-    int                          mnBestInliers;
-    Eigen::Matrix4f              mBestT12;
-    Eigen::Matrix3f              mBestRotation;
-    Eigen::Vector3f              mBestTranslation;
-    float                        mBestScale;
+    int               mnIterations;
+    std::vector<bool> mvbBestInliers;
+    int               mnBestInliers;
+    Eigen::Matrix4f   mBestT12;
+    Eigen::Matrix3f   mBestRotation;
+    Eigen::Vector3f   mBestTranslation;
+    float             mBestScale;
 
     // Scale is fixed to 1 in the stereo/RGBD case
-    bool                         mbFixScale;
+    bool mbFixScale;
 
     // Indices for random selection
-    std::vector<size_t>          mvAllIndices;
+    std::vector<size_t> mvAllIndices;
 
     // Projections
     std::vector<Eigen::Vector2f> mvP1im1;
     std::vector<Eigen::Vector2f> mvP2im2;
 
     // RANSAC probability
-    double                       mRansacProb;
+    double mRansacProb;
 
     // RANSAC min inliers
-    int                          mRansacMinInliers;
+    int mRansacMinInliers;
 
     // RANSAC max iterations
-    int                          mRansacMaxIts;
+    int mRansacMaxIts;
 
     // Threshold inlier/outlier. e = dist(Pi,T_ij*Pj)^2 < 5.991*mSigma2
-    float                        mTh;
-    float                        mSigma2;
+    float mTh;
+    float mSigma2;
 
     // Calibration
 
-    GeometricCamera             *pCamera1, *pCamera2;
+    GeometricCamera *pCamera1, *pCamera2;
 };
 
 } // namespace ORB_SLAM3

@@ -51,12 +51,12 @@ bool EdgeSE3ProjectXYZOnlyPose::write(std::ostream &os) const
 
 void EdgeSE3ProjectXYZOnlyPose::linearizeOplus()
 {
-    g2o::VertexSE3Expmap       *vi        = static_cast<g2o::VertexSE3Expmap *>(_vertices[0]);
-    Eigen::Vector3d             xyz_trans = vi->estimate().map(Xw);
+    g2o::VertexSE3Expmap *vi        = static_cast<g2o::VertexSE3Expmap *>(_vertices[0]);
+    Eigen::Vector3d       xyz_trans = vi->estimate().map(Xw);
 
-    double                      x         = xyz_trans[0];
-    double                      y         = xyz_trans[1];
-    double                      z         = xyz_trans[2];
+    double x = xyz_trans[0];
+    double y = xyz_trans[1];
+    double z = xyz_trans[2];
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;
@@ -95,14 +95,14 @@ bool EdgeSE3ProjectXYZOnlyPoseToBody::write(std::ostream &os) const
 
 void EdgeSE3ProjectXYZOnlyPoseToBody::linearizeOplus()
 {
-    g2o::VertexSE3Expmap       *vi = static_cast<g2o::VertexSE3Expmap *>(_vertices[0]);
-    g2o::SE3Quat                T_lw(vi->estimate());
-    Eigen::Vector3d             X_l = T_lw.map(Xw);
-    Eigen::Vector3d             X_r = mTrl.map(T_lw.map(Xw));
+    g2o::VertexSE3Expmap *vi = static_cast<g2o::VertexSE3Expmap *>(_vertices[0]);
+    g2o::SE3Quat          T_lw(vi->estimate());
+    Eigen::Vector3d       X_l = T_lw.map(Xw);
+    Eigen::Vector3d       X_r = mTrl.map(T_lw.map(Xw));
 
-    double                      x_w = X_l[0];
-    double                      y_w = X_l[1];
-    double                      z_w = X_l[2];
+    double x_w = X_l[0];
+    double y_w = X_l[1];
+    double z_w = X_l[2];
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z_w, -y_w, 1.f, 0.f, 0.f, -z_w, 0.f, x_w, 0.f, 1.f, 0.f, y_w, -x_w, 0.f, 0.f, 0.f, 1.f;
@@ -143,20 +143,20 @@ bool EdgeSE3ProjectXYZ::write(std::ostream &os) const
 
 void EdgeSE3ProjectXYZ::linearizeOplus()
 {
-    g2o::VertexSE3Expmap             *vj = static_cast<g2o::VertexSE3Expmap *>(_vertices[1]);
-    g2o::SE3Quat                      T(vj->estimate());
-    g2o::VertexSBAPointXYZ           *vi         = static_cast<g2o::VertexSBAPointXYZ *>(_vertices[0]);
-    Eigen::Vector3d                   xyz        = vi->estimate();
-    Eigen::Vector3d                   xyz_trans  = T.map(xyz);
+    g2o::VertexSE3Expmap   *vj = static_cast<g2o::VertexSE3Expmap *>(_vertices[1]);
+    g2o::SE3Quat            T(vj->estimate());
+    g2o::VertexSBAPointXYZ *vi        = static_cast<g2o::VertexSBAPointXYZ *>(_vertices[0]);
+    Eigen::Vector3d         xyz       = vi->estimate();
+    Eigen::Vector3d         xyz_trans = T.map(xyz);
 
-    double                            x          = xyz_trans[0];
-    double                            y          = xyz_trans[1];
-    double                            z          = xyz_trans[2];
+    double x = xyz_trans[0];
+    double y = xyz_trans[1];
+    double z = xyz_trans[2];
 
     // Materialize: `auto` would keep an Eigen expression referencing a destroyed temporary.
     const Eigen::Matrix<double, 2, 3> projectJac = -pCamera->projectJac(xyz_trans);
 
-    _jacobianOplusXi                             = projectJac * T.rotation().toRotationMatrix();
+    _jacobianOplusXi = projectJac * T.rotation().toRotationMatrix();
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;
@@ -199,17 +199,17 @@ void EdgeSE3ProjectXYZToBody::linearizeOplus()
 {
     g2o::VertexSE3Expmap   *vj = static_cast<g2o::VertexSE3Expmap *>(_vertices[1]);
     g2o::SE3Quat            T_lw(vj->estimate());
-    g2o::SE3Quat            T_rw  = mTrl * T_lw;
-    g2o::VertexSBAPointXYZ *vi    = static_cast<g2o::VertexSBAPointXYZ *>(_vertices[0]);
-    Eigen::Vector3d         X_w   = vi->estimate();
-    Eigen::Vector3d         X_l   = T_lw.map(X_w);
-    Eigen::Vector3d         X_r   = mTrl.map(T_lw.map(X_w));
+    g2o::SE3Quat            T_rw = mTrl * T_lw;
+    g2o::VertexSBAPointXYZ *vi   = static_cast<g2o::VertexSBAPointXYZ *>(_vertices[0]);
+    Eigen::Vector3d         X_w  = vi->estimate();
+    Eigen::Vector3d         X_l  = T_lw.map(X_w);
+    Eigen::Vector3d         X_r  = mTrl.map(T_lw.map(X_w));
 
-    _jacobianOplusXi              = -pCamera->projectJac(X_r) * T_rw.rotation().toRotationMatrix();
+    _jacobianOplusXi = -pCamera->projectJac(X_r) * T_rw.rotation().toRotationMatrix();
 
-    double                      x = X_l[0];
-    double                      y = X_l[1];
-    double                      z = X_l[2];
+    double x = X_l[0];
+    double y = X_l[1];
+    double z = X_l[2];
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;

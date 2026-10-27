@@ -18,23 +18,23 @@ class folder_reader
   public:
     struct settings
     {
-        std::string     left_image_path;
-        std::string     right_image_path;
-        int             frames_skip   = 0;
-        int             frames_stride = 1;
-        int             frames_take   = 0;
-        std::string     imu_path;
+        std::string left_image_path;
+        std::string right_image_path;
+        int         frames_skip   = 0;
+        int         frames_stride = 1;
+        int         frames_take   = 0;
+        std::string imu_path;
     };
 
     explicit folder_reader(const settings &reader_settings);
 
-    static std::string              trim(const std::string &s);
+    static std::string trim(const std::string &s);
 
-    size_t                          size() const;
-    const std::string              &image_path(size_t idx) const;
-    const std::string              &right_image_path(size_t index) const { return _right_images.at(index); }
-    double                          timestamp(size_t idx) const;
-    cv::Mat                         read_image(size_t idx) const;
+    size_t             size() const;
+    const std::string &image_path(size_t idx) const;
+    const std::string &right_image_path(size_t index) const { return _right_images.at(index); }
+    double             timestamp(size_t idx) const;
+    cv::Mat            read_image(size_t idx) const;
 
     template <typename Frame> Frame read() const
     {

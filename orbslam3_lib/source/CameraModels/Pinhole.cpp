@@ -23,9 +23,9 @@ namespace ORB_SLAM3
 
 long unsigned int GeometricCamera::nNextId = 0;
 
-cv::Point2f       Pinhole::project(const cv::Point3f &p3D) { return cv::Point2f(mvParameters[0] * p3D.x / p3D.z + mvParameters[2], mvParameters[1] * p3D.y / p3D.z + mvParameters[3]); }
+cv::Point2f Pinhole::project(const cv::Point3f &p3D) { return cv::Point2f(mvParameters[0] * p3D.x / p3D.z + mvParameters[2], mvParameters[1] * p3D.y / p3D.z + mvParameters[3]); }
 
-Eigen::Vector2d   Pinhole::project(const Eigen::Vector3d &v3D)
+Eigen::Vector2d Pinhole::project(const Eigen::Vector3d &v3D)
 {
     Eigen::Vector2d res;
     res[0] = mvParameters[0] * v3D[0] / v3D[2] + mvParameters[2];
@@ -49,11 +49,11 @@ Eigen::Vector2f Pinhole::projectMat(const cv::Point3f &p3D)
     return Eigen::Vector2f(point.x, point.y);
 }
 
-float           Pinhole::uncertainty2(const Eigen::Matrix<double, 2, 1> &p2D) { return 1.0; }
+float Pinhole::uncertainty2(const Eigen::Matrix<double, 2, 1> &p2D) { return 1.0; }
 
 Eigen::Vector3f Pinhole::unprojectEig(const cv::Point2f &p2D) { return Eigen::Vector3f((p2D.x - mvParameters[2]) / mvParameters[0], (p2D.y - mvParameters[3]) / mvParameters[1], 1.f); }
 
-cv::Point3f     Pinhole::unproject(const cv::Point2f &p2D) { return cv::Point3f((p2D.x - mvParameters[2]) / mvParameters[0], (p2D.y - mvParameters[3]) / mvParameters[1], 1.f); }
+cv::Point3f Pinhole::unproject(const cv::Point2f &p2D) { return cv::Point3f((p2D.x - mvParameters[2]) / mvParameters[0], (p2D.y - mvParameters[3]) / mvParameters[1], 1.f); }
 
 Eigen::Matrix<double, 2, 3> Pinhole::projectJac(const Eigen::Vector3d &v3D)
 {
@@ -103,13 +103,13 @@ bool Pinhole::epipolarConstrain(GeometricCamera *pCamera2, const cv::KeyPoint &k
     Eigen::Matrix3f F12  = K1.transpose().inverse() * t12x * R12 * K2.inverse();
 
     // Epipolar line in second image l = x1'F12 = [a b c]
-    const float     a    = kp1.pt.x * F12(0, 0) + kp1.pt.y * F12(1, 0) + F12(2, 0);
-    const float     b    = kp1.pt.x * F12(0, 1) + kp1.pt.y * F12(1, 1) + F12(2, 1);
-    const float     c    = kp1.pt.x * F12(0, 2) + kp1.pt.y * F12(1, 2) + F12(2, 2);
+    const float a = kp1.pt.x * F12(0, 0) + kp1.pt.y * F12(1, 0) + F12(2, 0);
+    const float b = kp1.pt.x * F12(0, 1) + kp1.pt.y * F12(1, 1) + F12(2, 1);
+    const float c = kp1.pt.x * F12(0, 2) + kp1.pt.y * F12(1, 2) + F12(2, 2);
 
-    const float     num  = a * kp2.pt.x + b * kp2.pt.y + c;
+    const float num = a * kp2.pt.x + b * kp2.pt.y + c;
 
-    const float     den  = a * a + b * b;
+    const float den = a * a + b * b;
 
     if (den == 0)
     {

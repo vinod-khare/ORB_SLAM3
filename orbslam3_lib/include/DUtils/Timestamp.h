@@ -35,20 +35,20 @@ class Timestamp
     double      getFloatTime() const;
     std::string getStringTime() const;
 
-    double      operator-(const Timestamp &timestamp) const;
-    Timestamp  &operator+=(double seconds);
-    Timestamp  &operator-=(double seconds);
-    Timestamp   operator+(double seconds) const;
-    Timestamp   operator-(double seconds) const;
-    bool        operator>(const Timestamp &timestamp) const;
-    bool        operator>=(const Timestamp &timestamp) const;
-    bool        operator==(const Timestamp &timestamp) const;
-    bool        operator<(const Timestamp &timestamp) const;
-    bool        operator<=(const Timestamp &timestamp) const;
+    double     operator-(const Timestamp &timestamp) const;
+    Timestamp &operator+=(double seconds);
+    Timestamp &operator-=(double seconds);
+    Timestamp  operator+(double seconds) const;
+    Timestamp  operator-(double seconds) const;
+    bool       operator>(const Timestamp &timestamp) const;
+    bool       operator>=(const Timestamp &timestamp) const;
+    bool       operator==(const Timestamp &timestamp) const;
+    bool       operator<(const Timestamp &timestamp) const;
+    bool       operator<=(const Timestamp &timestamp) const;
 
-    Timestamp   plus(unsigned long seconds, unsigned long microseconds) const;
-    Timestamp   minus(unsigned long seconds, unsigned long microseconds) const;
-    std::string Format(bool machine_friendly = false) const;
+    Timestamp          plus(unsigned long seconds, unsigned long microseconds) const;
+    Timestamp          minus(unsigned long seconds, unsigned long microseconds) const;
+    std::string        Format(bool machine_friendly = false) const;
     static std::string Format(double seconds);
 
   protected:

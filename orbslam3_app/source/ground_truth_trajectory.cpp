@@ -95,7 +95,7 @@ ground_truth_trajectory::ground_truth_trajectory(const std::string &path, const 
     }
 }
 
-const trajectory_samples   &ground_truth_trajectory::samples() const { return _samples; }
+const trajectory_samples &ground_truth_trajectory::samples() const { return _samples; }
 
 std::optional<Sophus::SE3d> ground_truth_trajectory::pose_at(double timestamp) const
 {

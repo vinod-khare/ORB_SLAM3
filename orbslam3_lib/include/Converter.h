@@ -20,13 +20,13 @@
 #define CONVERTER_H
 
 #include "G2oCompat.h"
-#include <sophus/geometry.hpp>
-#include <sophus/sim3.hpp>
 
 #include <opencv2/core/core.hpp>
 
 #include <Eigen/Dense>
 #include <g2o/types/sim3/types_seven_dof_expmap.h>
+#include <sophus/geometry.hpp>
+#include <sophus/sim3.hpp>
 
 namespace ORB_SLAM3
 {
@@ -35,33 +35,31 @@ class Converter
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    static std::vector<cv::Mat>        toDescriptorVector(const cv::Mat &Descriptors);
+    static std::vector<cv::Mat> toDescriptorVector(const cv::Mat &Descriptors);
 
-    static g2o::SE3Quat                toSE3Quat(const cv::Mat &cvT);
-    static g2o::SE3Quat                toSE3Quat(const Sophus::SE3f &T);
-    static g2o::SE3Quat                toSE3Quat(const g2o::Sim3 &gSim3);
+    static g2o::SE3Quat toSE3Quat(const cv::Mat &cvT);
+    static g2o::SE3Quat toSE3Quat(const Sophus::SE3f &T);
+    static g2o::SE3Quat toSE3Quat(const g2o::Sim3 &gSim3);
 
-    static cv::Mat                     toCvMat(const g2o::SE3Quat &SE3);
-    static cv::Mat                     toCvMat(const g2o::Sim3 &Sim3);
+    static cv::Mat toCvMat(const g2o::SE3Quat &SE3);
+    static cv::Mat toCvMat(const g2o::Sim3 &Sim3);
 
-    template <typename T_DERIVED>
-    static cv::Mat to_cv_mat(const Eigen::MatrixBase<T_DERIVED> &matrix)
+    template <typename T_DERIVED> static cv::Mat to_cv_mat(const Eigen::MatrixBase<T_DERIVED> &matrix)
     {
-      cv::Mat cv_mat(static_cast<int>(matrix.rows()), static_cast<int>(matrix.cols()), CV_32F);
-      for (Eigen::Index row = 0; row < matrix.rows(); ++row)
-      {
-        for (Eigen::Index column = 0; column < matrix.cols(); ++column)
+        cv::Mat cv_mat(static_cast<int>(matrix.rows()), static_cast<int>(matrix.cols()), CV_32F);
+        for (Eigen::Index row = 0; row < matrix.rows(); ++row)
         {
-          cv_mat.at<float>(static_cast<int>(row), static_cast<int>(column)) =
-            static_cast<float>(matrix(row, column));
+            for (Eigen::Index column = 0; column < matrix.cols(); ++column)
+            {
+                cv_mat.at<float>(static_cast<int>(row), static_cast<int>(column)) = static_cast<float>(matrix(row, column));
+            }
         }
-      }
 
-      return cv_mat;
+        return cv_mat;
     }
 
-    static cv::Mat                     toCvSE3(const Eigen::Matrix<double, 3, 3> &R, const Eigen::Matrix<double, 3, 1> &t);
-    static cv::Mat                     tocvSkewMatrix(const cv::Mat &v);
+    static cv::Mat toCvSE3(const Eigen::Matrix<double, 3, 3> &R, const Eigen::Matrix<double, 3, 1> &t);
+    static cv::Mat tocvSkewMatrix(const cv::Mat &v);
 
     static Eigen::Matrix<double, 3, 1> toVector3d(const cv::Mat &cvVector);
     static Eigen::Matrix<float, 3, 1>  toVector3f(const cv::Mat &cvVector);
@@ -72,11 +70,11 @@ class Converter
     static Eigen::Matrix<float, 4, 4>  toMatrix4f(const cv::Mat &cvMat4);
     static std::vector<float>          toQuaternion(const cv::Mat &M);
 
-    static bool                        isRotationMatrix(const cv::Mat &R);
-    static std::vector<float>          toEuler(const cv::Mat &R);
+    static bool               isRotationMatrix(const cv::Mat &R);
+    static std::vector<float> toEuler(const cv::Mat &R);
 
-    static Sophus::SE3<float>          toSophus(const cv::Mat &T);
-    static Sophus::Sim3f               toSophus(const g2o::Sim3 &S);
+    static Sophus::SE3<float> toSophus(const cv::Mat &T);
+    static Sophus::Sim3f      toSophus(const g2o::Sim3 &S);
 };
 
 } // namespace ORB_SLAM3

@@ -39,12 +39,12 @@ LocalMapping::LocalMapping(processing_statistics &statistics, System *pSys, Atla
 {
     mnMatchesInliers = 0;
 
-    mbBadImu         = false;
+    mbBadImu = false;
 
-    mTinit           = 0.f;
+    mTinit = 0.f;
 
-    mNumLM           = 0;
-    mNumKFCulling    = 0;
+    mNumLM        = 0;
+    mNumKFCulling = 0;
 }
 
 void LocalMapping::SetLoopCloser(LoopClosing *pLoopCloser) { mpLoopCloser = pLoopCloser; }
@@ -295,7 +295,7 @@ void LocalMapping::MapPointCulling()
     list<MapPoint *>::iterator lit          = mlpRecentAddedMapPoints.begin();
     const unsigned long int    nCurrentKFid = mpCurrentKeyFrame->mnId;
 
-    int                        nThObs;
+    int nThObs;
     if (mbMonocular)
     {
         nThObs = 2;
@@ -306,7 +306,7 @@ void LocalMapping::MapPointCulling()
     }
     const int cnThObs = nThObs;
 
-    int       borrar  = mlpRecentAddedMapPoints.size();
+    int borrar = mlpRecentAddedMapPoints.size();
 
     while (lit != mlpRecentAddedMapPoints.end())
     {
@@ -364,29 +364,29 @@ void LocalMapping::CreateNewMapPoints()
         }
     }
 
-    float                         th = 0.6f;
+    float th = 0.6f;
 
-    descriptor_matcher            matcher(th, false);
+    descriptor_matcher matcher(th, false);
 
-    Sophus::SE3<float>            sophTcw1            = mpCurrentKeyFrame->GetPose();
-    Eigen::Matrix<float, 3, 4>    eigTcw1             = sophTcw1.matrix3x4();
-    Eigen::Matrix<float, 3, 3>    Rcw1                = eigTcw1.block<3, 3>(0, 0);
-    Eigen::Matrix<float, 3, 3>    Rwc1                = Rcw1.transpose();
-    Eigen::Vector3f               tcw1                = sophTcw1.translation();
-    Eigen::Vector3f               Ow1                 = mpCurrentKeyFrame->GetCameraCenter();
+    Sophus::SE3<float>         sophTcw1 = mpCurrentKeyFrame->GetPose();
+    Eigen::Matrix<float, 3, 4> eigTcw1  = sophTcw1.matrix3x4();
+    Eigen::Matrix<float, 3, 3> Rcw1     = eigTcw1.block<3, 3>(0, 0);
+    Eigen::Matrix<float, 3, 3> Rwc1     = Rcw1.transpose();
+    Eigen::Vector3f            tcw1     = sophTcw1.translation();
+    Eigen::Vector3f            Ow1      = mpCurrentKeyFrame->GetCameraCenter();
 
-    const float                  &fx1                 = mpCurrentKeyFrame->fx;
-    const float                  &fy1                 = mpCurrentKeyFrame->fy;
-    const float                  &cx1                 = mpCurrentKeyFrame->cx;
-    const float                  &cy1                 = mpCurrentKeyFrame->cy;
-    [[maybe_unused]] const float &invfx1              = mpCurrentKeyFrame->invfx;
-    [[maybe_unused]] const float &invfy1              = mpCurrentKeyFrame->invfy;
+    const float                  &fx1    = mpCurrentKeyFrame->fx;
+    const float                  &fy1    = mpCurrentKeyFrame->fy;
+    const float                  &cx1    = mpCurrentKeyFrame->cx;
+    const float                  &cy1    = mpCurrentKeyFrame->cy;
+    [[maybe_unused]] const float &invfx1 = mpCurrentKeyFrame->invfx;
+    [[maybe_unused]] const float &invfy1 = mpCurrentKeyFrame->invfy;
 
-    const float                   ratioFactor         = 1.5f * mpCurrentKeyFrame->mfScaleFactor;
-    int                           countStereo         = 0;
-    int                           countStereoGoodProj = 0;
-    int                           countStereoAttempt  = 0;
-    int                           totalStereoPts      = 0;
+    const float ratioFactor         = 1.5f * mpCurrentKeyFrame->mfScaleFactor;
+    int         countStereo         = 0;
+    int         countStereoGoodProj = 0;
+    int         countStereoAttempt  = 0;
+    int         totalStereoPts      = 0;
     // Search matches with epipolar restriction and triangulate
     for (size_t i = 0; i < vpNeighKFs.size(); i++)
     {
@@ -395,14 +395,14 @@ void LocalMapping::CreateNewMapPoints()
             return;
         }
 
-        KeyFrame        *pKF2     = vpNeighKFs[i];
+        KeyFrame *pKF2 = vpNeighKFs[i];
 
         GeometricCamera *pCamera1 = mpCurrentKeyFrame->mpCamera, *pCamera2 = pKF2->mpCamera;
 
         // Check first that baseline is not too short
-        Eigen::Vector3f  Ow2       = pKF2->GetCameraCenter();
-        Eigen::Vector3f  vBaseline = Ow2 - Ow1;
-        const float      baseline  = vBaseline.norm();
+        Eigen::Vector3f Ow2       = pKF2->GetCameraCenter();
+        Eigen::Vector3f vBaseline = Ow2 - Ow1;
+        const float     baseline  = vBaseline.norm();
 
         if (!mbMonocular)
         {
@@ -428,25 +428,25 @@ void LocalMapping::CreateNewMapPoints()
 
         matcher.search_for_triangulation(mpCurrentKeyFrame, pKF2, vMatchedIndices, false, bCoarse);
 
-        Sophus::SE3<float>            sophTcw2 = pKF2->GetPose();
-        Eigen::Matrix<float, 3, 4>    eigTcw2  = sophTcw2.matrix3x4();
-        Eigen::Matrix<float, 3, 3>    Rcw2     = eigTcw2.block<3, 3>(0, 0);
-        Eigen::Matrix<float, 3, 3>    Rwc2     = Rcw2.transpose();
-        Eigen::Vector3f               tcw2     = sophTcw2.translation();
+        Sophus::SE3<float>         sophTcw2 = pKF2->GetPose();
+        Eigen::Matrix<float, 3, 4> eigTcw2  = sophTcw2.matrix3x4();
+        Eigen::Matrix<float, 3, 3> Rcw2     = eigTcw2.block<3, 3>(0, 0);
+        Eigen::Matrix<float, 3, 3> Rwc2     = Rcw2.transpose();
+        Eigen::Vector3f            tcw2     = sophTcw2.translation();
 
-        const float                  &fx2      = pKF2->fx;
-        const float                  &fy2      = pKF2->fy;
-        const float                  &cx2      = pKF2->cx;
-        const float                  &cy2      = pKF2->cy;
-        [[maybe_unused]] const float &invfx2   = pKF2->invfx;
-        [[maybe_unused]] const float &invfy2   = pKF2->invfy;
+        const float                  &fx2    = pKF2->fx;
+        const float                  &fy2    = pKF2->fy;
+        const float                  &cx2    = pKF2->cx;
+        const float                  &cy2    = pKF2->cy;
+        [[maybe_unused]] const float &invfx2 = pKF2->invfx;
+        [[maybe_unused]] const float &invfy2 = pKF2->invfy;
 
         // Triangulate each match
-        const int                     nmatches = vMatchedIndices.size();
+        const int nmatches = vMatchedIndices.size();
         for (int ikp = 0; ikp < nmatches; ikp++)
         {
-            const int          &idx1     = vMatchedIndices[ikp].first;
-            const int          &idx2     = vMatchedIndices[ikp].second;
+            const int &idx1 = vMatchedIndices[ikp].first;
+            const int &idx2 = vMatchedIndices[ikp].second;
 
             const cv::KeyPoint &kp1      = (mpCurrentKeyFrame->NLeft == -1)    ? mpCurrentKeyFrame->mvKeysUn[idx1]
                                            : (idx1 < mpCurrentKeyFrame->NLeft) ? mpCurrentKeyFrame->mvKeys[idx1]
@@ -455,11 +455,11 @@ void LocalMapping::CreateNewMapPoints()
             bool                bStereo1 = (!mpCurrentKeyFrame->mpCamera2 && kp1_ur >= 0);
             const bool          bRight1  = (mpCurrentKeyFrame->NLeft == -1 || idx1 < mpCurrentKeyFrame->NLeft) ? false : true;
 
-            const cv::KeyPoint &kp2      = (pKF2->NLeft == -1) ? pKF2->mvKeysUn[idx2] : (idx2 < pKF2->NLeft) ? pKF2->mvKeys[idx2] : pKF2->mvKeysRight[idx2 - pKF2->NLeft];
+            const cv::KeyPoint &kp2 = (pKF2->NLeft == -1) ? pKF2->mvKeysUn[idx2] : (idx2 < pKF2->NLeft) ? pKF2->mvKeys[idx2] : pKF2->mvKeysRight[idx2 - pKF2->NLeft];
 
-            const float         kp2_ur   = pKF2->mvuRight[idx2];
-            bool                bStereo2 = (!pKF2->mpCamera2 && kp2_ur >= 0);
-            const bool          bRight2  = (pKF2->NLeft == -1 || idx2 < pKF2->NLeft) ? false : true;
+            const float kp2_ur   = pKF2->mvuRight[idx2];
+            bool        bStereo2 = (!pKF2->mpCamera2 && kp2_ur >= 0);
+            const bool  bRight2  = (pKF2->NLeft == -1 || idx2 < pKF2->NLeft) ? false : true;
 
             if (mpCurrentKeyFrame->mpCamera2 && pKF2->mpCamera2)
             {
@@ -519,16 +519,16 @@ void LocalMapping::CreateNewMapPoints()
             }
 
             // Check parallax between rays
-            Eigen::Vector3f xn1                = pCamera1->unprojectEig(kp1.pt);
-            Eigen::Vector3f xn2                = pCamera2->unprojectEig(kp2.pt);
+            Eigen::Vector3f xn1 = pCamera1->unprojectEig(kp1.pt);
+            Eigen::Vector3f xn2 = pCamera2->unprojectEig(kp2.pt);
 
-            Eigen::Vector3f ray1               = Rwc1 * xn1;
-            Eigen::Vector3f ray2               = Rwc2 * xn2;
-            const float     cosParallaxRays    = ray1.dot(ray2) / (ray1.norm() * ray2.norm());
+            Eigen::Vector3f ray1            = Rwc1 * xn1;
+            Eigen::Vector3f ray2            = Rwc2 * xn2;
+            const float     cosParallaxRays = ray1.dot(ray2) / (ray1.norm() * ray2.norm());
 
-            float           cosParallaxStereo  = cosParallaxRays + 1;
-            float           cosParallaxStereo1 = cosParallaxStereo;
-            float           cosParallaxStereo2 = cosParallaxStereo;
+            float cosParallaxStereo  = cosParallaxRays + 1;
+            float cosParallaxStereo1 = cosParallaxStereo;
+            float cosParallaxStereo2 = cosParallaxStereo;
 
             if (bStereo1)
             {
@@ -548,8 +548,8 @@ void LocalMapping::CreateNewMapPoints()
 
             Eigen::Vector3f x3D;
 
-            bool            goodProj     = false;
-            bool            bPointStereo = false;
+            bool goodProj     = false;
+            bool bPointStereo = false;
             if (cosParallaxRays < cosParallaxStereo && cosParallaxRays > 0 && (bStereo1 || bStereo2 || (cosParallaxRays < 0.9996 && mbInertial) || (cosParallaxRays < 0.9998 && !mbInertial)))
             {
                 goodProj = GeometricTools::Triangulate(xn1, xn2, eigTcw1, eigTcw2, x3D);
@@ -790,7 +790,7 @@ void LocalMapping::SearchInNeighbors()
 
     for (vector<KeyFrame *>::iterator vitKF = vpTargetKFs.begin(), vendKF = vpTargetKFs.end(); vitKF != vendKF; vitKF++)
     {
-        KeyFrame          *pKFi           = *vitKF;
+        KeyFrame *pKFi = *vitKF;
 
         vector<MapPoint *> vpMapPointsKFi = pKFi->GetMapPointMatches();
 
@@ -925,7 +925,7 @@ void LocalMapping::KeyFrameCulling()
     mpCurrentKeyFrame->UpdateBestCovisibles();
     vector<KeyFrame *> vpLocalKeyFrames = mpCurrentKeyFrame->GetVectorCovisibleKeyFrames();
 
-    float              redundant_th;
+    float redundant_th;
     if (!mbInertial)
     {
         redundant_th = 0.9;
@@ -939,11 +939,11 @@ void LocalMapping::KeyFrameCulling()
         redundant_th = 0.5;
     }
 
-    const bool   bInitImu = mpAtlas->isImuInitialized();
-    int          count    = 0;
+    const bool bInitImu = mpAtlas->isImuInitialized();
+    int        count    = 0;
 
     // Compoute last KF from optimizable window:
-    unsigned int last_ID  = 0;
+    unsigned int last_ID = 0;
     if (mbInertial)
     {
         int       count  = 0;
@@ -965,12 +965,12 @@ void LocalMapping::KeyFrameCulling()
         {
             continue;
         }
-        const vector<MapPoint *> vpMapPoints            = pKF->GetMapPointMatches();
+        const vector<MapPoint *> vpMapPoints = pKF->GetMapPointMatches();
 
-        int                      nObs                   = 3;
-        const int                thObs                  = nObs;
-        int                      nRedundantObservations = 0;
-        int                      nMPs                   = 0;
+        int       nObs                   = 3;
+        const int thObs                  = nObs;
+        int       nRedundantObservations = 0;
+        int       nMPs                   = 0;
         for (size_t i = 0, iend = vpMapPoints.size(); i < iend; i++)
         {
             MapPoint *pMP = vpMapPoints[i];
@@ -1150,12 +1150,12 @@ void LocalMapping::ResetIfRequested()
             mbResetRequestedActiveMap = false;
 
             // Inertial parameters
-            mTinit                    = 0.f;
-            mbNotBA2                  = true;
-            mbNotBA1                  = true;
-            mbBadImu                  = false;
+            mTinit   = 0.f;
+            mbNotBA2 = true;
+            mbNotBA1 = true;
+            mbBadImu = false;
 
-            mIdxInit                  = 0;
+            mIdxInit = 0;
 
             spdlog::debug("Local mapping Atlas reset completed");
         }
@@ -1168,10 +1168,10 @@ void LocalMapping::ResetIfRequested()
             mlpRecentAddedMapPoints.clear();
 
             // Inertial parameters
-            mTinit                    = 0.f;
-            mbNotBA2                  = true;
-            mbNotBA1                  = true;
-            mbBadImu                  = false;
+            mTinit   = 0.f;
+            mbNotBA2 = true;
+            mbNotBA1 = true;
+            mbBadImu = false;
 
             mbResetRequested          = false;
             mbResetRequestedActiveMap = false;
@@ -1310,7 +1310,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
         mba  = mpCurrentKeyFrame->GetAccBias().cast<double>();
     }
 
-    mScale    = 1.0;
+    mScale = 1.0;
 
     mInitTime = mpTracker->mLastFrame.mTimeStamp - vpKF.front()->mTimeStamp;
 
@@ -1369,7 +1369,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     // Get Map Mutex
     unique_lock<mutex> lock(mpAtlas->GetCurrentMap()->mMutexMapUpdate);
 
-    unsigned long      GBAid = mpCurrentKeyFrame->mnId;
+    unsigned long GBAid = mpCurrentKeyFrame->mnId;
 
     // Process keyframes in the queue
     while (CheckNewKeyFrames())
@@ -1400,7 +1400,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
                 Sophus::SE3f Tchildc = pChild->GetPose() * Twc;
                 pChild->mTcwGBA      = Tchildc * pKF->mTcwGBA;
 
-                Sophus::SO3f Rcor    = pChild->mTcwGBA.so3().inverse() * pChild->GetPose().so3();
+                Sophus::SO3f Rcor = pChild->mTcwGBA.so3().inverse() * pChild->GetPose().so3();
                 if (pChild->isVelocitySet())
                 {
                     pChild->mVwbGBA = Rcor * pChild->GetVelocity();
@@ -1527,7 +1527,7 @@ void LocalMapping::ScaleRefinement()
         return;
     }
 
-    Sophus::SO3d       so3wg(mRwg);
+    Sophus::SO3d so3wg(mRwg);
     // Before this line we are not changing the map
     unique_lock<mutex> lock(mpAtlas->GetCurrentMap()->mMutexMapUpdate);
     if ((fabs(mScale - 1.f) > 0.002) || !mbMonocular)
@@ -1550,7 +1550,7 @@ void LocalMapping::ScaleRefinement()
     return;
 }
 
-bool   LocalMapping::IsInitializing() { return bInitializing; }
+bool LocalMapping::IsInitializing() { return bInitializing; }
 
 double LocalMapping::GetCurrKFTime()
 {

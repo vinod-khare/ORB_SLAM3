@@ -70,7 +70,7 @@ void Timestamp::setTime(double seconds)
     m_usecs = static_cast<unsigned long>((seconds - static_cast<double>(m_secs)) * 1e6);
 }
 
-double      Timestamp::getFloatTime() const { return static_cast<double>(m_secs) + static_cast<double>(m_usecs) / 1e6; }
+double Timestamp::getFloatTime() const { return static_cast<double>(m_secs) + static_cast<double>(m_usecs) / 1e6; }
 
 std::string Timestamp::getStringTime() const
 {
@@ -79,7 +79,7 @@ std::string Timestamp::getStringTime() const
     return buffer;
 }
 
-double     Timestamp::operator-(const Timestamp &timestamp) const { return getFloatTime() - timestamp.getFloatTime(); }
+double Timestamp::operator-(const Timestamp &timestamp) const { return getFloatTime() - timestamp.getFloatTime(); }
 
 Timestamp &Timestamp::operator+=(double seconds)
 {
@@ -137,15 +137,15 @@ Timestamp Timestamp::minus(unsigned long seconds, unsigned long microseconds) co
     return result;
 }
 
-bool        Timestamp::operator>(const Timestamp &timestamp) const { return m_secs > timestamp.m_secs || (m_secs == timestamp.m_secs && m_usecs > timestamp.m_usecs); }
+bool Timestamp::operator>(const Timestamp &timestamp) const { return m_secs > timestamp.m_secs || (m_secs == timestamp.m_secs && m_usecs > timestamp.m_usecs); }
 
-bool        Timestamp::operator>=(const Timestamp &timestamp) const { return m_secs > timestamp.m_secs || (m_secs == timestamp.m_secs && m_usecs >= timestamp.m_usecs); }
+bool Timestamp::operator>=(const Timestamp &timestamp) const { return m_secs > timestamp.m_secs || (m_secs == timestamp.m_secs && m_usecs >= timestamp.m_usecs); }
 
-bool        Timestamp::operator<(const Timestamp &timestamp) const { return m_secs < timestamp.m_secs || (m_secs == timestamp.m_secs && m_usecs < timestamp.m_usecs); }
+bool Timestamp::operator<(const Timestamp &timestamp) const { return m_secs < timestamp.m_secs || (m_secs == timestamp.m_secs && m_usecs < timestamp.m_usecs); }
 
-bool        Timestamp::operator<=(const Timestamp &timestamp) const { return m_secs < timestamp.m_secs || (m_secs == timestamp.m_secs && m_usecs <= timestamp.m_usecs); }
+bool Timestamp::operator<=(const Timestamp &timestamp) const { return m_secs < timestamp.m_secs || (m_secs == timestamp.m_secs && m_usecs <= timestamp.m_usecs); }
 
-bool        Timestamp::operator==(const Timestamp &timestamp) const { return m_secs == timestamp.m_secs && m_usecs == timestamp.m_usecs; }
+bool Timestamp::operator==(const Timestamp &timestamp) const { return m_secs == timestamp.m_secs && m_usecs == timestamp.m_usecs; }
 
 std::string Timestamp::Format(bool machine_friendly) const
 {
@@ -164,14 +164,14 @@ std::string Timestamp::Format(bool machine_friendly) const
 
 std::string Timestamp::Format(double seconds)
 {
-    const int days                    = static_cast<int>(seconds / (24.0 * 3600.0));
-    seconds                          -= days * 24.0 * 3600.0;
-    const int hours                   = static_cast<int>(seconds / 3600.0);
-    seconds                          -= hours * 3600.0;
-    const int minutes                 = static_cast<int>(seconds / 60.0);
-    seconds                          -= minutes * 60.0;
-    const int          whole_seconds  = static_cast<int>(seconds);
-    const int          microseconds   = static_cast<int>((seconds - whole_seconds) * 1e6);
+    const int days           = static_cast<int>(seconds / (24.0 * 3600.0));
+    seconds                 -= days * 24.0 * 3600.0;
+    const int hours          = static_cast<int>(seconds / 3600.0);
+    seconds                 -= hours * 3600.0;
+    const int minutes        = static_cast<int>(seconds / 60.0);
+    seconds                 -= minutes * 60.0;
+    const int whole_seconds  = static_cast<int>(seconds);
+    const int microseconds   = static_cast<int>((seconds - whole_seconds) * 1e6);
 
     std::ostringstream stream;
     stream.fill('0');

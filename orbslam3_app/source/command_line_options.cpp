@@ -198,7 +198,7 @@ command_line_options::command_line_options(int argc, char **argv)
     use_viewer    = !values["no-viewer"].as<bool>();
     slam_type     = values["slam-type"].as<std::string>();
     overrides     = {values.count("keypoint_detector.type") ? values["keypoint_detector.type"].as<std::string>() : std::string{},
-                     values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
-                     values.count("tracking.matcher") ? values["tracking.matcher"].as<std::string>() : std::string{}, dbow_version,
-                     values.count("tracking.use_optical_flow") ? std::optional<bool>(values["tracking.use_optical_flow"].as<bool>()) : std::nullopt};
+                 values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
+                 values.count("tracking.matcher") ? values["tracking.matcher"].as<std::string>() : std::string{}, dbow_version,
+                 values.count("tracking.use_optical_flow") ? std::optional<bool>(values["tracking.use_optical_flow"].as<bool>()) : std::nullopt};
 }
