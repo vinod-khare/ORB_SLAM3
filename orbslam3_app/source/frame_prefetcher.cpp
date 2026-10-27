@@ -64,12 +64,12 @@ void frame_prefetcher::run(std::stop_token stop_token)
 {
     try
     {
-        cv::Ptr<cv::CLAHE>      clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
-        std::deque<cv::Mat>     right_images;
-        std::optional<cv::Size> right_size;
-        std::exception_ptr      right_error;
-        bool                    right_finished = false;
-        std::jthread            right_worker;
+        cv::Ptr<cv::CLAHE>                      clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+        std::deque<std::pair<cv::Mat, cv::Mat>> right_images;
+        std::optional<cv::Size>                 right_size;
+        std::exception_ptr                      right_error;
+        bool                                    right_finished = false;
+        std::jthread                            right_worker;
         if (_stereo)
         {
             right_worker = std::jthread(
@@ -104,7 +104,8 @@ void frame_prefetcher::run(std::stop_token stop_token)
                                 size = *right_size;
                                 right_size.reset();
                             }
-                            preprocess_image(image, size, *right_clahe, _image_scale != 1.f);
+                            cv::Mat color;
+                            preprocess_image(image, size, *right_clahe, _image_scale != 1.f, &color);
 
                             {
                                 std::lock_guard<std::mutex> lock(_mutex);
@@ -112,7 +113,7 @@ void frame_prefetcher::run(std::stop_token stop_token)
                                 {
                                     return;
                                 }
-                                right_images.push_back(std::move(image));
+                                right_images.emplace_back(std::move(image), std::move(color));
                             }
                             _ready.notify_all();
                         }
@@ -179,7 +180,7 @@ void frame_prefetcher::run(std::stop_token stop_token)
                     _ready.notify_all();
                 }
 
-                preprocess_image(prepared.image, size, *clahe, _image_scale != 1.f, _stereo ? nullptr : &prepared.color);
+                preprocess_image(prepared.image, size, *clahe, _image_scale != 1.f, &prepared.color);
                 if (_precompute_optical_flow)
                 {
                     prepared.optical_flow_pyramid = ORB_SLAM3::Frame::build_optical_flow_pyramid(prepared.image);
@@ -200,10 +201,11 @@ void frame_prefetcher::run(std::stop_token stop_token)
                         }
                         throw std::runtime_error("Right image stream ended before the left image stream");
                     }
-                    prepared.image_right = std::move(right_images.front());
+                    prepared.image_right = std::move(right_images.front().first);
+                    prepared.color_right = std::move(right_images.front().second);
 
                     right_images.pop_front();
-                    
+
                     lock.unlock();
 
                     _ready.notify_all();

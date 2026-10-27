@@ -1,8 +1,10 @@
+#include "Atlas.h"
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
-
-#include "Atlas.h"
+#include "MapPoint.h"
+#include "Pinhole.h"
 #include "Tracking.h"
+#include "keypoint_extractor.h"
 
 #include <chrono>
 #include <future>
@@ -54,8 +56,8 @@ TEST_CASE("Frame drawer renders tracked keypoint sizes and orientations in both 
                                          cv::KeyPoint(40.f, 100.f, 16.f, -1.f)};
     frame_drawer_fixture            drawer(atlas, keys, right, image_type);
 
-    cv::Mat                         expected    = cv::Mat::zeros(cv::Size(cvRound(240 / image_scale), cvRound(160 / image_scale)), CV_8UC3);
-    auto                            scaled_keys = keys;
+    cv::Mat expected    = cv::Mat::zeros(cv::Size(cvRound(240 / image_scale), cvRound(160 / image_scale)), CV_8UC3);
+    auto    scaled_keys = keys;
     for (auto &key : scaled_keys)
     {
         key.pt   /= image_scale;
@@ -109,5 +111,43 @@ TEST_CASE("Off-screen map rendering survives pane resizing and navigation", "[.v
     drawer.follow_camera(true);
     const auto resized = drawer.render(320, 600, layers);
     REQUIRE(resized.size() == cv::Size(320, 600));
+    drawer.release();
+}
+
+TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[.viewer_render][point_color_render]")
+{
+    ORB_SLAM3::Atlas atlas(0);
+    auto            &map = *atlas.GetCurrentMap();
+    cv::Mat          input(128, 128, CV_8UC1);
+    cv::RNG          random(42);
+    random.fill(input, cv::RNG::UNIFORM, 0, 256);
+    ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
+    ORB_SLAM3::Pinhole            camera({100, 100, 64, 64});
+    cv::Mat                       distortion = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::Frame::mbInitialComputations  = true;
+    ORB_SLAM3::Frame frame(input, 0.0, &extractor, nullptr, &camera, distortion, 10.f, 40.f);
+    REQUIRE(frame.N >= 2);
+    frame.SetPose(Sophus::SE3f{});
+    frame.mnDataset = 0;
+    ORB_SLAM3::KeyFrame keyframe(frame, &map, nullptr, &camera);
+    keyframe.keypoint_colors[0] = {255, 0, 0};
+    keyframe.keypoint_colors[1] = {0, 0, 255};
+    ORB_SLAM3::MapPoint red(Eigen::Vector3f(-0.2f, 0.f, 0.f), &keyframe, &map);
+    ORB_SLAM3::MapPoint blue(Eigen::Vector3f(0.2f, 0.f, 0.f), &keyframe, &map);
+    red.AddObservation(&keyframe, 0);
+    blue.AddObservation(&keyframe, 1);
+    map.AddMapPoint(&red);
+    map.AddMapPoint(&blue);
+    map.SetReferenceMapPoints({&blue});
+    const ORB_SLAM3::viewer_settings settings{0.05f, 1.f, 1.f, 12.f, 0.08f, 3.f, 0.f, 0.f, -1.8f, 500.f, 1.f};
+    ORB_SLAM3::MapDrawer             drawer(atlas, settings);
+    const std::array<bool, 7>        layers{true, false, false, false, false, false, false};
+    const auto                       image = drawer.render(640, 480, layers);
+    cv::Mat                          red_mask;
+    cv::Mat                          blue_mask;
+    cv::inRange(image, cv::Scalar(240, 0, 0), cv::Scalar(255, 15, 15), red_mask);
+    cv::inRange(image, cv::Scalar(0, 0, 240), cv::Scalar(15, 15, 255), blue_mask);
+    REQUIRE(cv::countNonZero(red_mask) > 40);
+    REQUIRE(cv::countNonZero(blue_mask) > 40);
     drawer.release();
 }

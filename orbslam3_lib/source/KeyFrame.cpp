@@ -56,6 +56,12 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, GeometricCamera
     mnId              = nNextId++;
     place_descriptors = F.place_descriptors.clone();
 
+    keypoint_colors.reserve(F.N);
+    for (int index = 0; index < F.N; ++index)
+    {
+        keypoint_colors.push_back(F.keypoint_color(index));
+    }
+
     mGrid.resize(mnGridCols);
     if (F.Nleft != -1)
     {
@@ -341,7 +347,7 @@ void KeyFrame::EraseMapPointMatch(MapPoint *pMP)
     }
 }
 
-void            KeyFrame::ReplaceMapPointMatch(const int &idx, MapPoint *pMP) { mvpMapPoints[idx] = pMP; }
+void KeyFrame::ReplaceMapPointMatch(const int &idx, MapPoint *pMP) { mvpMapPoints[idx] = pMP; }
 
 set<MapPoint *> KeyFrame::GetMapPoints()
 {
@@ -366,8 +372,8 @@ int KeyFrame::TrackedMapPoints(const int &minObs)
 {
     unique_lock<mutex> lock(mMutexFeatures);
 
-    int                nPoints   = 0;
-    const bool         bCheckObs = minObs > 0;
+    int        nPoints   = 0;
+    const bool bCheckObs = minObs > 0;
     for (int i = 0; i < N; i++)
     {
         MapPoint *pMP = mvpMapPoints[i];
@@ -410,7 +416,7 @@ void KeyFrame::UpdateConnections(bool upParent)
 {
     map<KeyFrame *, int> KFcounter;
 
-    vector<MapPoint *>   vpMP;
+    vector<MapPoint *> vpMP;
 
     {
         unique_lock<mutex> lockMPs(mMutexFeatures);
@@ -453,9 +459,9 @@ void KeyFrame::UpdateConnections(bool upParent)
 
     // If the counter is greater than threshold add connection
     // In case no keyframe counter is over threshold add the one with maximum counter
-    int                           nmax   = 0;
-    KeyFrame                     *pKFmax = NULL;
-    int                           th     = 15;
+    int       nmax   = 0;
+    KeyFrame *pKFmax = NULL;
+    int       th     = 15;
 
     vector<pair<int, KeyFrame *>> vPairs;
     vPairs.reserve(KFcounter.size());
@@ -657,11 +663,11 @@ void KeyFrame::SetBadFlag()
         // Include that children as new parent candidate for the rest
         while (!mspChildrens.empty())
         {
-            bool      bContinue = false;
+            bool bContinue = false;
 
-            int       max       = -1;
-            KeyFrame *pC        = nullptr;
-            KeyFrame *pP        = nullptr;
+            int       max = -1;
+            KeyFrame *pC  = nullptr;
+            KeyFrame *pP  = nullptr;
 
             for (set<KeyFrame *>::iterator sit = mspChildrens.begin(), send = mspChildrens.end(); sit != send; sit++)
             {
@@ -754,8 +760,8 @@ vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const
     vector<size_t> vIndices;
     vIndices.reserve(N);
 
-    float     factorX   = r;
-    float     factorY   = r;
+    float factorX = r;
+    float factorY = r;
 
     const int nMinCellX = max(0, (int)floor((x - mnMinX - factorX) * mfGridElementWidthInv));
     if (nMinCellX >= mnGridCols)
@@ -810,11 +816,11 @@ bool KeyFrame::UnprojectStereo(int i, Eigen::Vector3f &x3D)
     const float z = mvDepth[i];
     if (z > 0)
     {
-        const float        u = mvKeys[i].pt.x;
-        const float        v = mvKeys[i].pt.y;
-        const float        x = (u - cx) * z * invfx;
-        const float        y = (v - cy) * z * invfy;
-        Eigen::Vector3f    x3Dc(x, y, z);
+        const float     u = mvKeys[i].pt.x;
+        const float     v = mvKeys[i].pt.y;
+        const float     x = (u - cx) * z * invfx;
+        const float     y = (v - cy) * z * invfy;
+        Eigen::Vector3f x3Dc(x, y, z);
 
         unique_lock<mutex> lock(mMutexPose);
         x3D = mRwc * x3Dc + mTwc.translation();
@@ -1101,7 +1107,7 @@ bool KeyFrame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, flo
 {
 
     // 3D in absolute coordinates
-    Eigen::Vector3f P   = pMP->GetWorldPos();
+    Eigen::Vector3f P = pMP->GetWorldPos();
 
     // 3D in camera coordinates
     Eigen::Vector3f Pc  = mRcw * P + mTcw.translation();
@@ -1148,16 +1154,16 @@ bool KeyFrame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, flo
     float y_distort = y * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
 
     // Tangential distorsion
-    x_distort       = x_distort + (2 * p1 * x * y + p2 * (r2 + 2 * x * x));
-    y_distort       = y_distort + (p1 * (r2 + 2 * y * y) + 2 * p2 * x * y);
+    x_distort = x_distort + (2 * p1 * x * y + p2 * (r2 + 2 * x * x));
+    y_distort = y_distort + (p1 * (r2 + 2 * y * y) + 2 * p2 * x * y);
 
     float u_distort = x_distort * fx + cx;
     float v_distort = y_distort * fy + cy;
 
-    u               = u_distort;
-    v               = v_distort;
+    u = u_distort;
+    v = v_distort;
 
-    kp              = cv::Point2f(u, v);
+    kp = cv::Point2f(u, v);
 
     return true;
 }
@@ -1166,7 +1172,7 @@ bool KeyFrame::ProjectPointUnDistort(MapPoint *pMP, cv::Point2f &kp, float &u, f
 {
 
     // 3D in absolute coordinates
-    Eigen::Vector3f P   = pMP->GetWorldPos();
+    Eigen::Vector3f P = pMP->GetWorldPos();
 
     // 3D in camera coordinates
     Eigen::Vector3f Pc  = mRcw * P + mTcw.translation();

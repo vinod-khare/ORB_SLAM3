@@ -302,10 +302,7 @@ int main(int argc, char **argv)
                 }
                 auto frame = prefetch.read();
                 SLAM.set_next_optical_flow_pyramid(std::move(frame.optical_flow_pyramid));
-                if (!stereo)
-                {
-                    SLAM.SetNextFrameColor(frame.color);
-                }
+                SLAM.SetNextFrameColor(frame.color, frame.color_right);
 
                 std::chrono::steady_clock::duration frontend_time{};
                 {

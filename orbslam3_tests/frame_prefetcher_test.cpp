@@ -80,7 +80,7 @@ TEST_CASE("Folder reader rejects malformed and non-finite IMU values")
 {
     const image_sequence sequence;
     const auto           settings = sequence.settings(false, true);
-    const auto           row = GENERATE("950000000x,1,2,3,4,5,6", "950000000,nan,2,3,4,5,6", "950000000,1,2,3,4,5,inf");
+    const auto           row      = GENERATE("950000000x,1,2,3,4,5,6", "950000000,nan,2,3,4,5,6", "950000000,1,2,3,4,5,inf");
     std::ofstream        imu(sequence.directory / "imu.csv");
     imu << row << '\n';
     imu.close();
@@ -144,6 +144,7 @@ TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
         cv::cvtColor(expected_color, expected_gray, cv::COLOR_BGR2GRAY);
         clahe->apply(expected_gray, expected_gray);
         REQUIRE(cv::norm(prepared.image, expected_gray, cv::NORM_INF) == 0);
+        REQUIRE(cv::norm(prepared.color, expected_color, cv::NORM_INF) == 0);
         if (precompute_optical_flow)
         {
             const auto expected_pyramid = ORB_SLAM3::Frame::build_optical_flow_pyramid(expected_gray);
@@ -163,12 +164,12 @@ TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
         }
         if (stereo)
         {
-            REQUIRE(prepared.color.empty());
             cv::Mat expected_right = cv::imread(reference.right_image_path(index), cv::IMREAD_COLOR);
             if (image_scale != 1.f)
             {
                 cv::resize(expected_right, expected_right, cv::Size(32, 32));
             }
+            REQUIRE(cv::norm(prepared.color_right, expected_right, cv::NORM_INF) == 0);
             cv::cvtColor(expected_right, expected_right, cv::COLOR_BGR2GRAY);
             clahe->apply(expected_right, expected_right);
             REQUIRE(cv::norm(prepared.image_right, expected_right, cv::NORM_INF) == 0);
@@ -176,7 +177,7 @@ TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
         else
         {
             REQUIRE(prepared.image_right.empty());
-            REQUIRE(cv::norm(prepared.color, expected_color, cv::NORM_INF) == 0);
+            REQUIRE(prepared.color_right.empty());
         }
 
         if (inertial)

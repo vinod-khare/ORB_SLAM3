@@ -26,6 +26,7 @@
 #include "place_vocabulary.h"
 #include "sophus/se3.hpp"
 
+#include <array>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -53,6 +54,11 @@ class Frame
   public:
     Frame();
 
+    std::array<unsigned char, 3> keypoint_color(int index) const;
+    cv::Mat                      color_image;
+    cv::Mat                      color_image_right;
+    bool                         color_is_rgb{false};
+
     // Copy constructor.
     Frame(const Frame &frame);
 
@@ -62,10 +68,10 @@ class Frame
     void set_tracked_features(std::vector<cv::KeyPoint> keys, std::vector<MapPoint *> points, std::vector<cv::KeyPoint> native_keys = {});
     bool reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers = 50);
     bool flow_only{false};
-    int flow_candidates{};
-    int flow_tracks{};
-    int flow_inliers{};
-    int flow_occupied_cells{};
+    int  flow_candidates{};
+    int  flow_tracks{};
+    int  flow_inliers{};
+    int  flow_occupied_cells{};
 
     // Constructor for stereo cameras.
     Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,
@@ -82,76 +88,76 @@ class Frame
     // Destructor
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
-    void                        extract_keypoints(int flag, const cv::Mat &im, const int x0, const int x1);
+    void extract_keypoints(int flag, const cv::Mat &im, const int x0, const int x1);
 
     const std::vector<cv::Mat> &get_optical_flow_pyramid(const cv::Mat &image);
     static std::vector<cv::Mat> build_optical_flow_pyramid(const cv::Mat &image);
 
     // Compute Bag of Words representation.
-    void                        ComputeBoW();
+    void ComputeBoW();
 
     // Set the camera pose. (Imu pose is not modified!)
-    void                        SetPose(const Sophus::SE3<float> &Tcw);
+    void SetPose(const Sophus::SE3<float> &Tcw);
 
     // Set IMU velocity
-    void                        SetVelocity(Eigen::Vector3f Vw);
+    void SetVelocity(Eigen::Vector3f Vw);
 
-    Eigen::Vector3f             GetVelocity() const;
+    Eigen::Vector3f GetVelocity() const;
 
     // Set IMU pose and velocity (implicitly changes camera pose)
-    void                        SetImuPoseVelocity(const Eigen::Matrix3f &Rwb, const Eigen::Vector3f &twb, const Eigen::Vector3f &Vwb);
+    void SetImuPoseVelocity(const Eigen::Matrix3f &Rwb, const Eigen::Vector3f &twb, const Eigen::Vector3f &Vwb);
 
-    Eigen::Matrix<float, 3, 1>  GetImuPosition() const;
-    Eigen::Matrix<float, 3, 3>  GetImuRotation();
-    Sophus::SE3<float>          GetImuPose();
+    Eigen::Matrix<float, 3, 1> GetImuPosition() const;
+    Eigen::Matrix<float, 3, 3> GetImuRotation();
+    Sophus::SE3<float>         GetImuPose();
 
-    Sophus::SE3f                GetRelativePoseTrl();
-    Sophus::SE3f                GetRelativePoseTlr();
-    Eigen::Matrix3f             GetRelativePoseTlr_rotation();
-    Eigen::Vector3f             GetRelativePoseTlr_translation();
+    Sophus::SE3f    GetRelativePoseTrl();
+    Sophus::SE3f    GetRelativePoseTlr();
+    Eigen::Matrix3f GetRelativePoseTlr_rotation();
+    Eigen::Vector3f GetRelativePoseTlr_translation();
 
-    void                        SetNewBias(const IMU::Bias &b);
+    void SetNewBias(const IMU::Bias &b);
 
     // Check if a MapPoint is in the frustum of the camera
     // and fill variables of the MapPoint to be used by the tracking
-    bool                        isInFrustum(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, GeometricCamera *right_camera = nullptr);
+    bool isInFrustum(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, GeometricCamera *right_camera = nullptr);
 
-    bool                        ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v);
+    bool ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v);
 
-    Eigen::Vector3f             inRefCoordinates(Eigen::Vector3f pCw);
+    Eigen::Vector3f inRefCoordinates(Eigen::Vector3f pCw);
 
     // Compute the cell of a keypoint (return false if outside the grid)
-    bool                        PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
+    bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
 
-    vector<size_t>              GetFeaturesInArea(const float &x, const float &y, const float &r, const int minLevel = -1, const int maxLevel = -1, const bool bRight = false) const;
+    vector<size_t> GetFeaturesInArea(const float &x, const float &y, const float &r, const int minLevel = -1, const int maxLevel = -1, const bool bRight = false) const;
 
     // Search a match for each keypoint in the left image to a keypoint in the right image.
     // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.
-    void                        ComputeStereoMatches();
+    void ComputeStereoMatches();
 
     // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
-    void                        ComputeStereoFromRGBD(const cv::Mat &imDepth);
+    void ComputeStereoFromRGBD(const cv::Mat &imDepth);
 
     // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
-    bool                        UnprojectStereo(const int &i, Eigen::Vector3f &x3D);
+    bool UnprojectStereo(const int &i, Eigen::Vector3f &x3D);
 
-    ConstraintPoseImu          *mpcpi;
+    ConstraintPoseImu *mpcpi;
 
-    bool                        imuIsPreintegrated() const;
-    void                        setIntegrated();
+    bool imuIsPreintegrated() const;
+    void setIntegrated();
 
-    bool                        isSet() const;
+    bool isSet() const;
 
     // Computes rotation, translation and camera center matrices from the camera pose.
-    void                        UpdatePoseMatrices();
+    void UpdatePoseMatrices();
 
     // Returns the camera center.
-    inline Eigen::Vector3f      GetCameraCenter() { return mOw; }
+    inline Eigen::Vector3f GetCameraCenter() { return mOw; }
 
     // Returns inverse of rotation
-    inline Eigen::Matrix3f      GetRotationInverse() { return mRwc; }
+    inline Eigen::Matrix3f GetRotationInverse() { return mRwc; }
 
-    inline Sophus::SE3<float>   GetPose() const
+    inline Sophus::SE3<float> GetPose() const
     {
         // TODO: can the Frame pose be accsessed from several threads? should this be protected somehow?
         return mTcw;
@@ -161,9 +167,9 @@ class Frame
 
     inline Eigen::Vector3f GetOw() const { return mOw; }
 
-    inline bool            HasPose() const { return mbHasPose; }
+    inline bool HasPose() const { return mbHasPose; }
 
-    inline bool            HasVelocity() const { return mbHasVelocity; }
+    inline bool HasVelocity() const { return mbHasVelocity; }
 
   private:
     // Sophus/Eigen migration
@@ -183,154 +189,154 @@ class Frame
     Eigen::Vector3f            mtlr;
 
     // IMU linear velocity
-    Eigen::Vector3f            mVw;
-    bool                       mbHasVelocity;
+    Eigen::Vector3f mVw;
+    bool            mbHasVelocity;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     // Vocabulary used for relocalization.
-    place_vocabulary                   *place_vocabulary_ptr;
+    place_vocabulary *place_vocabulary_ptr;
 
     // Feature extractor. The right is used only in the stereo case.
-    keypoint_extractor                 *left_keypoint_extractor, *right_keypoint_extractor;
+    keypoint_extractor *left_keypoint_extractor, *right_keypoint_extractor;
 
     // Frame timestamp.
-    double                              mTimeStamp;
+    double mTimeStamp;
 
-    std::vector<cv::Mat>                optical_flow_pyramid;
+    std::vector<cv::Mat> optical_flow_pyramid;
 
     // Calibration matrix and OpenCV distortion parameters.
-    cv::Mat                             mK;
-    Eigen::Matrix3f                     mK_;
-    static float                        fx;
-    static float                        fy;
-    static float                        cx;
-    static float                        cy;
-    static float                        invfx;
-    static float                        invfy;
-    cv::Mat                             mDistCoef;
+    cv::Mat         mK;
+    Eigen::Matrix3f mK_;
+    static float    fx;
+    static float    fy;
+    static float    cx;
+    static float    cy;
+    static float    invfx;
+    static float    invfy;
+    cv::Mat         mDistCoef;
 
     // Stereo baseline multiplied by fx.
-    float                               mbf;
+    float mbf;
 
     // Stereo baseline in meters.
-    float                               mb;
+    float mb;
 
     // Threshold close/far points. Close points are inserted from 1 view.
     // Far points are inserted as in the monocular case from 2 views.
-    float                               mThDepth;
+    float mThDepth;
 
     // Number of KeyPoints.
-    int                                 N;
+    int N;
 
     // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
     // In the stereo case, mvKeysUn is redundant as images must be rectified.
     // In the RGB-D case, RGB images can be distorted.
-    std::vector<cv::KeyPoint>           mvKeys, mvKeysRight;
-    std::vector<cv::KeyPoint>           mvKeysUn;
+    std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
+    std::vector<cv::KeyPoint> mvKeysUn;
 
     // Display-only detector metadata, aligned with mvKeys/mvKeysRight; never used for matching.
-    std::vector<cv::KeyPoint>           display_keys, display_keys_right;
+    std::vector<cv::KeyPoint> display_keys, display_keys_right;
 
     // Corresponding stereo coordinate and depth for each keypoint.
-    std::vector<MapPoint *>             mvpMapPoints;
+    std::vector<MapPoint *> mvpMapPoints;
     // "Monocular" keypoints have a negative value.
-    std::vector<float>                  mvuRight;
-    std::vector<float>                  mvDepth;
+    std::vector<float> mvuRight;
+    std::vector<float> mvDepth;
 
     // Bag of Words Vector structures.
-    DBoW2::BowVector                    mBowVec;
-    DBoW2::FeatureVector                mFeatVec;
+    DBoW2::BowVector     mBowVec;
+    DBoW2::FeatureVector mFeatVec;
 
     // ORB descriptor, each row associated to a keypoint.
-    cv::Mat                             mDescriptors, mDescriptorsRight;
-    cv::Mat                             place_descriptors, place_descriptors_right;
+    cv::Mat mDescriptors, mDescriptorsRight;
+    cv::Mat place_descriptors, place_descriptors_right;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
     // Flag to identify outlier associations.
-    std::vector<bool>                   mvbOutlier;
-    int                                 mnCloseMPs;
+    std::vector<bool> mvbOutlier;
+    int               mnCloseMPs;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
-    static float                        mfGridElementWidthInv;
-    static float                        mfGridElementHeightInv;
-    std::vector<std::size_t>            mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
+    static float             mfGridElementWidthInv;
+    static float             mfGridElementHeightInv;
+    std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
-    IMU::Bias                           mPredBias;
+    IMU::Bias mPredBias;
 
     // IMU bias
-    IMU::Bias                           mImuBias;
+    IMU::Bias mImuBias;
 
     // Imu calibration
-    IMU::Calib                          mImuCalib;
+    IMU::Calib mImuCalib;
 
     // Imu preintegration from last keyframe
-    IMU::Preintegrated                 *mpImuPreintegrated;
-    KeyFrame                           *mpLastKeyFrame;
+    IMU::Preintegrated *mpImuPreintegrated;
+    KeyFrame           *mpLastKeyFrame;
 
     // Pointer to previous frame
-    Frame                              *mpPrevFrame;
-    IMU::Preintegrated                 *mpImuPreintegratedFrame;
+    Frame              *mpPrevFrame;
+    IMU::Preintegrated *mpImuPreintegratedFrame;
 
     // Current and Next Frame id.
-    static long unsigned int            nNextId;
-    long unsigned int                   mnId;
+    static long unsigned int nNextId;
+    long unsigned int        mnId;
 
     // Reference Keyframe.
-    KeyFrame                           *mpReferenceKF;
+    KeyFrame *mpReferenceKF;
 
     // Scale pyramid info.
-    int                                 mnScaleLevels;
-    float                               mfScaleFactor;
-    float                               mfLogScaleFactor;
-    vector<float>                       mvScaleFactors;
-    vector<float>                       mvInvScaleFactors;
-    vector<float>                       mvLevelSigma2;
-    vector<float>                       mvInvLevelSigma2;
+    int           mnScaleLevels;
+    float         mfScaleFactor;
+    float         mfLogScaleFactor;
+    vector<float> mvScaleFactors;
+    vector<float> mvInvScaleFactors;
+    vector<float> mvLevelSigma2;
+    vector<float> mvInvLevelSigma2;
 
     // Undistorted Image Bounds (computed once).
-    static float                        mnMinX;
-    static float                        mnMaxX;
-    static float                        mnMinY;
-    static float                        mnMaxY;
+    static float mnMinX;
+    static float mnMaxX;
+    static float mnMinY;
+    static float mnMaxY;
 
-    static bool                         mbInitialComputations;
+    static bool mbInitialComputations;
 
     map<long unsigned int, cv::Point2f> mmProjectPoints;
     map<long unsigned int, cv::Point2f> mmMatchedInImage;
 
-    string                              mNameFile;
+    string mNameFile;
 
-    int                                 mnDataset;
+    int mnDataset;
 
   private:
     // Undistort keypoints given OpenCV distortion parameters.
     // Only for the RGB-D case. Stereo must be already rectified!
     // (called in the constructor).
-    void                        UndistortKeyPoints();
+    void UndistortKeyPoints();
 
     // Computes image bounds for the undistorted image (called in the constructor).
-    void                        ComputeImageBounds(const cv::Mat &imLeft);
+    void ComputeImageBounds(const cv::Mat &imLeft);
 
     // Assign keypoints to the grid for speed up feature matching (called in the constructor).
-    void                        AssignFeaturesToGrid();
+    void AssignFeaturesToGrid();
 
-    bool                        mbIsSet;
+    bool mbIsSet;
 
-    bool                        mbImuPreintegrated;
+    bool mbImuPreintegrated;
 
     std::shared_ptr<std::mutex> mpMutexImu{std::make_shared<std::mutex>()};
 
   public:
     // Number of KeyPoints extracted in the left and right images
-    int                          Nleft{-1};
-    int                          Nright{-1};
+    int Nleft{-1};
+    int Nright{-1};
     // Number of Non Lapping Keypoints
-    int                          monoLeft, monoRight;
+    int monoLeft, monoRight;
 
     // For stereo matching
-    std::vector<int>             mvLeftToRightMatch, mvRightToLeftMatch;
+    std::vector<int> mvLeftToRightMatch, mvRightToLeftMatch;
 
     // For stereo fisheye matching
 
@@ -339,22 +345,22 @@ class Frame
     std::vector<Eigen::Vector3f> mvStereo3Dpoints;
 
     // Grid for the right image
-    std::vector<std::size_t>     mGridRight[FRAME_GRID_COLS][FRAME_GRID_ROWS];
+    std::vector<std::size_t> mGridRight[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,
           cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera *pCamera, GeometricCamera *pCamera2, Sophus::SE3f &Tlr, Frame *pPrevF = static_cast<Frame *>(NULL),
           const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Stereo fisheye
-    void            ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera);
+    void ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera);
 
-    bool            isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, bool bRight = false);
+    bool isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, bool bRight = false);
 
     Eigen::Vector3f UnprojectStereoFishEye(const int &i);
 
-    cv::Mat         imgLeft, imgRight;
+    cv::Mat imgLeft, imgRight;
 
-    void            PrintPointDistribution()
+    void PrintPointDistribution()
     {
         int left = 0, right = 0;
         int Nlim = (Nleft != -1) ? Nleft : N;

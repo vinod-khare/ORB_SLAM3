@@ -1,3 +1,6 @@
+#include "Frame.h"
+#include "MapPoint.h"
+#include "Pinhole.h"
 #include "descriptor_matcher.h"
 #include "keypoint_extractor.h"
 
@@ -34,6 +37,60 @@ cv::Ptr<cv::Feature2D> reference_detector(ORB_SLAM3::keypoint_detector_type type
 }
 
 } // namespace
+
+TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]")
+{
+    ORB_SLAM3::Frame frame;
+    frame.Nleft                                 = -1;
+    frame.mvKeys                                = {cv::KeyPoint(1.f, 1.f, 1.f), cv::KeyPoint(-1.f, 0.f, 1.f), cv::KeyPoint(2.9f, 2.9f, 1.f)};
+    frame.mvKeysUn                              = {cv::KeyPoint(0.f, 0.f, 1.f)};
+    const int channels                          = GENERATE(1, 3, 4);
+    frame.color_image                           = cv::Mat(3, 3, CV_MAKETYPE(CV_8U, channels), cv::Scalar(10, 20, 30, 40));
+    const std::array<unsigned char, 3> expected = channels == 1 ? std::array<unsigned char, 3>{10, 10, 10} : std::array<unsigned char, 3>{30, 20, 10};
+    REQUIRE(frame.keypoint_color(0) == expected);
+    REQUIRE(frame.keypoint_color(2) == expected);
+    const std::array<unsigned char, 3> white{255, 255, 255};
+    REQUIRE(frame.keypoint_color(-1) == white);
+    REQUIRE(frame.keypoint_color(1) == white);
+    REQUIRE(frame.keypoint_color(3) == white);
+    frame.color_is_rgb                     = true;
+    const std::array<unsigned char, 3> rgb = channels == 1 ? expected : std::array<unsigned char, 3>{10, 20, 30};
+    REQUIRE(frame.keypoint_color(0) == rgb);
+    frame.Nleft             = 3;
+    frame.mvKeysRight       = {cv::KeyPoint(0.f, 0.f, 1.f)};
+    frame.color_image_right = cv::Mat(1, 1, CV_8UC1, cv::Scalar(70));
+    const std::array<unsigned char, 3> gray{70, 70, 70};
+    REQUIRE(frame.keypoint_color(3) == gray);
+    frame.color_image.release();
+    REQUIRE(frame.keypoint_color(0) == white);
+}
+
+TEST_CASE("Map points retain their first observation color", "[point_color]")
+{
+    cv::Mat image(128, 128, CV_8UC1);
+    cv::RNG random(42);
+    random.fill(image, cv::RNG::UNIFORM, 0, 256);
+    ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
+    ORB_SLAM3::Pinhole            camera({100, 100, 64, 64});
+    cv::Mat                       distortion = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::Frame::mbInitialComputations  = true;
+    ORB_SLAM3::Frame frame(image, 0.0, &extractor, nullptr, &camera, distortion, 10.f, 40.f);
+    REQUIRE(frame.N >= 2);
+    frame.SetPose(Sophus::SE3f{});
+    frame.mnDataset   = 0;
+    frame.color_image = cv::Mat(128, 128, CV_8UC3, cv::Scalar(10, 30, 200));
+    ORB_SLAM3::Map      map;
+    ORB_SLAM3::KeyFrame keyframe(frame, &map, nullptr, &camera);
+    REQUIRE(keyframe.keypoint_colors[0] == frame.keypoint_color(0));
+    keyframe.keypoint_colors[1] = {10, 40, 220};
+    ORB_SLAM3::MapPoint                point;
+    const std::array<unsigned char, 3> white{255, 255, 255};
+    REQUIRE(point.color() == white);
+    point.AddObservation(&keyframe, 0);
+    REQUIRE(point.color() == keyframe.keypoint_colors[0]);
+    point.AddObservation(&keyframe, 1);
+    REQUIRE(point.color() == keyframe.keypoint_colors[0]);
+}
 
 TEST_CASE("Display keypoints retain detector metadata without changing tracking keypoints", "[native_keypoints]")
 {

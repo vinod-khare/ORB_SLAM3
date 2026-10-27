@@ -32,7 +32,6 @@
 #include <iomanip>
 #include <sstream>
 #include <thread>
-#include <unordered_map>
 
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
@@ -94,7 +93,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         exit(-1);
     }
 
-    settings_             = std::make_unique<Settings>(strSettingsFile, mSensor, overrides);
+    settings_ = std::make_unique<Settings>(strSettingsFile, mSensor, overrides);
 
     mStrLoadAtlasFromFile = settings_->atlasLoadFile();
     mStrSaveAtlasToFile   = settings_->atlasSaveFile();
@@ -422,7 +421,32 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
     return Tcw;
 }
 
-void System::SetNextFrameColor(const cv::Mat &im_color) { mpTracker->mNextFrameColor = im_color.clone(); }
+void System::SetNextFrameColor(const cv::Mat &color_image, const cv::Mat &color_image_right)
+{
+    const auto prepare_color = [this](const cv::Mat &image, bool right)
+    {
+        cv::Mat prepared;
+        if (image.empty())
+        {
+            return prepared;
+        }
+        if ((mSensor == STEREO || mSensor == IMU_STEREO) && settings_->needToRectify())
+        {
+            cv::remap(image, prepared, right ? settings_->M1r() : settings_->M1l(), right ? settings_->M2r() : settings_->M2l(), cv::INTER_LINEAR);
+        }
+        else if (settings_->needToResize())
+        {
+            cv::resize(image, prepared, settings_->newImSize());
+        }
+        else
+        {
+            prepared = image.clone();
+        }
+        return prepared;
+    };
+    mpTracker->mNextFrameColor        = prepare_color(color_image, false);
+    mpTracker->next_frame_color_right = prepare_color(color_image_right, true);
+}
 
 bool System::can_precompute_optical_flow_pyramid() const
 {
@@ -625,7 +649,7 @@ void System::SaveTrajectoryTUM(const string &filename)
     // After a loop closure the first keyframe might not be at the origin.
     Sophus::SE3f Two = vpKFs[0]->GetPoseInverse();
 
-    ofstream     f;
+    ofstream f;
     f.open(filename.c_str());
     f << fixed;
 
@@ -645,7 +669,7 @@ void System::SaveTrajectoryTUM(const string &filename)
             continue;
         }
 
-        KeyFrame    *pKF = *lRit;
+        KeyFrame *pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -656,10 +680,10 @@ void System::SaveTrajectoryTUM(const string &filename)
             pKF = pKF->GetParent();
         }
 
-        Trw                    = Trw * pKF->GetPose() * Two;
+        Trw = Trw * pKF->GetPose() * Two;
 
-        Sophus::SE3f       Tcw = (*lit) * Trw;
-        Sophus::SE3f       Twc = Tcw.inverse();
+        Sophus::SE3f Tcw = (*lit) * Trw;
+        Sophus::SE3f Twc = Tcw.inverse();
 
         Eigen::Vector3f    twc = Twc.translation();
         Eigen::Quaternionf q   = Twc.unit_quaternion();
@@ -761,7 +785,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
             continue;
         }
 
-        KeyFrame    *pKF = *lRit;
+        KeyFrame *pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -844,7 +868,7 @@ void System::SaveTrajectoryEuRoC(const string &filename, Map *pMap)
             continue;
         }
 
-        KeyFrame    *pKF = *lRit;
+        KeyFrame *pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -1096,15 +1120,15 @@ void System::SaveCOLMAP(const string &strDir)
     fcsv << "# COLMAP conversion: Tcw = Twc.inverse(); use qw qx qy qz and Tcw.translation()\n";
     fcsv << "image_name,timestamp,tx,ty,tz,qx,qy,qz,qw,pose_convention\n";
 
-    list<ORB_SLAM3::KeyFrame *>::iterator lRit     = mpTracker->mlpReferences.begin();
-    list<double>::iterator                lT       = mpTracker->mlFrameTimes.begin();
-    list<bool>::iterator                  lbL      = mpTracker->mlbLost.begin();
-    list<string>::iterator                lF       = mlFrameFilenames.begin();
+    list<ORB_SLAM3::KeyFrame *>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
+    list<bool>::iterator                  lbL  = mpTracker->mlbLost.begin();
+    list<string>::iterator                lF   = mlFrameFilenames.begin();
 
-    int                                   image_id = 1;
-    int                                   dropped  = 0;
-    int                                   exported = 0;
-    Sophus::SE3f                          last_Tcw = Sophus::SE3f(); // Identity for first frame if needed
+    int          image_id = 1;
+    int          dropped  = 0;
+    int          exported = 0;
+    Sophus::SE3f last_Tcw = Sophus::SE3f(); // Identity for first frame if needed
 
     for (auto lit = mpTracker->mlRelativeFramePoses.begin(), lend = mpTracker->mlRelativeFramePoses.end(); lit != lend; ++lit, ++lRit, ++lT, ++lbL)
     {
@@ -1143,7 +1167,7 @@ void System::SaveCOLMAP(const string &strDir)
         Sophus::SE3f Twc = Tcw.inverse(); // camera-to-world
 
         // Recover image filename from stored path (basename only)
-        string       img_name;
+        string img_name;
         if (lF != mlFrameFilenames.end() && !lF->empty())
         {
             img_name = std::filesystem::path(*lF).filename().string();
@@ -1257,7 +1281,6 @@ void System::SavePointCloudPLY(const string &filename)
 
         vector<ColoredPoint> points;
         points.reserve(vpMPs.size());
-        std::unordered_map<std::string, cv::Mat> image_cache;
 
         for (MapPoint *pMP : vpMPs)
         {
@@ -1272,67 +1295,8 @@ void System::SavePointCloudPLY(const string &filename)
                 continue;
             }
 
-            unsigned char                          r            = 255;
-            unsigned char                          g            = 255;
-            unsigned char                          b            = 255;
-
-            const map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
-            for (const auto &obs : observations)
-            {
-                KeyFrame *pKF = obs.first;
-                if (!pKF || pKF->isBad() || pKF->mNameFile.empty())
-                {
-                    continue;
-                }
-
-                int kp_index = get<0>(obs.second);
-                if (kp_index < 0)
-                {
-                    kp_index = get<1>(obs.second);
-                }
-                if (kp_index < 0 || kp_index >= static_cast<int>(pKF->mvKeys.size()))
-                {
-                    continue;
-                }
-
-                auto cache_it = image_cache.find(pKF->mNameFile);
-                if (cache_it == image_cache.end())
-                {
-                    cache_it = image_cache.emplace(pKF->mNameFile, cv::imread(pKF->mNameFile, cv::IMREAD_UNCHANGED)).first;
-                }
-
-                const cv::Mat &img = cache_it->second;
-                if (img.empty())
-                {
-                    continue;
-                }
-
-                const cv::Point2f &pt = pKF->mvKeys[kp_index].pt;
-                const int          x  = static_cast<int>(std::round(pt.x));
-                const int          y  = static_cast<int>(std::round(pt.y));
-                if (x < 0 || y < 0 || x >= img.cols || y >= img.rows)
-                {
-                    continue;
-                }
-
-                if (img.channels() == 1)
-                {
-                    const unsigned char v = img.at<unsigned char>(y, x);
-                    r                     = v;
-                    g                     = v;
-                    b                     = v;
-                }
-                else if (img.channels() >= 3)
-                {
-                    const cv::Vec3b pixel = img.at<cv::Vec3b>(y, x);
-                    b                     = pixel[0];
-                    g                     = pixel[1];
-                    r                     = pixel[2];
-                }
-                break;
-            }
-
-            points.push_back({P, r, g, b});
+            const auto color = pMP->color();
+            points.push_back({P, color[0], color[1], color[2]});
         }
 
         std::ofstream fply(out_file.string());
@@ -1386,7 +1350,7 @@ void System::SaveTrajectoryKITTI(const string &filename)
     // After a loop closure the first keyframe might not be at the origin.
     Sophus::SE3f Tow = vpKFs[0]->GetPoseInverse();
 
-    ofstream     f;
+    ofstream f;
     f.open(filename.c_str());
     f << fixed;
 
@@ -1402,7 +1366,7 @@ void System::SaveTrajectoryKITTI(const string &filename)
     {
         ORB_SLAM3::KeyFrame *pKF = *lRit;
 
-        Sophus::SE3f         Trw;
+        Sophus::SE3f Trw;
 
         if (!pKF)
         {
@@ -1415,7 +1379,7 @@ void System::SaveTrajectoryKITTI(const string &filename)
             pKF = pKF->GetParent();
         }
 
-        Trw                 = Trw * pKF->GetPose() * Tow;
+        Trw = Trw * pKF->GetPose() * Tow;
 
         Sophus::SE3f    Tcw = (*lit) * Trw;
         Sophus::SE3f    Twc = Tcw.inverse();
@@ -1551,15 +1515,15 @@ void System::ChangeDataset()
     mpTracker->NewDataset();
 }
 
-float     System::GetImageScale() { return mpTracker->GetImageScale(); }
+float System::GetImageScale() { return mpTracker->GetImageScale(); }
 
-Atlas    *System::GetAtlas() const { return mpAtlas; }
+Atlas *System::GetAtlas() const { return mpAtlas; }
 
 Tracking *System::GetTracker() const { return mpTracker; }
 
-float     System::GetCameraFrameRate() const { return settings_->fps(); }
+float System::GetCameraFrameRate() const { return settings_->fps(); }
 
-void      System::SaveAtlas(int type)
+void System::SaveAtlas(int type)
 {
     if (!mStrSaveAtlasToFile.empty())
     {
@@ -1567,9 +1531,9 @@ void      System::SaveAtlas(int type)
         // Save the current session
         mpAtlas->PreSave();
 
-        string pathSaveFileName           = "./";
-        pathSaveFileName                  = pathSaveFileName.append(mStrSaveAtlasToFile);
-        pathSaveFileName                  = pathSaveFileName.append(".osa");
+        string pathSaveFileName = "./";
+        pathSaveFileName        = pathSaveFileName.append(mStrSaveAtlasToFile);
+        pathSaveFileName        = pathSaveFileName.append(".osa");
 
         string      strVocabularyChecksum = CalculateCheckSum(mStrVocabularyFilePath, TEXT_FILE);
         std::size_t found                 = mStrVocabularyFilePath.find_last_of("/\\");
@@ -1604,7 +1568,7 @@ void      System::SaveAtlas(int type)
 bool System::LoadAtlas(int type)
 {
     string strFileVoc, strVocChecksum;
-    bool   isRead           = false;
+    bool   isRead = false;
 
     string pathLoadFileName = "./";
     pathLoadFileName        = pathLoadFileName.append(mStrLoadAtlasFromFile);
@@ -1665,9 +1629,9 @@ bool System::LoadAtlas(int type)
 
 string System::CalculateCheckSum(string filename, int type)
 {
-    string                  checksum = "";
+    string checksum = "";
 
-    unsigned char           c[MD5_DIGEST_LENGTH];
+    unsigned char c[MD5_DIGEST_LENGTH];
 
     std::ios_base::openmode flags = std::ios::in;
     if (type == BINARY_FILE) // Binary file

@@ -89,10 +89,10 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, Frame *pFrame, const i
         Eigen::Vector3f tlr = pFrame->GetRelativePoseTlr().translation();
         Eigen::Vector3f twl = pFrame->GetOw();
 
-        Ow                  = Rwl * tlr + twl;
+        Ow = Rwl * tlr + twl;
     }
-    mNormalVector                    = mWorldPos - Ow;
-    mNormalVector                    = mNormalVector / mNormalVector.norm();
+    mNormalVector = mWorldPos - Ow;
+    mNormalVector = mNormalVector / mNormalVector.norm();
 
     Eigen::Vector3f PC               = mWorldPos - Ow;
     const float     dist             = PC.norm();
@@ -100,10 +100,12 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, Frame *pFrame, const i
     const float     levelScaleFactor = pFrame->mvScaleFactors[level];
     const int       nLevels          = pFrame->mnScaleLevels;
 
-    mfMaxDistance                    = dist * levelScaleFactor;
-    mfMinDistance                    = mfMaxDistance / pFrame->mvScaleFactors[nLevels - 1];
+    mfMaxDistance = dist * levelScaleFactor;
+    mfMinDistance = mfMaxDistance / pFrame->mvScaleFactors[nLevels - 1];
 
     pFrame->mDescriptors.row(idxF).copyTo(mDescriptor);
+    _color     = pFrame->keypoint_color(idxF);
+    _has_color = !(pFrame->Nleft >= 0 && idxF >= pFrame->Nleft ? pFrame->color_image_right : pFrame->color_image).empty();
 
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
@@ -135,10 +137,22 @@ KeyFrame *MapPoint::GetReferenceKeyFrame()
     return mpRefKF;
 }
 
+std::array<unsigned char, 3> MapPoint::color()
+{
+    std::scoped_lock lock(mMutexFeatures);
+    return _color;
+}
+
 void MapPoint::AddObservation(KeyFrame *pKF, int idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     tuple<int, int>    indexes;
+
+    if (!_has_color && idx >= 0 && static_cast<std::size_t>(idx) < pKF->keypoint_colors.size())
+    {
+        _color     = pKF->keypoint_colors[idx];
+        _has_color = true;
+    }
 
     if (mObservations.count(pKF))
     {
@@ -286,7 +300,7 @@ void MapPoint::Replace(MapPoint *pMP)
     for (map<KeyFrame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
     {
         // Replace measurement in keyframe
-        KeyFrame       *pKF       = mit->first;
+        KeyFrame *pKF = mit->first;
 
         tuple<int, int> indexes   = mit->second;
         int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
@@ -353,7 +367,7 @@ float MapPoint::GetFoundRatio()
 void MapPoint::ComputeDistinctiveDescriptors()
 {
     // Retrieve all observed descriptors
-    vector<cv::Mat>                  vDescriptors;
+    vector<cv::Mat> vDescriptors;
 
     map<KeyFrame *, tuple<int, int>> observations;
 
@@ -399,7 +413,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
     }
 
     // Compute distances between them
-    const size_t          N = vDescriptors.size();
+    const size_t N = vDescriptors.size();
 
     vector<vector<float>> Distances(N, vector<float>(N));
     for (size_t i = 0; i < N; i++)
@@ -487,7 +501,7 @@ void MapPoint::UpdateNormalAndDepth()
     int n = 0;
     for (map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
     {
-        KeyFrame       *pKF       = mit->first;
+        KeyFrame *pKF = mit->first;
 
         tuple<int, int> indexes   = mit->second;
         int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
@@ -508,8 +522,8 @@ void MapPoint::UpdateNormalAndDepth()
         }
     }
 
-    Eigen::Vector3f PC        = Pos - pRefKF->GetCameraCenter();
-    const float     dist      = PC.norm();
+    Eigen::Vector3f PC   = Pos - pRefKF->GetCameraCenter();
+    const float     dist = PC.norm();
 
     tuple<int, int> indexes   = observations[pRefKF];
     int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);

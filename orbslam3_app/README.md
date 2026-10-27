@@ -202,7 +202,7 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--frames-take N`                                          | Maximum number of frames; 0 (default) processes all remaining frames.                                                                                                          |
 | `--output-folder DIR`                                      | Write output files into this directory; it is created if missing.                                                                                                              |
 | `--output NAME`                                            | Set the trajectory basename. Without this option, trajectory files are `CameraTrajectory.txt` and `KeyFrameTrajectory.txt`; with it, files are `f_NAME.txt` and `kf_NAME.txt`. |
-| `--save-ply`                                               | Export map points to `pointcloud.ply` in the output folder.                                                                                                                    |
+| `--save-ply`                                               | Export map points with sampled RGB colors to `pointcloud.ply` in the output folder.                                                                                           |
 | `--save-colmap`                                            | Export a COLMAP-compatible sparse model into the output folder.                                                                                                                |
 | `--keypoint_detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`); overrides `keypoint_detector.type` in the settings YAML.                                         |
 | `--keypoint_descriptor.type`                               | Independent OpenCV descriptor (`orb`, `sift`, `brisk`). |
@@ -214,6 +214,11 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--ground_truth.visible [true/false]`                      | Initial ground-truth visibility; overrides YAML `ground_truth.visible` (default: false). |
 | `--camera_trajectory.visible [true/false]`                 | Initial full camera-trail visibility; overrides YAML `camera_trajectory.visible` (default: true). |
 | `--logging.pattern`                                       | spdlog output pattern; overrides `logging.pattern` in YAML. Default: `%+` (spdlog's built-in default). |
+
+Map points use colors sampled from the original camera images, before CLAHE or
+grayscale conversion. The viewer and PLY export share the same stored RGB values;
+export does not need the source images to remain on disk. Grayscale datasets,
+including TUM-VI, produce grayscale points. Points without a source pixel are white.
 
 ## DBoW place recognition
 

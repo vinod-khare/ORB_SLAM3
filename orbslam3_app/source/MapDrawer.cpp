@@ -27,12 +27,14 @@
 #include <vtkCellArray.h>
 #include <vtkImageData.h>
 #include <vtkNew.h>
+#include <vtkPointData.h>
 #include <vtkPoints.h>
 #include <vtkPolyData.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkProperty.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderer.h>
+#include <vtkUnsignedCharArray.h>
 #include <vtkWindowToImageFilter.h>
 
 #include <algorithm>
@@ -224,8 +226,15 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 7> &laye
         _camera_trajectory_points->Modified();
         _camera_trajectory_lines->Modified();
     }
-    std::array<vtkSmartPointer<vtkPoints>, 14>    points;
-    std::array<vtkSmartPointer<vtkCellArray>, 14> cells;
+    std::array<vtkSmartPointer<vtkPoints>, 14>           points;
+    std::array<vtkSmartPointer<vtkCellArray>, 14>        cells;
+    std::array<vtkSmartPointer<vtkUnsignedCharArray>, 2> point_colors;
+    for (auto &colors : point_colors)
+    {
+        colors = vtkSmartPointer<vtkUnsignedCharArray>::New();
+        colors->SetNumberOfComponents(3);
+        colors->SetName("RGB");
+    }
     for (std::size_t group = 0; group < points.size(); ++group)
     {
         points[group] = vtkSmartPointer<vtkPoints>::New();
@@ -277,6 +286,8 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 7> &laye
                 const Eigen::Vector3f position = point->GetWorldPos();
                 const auto            index    = points[group]->InsertNextPoint(position.x(), position.y(), position.z());
                 cells[group]->InsertNextCell(1, &index);
+                const auto color = point->color();
+                point_colors[group]->InsertNextTypedTuple(color.data());
             }
         }
         for (auto *map : _atlas.GetAllMaps())
@@ -398,6 +409,7 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 7> &laye
         if (group < 2)
         {
             data->SetVerts(cells[group]);
+            data->GetPointData()->SetScalars(point_colors[group]);
         }
         else
         {
@@ -405,8 +417,15 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 7> &laye
         }
         vtkNew<vtkPolyDataMapper> mapper;
         mapper->SetInputData(data);
+        if (group < 2)
+        {
+            mapper->SetColorModeToDirectScalars();
+            mapper->SetScalarModeToUsePointData();
+            mapper->ScalarVisibilityOn();
+        }
         vtkNew<vtkActor> actor;
         actor->SetMapper(mapper);
+        actor->GetProperty()->LightingOff();
         actor->GetProperty()->SetColor(colors[group][0], colors[group][1], colors[group][2]);
         actor->GetProperty()->SetPointSize(_settings.point_size);
         actor->GetProperty()->SetLineWidth(group == 7 ? _settings.camera_line_width : (group == 5 || group == 6 ? _settings.graph_line_width : _settings.key_frame_line_width));

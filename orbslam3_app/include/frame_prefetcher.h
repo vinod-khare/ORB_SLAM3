@@ -17,6 +17,7 @@ class frame_prefetcher
         cv::Mat                            image;
         cv::Mat                            image_right;
         cv::Mat                            color;
+        cv::Mat                            color_right;
         std::vector<cv::Mat>               optical_flow_pyramid;
         double                             timestamp{};
         double                             preprocessing_ms{};
@@ -30,7 +31,7 @@ class frame_prefetcher
     frame read();
 
   private:
-    void                         run(std::stop_token stop_token);
+    void run(std::stop_token stop_token);
 
     folder_reader               &_reader;
     const bool                   _stereo;

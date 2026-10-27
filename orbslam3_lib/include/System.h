@@ -92,71 +92,70 @@ class System
     // Returns the camera pose (empty if tracking fails).
     Sophus::SE3f TrackMonocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point> &vImuMeas = vector<IMU::Point>(), string filename = "");
 
-    // Set a color (BGR) image to be used as the display frame for the next TrackMonocular call.
-    // Useful when CLAHE or other preprocessing converts the image to grayscale before tracking.
-    void         SetNextFrameColor(const cv::Mat &im_color);
-    bool         can_precompute_optical_flow_pyramid() const;
-    void         set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid);
-    int          dbow_version() const;
-    void         set_dbow_version(int version);
+    /** Supply original BGR images for display and map colors on the next tracking call. */
+    void SetNextFrameColor(const cv::Mat &color_image, const cv::Mat &color_image_right = {});
+    bool can_precompute_optical_flow_pyramid() const;
+    void set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid);
+    int  dbow_version() const;
+    void set_dbow_version(int version);
 
     // This stops local mapping thread (map building) and performs only camera tracking.
-    void         ActivateLocalizationMode();
+    void ActivateLocalizationMode();
     // This resumes local mapping thread and performs SLAM again.
-    void         DeactivateLocalizationMode();
+    void DeactivateLocalizationMode();
 
     // Returns true if there have been a big map change (loop closure, global BA)
     // since last call to this function
-    bool         MapChanged();
+    bool MapChanged();
 
     // Reset the system (clear Atlas or the active map)
-    void         Reset();
-    void         ResetActiveMap();
+    void Reset();
+    void ResetActiveMap();
 
     // All threads will be requested to finish.
     // It waits until all threads have finished.
     // This function must be called before saving the trajectory.
-    void         Shutdown();
-    bool         isShutDown();
+    void Shutdown();
+    bool isShutDown();
 
     // Save camera trajectory in the TUM RGB-D dataset format.
     // Only for stereo and RGB-D. This method does not work for monocular.
     // Call first Shutdown()
     // See format details at: http://vision.in.tum.de/data/datasets/rgbd-dataset
-    void         SaveTrajectoryTUM(const string &filename);
+    void SaveTrajectoryTUM(const string &filename);
 
     // Save keyframe poses in the TUM RGB-D dataset format.
     // This method works for all sensor input.
     // Call first Shutdown()
     // See format details at: http://vision.in.tum.de/data/datasets/rgbd-dataset
-    void         SaveKeyFrameTrajectoryTUM(const string &filename);
+    void SaveKeyFrameTrajectoryTUM(const string &filename);
 
-    void         SaveTrajectoryEuRoC(const string &filename);
-    void         SaveKeyFrameTrajectoryEuRoC(const string &filename);
+    void SaveTrajectoryEuRoC(const string &filename);
+    void SaveKeyFrameTrajectoryEuRoC(const string &filename);
 
-    void         SaveTrajectoryEuRoC(const string &filename, Map *pMap);
-    void         SaveKeyFrameTrajectoryEuRoC(const string &filename, Map *pMap);
+    void SaveTrajectoryEuRoC(const string &filename, Map *pMap);
+    void SaveKeyFrameTrajectoryEuRoC(const string &filename, Map *pMap);
 
     // Export a COLMAP-compatible sparse model (cameras.txt, images.txt, points3D.txt)
     // plus a debug CSV (poses_debug.csv) into strDir.
     // images.txt uses world-to-camera Tcw convention with quaternion order qw qx qy qz.
     // Call after Shutdown().
-    void         SaveCOLMAP(const string &strDir);
+    void SaveCOLMAP(const string &strDir);
 
     // Export map points to ASCII PLY point cloud file(s).
     // If multiple maps exist, files are suffixed with _map<id>.
     // Example filename "pointcloud.ply" -> pointcloud_map0.ply, pointcloud_map1.ply
     // Call after Shutdown().
-    void         SavePointCloudPLY(const string &filename);
+    void SavePointCloudPLY(const string &filename);
 
     // Save data used for initialization debug
-    void         SaveDebugData(const int &iniIdx);
+    void SaveDebugData(const int &iniIdx);
 
     // Save camera trajectory in the KITTI dataset format.
     // Only for stereo and RGB-D. This method does not work for monocular.
     // Call first Shutdown()
     // See format details at: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
-    void         SaveTrajectoryKITTI(const string &filename);
+    void SaveTrajectoryKITTI(const string &filename);
 
     // TODO: Save/Load functions
     // SaveMap(const string &filename);
@@ -164,82 +163,82 @@ class System
 
     // Information from most recent processed frame
     // You can call this right after TrackMonocular (or stereo or RGBD)
-    int          GetTrackingState();
-    std::vector<MapPoint *>      GetTrackedMapPoints();
-    std::vector<cv::KeyPoint>    GetTrackedKeyPointsUn();
+    int                       GetTrackingState();
+    std::vector<MapPoint *>   GetTrackedMapPoints();
+    std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
 
     // For debugging
-    double                       GetTimeFromIMUInit();
-    bool                         isLost();
-    bool                         isFinished();
+    double GetTimeFromIMUInit();
+    bool   isLost();
+    bool   isFinished();
 
-    void                         ChangeDataset();
+    void ChangeDataset();
 
-    float                        GetImageScale();
-    Atlas                       *GetAtlas() const;
-    Tracking                    *GetTracker() const;
-    float                        GetCameraFrameRate() const;
+    float     GetImageScale();
+    Atlas    *GetAtlas() const;
+    Tracking *GetTracker() const;
+    float     GetCameraFrameRate() const;
 
     processing_statistics       &statistics() { return _statistics; }
     const processing_statistics &statistics() const { return _statistics; }
     void                         record_frame_statistics(double preprocessing_ms, double frontend_ms);
 
   private:
-    void                      stop_workers();
+    void stop_workers();
 
     // Keep filename history aligned with tracker frame-pose history in System,
     // so Tracking remains unchanged.
-    void                      RegisterFrameFilenameForExport(const string &filename);
+    void RegisterFrameFilenameForExport(const string &filename);
 
-    void                      SaveAtlas(int type);
-    bool                      LoadAtlas(int type);
+    void SaveAtlas(int type);
+    bool LoadAtlas(int type);
 
-    string                    CalculateCheckSum(string filename, int type);
+    string CalculateCheckSum(string filename, int type);
 
     // Input sensor
-    eSensor                   mSensor;
+    eSensor mSensor;
 
     // ORB vocabulary used for place recognition and feature matching.
-    place_vocabulary         *mpVocabulary;
+    place_vocabulary *mpVocabulary;
 
     // KeyFrame database for place recognition (relocalization and loop detection).
-    KeyFrameDatabase         *mpKeyFrameDatabase;
+    KeyFrameDatabase *mpKeyFrameDatabase;
 
     // Map structure that stores the pointers to all KeyFrames and MapPoints.
     // Map* mpMap;
-    Atlas                    *mpAtlas;
+    Atlas *mpAtlas;
 
     // Tracker. It receives a frame and computes the associated camera pose.
     // It also decides when to insert a new keyframe, create some new MapPoints and
     // performs relocalization if tracking fails.
-    Tracking                 *mpTracker;
+    Tracking *mpTracker;
 
     // Local Mapper. It manages the local map and performs local bundle adjustment.
-    LocalMapping             *mpLocalMapper;
+    LocalMapping *mpLocalMapper;
 
     // Loop Closer. It searches loops with every new keyframe. If there is a loop it performs
     // a pose graph optimization and full bundle adjustment (in a new thread) afterwards.
-    LoopClosing              *mpLoopCloser;
+    LoopClosing *mpLoopCloser;
 
     // System threads: Local Mapping and Loop Closing.
     // The Tracking thread "lives" in the main execution thread that creates the System object.
-    processing_statistics     _statistics;
-    std::mutex                _shutdown_mutex;
-    std::jthread              _local_mapping_thread;
-    std::jthread              _loop_closing_thread;
+    processing_statistics _statistics;
+    std::mutex            _shutdown_mutex;
+    std::jthread          _local_mapping_thread;
+    std::jthread          _loop_closing_thread;
 
     // Reset flag
-    std::mutex                mMutexReset;
-    bool                      mbReset;
-    bool                      mbResetActiveMap;
+    std::mutex mMutexReset;
+    bool       mbReset;
+    bool       mbResetActiveMap;
 
     // Change mode flags
-    std::mutex                mMutexMode;
-    bool                      mbActivateLocalizationMode;
-    bool                      mbDeactivateLocalizationMode;
+    std::mutex mMutexMode;
+    bool       mbActivateLocalizationMode;
+    bool       mbDeactivateLocalizationMode;
 
     // Shutdown flag
-    bool                      mbShutDown;
+    bool mbShutDown;
 
     // Tracking state
     int                       mTrackingState;
@@ -249,13 +248,13 @@ class System
 
     // One filename per tracked frame pose entry (same cardinality as
     // mpTracker->mlRelativeFramePoses when exported).
-    std::list<string>         mlFrameFilenames{};
+    std::list<string> mlFrameFilenames{};
 
     //
-    string                    mStrLoadAtlasFromFile;
-    string                    mStrSaveAtlasToFile;
+    string mStrLoadAtlasFromFile;
+    string mStrSaveAtlasToFile;
 
-    string                    mStrVocabularyFilePath;
+    string mStrVocabularyFilePath;
 
     std::unique_ptr<Settings> settings_;
 };
