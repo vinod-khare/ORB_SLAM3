@@ -336,6 +336,17 @@ inventories (names and sizes, not image contents).
   matched-pose count after independent per-sequence alignments.
 - Frame statistics: mean, median, p95, min, and max of detected/matched keypoint
   counts and preprocessing/frontend milliseconds, both per sequence and pooled.
+- Tracking quality: separate left/right feature counts, flow candidates,
+  surviving tracks, geometric flow inliers, and occupied cells in a 4x4 grid.
+  The original `detected_keypoints` column remains the sum of left and right
+  observations; flow candidates are left-camera map-point tracks, not detections.
+  CSV also records `flow_only`, `features_extracted`, `tracking_state` (2: OK,
+  3: recently lost, 4: lost), `map_id`, and `map_change_index`. Summaries count
+  tracking-loss transitions, map switches, feature extraction frames, and major
+  map corrections. Corrections can include loop closure, merging, or bundle
+  adjustment; they are not a count of loop detections. Detailed events remain
+  in `app.log`. Preprocessing time includes synchronization waits and contention,
+  so it is not an isolated measurement of image-processing CPU time.
 - Cumulative statistics: frame count, elapsed playback time, throughput, summed
   preprocessing/frontend time, and worker job counts/times. Worker totals are
   last-frame CSV snapshots, may exclude shutdown work, and overlap in time.
@@ -356,24 +367,41 @@ extracted TUM-VI sequence, run:
 
 ```sh
 .venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py \
-  --compare-optical-flow --run-name stereo-optical-flow
+  --compare-optical-flow --repetitions 3 --run-name stereo-optical-flow-v2
 ```
 
-This runs the complete selected dataset once with `tracking.use_optical_flow: 0`
-and once with `tracking.use_optical_flow: 1`, explicitly overriding the template
+This runs three pairs by default, each covering the complete selected dataset
+with `tracking.use_optical_flow: 0` and `tracking.use_optical_flow: 1`, alternating
+off/on then on/off execution order to reduce ordering bias. It overrides the template
 while preserving its other feature/tracking settings. Both use the same binary,
 vocabulary, frame selection, and stereo mode without IMU. Install all desired
 sequences under `--datasets-root` first; this command does not download datasets.
-Use a unique run name for each repetition and keep the machine otherwise idle.
+Use a unique run name for each experiment and keep the machine otherwise idle.
+The paired run snapshots the settings and checks the executable and vocabulary
+hashes before each variant; do not rebuild or edit inputs during a benchmark.
 
-Results are saved under `.data/benchmark/tumvi/stereo-optical-flow/`, with
-`without_optical_flow/` and `with_optical_flow/` holding the usual per-sequence
-logs, statistics, trajectories, summaries, and provenance. The parent contains
-`comparison.md`, `comparison.csv`, and `comparison.json`: baseline is flow off,
-candidate is flow on. Both modes are attempted even if individual sequences
+Results are saved under `.data/benchmark/tumvi/stereo-optical-flow-v2/`, with
+`repetition_01/`, `repetition_02/`, etc. Each repetition contains
+`without_optical_flow/`, `with_optical_flow/`, and its comparison reports.
+The parent `comparison.md`, `comparison.csv`, and `comparison.json` contain
+medians and min/max ranges across repetitions, including median paired deltas:
+baseline is flow off, candidate is flow on. Metrics missing from any repetition
+are omitted with a warning instead of averaging only survivors. With
+`--repetitions 1`, variant directories and the single comparison live directly
+under the run directory, preserving the original layout.
+Both modes are attempted even if individual sequences
 fail; any sequence failure returns a nonzero exit status. Ctrl+C stops the batch
-and preserves completed reports. Repeat runs before drawing performance
-conclusions; one pair is not a statistical significance test.
+and preserves completed reports. Neither repeated medians nor a single pair
+establish statistical significance.
+
+Stereo optical flow is accuracy-first: it estimates a pose from up to 1,024
+spatially distributed established map-point tracks, checks geometric inliers
+and coverage, then refreshes features and stereo depth in both images on every
+frame. Descriptor matching and local-map optimization still run on the refreshed
+features. Weak flow falls back to the motion prediction and normal matching.
+This keeps feature counts comparable to flow-off tracking and retains stereo
+constraints, at the cost of much of the earlier flow-only speedup. Monocular
+tracking retains its bounded flow-only path with periodic/quality-based refresh.
 
 Record a baseline and an experiment, rebuilding the executable after algorithm
 changes or selecting a different feature-settings template with `--settings`:
@@ -395,7 +423,14 @@ baseline). Percentages are omitted for zero baselines. Accuracy/latency decrease
 and coverage/throughput increases are labeled by direction, not statistical
 significance. Counts are contextual. Pooled deltas are omitted when sequence
 sets, processed frame counts or outcomes differ, avoiding survivor bias; paired
-per-sequence metrics remain available. Dataset, host, vocabulary and timeout
+per-sequence metrics remain available. New runs archive matched ground-truth
+timestamps, reference positions, and unaligned body-frame estimates in
+`accuracy_samples.csv`. Comparisons intersect these timestamps and independently
+SE(3)-align both estimates on exactly that subset, reporting `shared_ate_rmse_m`
+and `shared_matched_poses`. Prefer shared ATE when tracking coverage differs;
+ordinary ATE and coverage remain visible. Legacy runs without archived samples
+remain comparable, with a warning that shared-timestamp accuracy is unavailable.
+Dataset, host, vocabulary, timeout, source provenance, and executable
 changes trigger a warning. A comparison exits zero on successful report
 generation, even when metrics regress; it is not a CI threshold gate. Repeat
 runs under the same conditions to distinguish improvements from timing noise

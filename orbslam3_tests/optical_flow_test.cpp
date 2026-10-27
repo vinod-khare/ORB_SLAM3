@@ -90,8 +90,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     const int  camera_kind = GENERATE(0, 1, 2, 3); // monocular, rectified stereo, fisheye stereo, distorted monocular
     const bool stereo      = camera_kind == 1 || camera_kind == 2;
 
-    cv::Mat    image(256, 256, CV_8UC1);
-    cv::RNG    random(17);
+    cv::Mat image(256, 256, CV_8UC1);
+    cv::RNG random(17);
 
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
 
@@ -104,8 +104,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     left_camera.mvLappingArea  = {0, 256};
     right_camera.mvLappingArea = {0, 256};
 
-    auto    calibration        = pinhole.toK();
-    cv::Mat distortion         = cv::Mat::zeros(4, 1, CV_32F);
+    auto    calibration = pinhole.toK();
+    cv::Mat distortion  = cv::Mat::zeros(4, 1, CV_32F);
 
     if (camera_kind == 3)
     {
@@ -138,6 +138,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(copied.display_keys_right.size() == previous.display_keys_right.size());
     REQUIRE_FALSE(previous.mDescriptors.empty());
     previous.get_optical_flow_pyramid(image);
+    previous.flow_candidates = 200;
     const auto       next_id = ORB_SLAM3::Frame::nNextId;
     ORB_SLAM3::Frame current(previous, 1.05);
     REQUIRE(current.mnId == next_id);
@@ -149,6 +150,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mDescriptors.empty());
     REQUIRE(current.mDescriptorsRight.empty());
     REQUIRE(current.optical_flow_pyramid.empty());
+    REQUIRE(current.flow_candidates == 0);
     REQUIRE(current.mpPrevFrame == &previous);
     REQUIRE_FALSE(current.HasPose());
     REQUIRE_FALSE(current.imuIsPreintegrated());
@@ -157,6 +159,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     cv::KeyPoint        tracked(73.25f, 81.75f, 31.0f);
     const cv::KeyPoint  native_tracked(tracked.pt, 7.f, -1.f);
     current.set_tracked_features({tracked}, {&point}, {native_tracked});
+    current.flow_candidates = 100;
+    current.flow_tracks     = 1;
     REQUIRE(current.N == 1);
     REQUIRE(current.mvKeys.front().pt == tracked.pt);
     REQUIRE(current.display_keys.front().pt == tracked.pt);
@@ -192,6 +196,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     current.extract_features(image, camera_kind == 2 ? static_cast<ORB_SLAM3::GeometricCamera *>(&left_camera) : &pinhole, stereo ? image : cv::Mat(),
                              camera_kind == 2 ? &right_camera : nullptr);
     REQUIRE_FALSE(current.flow_only);
+    REQUIRE(current.flow_candidates == 100);
+    REQUIRE(current.flow_tracks == 1);
     REQUIRE(current.mnId == next_id);
     REQUIRE(ORB_SLAM3::Frame::nNextId == next_id + 1);
     REQUIRE(current.mTimeStamp == 1.05);
@@ -237,6 +243,37 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     }
 }
 
+TEST_CASE("Stereo refresh restores dense observations and measured depth after flow")
+{
+    cv::Mat left(256, 256, CV_8UC1);
+    cv::RNG random(27);
+    random.fill(left, cv::RNG::UNIFORM, 0, 256);
+    cv::GaussianBlur(left, left, cv::Size(3, 3), 0);
+    cv::Mat       right;
+    const cv::Mat shift = cv::Mat(cv::Matx23d(1, 0, -4, 0, 1, 0));
+    cv::warpAffine(left, right, shift, left.size());
+    ORB_SLAM3::keypoint_extractor left_extractor(400, 1.2f, 4, 20, 7);
+    ORB_SLAM3::keypoint_extractor right_extractor(400, 1.2f, 4, 20, 7);
+    ORB_SLAM3::Pinhole            camera({200, 200, 128, 128});
+    auto                          calibration = camera.toK();
+    cv::Mat                       distortion  = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::Frame::mbInitialComputations   = true;
+    ORB_SLAM3::Frame previous(left, right, 1.0, &left_extractor, &right_extractor, nullptr, calibration, distortion, 20, 40, &camera);
+    previous.mpLastKeyFrame = nullptr;
+    previous.mnDataset      = 0;
+    ORB_SLAM3::Frame current(previous, 1.05);
+    REQUIRE(current.flow_only);
+    REQUIRE(current.mvKeysRight.empty());
+    current.extract_features(left, &camera, right);
+    REQUIRE_FALSE(current.flow_only);
+    REQUIRE(current.mvKeys.size() == previous.mvKeys.size());
+    REQUIRE(current.mvKeysRight.size() == previous.mvKeysRight.size());
+    REQUIRE(current.mvKeys.size() > 300);
+    REQUIRE(current.mvKeysRight.size() > 300);
+    REQUIRE(std::count_if(current.mvDepth.begin(), current.mvDepth.end(), [](float depth) { return depth > 0; }) > 50);
+    REQUIRE(current.mvDepth == previous.mvDepth);
+}
+
 TEST_CASE("RGB-D frames undistort tracked features without a camera")
 {
     cv::Mat image(256, 256, CV_8UC1);
@@ -274,6 +311,10 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
     }
     frame.set_tracked_features(keys, std::vector<ORB_SLAM3::MapPoint *>(100, &point));
     REQUIRE(frame.reliable_flow_inliers({128, 128}));
+    REQUIRE(frame.flow_inliers == 100);
+    REQUIRE(frame.flow_occupied_cells == 16);
+    REQUIRE(frame.reliable_flow_inliers({128, 128}, 100));
+    REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}, 101));
     std::fill(frame.mvbOutlier.begin(), frame.mvbOutlier.begin() + 40, true);
     REQUIRE(frame.reliable_flow_inliers({128, 128})); // exactly 60%
     frame.mvbOutlier[40] = true;

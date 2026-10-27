@@ -185,7 +185,8 @@ int main(int argc, char **argv)
         statistics_csv << std::setprecision(std::numeric_limits<double>::max_digits10);
         statistics_csv << "frame_id,timestamp,detected_keypoints,matched_keypoints,preprocessing_ms,frontend_ms,frames,elapsed_seconds,throughput_fps,"
                           "preprocessing_total_ms,frontend_total_ms,local_mapping_jobs,local_mapping_last_ms,local_mapping_total_ms,"
-                          "loop_closing_jobs,loop_closing_last_ms,loop_closing_total_ms,global_bundle_adjustment_jobs,global_bundle_adjustment_last_ms,global_bundle_adjustment_total_ms\n";
+                          "loop_closing_jobs,loop_closing_last_ms,loop_closing_total_ms,global_bundle_adjustment_jobs,global_bundle_adjustment_last_ms,global_bundle_adjustment_total_ms,"
+                          "left_keypoints,right_keypoints,flow_candidates,flow_tracks,flow_inliers,flow_occupied_cells,flow_only,features_extracted,tracking_state,map_id,map_change_index\n";
 
         const string output_filename = options.output_filename.value_or(string{});
         const bool   bFileName       = options.output_filename.has_value();
@@ -327,7 +328,10 @@ int main(int argc, char **argv)
                                << statistics.throughput_fps << ',' << statistics.preprocessing_total_ms << ',' << statistics.frontend_total_ms << ',' << statistics.local_mapping.jobs << ','
                                << statistics.local_mapping.last_ms << ',' << statistics.local_mapping.total_ms << ',' << statistics.loop_closing.jobs << ',' << statistics.loop_closing.last_ms
                                << ',' << statistics.loop_closing.total_ms << ',' << statistics.global_bundle_adjustment.jobs << ',' << statistics.global_bundle_adjustment.last_ms << ','
-                               << statistics.global_bundle_adjustment.total_ms << '\n';
+                               << statistics.global_bundle_adjustment.total_ms << ',' << statistics.frame.left_keypoints << ',' << statistics.frame.right_keypoints << ','
+                               << statistics.frame.flow_candidates << ',' << statistics.frame.flow_tracks << ',' << statistics.frame.flow_inliers << ',' << statistics.frame.flow_occupied_cells
+                               << ',' << statistics.frame.flow_only << ',' << statistics.frame.features_extracted << ',' << statistics.frame.tracking_state << ',' << statistics.frame.map_id
+                               << ',' << statistics.frame.map_change_index << '\n';
 
                 spdlog::info("Frame {}/{}: detected={} matched={} preprocessing={:.3f} ms frontend={:.3f} ms throughput={:.1f} FPS | backend last completed: local={:.3f} ms ({} jobs) "
                              "loop={:.3f} ms ({} jobs) GBA={:.3f} ms ({} jobs)",
@@ -348,7 +352,7 @@ int main(int argc, char **argv)
                     }
                 }
             }
-            
+
             statistics_csv.close();
         }
         catch (...)

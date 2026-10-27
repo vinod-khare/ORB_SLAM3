@@ -46,7 +46,7 @@ def load_estimate(path, t_cam_imu):
     return traj
 
 
-def evaluate(args):
+def evaluate(args, matched_output=None):
     settings = load_settings(args.settings)
     settings_dir = args.settings.resolve().parent
     data_root = settings_dir / settings["data"]["root"]
@@ -66,6 +66,13 @@ def evaluate(args):
     tracked_ratio = est.num_poses / num_images
     ref = file_interface.read_euroc_csv_trajectory(str(data_root / "mocap0/data.csv"))
     ref, est = sync.associate_trajectories(ref, est, max_diff=0.01)
+    if matched_output is not None:
+        np.savetxt(
+            matched_output,
+            np.column_stack((ref.timestamps, ref.positions_xyz, est.positions_xyz)),
+            delimiter=",",
+            header="timestamp,reference_x,reference_y,reference_z,estimate_x,estimate_y,estimate_z",
+        )
     est.align(ref, correct_scale=args.slam_type == "mono")
 
     ape = metrics.APE(metrics.PoseRelation.translation_part)

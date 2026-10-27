@@ -209,6 +209,22 @@ void System::record_frame_statistics(double preprocessing_ms, double frontend_ms
                                                .detected_keypoints = frame.mvKeys.size() + frame.mvKeysRight.size(),
                                                .preprocessing_ms   = preprocessing_ms,
                                                .frontend_ms        = frontend_ms};
+    sample.left_keypoints      = frame.mvKeys.size();
+    sample.right_keypoints     = frame.mvKeysRight.size();
+    sample.flow_candidates     = frame.flow_candidates;
+    sample.flow_tracks         = frame.flow_tracks;
+    sample.flow_inliers        = frame.flow_inliers;
+    sample.flow_occupied_cells = frame.flow_occupied_cells;
+    sample.flow_only           = frame.flow_only;
+    sample.features_extracted  = !frame.flow_only;
+    sample.tracking_state      = mpTracker->mState;
+
+    if (auto *map = mpAtlas->GetCurrentMap())
+    {
+        sample.map_id           = map->GetId();
+        sample.map_change_index = map->GetLastBigChangeIdx();
+    }
+
     if (mpTracker->mState == Tracking::OK)
     {
         for (std::size_t index = 0; index < frame.mvpMapPoints.size(); ++index)
@@ -219,6 +235,7 @@ void System::record_frame_statistics(double preprocessing_ms, double frontend_ms
             }
         }
     }
+
     _statistics.record_frame(sample);
 }
 

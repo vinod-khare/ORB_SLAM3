@@ -127,7 +127,14 @@ class TumviBenchmarkTest(unittest.TestCase):
             ) as run:
                 self.assertEqual(
                     benchmark.main(
-                        arguments + ["--run-name", "flow", "--compare-optical-flow"]
+                        arguments
+                        + [
+                            "--run-name",
+                            "flow",
+                            "--compare-optical-flow",
+                            "--repetitions",
+                            "1",
+                        ]
                     ),
                     1,
                 )
@@ -152,11 +159,64 @@ class TumviBenchmarkTest(unittest.TestCase):
             self.assertEqual(variants[0], variants[1])
             comparison = json.loads((paired / "comparison.json").read_text())
             self.assertEqual(len(comparison["sequences"]), 3)
+            self.assertTrue(
+                any(
+                    row["metric"] == "shared_ate_rmse_m"
+                    for row in comparison["metrics"]
+                )
+            )
             self.assertTrue((paired / "comparison.csv").is_file())
             self.assertTrue((paired / "comparison.md").is_file())
             self.assertEqual(
                 json.loads((paired / "run.json").read_text())["status"], "completed"
             )
+            with patch.object(
+                benchmark.platform, "platform", return_value="test-host"
+            ), patch.object(
+                benchmark.subprocess, "check_output", return_value=b"test"
+            ), patch.object(
+                benchmark.subprocess, "run", side_effect=fake_run
+            ) as run:
+                self.assertEqual(
+                    benchmark.main(
+                        arguments
+                        + [
+                            "--run-name",
+                            "repeated-flow",
+                            "--compare-optical-flow",
+                            "--repetitions",
+                            "2",
+                        ]
+                    ),
+                    1,
+                )
+                destinations = [
+                    Path(call.args[0][call.args[0].index("--output-folder") + 1])
+                    for call in run.call_args_list
+                ]
+                self.assertEqual(
+                    [path.parent.name for path in destinations],
+                    ["without_optical_flow"] * 2
+                    + ["with_optical_flow"] * 4
+                    + ["without_optical_flow"] * 2,
+                )
+            repeated = output.parent / "repeated-flow"
+            combined = json.loads((repeated / "comparison.json").read_text())
+            self.assertEqual(combined["repetitions"], 2)
+            self.assertEqual(len(combined["sequences"]), 3)
+            self.assertTrue(
+                all(
+                    "baseline_min" in row and "delta_max" in row
+                    for row in combined["metrics"]
+                )
+            )
+            self.assertIn(
+                "Repeat Variability", (repeated / "comparison.md").read_text()
+            )
+            for index in (1, 2):
+                self.assertTrue(
+                    (repeated / f"repetition_{index:02d}/comparison.json").is_file()
+                )
             saved_summary = (output / "summary.json").read_bytes()
             saved_manifest = (output / "run.json").read_bytes()
             with patch.object(
@@ -255,7 +315,14 @@ class TumviBenchmarkTest(unittest.TestCase):
             ) as run:
                 self.assertEqual(
                     benchmark.main(
-                        arguments + ["--run-name", "flow", "--compare-optical-flow"]
+                        arguments
+                        + [
+                            "--run-name",
+                            "flow",
+                            "--compare-optical-flow",
+                            "--repetitions",
+                            "1",
+                        ]
                     ),
                     130,
                 )
@@ -274,10 +341,96 @@ class TumviBenchmarkTest(unittest.TestCase):
             with self.subTest(option=option), self.assertRaises(SystemExit):
                 benchmark.parse_args(arguments)
 
+    def test_quality_statistics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "statistics.csv"
+            rows = []
+            for index in range(3):
+                row = {field: 10 for field in benchmark.FRAME_FIELDS}
+                row.update({field: 100 for field in benchmark.QUALITY_FIELDS})
+                row.update(
+                    frames=index + 1,
+                    elapsed_seconds=1,
+                    preprocessing_total_ms=1,
+                    frontend_total_ms=1,
+                    flow_only=0,
+                    features_extracted=1,
+                    tracking_state=2 if index == 0 else 3,
+                    map_id=0 if index < 2 else 1,
+                    map_change_index=index,
+                )
+                for worker in benchmark.WORKERS:
+                    row.update({f"{worker}_jobs": 1, f"{worker}_total_ms": 1})
+                rows.append(row)
+            with path.open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+                writer.writeheader()
+                writer.writerows(rows)
+            samples, counters = benchmark.read_statistics(path)
+            self.assertEqual(samples["left_keypoints"], [100, 100, 100])
+            self.assertEqual(counters["tracking_loss_events"], 1)
+            self.assertEqual(counters["map_switches"], 1)
+            self.assertEqual(counters["map_corrections"], 1)
+            self.assertEqual(counters["features_extracted_frames"], 3)
+
+    def test_repetition_summary(self):
+        comparisons = []
+        for value in (1.0, 3.0, 100.0):
+            comparisons.append(
+                {
+                    "warnings": [],
+                    "changes": [],
+                    "sequences": [],
+                    "metrics": [
+                        {
+                            "sequence": "room",
+                            "metric": "frontend_ms_mean",
+                            "baseline": 10.0,
+                            "candidate": value,
+                            "delta": value - 10,
+                            "percent": (value - 10) * 10,
+                            "assessment": "improved" if value < 10 else "regressed",
+                        }
+                    ],
+                }
+            )
+        result = benchmark.summarize_repetitions(comparisons)
+        metric = result["metrics"][0]
+        self.assertEqual(metric["candidate"], 3)
+        self.assertEqual(metric["delta"], -7)
+        self.assertEqual(metric["candidate_min"], 1)
+        self.assertEqual(metric["candidate_max"], 100)
+        self.assertEqual(metric["assessment"], "improved")
+        comparisons[0]["metrics"] = []
+        result = benchmark.summarize_repetitions(comparisons)
+        self.assertEqual(result["metrics"], [])
+        self.assertTrue(result["warnings"])
+
     def test_missing_sequence(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(ValueError):
                 benchmark.discover_sequences(Path(directory), ["missing"])
+
+    def test_shared_accuracy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = [
+                Path(directory) / name for name in ("baseline.csv", "candidate.csv")
+            ]
+            positions = np.array(
+                [[0, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 1], [2, 1, 1]], dtype=float
+            )
+            baseline = np.column_stack((np.arange(5), positions, positions + 10))
+            candidate = baseline[1:].copy()
+            candidate[:, 4:7] += 5
+            np.savetxt(paths[0], baseline, delimiter=",")
+            np.savetxt(paths[1], candidate, delimiter=",")
+            for result in benchmark.shared_accuracy(*paths):
+                self.assertAlmostEqual(result["shared_ate_rmse_m"], 0)
+                self.assertEqual(result["shared_matched_poses"], 4)
+            candidate[0, 1] += 1
+            np.savetxt(paths[1], candidate, delimiter=",")
+            with self.assertRaisesRegex(ValueError, "Reference positions differ"):
+                benchmark.shared_accuracy(*paths)
 
     def test_comparison(self):
         with tempfile.TemporaryDirectory() as directory:

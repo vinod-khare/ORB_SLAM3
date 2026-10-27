@@ -60,8 +60,12 @@ class Frame
     Frame(Frame &previous, double timestamp);
     void extract_features(const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right = cv::Mat(), GeometricCamera *right_camera = nullptr);
     void set_tracked_features(std::vector<cv::KeyPoint> keys, std::vector<MapPoint *> points, std::vector<cv::KeyPoint> native_keys = {});
-    bool reliable_flow_inliers(const cv::Size &image_size) const;
+    bool reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers = 50);
     bool flow_only{false};
+    int flow_candidates{};
+    int flow_tracks{};
+    int flow_inliers{};
+    int flow_occupied_cells{};
 
     // Constructor for stereo cameras.
     Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,

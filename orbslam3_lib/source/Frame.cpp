@@ -66,6 +66,10 @@ Frame::Frame(const Frame &frame)
       mvRightToLeftMatch(frame.mvRightToLeftMatch), mvStereo3Dpoints(frame.mvStereo3Dpoints)
 {
     flow_only               = frame.flow_only;
+    flow_candidates         = frame.flow_candidates;
+    flow_tracks             = frame.flow_tracks;
+    flow_inliers            = frame.flow_inliers;
+    flow_occupied_cells     = frame.flow_occupied_cells;
     place_descriptors       = frame.place_descriptors.clone();
     place_descriptors_right = frame.place_descriptors_right.clone();
     for (int i = 0; i < FRAME_GRID_COLS; i++)
@@ -122,9 +126,15 @@ Frame::Frame(Frame &previous, double timestamp) : Frame(static_cast<const Frame 
     mbImuPreintegrated      = false;
     mbHasPose               = false;
     mbIsSet                 = false;
+    flow_candidates         = 0;
+    flow_tracks             = 0;
+    flow_inliers            = 0;
+    flow_occupied_cells     = 0;
+
     optical_flow_pyramid.clear();
     imgLeft.release();
     imgRight.release();
+
     set_tracked_features({}, {});
 }
 
@@ -272,31 +282,44 @@ void Frame::extract_features(const cv::Mat &left, GeometricCamera *camera, const
     AssignFeaturesToGrid();
 }
 
-bool Frame::reliable_flow_inliers(const cv::Size &image_size) const
+bool Frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers)
 {
-    if (N < 50 || image_size.width <= 0 || image_size.height <= 0)
+    flow_inliers        = 0;
+    flow_occupied_cells = 0;
+
+    if (image_size.width <= 0 || image_size.height <= 0 || minimum_inliers < 50)
     {
         return false;
     }
+
     std::array<bool, 16> occupied{};
     int                  inliers = 0;
+
     for (std::size_t index = 0; index < mvKeys.size(); ++index)
     {
         if (!mvpMapPoints[index] || mvbOutlier[index])
         {
             continue;
         }
+
         const auto &point = mvKeys[index].pt;
+
         if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.x < 0 || point.y < 0 || point.x >= image_size.width || point.y >= image_size.height)
         {
             continue;
         }
-        const int x                                   = static_cast<int>(point.x * 4 / image_size.width);
-        const int y                                   = static_cast<int>(point.y * 4 / image_size.height);
+
+        const int x = static_cast<int>(point.x * 4 / image_size.width);
+        const int y = static_cast<int>(point.y * 4 / image_size.height);
+
         occupied[static_cast<std::size_t>(y * 4 + x)] = true;
+
         ++inliers;
     }
-    return inliers >= 50 && inliers >= 0.6 * N && std::count(occupied.begin(), occupied.end(), true) >= 6;
+    flow_inliers        = inliers;
+    flow_occupied_cells = static_cast<int>(std::count(occupied.begin(), occupied.end(), true));
+
+    return inliers >= minimum_inliers && inliers >= 0.6 * N && flow_occupied_cells >= 6;
 }
 
 Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,

@@ -27,6 +27,14 @@ FRAME_FIELDS = (
     "frontend_ms",
 )
 WORKERS = ("local_mapping", "loop_closing", "global_bundle_adjustment")
+QUALITY_FIELDS = (
+    "left_keypoints",
+    "right_keypoints",
+    "flow_candidates",
+    "flow_tracks",
+    "flow_inliers",
+    "flow_occupied_cells",
+)
 
 
 def parse_args(argv=None):
@@ -59,6 +67,12 @@ def parse_args(argv=None):
         help="Run all selected sequences with optical flow off and on, then compare",
     )
     parser.add_argument(
+        "--repetitions",
+        type=int,
+        default=3,
+        help="Number of optical-flow pairs, alternating execution order (default: 3)",
+    )
+    parser.add_argument(
         "--comparison-output",
         type=Path,
         help="Write comparison.json, .csv and .md in this directory",
@@ -85,6 +99,10 @@ def parse_args(argv=None):
         help="Per-sequence timeout in seconds (0: unlimited)",
     )
     args = parser.parse_args(argv)
+    if args.repetitions < 1:
+        parser.error("--repetitions must be positive")
+    if args.repetitions != 3 and not args.compare_optical_flow:
+        parser.error("--repetitions requires --compare-optical-flow")
     if not np.isfinite(args.timeout) or args.timeout < 0:
         parser.error("--timeout must be finite and nonnegative")
     if args.compare and (
@@ -179,6 +197,9 @@ def create_run(args, sequences):
         },
         "timeout_seconds": args.timeout,
         "slam_type": "stereo",
+        "optical_flow_repetitions": (
+            args.repetitions if args.compare_optical_flow else None
+        ),
         "settings": settings,
         "git": {
             "commit": git("rev-parse", "HEAD"),
@@ -283,12 +304,13 @@ def read_statistics(path):
     if not rows:
         raise ValueError(f"No frame statistics in {path}")
     samples = {field: [] for field in FRAME_FIELDS}
+    samples.update({field: [] for field in QUALITY_FIELDS if field in rows[0]})
     for index, row in enumerate(rows, start=1):
         if int(row["frames"]) != index or not all(
             np.isfinite(float(value)) for value in row.values()
         ):
             raise ValueError(f"Invalid statistics row {index} in {path}")
-        for field in FRAME_FIELDS:
+        for field in samples:
             value = float(row[field])
             if value < 0:
                 raise ValueError(f"Negative {field} in row {index} of {path}")
@@ -301,6 +323,29 @@ def read_statistics(path):
     for worker in WORKERS:
         counters[f"{worker}_jobs"] = int(last[f"{worker}_jobs"])
         counters[f"{worker}_total_ms"] = float(last[f"{worker}_total_ms"])
+    for field in ("flow_only", "features_extracted"):
+        if field in last:
+            counters[f"{field}_frames"] = sum(int(row[field]) for row in rows)
+    if "flow_candidates" in last:
+        counters["flow_attempt_frames"] = sum(
+            int(row["flow_candidates"]) > 0 for row in rows
+        )
+    if "tracking_state" in last:
+        counters["tracking_loss_events"] = sum(
+            int(before["tracking_state"]) == 2
+            and int(after["tracking_state"]) in (3, 4)
+            for before, after in zip(rows, rows[1:])
+        )
+    if "map_id" in last:
+        counters["map_switches"] = sum(
+            before["map_id"] != after["map_id"] for before, after in zip(rows, rows[1:])
+        )
+    if "map_change_index" in last:
+        counters["map_corrections"] = sum(
+            max(0, int(after["map_change_index"]) - int(before["map_change_index"]))
+            for before, after in zip(rows, rows[1:])
+            if before["map_id"] == after["map_id"]
+        )
     return samples, counters
 
 
@@ -335,6 +380,7 @@ def run_sequence(args, sequence):
                 "kf_trajectory.txt",
                 "app.log",
                 "settings.yaml",
+                "accuracy_samples.csv",
             )
         ]
         if any(path.exists() for path in artifacts) and not args.overwrite:
@@ -391,7 +437,10 @@ def run_sequence(args, sequence):
             regression.evaluate(
                 argparse.Namespace(
                     settings=settings, output_folder=output, slam_type="stereo"
-                )
+                ),
+                matched_output=(
+                    None if args.skip_run else output / "accuracy_samples.csv"
+                ),
             )
         )
     except Exception as error:
@@ -536,6 +585,12 @@ def compare_runs(baseline, candidate):
         warnings.append(
             "Dataset, host, vocabulary or execution conditions differ; metric deltas may not reflect algorithm changes alone"
         )
+    if any(
+        change["field"].startswith(("git.", "artifacts.app.")) for change in changes
+    ):
+        warnings.append(
+            "Source provenance or executable changed between runs; inspect the manifests and source.patch files"
+        )
     indexed = [
         {row["sequence"]: row for row in report["sequences"]} for report in reports
     ]
@@ -553,7 +608,15 @@ def compare_runs(baseline, candidate):
             direction = 0
             if (
                 metric
-                in ("ate_rmse_m", "failed_sequences", "wall_seconds", "elapsed_seconds")
+                in (
+                    "ate_rmse_m",
+                    "shared_ate_rmse_m",
+                    "failed_sequences",
+                    "wall_seconds",
+                    "elapsed_seconds",
+                    "tracking_loss_events",
+                    "map_switches",
+                )
                 or "_ms" in metric
             ):
                 direction = -1
@@ -591,6 +654,23 @@ def compare_runs(baseline, candidate):
             }
         )
         add_metrics(name, before, after)
+        if before.get("matched_poses") != after.get("matched_poses"):
+            warnings.append(
+                f"{name}: ATE uses different ground-truth coverage; prefer shared_ate_rmse_m"
+            )
+        paths = [root / name / "accuracy_samples.csv" for root in (baseline, candidate)]
+        if all(path.is_file() for path in paths):
+            try:
+                shared = shared_accuracy(*paths)
+                add_metrics(name, shared[0], shared[1])
+            except Exception as error:
+                warnings.append(
+                    f"{name}: common-timestamp accuracy unavailable: {error}"
+                )
+        elif before.get("status") == "ok" and after.get("status") == "ok":
+            warnings.append(
+                f"{name}: no archived accuracy samples; common-timestamp accuracy unavailable"
+            )
     same_workload = indexed[0].keys() == indexed[1].keys() and all(
         indexed[0][name].get("frames") == indexed[1][name].get("frames")
         and indexed[0][name]["status"] == indexed[1][name]["status"]
@@ -613,6 +693,43 @@ def compare_runs(baseline, candidate):
     }
 
 
+def shared_accuracy(baseline, candidate):
+    samples = [
+        np.loadtxt(path, delimiter=",", ndmin=2) for path in (baseline, candidate)
+    ]
+    if any(data.shape[1] != 7 or not np.isfinite(data).all() for data in samples):
+        raise ValueError("Invalid archived accuracy samples")
+    if any(len(np.unique(data[:, 0])) != len(data) for data in samples):
+        raise ValueError("Duplicate reference timestamps")
+    timestamps, before, after = np.intersect1d(
+        samples[0][:, 0], samples[1][:, 0], return_indices=True
+    )
+    if len(timestamps) < 3:
+        raise ValueError("Fewer than three common ground-truth timestamps")
+    selected = [samples[0][before], samples[1][after]]
+    if not np.allclose(selected[0][:, 1:4], selected[1][:, 1:4], atol=1e-8, rtol=0):
+        raise ValueError("Reference positions differ at common timestamps")
+    results = []
+    orientations = np.tile([1.0, 0.0, 0.0, 0.0], (len(timestamps), 1))
+    reference = regression.PoseTrajectory3D(
+        selected[0][:, 1:4], orientations, timestamps
+    )
+    for data in selected:
+        estimate = regression.PoseTrajectory3D(data[:, 4:7], orientations, timestamps)
+        estimate.align(reference, correct_scale=False)
+        error = regression.metrics.APE(regression.metrics.PoseRelation.translation_part)
+        error.process_data((reference, estimate))
+        results.append(
+            {
+                "shared_ate_rmse_m": float(
+                    error.get_statistic(regression.metrics.StatisticsType.rmse)
+                ),
+                "shared_matched_poses": len(timestamps),
+            }
+        )
+    return results
+
+
 def comparison_report(comparison):
     def cell(value):
         return str(value).replace("|", "\\|").replace("\n", "<br>")
@@ -625,6 +742,13 @@ def comparison_report(comparison):
         "",
     ]
     lines.extend(f"Warning: {warning}" for warning in comparison["warnings"])
+    if "repetitions" in comparison:
+        lines.extend(
+            [
+                "",
+                f"{comparison['repetitions']} paired repetitions, alternating order. Values and paired deltas are medians, not statistical significance tests.",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -688,39 +812,234 @@ def comparison_report(comparison):
             + [row["assessment"]]
         )
         lines.append("| " + " | ".join(values) + " |")
+    if "repetitions" in comparison:
+        lines.extend(
+            [
+                "",
+                "## Repeat Variability",
+                "",
+                "| Sequence | Metric | Baseline range | Candidate range | Paired delta range |",
+                "| --- | --- | ---: | ---: | ---: |",
+            ]
+        )
+        for row in comparison["metrics"]:
+            lines.append(
+                f"| {cell(row['sequence'])} | {row['metric']} | {row['baseline_min']:.6g} .. {row['baseline_max']:.6g} | {row['candidate_min']:.6g} .. {row['candidate_max']:.6g} | {row['delta_min']:.6g} .. {row['delta_max']:.6g} |"
+            )
     return "\n".join(lines) + "\n"
+
+
+def write_comparison(comparison, output):
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "comparison.json").write_text(
+        json.dumps(comparison, indent=2, allow_nan=False) + "\n"
+    )
+    (output / "comparison.md").write_text(comparison_report(comparison))
+    with (output / "comparison.csv").open("w", newline="") as stream:
+        columns = list(
+            dict.fromkeys(key for row in comparison["metrics"] for key in row)
+        )
+        writer = csv.DictWriter(
+            stream,
+            fieldnames=columns
+            or [
+                "sequence",
+                "metric",
+                "baseline",
+                "candidate",
+                "delta",
+                "percent",
+                "assessment",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(comparison["metrics"])
+
+
+def summarize_repetitions(comparisons):
+    result = {
+        "schema_version": 1,
+        "repetitions": len(comparisons),
+        "baseline": "without_optical_flow",
+        "candidate": "with_optical_flow",
+        "warnings": list(
+            dict.fromkeys(
+                warning
+                for comparison in comparisons
+                for warning in comparison["warnings"]
+            )
+        ),
+        "changes": [],
+        "sequences": [],
+        "metrics": [],
+    }
+    for comparison in comparisons:
+        for change in comparison["changes"]:
+            if change not in result["changes"]:
+                result["changes"].append(change)
+    names = sorted(
+        {
+            row["sequence"]
+            for comparison in comparisons
+            for row in comparison["sequences"]
+        }
+    )
+    for name in names:
+        rows = [
+            next(
+                (row for row in comparison["sequences"] if row["sequence"] == name), {}
+            )
+            for comparison in comparisons
+        ]
+        result["sequences"].append(
+            {
+                "sequence": name,
+                **{
+                    variant: ", ".join(row.get(variant, "missing") for row in rows)
+                    for variant in ("baseline", "candidate")
+                },
+                **{
+                    f"{variant}_error": "; ".join(
+                        row.get(f"{variant}_error") or "" for row in rows
+                    ).strip("; ")
+                    or None
+                    for variant in ("baseline", "candidate")
+                },
+            }
+        )
+    indexed = [
+        {(row["sequence"], row["metric"]): row for row in comparison["metrics"]}
+        for comparison in comparisons
+    ]
+    for key in sorted(set().union(*(rows.keys() for rows in indexed))):
+        if not all(key in rows for rows in indexed):
+            result["warnings"].append(
+                f"{key[0]} {key[1]}: omitted because not all repetitions contain paired results"
+            )
+            continue
+        rows = [values[key] for values in indexed]
+        median = {
+            field: float(np.median([row[field] for row in rows]))
+            for field in ("baseline", "candidate", "delta")
+        }
+        percentages = [row["percent"] for row in rows]
+        directional = next(
+            (row for row in rows if row["assessment"] in ("improved", "regressed")),
+            None,
+        )
+        direction = (
+            0
+            if directional is None
+            else (1 if directional["delta"] > 0 else -1)
+            * (1 if directional["assessment"] == "improved" else -1)
+        )
+        result["metrics"].append(
+            {
+                "sequence": key[0],
+                "metric": key[1],
+                **median,
+                "percent": (
+                    float(np.median(percentages))
+                    if all(value is not None for value in percentages)
+                    else None
+                ),
+                "assessment": (
+                    "unchanged"
+                    if median["delta"] == 0
+                    else (
+                        "context"
+                        if not direction
+                        else (
+                            "improved"
+                            if median["delta"] * direction > 0
+                            else "regressed"
+                        )
+                    )
+                ),
+                **{
+                    f"{field}_{suffix}": operation(row[field] for row in rows)
+                    for field in ("baseline", "candidate", "delta")
+                    for suffix, operation in (("min", min), ("max", max))
+                },
+            }
+        )
+    return result
 
 
 def run_optical_flow_comparison(args, sequences):
     manifest = create_run(args, sequences)
     output = args.output_folder
     outcomes = []
-    for enabled, name in ((0, "without_optical_flow"), (1, "with_optical_flow")):
-        settings = regression.load_settings(args.settings)
-        settings.setdefault("tracking", {})["use_optical_flow"] = enabled
+    variants = ((0, "without_optical_flow"), (1, "with_optical_flow"))
+    for enabled, name in variants:
+        settings = {
+            **manifest["settings"],
+            "tracking": {
+                **manifest["settings"].get("tracking", {}),
+                "use_optical_flow": enabled,
+            },
+        }
         template = output / f"{name}.yaml"
         template.write_text(
             "%YAML:1.0\n---\n" + yaml.safe_dump(settings, sort_keys=False)
         )
-        variant = argparse.Namespace(
-            **{**vars(args), "settings": template, "run_name": name}
-        )
-        print(f"\nOptical flow: {'on' if enabled else 'off'}", flush=True)
-        outcome = run_benchmark(variant, sequences)
-        if outcome == 130:
-            finish_run(output, manifest, "interrupted")
-            return 130
-        outcomes.append(outcome)
-    main(
-        [
-            "--compare",
-            str(output / "without_optical_flow"),
-            str(output / "with_optical_flow"),
-            "--comparison-output",
-            str(output),
-        ]
-    )
+    comparisons = []
+    try:
+        for repetition in range(args.repetitions):
+            pair_output = (
+                output
+                if args.repetitions == 1
+                else output / f"repetition_{repetition + 1:02d}"
+            )
+            order = variants if repetition % 2 == 0 else variants[::-1]
+            manifest.setdefault("execution_order", []).append(
+                [name for _, name in order]
+            )
+            for enabled, name in order:
+                for artifact in ("app", "vocab"):
+                    if (
+                        file_hash(getattr(args, artifact))
+                        != manifest["artifacts"][artifact]["sha256"]
+                    ):
+                        raise ValueError(
+                            f"{artifact} changed during the paired benchmark"
+                        )
+                variant = argparse.Namespace(
+                    **{
+                        **vars(args),
+                        "settings": output / f"{name}.yaml",
+                        "output_folder": pair_output,
+                        "run_name": name,
+                    }
+                )
+                print(
+                    f"\nPair {repetition + 1}/{args.repetitions}, optical flow: {'on' if enabled else 'off'}",
+                    flush=True,
+                )
+                outcome = run_benchmark(variant, sequences)
+                if outcome == 130:
+                    finish_run(output, manifest, "interrupted")
+                    return 130
+                outcomes.append(outcome)
+            comparison = compare_runs(
+                pair_output / variants[0][1], pair_output / variants[1][1]
+            )
+            write_comparison(comparison, pair_output)
+            comparisons.append(comparison)
+            if args.repetitions > 1:
+                write_comparison(summarize_repetitions(comparisons), output)
+    except KeyboardInterrupt:
+        finish_run(output, manifest, "interrupted")
+        return 130
+    except Exception:
+        finish_run(output, manifest, "failed")
+        raise
     finish_run(output, manifest, "completed")
+    print(
+        comparison_report(
+            summarize_repetitions(comparisons) if args.repetitions > 1 else comparison
+        )
+    )
     return int(any(outcomes))
 
 
@@ -733,26 +1052,7 @@ def main(argv=None):
             output = args.comparison_output.resolve()
             if output in [path.resolve() for path in args.compare]:
                 raise ValueError("Comparison output must not be a source run directory")
-            output.mkdir(parents=True, exist_ok=True)
-            (output / "comparison.json").write_text(
-                json.dumps(comparison, indent=2, allow_nan=False) + "\n"
-            )
-            (output / "comparison.md").write_text(report)
-            with (output / "comparison.csv").open("w", newline="") as stream:
-                writer = csv.DictWriter(
-                    stream,
-                    fieldnames=(
-                        "sequence",
-                        "metric",
-                        "baseline",
-                        "candidate",
-                        "delta",
-                        "percent",
-                        "assessment",
-                    ),
-                )
-                writer.writeheader()
-                writer.writerows(comparison["metrics"])
+            write_comparison(comparison, output)
         print(report)
         return 0
     for field in ("datasets_root", "app", "vocab", "settings", "output_folder"):
@@ -784,8 +1084,8 @@ def run_benchmark(args, sequences):
             print(f"[{index}/{len(sequences)}] {sequence.name}", flush=True)
             try:
                 result, samples, counters = run_sequence(args, sequence)
-                for field in FRAME_FIELDS:
-                    pooled[field].extend(samples[field])
+                for field, values in samples.items():
+                    pooled.setdefault(field, []).extend(values)
                 for field, value in counters.items():
                     totals[field] = totals.get(field, 0) + value
             except Exception as error:

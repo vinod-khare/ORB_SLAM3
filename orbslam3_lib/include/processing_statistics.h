@@ -29,6 +29,17 @@ class processing_statistics
         std::size_t   matched_keypoints{};
         double        preprocessing_ms{};
         double        frontend_ms{};
+        std::size_t   left_keypoints{};
+        std::size_t   right_keypoints{};
+        int           flow_candidates{};
+        int           flow_tracks{};
+        int           flow_inliers{};
+        int           flow_occupied_cells{};
+        bool          flow_only{};
+        bool          features_extracted{};
+        int           tracking_state{};
+        std::uint64_t map_id{};
+        int           map_change_index{};
     };
 
     struct backend_sample
@@ -59,10 +70,7 @@ class processing_statistics
         backend_timer(const backend_timer &)            = delete;
         backend_timer &operator=(const backend_timer &) = delete;
 
-        ~backend_timer()
-        {
-            _statistics.record_backend(_stage, std::chrono::duration<double, std::milli>(clock::now() - _started).count());
-        }
+        ~backend_timer() { _statistics.record_backend(_stage, std::chrono::duration<double, std::milli>(clock::now() - _started).count()); }
 
       private:
         processing_statistics &_statistics;
@@ -84,19 +92,17 @@ class processing_statistics
         _snapshot.frame = sample;
         ++_snapshot.frames;
         _snapshot.preprocessing_total_ms += sample.preprocessing_ms;
-        _snapshot.frontend_total_ms += sample.frontend_ms;
-        _snapshot.elapsed_seconds = std::chrono::duration<double>(completed - _started).count();
-        _snapshot.throughput_fps = _snapshot.elapsed_seconds > 0.0 ? static_cast<double>(_snapshot.frames) / _snapshot.elapsed_seconds : 0.0;
+        _snapshot.frontend_total_ms      += sample.frontend_ms;
+        _snapshot.elapsed_seconds         = std::chrono::duration<double>(completed - _started).count();
+        _snapshot.throughput_fps          = _snapshot.elapsed_seconds > 0.0 ? static_cast<double>(_snapshot.frames) / _snapshot.elapsed_seconds : 0.0;
     }
 
     void record_backend(backend_stage stage, double milliseconds)
     {
         const std::lock_guard lock(_mutex);
-        auto &sample = stage == backend_stage::LOCAL_MAPPING ? _snapshot.local_mapping
-                       : stage == backend_stage::LOOP_CLOSING ? _snapshot.loop_closing
-                                                            : _snapshot.global_bundle_adjustment;
+        auto &sample = stage == backend_stage::LOCAL_MAPPING ? _snapshot.local_mapping : stage == backend_stage::LOOP_CLOSING ? _snapshot.loop_closing : _snapshot.global_bundle_adjustment;
         ++sample.jobs;
-        sample.last_ms = milliseconds;
+        sample.last_ms   = milliseconds;
         sample.total_ms += milliseconds;
     }
 

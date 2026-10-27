@@ -1707,19 +1707,29 @@ bool Tracking::TrackWithMotionModel()
     {
         const auto predicted_pose = mCurrentFrame.GetPose();
         const int  flow_matches   = track_with_optical_flow();
+        bool       reliable_flow  = false;
+        const bool stereo = mSensor == System::STEREO || mSensor == System::IMU_STEREO;
         if (flow_matches >= 50)
         {
             Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
-            if (mCurrentFrame.reliable_flow_inliers(mImGray.size()))
-            {
-                spdlog::debug("Frame {}: flow-only tracking, {} observations", mCurrentFrame.mnId, flow_matches);
-                return true;
-            }
+            const int minimum_inliers = stereo ? std::clamp(flow_reference_matches_ / 2, 100, 300) : 50;
+            reliable_flow = mCurrentFrame.reliable_flow_inliers(mImGray.size(), minimum_inliers);
         }
-        spdlog::debug("Frame {}: optical flow weak; extracting features for descriptor recovery", mCurrentFrame.mnId);
-        ++flow_recoveries_;
+        if (reliable_flow && !stereo)
+        {
+            spdlog::debug("Frame {}: flow-only tracking, {} observations", mCurrentFrame.mnId, flow_matches);
+            return true;
+        }
+        if (!reliable_flow)
+        {
+            spdlog::debug("Frame {}: optical flow weak; extracting features for descriptor recovery", mCurrentFrame.mnId);
+            ++flow_recoveries_;
+        }
         extract_current_features();
-        mCurrentFrame.SetPose(predicted_pose);
+        if (!reliable_flow)
+        {
+            mCurrentFrame.SetPose(predicted_pose);
+        }
     }
 
     fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
@@ -1890,7 +1900,7 @@ int Tracking::track_with_optical_flow()
         const int x          = static_cast<int>(key.pt.x * 4 / mImGray.cols);
         const int y          = static_cast<int>(key.pt.y * 4 / mImGray.rows);
         auto     &cell_count = cell_counts[static_cast<std::size_t>(y * 4 + x)];
-        if (cell_count >= 40 || !selected_points.insert(map_point).second)
+        if (cell_count >= 64 || !selected_points.insert(map_point).second)
         {
             continue;
         }
@@ -1921,6 +1931,7 @@ int Tracking::track_with_optical_flow()
         return 0;
     }
     flow_reference_matches_ = static_cast<int>(previous_points.size());
+    mCurrentFrame.flow_candidates = flow_reference_matches_;
 
     std::vector<unsigned char> forward_status;
     std::vector<float>         forward_error;
@@ -1974,6 +1985,7 @@ int Tracking::track_with_optical_flow()
     }
 
     mCurrentFrame.set_tracked_features(std::move(tracked_keys), std::move(tracked_points), std::move(tracked_display_keys));
+    mCurrentFrame.flow_tracks = mCurrentFrame.N;
     return mCurrentFrame.N >= 0.6 * flow_reference_matches_ ? mCurrentFrame.N : 0;
 }
 
