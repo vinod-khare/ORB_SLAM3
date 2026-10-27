@@ -253,6 +253,15 @@ TEST_CASE("DBoW version supports defaults, YAML, CLI precedence and validation",
     REQUIRE(settings.parse("other: value\n", {"--dbow_version", "invalid"}).exit_code == 1);
 }
 
+TEST_CASE("Optical-flow option supports command-line enable and disable", "[tracking]")
+{
+    const logging_settings settings;
+    REQUIRE_FALSE(settings.parse("logging: {}\n").overrides.use_optical_flow.has_value());
+    REQUIRE(settings.parse("logging: {}\n", {"--tracking.use_optical_flow"}).overrides.use_optical_flow == true);
+    REQUIRE(settings.parse("logging: {}\n", {"--tracking.use_optical_flow=false"}).overrides.use_optical_flow == false);
+    REQUIRE(settings.parse("logging: {}\n", {"--tracking.use_optical_flow=true"}).overrides.use_optical_flow == true);
+}
+
 TEST_CASE("Ground truth options support YAML, CLI overrides and relative paths", "[ground_truth_options]")
 {
     const logging_settings settings;

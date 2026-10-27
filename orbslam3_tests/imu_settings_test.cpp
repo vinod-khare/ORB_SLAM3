@@ -130,6 +130,29 @@ TEST_CASE("Library settings select and validate DBoW independently of the app", 
     REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR, overrides), "dbow_version must be 2 or 3");
 }
 
+TEST_CASE("Optical-flow setting supports nested YAML and CLI precedence", "[settings][tracking]")
+{
+    imu_settings files;
+    files.write();
+    REQUIRE_FALSE(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR).use_optical_flow());
+
+    files.config["tracking"]["use_optical_flow"] = 1;
+    files.write();
+    REQUIRE(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR).use_optical_flow());
+
+    ORB_SLAM3::feature_overrides overrides;
+    overrides.use_optical_flow = false;
+    REQUIRE_FALSE(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR, overrides).use_optical_flow());
+    overrides.use_optical_flow                   = true;
+    files.config["tracking"]["use_optical_flow"] = 0;
+    files.write();
+    REQUIRE(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR, overrides).use_optical_flow());
+
+    files.config["tracking"]["use_optical_flow"] = 2;
+    files.write();
+    REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR), "tracking.use_optical_flow must be 0 or 1");
+}
+
 TEST_CASE("IMU calibration values must be present and positive finite numbers", "[settings][imu]")
 {
     imu_settings files;

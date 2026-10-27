@@ -578,27 +578,28 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
     spdlog::info("Feature pipeline: detector={}, descriptor={}, matcher={}", magic_enum::enum_name(_keypoint_detector), magic_enum::enum_name(_keypoint_descriptor),
                  magic_enum::enum_name(_descriptor_matcher));
 
-    const cv::FileNode optical_flow_node = fSettings["Tracking.useOpticalFlow"];
+    const cv::FileNode tracking_node = fSettings["tracking"];
+    if (!tracking_node.empty() && !tracking_node.isMap())
+    {
+        throw std::runtime_error("Settings entry tracking must be a map");
+    }
+    const cv::FileNode optical_flow_node = tracking_node["use_optical_flow"];
     int                use_optical_flow  = 0;
 
     if (!optical_flow_node.empty())
     {
         if (!optical_flow_node.isInt())
         {
-            spdlog::error("Tracking.useOpticalFlow must be 0 or 1, aborting...");
-            exit(-1);
+            throw std::runtime_error("tracking.use_optical_flow must be 0 or 1");
         }
-
         use_optical_flow = optical_flow_node.operator int();
-
         if (use_optical_flow != 0 && use_optical_flow != 1)
         {
-            spdlog::error("Tracking.useOpticalFlow must be 0 or 1, aborting...");
-            exit(-1);
+            throw std::runtime_error("tracking.use_optical_flow must be 0 or 1");
         }
     }
 
-    _use_optical_flow = use_optical_flow == 1;
+    _use_optical_flow = overrides.use_optical_flow.value_or(use_optical_flow == 1);
 }
 
 void Settings::readLoadAndSave(cv::FileStorage &fSettings)

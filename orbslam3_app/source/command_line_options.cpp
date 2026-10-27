@@ -30,9 +30,11 @@ command_line_options::command_line_options(int argc, char **argv)
         "frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")("frames-stride", po::value<int>()->default_value(1), "Take every Nth frame (stride)")(
         "frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")(
         "keypoint_detector.type", po::value<std::string>(), "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze)")("keypoint_descriptor.type", po::value<std::string>(),
-                                                                                                                              "Keypoint descriptor (orb, sift, brisk)")(
-        "descriptor_matcher.type", po::value<std::string>(), "Descriptor matcher (brute_force, flann)")("dbow_version", po::value<int>(),
-                                                                                                        "Place recognition backend: 2 or 3 (overrides YAML; default: 2)")(
+                                                                      "Keypoint descriptor (orb, sift, brisk)")(
+        "descriptor_matcher.type", po::value<std::string>(), "Descriptor matcher (brute_force, flann)")(
+        "tracking.use_optical_flow", po::value<bool>()->implicit_value(true), "Enable or disable flow-first tracking")(
+        "dbow_version", po::value<int>(),
+        "Place recognition backend: 2 or 3 (overrides YAML; default: 2)")(
         "logging.pattern", po::value<std::string>(), "spdlog output pattern; overrides logging.pattern in YAML (default: %+, spdlog default)")(
         "ground_truth.path", po::value<std::string>(), "Ground-truth trajectory file (TUM text or EuRoC/TUM-VI CSV)")("ground_truth.visible", po::value<bool>()->implicit_value(true),
                                                                                                                       "Initially display ground truth (true/false; default: false)")(
@@ -197,6 +199,7 @@ command_line_options::command_line_options(int argc, char **argv)
     use_viewer    = !values["no-viewer"].as<bool>();
     slam_type     = values["slam-type"].as<std::string>();
     overrides     = {values.count("keypoint_detector.type") ? values["keypoint_detector.type"].as<std::string>() : std::string{},
-                 values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
-                 values.count("descriptor_matcher.type") ? values["descriptor_matcher.type"].as<std::string>() : std::string{}, dbow_version};
+                     values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
+                     values.count("descriptor_matcher.type") ? values["descriptor_matcher.type"].as<std::string>() : std::string{}, dbow_version,
+                     values.count("tracking.use_optical_flow") ? std::optional<bool>(values["tracking.use_optical_flow"].as<bool>()) : std::nullopt};
 }

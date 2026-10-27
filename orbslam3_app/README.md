@@ -10,7 +10,7 @@ When optical flow is enabled, the prefetch worker also builds the left-image Pyr
 
 ## Optical-flow tracking
 
-Set `Tracking.useOpticalFlow: 1` to use a flow-first frontend in monocular/stereo SLAM, including inertial modes. Setting it to `0` retains descriptor-based tracking. RGB-D and localization-only mode retain descriptor-based tracking.
+Set `tracking.use_optical_flow: 1` to use a flow-first frontend in monocular/stereo SLAM, including inertial modes. Setting it to `0` retains descriptor-based tracking. The command-line option `--tracking.use_optical_flow` enables flow; use `--tracking.use_optical_flow=false` to disable it. RGB-D and localization-only mode retain descriptor-based tracking.
 
 - Healthy ordinary frames track existing mapped left-camera observations directly with pyramidal LK. They do **not** detect features, compute ORB descriptors, snap endpoints to newly detected features, or run temporal/local-map descriptor searches.
 - Motion/IMU prediction seeds LK when the camera projection is in the input image's coordinate system. Forward/backward consistency and photometric checks reject unreliable tracks. Up to 40 unique map points per cell of a 4-by-4 image grid are tracked (640 total).
@@ -207,6 +207,7 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--keypoint_detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`); overrides `keypoint_detector.type` in the settings YAML.                                         |
 | `--keypoint_descriptor.type`                               | Independent OpenCV descriptor (`orb`, `sift`, `brisk`). |
 | `--descriptor_matcher.type`                                | OpenCV matcher (`brute_force`, `flann`); Hamming/LSH for binary data, L2/KD-tree for SIFT. |
+| `--tracking.use_optical_flow [true/false]`                  | Enable or disable flow-first tracking; overrides YAML `tracking.use_optical_flow` (default: false). |
 | `--dbow_version`                                           | Place-recognition backend (`2` or `3`); overrides YAML `dbow_version`. Default: `2`. |
 | `--no-viewer`                                              | Run headless without the ImGui viewer.                                                                                                                                      |
 | `--ground_truth.path`                                     | TUM trajectory or EuRoC/TUM-VI CSV file; overrides YAML `ground_truth.path`. |
@@ -263,7 +264,7 @@ See the [spdlog pattern flags](https://github.com/gabime/spdlog/wiki/Custom-form
 - Dockable ImGui/VTK SLAM visualization and camera/keyframe trajectory exports.
 - Optional map-point PLY and COLMAP-compatible sparse-model exports.
 - Independently configurable OpenCV detectors, descriptors (ORB, SIFT, BRISK), and matchers (brute force, FLANN). The existing vocabulary uses a separate ORB place-recognition descriptor channel; see the root README's Feature Pipeline section.
-- Optional flow-first tracking with descriptor recovery through `Tracking.useOpticalFlow` in the settings YAML.
+- Optional flow-first tracking with descriptor recovery through `tracking.use_optical_flow` in YAML or `--tracking.use_optical_flow` on the command line.
 - Median and mean tracking-time summary after each run.
 
 The executable currently does not provide live-camera, RGB-D, or ROS input. Those capabilities described in the upstream ORB-SLAM3 documentation are outside this app's current input interface.
@@ -306,15 +307,31 @@ per-sequence paths; it never edits the template. Feature settings are preserved.
 Missing inputs, crashes, timeouts, and evaluation failures are reported without
 stopping the remaining sequences; any failure gives a nonzero exit status.
 
-Outputs default to `.data/benchmark/tumvi`: `summary.md`, `summary.csv`, and
+Every execution creates a new run under `.data/benchmark/tumvi/<UTC timestamp>`.
+Use `--run-name NAME` for a memorable name and `--notes TEXT` to describe the
+experiment. Names must be unique; even `--overwrite` cannot replace a saved run.
+Each run contains `summary.md`, `summary.csv`, and
 `summary.json`, plus a directory per sequence containing generated settings,
 `app.log`, trajectories, and the original per-frame `statistics.csv`.
 Reports are updated after every sequence. JSON includes pooled aggregates;
-CSV contains one row per sequence, including failure details.
+CSV contains one row per sequence, including failure details and timeout/crash
+classification. An interrupted run retains completed reports and is marked
+`interrupted` in its manifest; an abruptly killed process may remain `running`.
+
+`run.json` records UTC start/end times, notes, sequence selection, settings,
+timeout, Git commit/branch/dirty status, executable and vocabulary SHA-256 hashes,
+and host/runtime information. `template.yaml` snapshots the input settings;
+`source.patch` captures tracked working-tree changes when present. Untracked
+paths are listed in Git status but their contents are not archived. The binary
+hash identifies the executed build; the recorded Git commit does not guarantee
+that the executable was rebuilt from that commit. Dataset fingerprints include
+calibration, IMU, timestamp and ground-truth file hashes and stereo image
+inventories (names and sizes, not image contents).
 
 - Accuracy: translation ATE RMSE after timestamp matching (10 ms tolerance),
   camera-to-body conversion, and SE(3) alignment without scale correction;
-  tracked-frame ratio and matched-pose count. TUM-VI mocap generally covers only
+  tracked-frame ratio and matched-pose count. Tracking coverage is retained even
+  if mocap evaluation fails. TUM-VI mocap generally covers only
   the start/end room, not the entire route. Pooled ATE weights squared errors by
   matched-pose count after independent per-sequence alignments.
 - Frame statistics: mean, median, p95, min, and max of detected/matched keypoint
@@ -328,9 +345,37 @@ CSV contains one row per sequence, including failure details.
 
 Options: `--datasets-root DIR`, `--output-folder DIR`, `--app PATH`,
 `--vocab PATH`, `--settings PATH`, repeated `--sequence dataset-room1_512_16`,
-and `--timeout SECONDS` (per sequence, default unlimited). Existing runs are
-protected: use `--overwrite` to rerun or `--skip-run` to re-evaluate the saved
-outputs/settings. Selected sequences replace the summary for that invocation.
+and `--timeout SECONDS` (per sequence, default unlimited). `--output-folder` is
+the parent directory for new runs. With `--skip-run`, it instead names an existing
+run directory: saved outputs/settings are re-evaluated to stdout without changing
+any reports. For recorded runs, pass the original sequence selection. Legacy
+directories containing `summary.json` can also be compared, without provenance.
+
+Record a baseline and an experiment, rebuilding the executable after algorithm
+changes or selecting a different feature-settings template with `--settings`:
+
+```sh
+.venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py --run-name baseline
+# Rebuild after code changes, then:
+.venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py --run-name candidate --notes "Describe the algorithm or settings change"
+.venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py \
+  --compare .data/benchmark/tumvi/baseline .data/benchmark/tumvi/candidate \
+  --comparison-output .data/benchmark/comparisons/baseline-vs-candidate
+```
+
+Comparison needs no SLAM execution or original datasets. It prints a Markdown
+report and optionally writes `comparison.md`, `comparison.json` and metric rows
+in `comparison.csv`. Reports show provenance/settings changes, every sequence's
+status and errors, and absolute/percentage metric deltas (candidate minus
+baseline). Percentages are omitted for zero baselines. Accuracy/latency decreases
+and coverage/throughput increases are labeled by direction, not statistical
+significance. Counts are contextual. Pooled deltas are omitted when sequence
+sets, processed frame counts or outcomes differ, avoiding survivor bias; paired
+per-sequence metrics remain available. Dataset, host, vocabulary and timeout
+changes trigger a warning. A comparison exits zero on successful report
+generation, even when metrics regress; it is not a CI threshold gate. Repeat
+runs under the same conditions to distinguish improvements from timing noise
+and multithreaded tracking variability.
 
 Run the fast synthetic integration checks without processing a dataset:
 

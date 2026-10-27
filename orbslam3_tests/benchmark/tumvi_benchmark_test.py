@@ -2,6 +2,7 @@
 
 import csv
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -92,10 +93,23 @@ class TumviBenchmarkTest(unittest.TestCase):
                 str(output),
                 "--settings",
                 str(template),
+                "--run-name",
+                "baseline",
             ]
-            with patch.object(benchmark.subprocess, "run", side_effect=fake_run) as run:
+            with patch.object(
+                benchmark.platform, "platform", return_value="test-host"
+            ), patch.object(
+                benchmark.subprocess, "check_output", return_value=b"test"
+            ), patch.object(
+                benchmark.subprocess, "run", side_effect=fake_run
+            ) as run:
                 self.assertEqual(benchmark.main(arguments), 1)
                 self.assertEqual(run.call_count, 2)
+            output = output / "baseline"
+            manifest = json.loads((output / "run.json").read_text())
+            self.assertEqual(manifest["status"], "completed")
+            self.assertEqual(manifest["git"]["commit"], "test")
+            self.assertTrue((output / "template.yaml").is_file())
             report = json.loads((output / "summary.json").read_text())
             self.assertEqual(report["aggregate"]["frames"], 8)
             self.assertEqual(report["aggregate"]["accuracy_sequences"], 2)
@@ -104,30 +118,183 @@ class TumviBenchmarkTest(unittest.TestCase):
             self.assertEqual(report["aggregate"]["frontend_ms_mean"], 2.5)
             self.assertAlmostEqual(report["aggregate"]["throughput_fps"], 10)
             self.assertEqual(report["aggregate"]["local_mapping_jobs"], 8)
-            with patch.object(benchmark.subprocess, "run") as run:
+            saved_summary = (output / "summary.json").read_bytes()
+            saved_manifest = (output / "run.json").read_bytes()
+            with patch.object(
+                benchmark.platform, "platform", return_value="test-host"
+            ), patch.object(
+                benchmark.subprocess, "check_output", return_value=b"test"
+            ), patch.object(
+                benchmark.subprocess, "run", side_effect=fake_run
+            ):
                 self.assertEqual(
+                    benchmark.main(arguments + ["--run-name", "candidate"]), 1
+                )
+            self.assertEqual((output / "summary.json").read_bytes(), saved_summary)
+            self.assertTrue((output.parent / "candidate/run.json").is_file())
+            with self.assertRaises(FileExistsError):
+                benchmark.main(arguments)
+            arguments = [
+                "--datasets-root",
+                str(datasets),
+                "--output-folder",
+                str(output),
+            ]
+            with patch.object(benchmark.subprocess, "run") as run:
+                self.assertEqual(benchmark.main(arguments + ["--skip-run"]), 1)
+                run.assert_not_called()
+                self.assertEqual((output / "summary.json").read_bytes(), saved_summary)
+                self.assertEqual((output / "run.json").read_bytes(), saved_manifest)
+                with self.assertRaises(ValueError):
                     benchmark.main(
                         arguments + ["--skip-run", "--sequence", "dataset-room1"]
-                    ),
-                    0,
-                )
-                run.assert_not_called()
-                self.assertEqual(
-                    benchmark.main(arguments + ["--sequence", "dataset-room1"]), 1
-                )
+                    )
                 run.assert_not_called()
             (output / "dataset-room1/statistics.csv").write_text("frames\n1\n")
             self.assertEqual(
-                benchmark.main(
-                    arguments + ["--skip-run", "--sequence", "dataset-room1"]
-                ),
+                benchmark.main(arguments + ["--skip-run"]),
                 1,
             )
+            with patch.object(
+                benchmark.regression,
+                "evaluate",
+                side_effect=ValueError("no mocap matches"),
+            ):
+                args = benchmark.parse_args(arguments + ["--skip-run"])
+                result, _, _ = benchmark.run_sequence(args, datasets / "dataset-room2")
+                self.assertEqual(result["status"], "accuracy_failed")
+                self.assertEqual(result["tracked_frames"], 4)
+                self.assertEqual(result["tracked_ratio"], 1)
+
+    def test_interruption_and_timeout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            datasets = root / "datasets"
+            (datasets / "dataset-room").mkdir(parents=True)
+            template = root / "settings.yaml"
+            template.write_text("keypoint_detector: {type: FAST}\n")
+            arguments = [
+                "--datasets-root",
+                str(datasets),
+                "--output-folder",
+                str(root / "runs"),
+                "--settings",
+                str(template),
+            ]
+            for name, error, expected in (
+                ("interrupted", KeyboardInterrupt(), 130),
+                ("timeout", subprocess.TimeoutExpired("app", 1), 1),
+                ("crash", subprocess.CalledProcessError(1, "app"), 1),
+            ):
+                with patch.object(
+                    benchmark.platform, "platform", return_value="test-host"
+                ), patch.object(
+                    benchmark.subprocess, "check_output", return_value=b"test"
+                ), patch.object(
+                    benchmark, "run_sequence", side_effect=error
+                ):
+                    self.assertEqual(
+                        benchmark.main(arguments + ["--run-name", name]), expected
+                    )
+                manifest = json.loads((root / "runs" / name / "run.json").read_text())
+                self.assertEqual(
+                    manifest["status"],
+                    "interrupted" if expected == 130 else "completed",
+                )
+                self.assertIsNotNone(manifest["finished_at"])
+                if expected != 130:
+                    report = json.loads(
+                        (root / "runs" / name / "summary.json").read_text()
+                    )
+                    self.assertEqual(report["sequences"][0]["failure_kind"], name)
 
     def test_missing_sequence(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(ValueError):
                 benchmark.discover_sequences(Path(directory), ["missing"])
+
+    def test_comparison(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = [root / "baseline", root / "candidate"]
+            for index, path in enumerate(paths):
+                path.mkdir()
+                (path / "run.json").write_text(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "status": "completed",
+                            "git": {"commit": str(index)},
+                            "settings": {"detector": {"type": str(index)}},
+                        }
+                    )
+                )
+                (path / "summary.json").write_text(
+                    json.dumps(
+                        {
+                            "sequences": [
+                                {
+                                    "sequence": "room",
+                                    "status": "ok",
+                                    "frames": 10,
+                                    "ate_rmse_m": 0.1 + index * 0.1,
+                                    "tracked_ratio": 0.8 + index * 0.1,
+                                    "throughput_fps": 10 + index * 5,
+                                    "frontend_ms_mean": 0 + index,
+                                    "wall_seconds": None,
+                                }
+                            ],
+                            "aggregate": {"ate_rmse_m": 0.1 + index * 0.1},
+                        }
+                    )
+                )
+            comparison = benchmark.compare_runs(*paths)
+            metrics = {
+                row["metric"]: row
+                for row in comparison["metrics"]
+                if row["sequence"] == "room"
+            }
+            self.assertEqual(metrics["ate_rmse_m"]["assessment"], "regressed")
+            self.assertAlmostEqual(metrics["ate_rmse_m"]["percent"], 100)
+            self.assertEqual(metrics["tracked_ratio"]["assessment"], "improved")
+            self.assertEqual(metrics["throughput_fps"]["delta"], 5)
+            self.assertIsNone(metrics["frontend_ms_mean"]["percent"])
+            self.assertTrue(
+                any(
+                    row["field"] == "settings.detector.type"
+                    for row in comparison["changes"]
+                )
+            )
+            self.assertTrue(
+                any(row["sequence"] == "ALL (pooled)" for row in comparison["metrics"])
+            )
+            with patch.object(benchmark.subprocess, "run") as run:
+                self.assertEqual(
+                    benchmark.main(
+                        [
+                            "--compare",
+                            *map(str, paths),
+                            "--comparison-output",
+                            str(root / "diff"),
+                        ]
+                    ),
+                    0,
+                )
+                run.assert_not_called()
+            self.assertTrue((root / "diff/comparison.csv").is_file())
+            changed = json.loads((paths[1] / "summary.json").read_text())
+            changed["sequences"][0].update(status="accuracy_failed", error="no matches")
+            changed["sequences"].append(
+                {"sequence": "new", "status": "failed", "error": "timeout"}
+            )
+            (paths[1] / "summary.json").write_text(json.dumps(changed))
+            comparison = benchmark.compare_runs(*paths)
+            self.assertTrue(comparison["warnings"])
+            self.assertFalse(
+                any(row["sequence"] == "ALL (pooled)" for row in comparison["metrics"])
+            )
+            self.assertEqual(comparison["sequences"][0]["baseline"], "missing")
+            self.assertIn("no matches", benchmark.comparison_report(comparison))
 
 
 if __name__ == "__main__":
