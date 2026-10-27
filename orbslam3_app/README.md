@@ -274,34 +274,16 @@ See the [spdlog pattern flags](https://github.com/gabime/spdlog/wiki/Custom-form
 
 The executable currently does not provide live-camera, RGB-D, or ROS input. Those capabilities described in the upstream ORB-SLAM3 documentation are outside this app's current input interface.
 
-## Accuracy Regression Test
-
-[`orbslam3_tests/regression/regression.py`](../orbslam3_tests/regression/regression.py) runs stereo SLAM headless on TUM-VI corridor1, aligns the trajectory to the mocap ground truth with evo, and fails if ATE RMSE or the tracked-frame ratio is worse than [`baseline.yaml`](../orbslam3_tests/regression/baseline.yaml) beyond its tolerance.
-
-```sh
-python3 -m venv .venv && .venv/bin/pip install -r orbslam3_tests/regression/requirements.txt
-source .venv/bin/activate
-cmake -S . -B .build/Release -DORBSLAM3_REGRESSION_TEST=ON
-cmake --build .build/Release -j20
-ctest --test-dir .build/Release -L regression --output-on-failure   # regression only
-ctest --test-dir .build/Release -LE regression                      # unit tests only
-```
-
-After an intentional accuracy change, refresh the baseline and commit it:
-
-```sh
-.venv/bin/python orbslam3_tests/regression/regression.py --output-folder .build/Release/regression/stereo --skip-run --update-baseline
-```
 ## TUM-VI Stereo Benchmark
 
 [`orbslam3_tests/benchmark/tumvi_benchmark.py`](../orbslam3_tests/benchmark/tumvi_benchmark.py)
 runs all extracted `dataset-*` directories under `.data/tumvi` sequentially,
 headless, in stereo mode, processing every frame. Build the app first and install
-the existing regression dependencies in a virtual environment:
+the benchmark dependencies in a virtual environment:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/pip install -r orbslam3_tests/regression/requirements.txt
+.venv/bin/pip install -r orbslam3_tests/benchmark/requirements.txt
 .venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py
 ```
 

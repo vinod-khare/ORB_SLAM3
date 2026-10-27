@@ -55,7 +55,7 @@ class TumviBenchmarkTest(unittest.TestCase):
                 destination = Path(command[command.index("--output-folder") + 1])
                 settings_path = Path(command[command.index("--settings") + 1])
                 self.assertTrue(settings_path.read_text().startswith("%YAML:1.0\n"))
-                settings = benchmark.regression.load_settings(settings_path)
+                settings = benchmark.load_settings(settings_path)
                 self.assertEqual(
                     Path(settings["data"]["root"]).parent.name, destination.name
                 )
@@ -152,7 +152,7 @@ class TumviBenchmarkTest(unittest.TestCase):
                 )
                 variants.append(variant["settings"])
                 for sequence in ("dataset-room1", "dataset-room2"):
-                    settings = benchmark.regression.load_settings(
+                    settings = benchmark.load_settings(
                         paired / name / sequence / "settings.yaml"
                     )
                     self.assertEqual(settings["tracking"]["use_optical_flow"], enabled)
@@ -255,8 +255,8 @@ class TumviBenchmarkTest(unittest.TestCase):
                 1,
             )
             with patch.object(
-                benchmark.regression,
-                "evaluate",
+                benchmark,
+                "evaluate_accuracy",
                 side_effect=ValueError("no mocap matches"),
             ):
                 args = benchmark.parse_args(arguments + ["--skip-run"])

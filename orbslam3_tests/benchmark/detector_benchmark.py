@@ -7,10 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "regression"))
-import regression  # noqa: E402
+from tumvi_benchmark import REPO, evaluate_accuracy
 
-REPO = regression.REPO
 ALL_DETECTORS = "fast,agast,gftt,orb,brisk,sift,akaze"
 
 
@@ -39,7 +37,7 @@ def run_detector(args, detector):
     timing = {k: float(m.group(1)) * 1e3 for k, pat in (("median_ms", r"median tracking time: (\S+)"), ("mean_ms", r"mean tracking time: (\S+)")) if (m := re.search(pat, text))}
     fps = re.search(r"\(([\d.]+) frames/s\)", text)
     timing["fps"] = float(fps.group(1)) if fps else float("nan")
-    accuracy = regression.evaluate(argparse.Namespace(settings=args.settings, output_folder=out, slam_type=args.slam_type))
+    accuracy = evaluate_accuracy(args.settings, out, args.slam_type)
     return {**timing, **accuracy}
 
 

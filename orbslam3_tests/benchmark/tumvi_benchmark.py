@@ -15,17 +15,84 @@ from pathlib import Path
 
 import numpy as np
 import yaml
+from evo.core import metrics, sync
+from evo.core.trajectory import PoseTrajectory3D
+from evo.tools import file_interface
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "regression"))
-import regression  # noqa: E402
-
-REPO = regression.REPO
+REPO = Path(__file__).resolve().parents[2]
 FRAME_FIELDS = (
     "detected_keypoints",
     "matched_keypoints",
     "preprocessing_ms",
     "frontend_ms",
 )
+
+
+def load_settings(path):
+    text = path.read_text()
+    if text.startswith("%YAML:"):
+        text = text.split("\n", 1)[1]
+    return yaml.safe_load(text)
+
+
+def load_estimate(path, t_cam_imu):
+    data = np.loadtxt(path, ndmin=2)
+    trajectory = PoseTrajectory3D(
+        positions_xyz=data[:, 1:4],
+        orientations_quat_wxyz=data[:, [7, 4, 5, 6]],
+        timestamps=data[:, 0] / 1e9,
+    )
+    trajectory.transform(t_cam_imu, right_mul=True)
+    return trajectory
+
+
+def evaluate_accuracy(
+    settings_path, output_folder, slam_type="stereo", matched_output=None
+):
+    settings = load_settings(settings_path)
+    settings_dir = settings_path.resolve().parent
+    data_root = settings_dir / settings["data"]["root"]
+    camchain = yaml.safe_load(
+        (settings_dir / settings["calibration"]["file"]).read_text()
+    )
+    t_cam_imu = np.array(camchain["cam0"]["T_cam_imu"])
+    num_images = sum(1 for _ in (data_root / settings["data"]["left"]).glob("*.png"))
+
+    with (output_folder / "statistics.csv").open(newline="") as statistics_file:
+        statistics = list(csv.DictReader(statistics_file))
+    if len(statistics) != num_images:
+        raise ValueError(f"Expected {num_images} statistics rows, got {len(statistics)}")
+    for frame_number, sample in enumerate(statistics, start=1):
+        if int(sample["frames"]) != frame_number or not all(
+            np.isfinite(float(value)) for value in sample.values()
+        ):
+            raise ValueError(f"Invalid statistics for frame {frame_number}")
+
+    estimate = load_estimate(output_folder / "f_trajectory.txt", t_cam_imu)
+    tracked_ratio = estimate.num_poses / num_images
+    reference = file_interface.read_euroc_csv_trajectory(
+        str(data_root / "mocap0/data.csv")
+    )
+    reference, estimate = sync.associate_trajectories(
+        reference, estimate, max_diff=0.01
+    )
+    if matched_output is not None:
+        np.savetxt(
+            matched_output,
+            np.column_stack(
+                (reference.timestamps, reference.positions_xyz, estimate.positions_xyz)
+            ),
+            delimiter=",",
+            header="timestamp,reference_x,reference_y,reference_z,estimate_x,estimate_y,estimate_z",
+        )
+    estimate.align(reference, correct_scale=slam_type == "mono")
+    error = metrics.APE(metrics.PoseRelation.translation_part)
+    error.process_data((reference, estimate))
+    return {
+        "ate_rmse_m": float(error.get_statistic(metrics.StatisticsType.rmse)),
+        "tracked_ratio": float(tracked_ratio),
+        "matched_poses": int(reference.num_poses),
+    }
 WORKERS = ("local_mapping", "loop_closing", "global_bundle_adjustment")
 QUALITY_FIELDS = (
     "left_keypoints",
@@ -178,7 +245,7 @@ def create_run(args, sequences):
     patch = git("diff", "HEAD", "--binary")
     if patch:
         (output / "source.patch").write_text(patch + "\n")
-    settings = regression.load_settings(args.settings)
+    settings = load_settings(args.settings)
     (output / "template.yaml").write_text(
         "%YAML:1.0\n---\n" + yaml.safe_dump(settings, sort_keys=False)
     )
@@ -272,7 +339,7 @@ def discover_sequences(root, names=None):
 
 
 def write_settings(template, sequence, output):
-    settings = regression.load_settings(template)
+    settings = load_settings(template)
     root = sequence / "mav0"
     required = (root / "cam0/data", root / "cam1/data", sequence / "dso/camchain.yaml")
     for path in required:
@@ -428,19 +495,16 @@ def run_sequence(args, sequence):
         **summarize(samples, counters),
     }
     try:
-        trajectory = regression.load_estimate(output / "f_trajectory.txt", np.eye(4))
+        trajectory = load_estimate(output / "f_trajectory.txt", np.eye(4))
         result.update(
             tracked_frames=trajectory.num_poses,
             tracked_ratio=float(trajectory.num_poses / expected),
         )
         result.update(
-            regression.evaluate(
-                argparse.Namespace(
-                    settings=settings, output_folder=output, slam_type="stereo"
-                ),
-                matched_output=(
-                    None if args.skip_run else output / "accuracy_samples.csv"
-                ),
+            evaluate_accuracy(
+                settings,
+                output,
+                matched_output=None if args.skip_run else output / "accuracy_samples.csv",
             )
         )
     except Exception as error:
@@ -711,18 +775,18 @@ def shared_accuracy(baseline, candidate):
         raise ValueError("Reference positions differ at common timestamps")
     results = []
     orientations = np.tile([1.0, 0.0, 0.0, 0.0], (len(timestamps), 1))
-    reference = regression.PoseTrajectory3D(
+    reference = PoseTrajectory3D(
         selected[0][:, 1:4], orientations, timestamps
     )
     for data in selected:
-        estimate = regression.PoseTrajectory3D(data[:, 4:7], orientations, timestamps)
+        estimate = PoseTrajectory3D(data[:, 4:7], orientations, timestamps)
         estimate.align(reference, correct_scale=False)
-        error = regression.metrics.APE(regression.metrics.PoseRelation.translation_part)
+        error = metrics.APE(metrics.PoseRelation.translation_part)
         error.process_data((reference, estimate))
         results.append(
             {
                 "shared_ate_rmse_m": float(
-                    error.get_statistic(regression.metrics.StatisticsType.rmse)
+                    error.get_statistic(metrics.StatisticsType.rmse)
                 ),
                 "shared_matched_poses": len(timestamps),
             }
