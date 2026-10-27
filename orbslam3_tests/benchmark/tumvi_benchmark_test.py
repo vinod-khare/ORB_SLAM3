@@ -118,6 +118,45 @@ class TumviBenchmarkTest(unittest.TestCase):
             self.assertEqual(report["aggregate"]["frontend_ms_mean"], 2.5)
             self.assertAlmostEqual(report["aggregate"]["throughput_fps"], 10)
             self.assertEqual(report["aggregate"]["local_mapping_jobs"], 8)
+            with patch.object(
+                benchmark.platform, "platform", return_value="test-host"
+            ), patch.object(
+                benchmark.subprocess, "check_output", return_value=b"test"
+            ), patch.object(
+                benchmark.subprocess, "run", side_effect=fake_run
+            ) as run:
+                self.assertEqual(
+                    benchmark.main(
+                        arguments + ["--run-name", "flow", "--compare-optical-flow"]
+                    ),
+                    1,
+                )
+                self.assertEqual(run.call_count, 4)
+            paired = output.parent / "flow"
+            variants = []
+            for enabled, name in (
+                (0, "without_optical_flow"),
+                (1, "with_optical_flow"),
+            ):
+                variant = json.loads((paired / name / "run.json").read_text())
+                self.assertEqual(variant["sequences"], manifest["sequences"])
+                self.assertEqual(
+                    variant["settings"]["tracking"].pop("use_optical_flow"), enabled
+                )
+                variants.append(variant["settings"])
+                for sequence in ("dataset-room1", "dataset-room2"):
+                    settings = benchmark.regression.load_settings(
+                        paired / name / sequence / "settings.yaml"
+                    )
+                    self.assertEqual(settings["tracking"]["use_optical_flow"], enabled)
+            self.assertEqual(variants[0], variants[1])
+            comparison = json.loads((paired / "comparison.json").read_text())
+            self.assertEqual(len(comparison["sequences"]), 3)
+            self.assertTrue((paired / "comparison.csv").is_file())
+            self.assertTrue((paired / "comparison.md").is_file())
+            self.assertEqual(
+                json.loads((paired / "run.json").read_text())["status"], "completed"
+            )
             saved_summary = (output / "summary.json").read_bytes()
             saved_manifest = (output / "run.json").read_bytes()
             with patch.object(
@@ -207,6 +246,33 @@ class TumviBenchmarkTest(unittest.TestCase):
                         (root / "runs" / name / "summary.json").read_text()
                     )
                     self.assertEqual(report["sequences"][0]["failure_kind"], name)
+            with patch.object(
+                benchmark.platform, "platform", return_value="test-host"
+            ), patch.object(
+                benchmark.subprocess, "check_output", return_value=b"test"
+            ), patch.object(
+                benchmark, "run_sequence", side_effect=KeyboardInterrupt()
+            ) as run:
+                self.assertEqual(
+                    benchmark.main(
+                        arguments + ["--run-name", "flow", "--compare-optical-flow"]
+                    ),
+                    130,
+                )
+                self.assertEqual(run.call_count, 1)
+            paired = root / "runs/flow"
+            self.assertEqual(
+                json.loads((paired / "run.json").read_text())["status"], "interrupted"
+            )
+            self.assertFalse((paired / "with_optical_flow").exists())
+
+    def test_optical_flow_options(self):
+        for option in ("--skip-run", "--overwrite", "--compare"):
+            arguments = ["--compare-optical-flow", option]
+            if option == "--compare":
+                arguments.extend(["baseline", "candidate"])
+            with self.subTest(option=option), self.assertRaises(SystemExit):
+                benchmark.parse_args(arguments)
 
     def test_missing_sequence(self):
         with tempfile.TemporaryDirectory() as directory:

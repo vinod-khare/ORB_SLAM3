@@ -54,6 +54,11 @@ def parse_args(argv=None):
         help="Compare two saved run directories without running SLAM",
     )
     parser.add_argument(
+        "--compare-optical-flow",
+        action="store_true",
+        help="Run all selected sequences with optical flow off and on, then compare",
+    )
+    parser.add_argument(
         "--comparison-output",
         type=Path,
         help="Write comparison.json, .csv and .md in this directory",
@@ -88,6 +93,10 @@ def parse_args(argv=None):
         parser.error("--compare cannot be combined with run or re-evaluation options")
     if args.comparison_output and not args.compare:
         parser.error("--comparison-output requires --compare")
+    if args.compare_optical_flow and (args.compare or args.skip_run or args.overwrite):
+        parser.error(
+            "--compare-optical-flow cannot be combined with --compare, --skip-run or --overwrite"
+        )
     return args
 
 
@@ -682,6 +691,39 @@ def comparison_report(comparison):
     return "\n".join(lines) + "\n"
 
 
+def run_optical_flow_comparison(args, sequences):
+    manifest = create_run(args, sequences)
+    output = args.output_folder
+    outcomes = []
+    for enabled, name in ((0, "without_optical_flow"), (1, "with_optical_flow")):
+        settings = regression.load_settings(args.settings)
+        settings.setdefault("tracking", {})["use_optical_flow"] = enabled
+        template = output / f"{name}.yaml"
+        template.write_text(
+            "%YAML:1.0\n---\n" + yaml.safe_dump(settings, sort_keys=False)
+        )
+        variant = argparse.Namespace(
+            **{**vars(args), "settings": template, "run_name": name}
+        )
+        print(f"\nOptical flow: {'on' if enabled else 'off'}", flush=True)
+        outcome = run_benchmark(variant, sequences)
+        if outcome == 130:
+            finish_run(output, manifest, "interrupted")
+            return 130
+        outcomes.append(outcome)
+    main(
+        [
+            "--compare",
+            str(output / "without_optical_flow"),
+            str(output / "with_optical_flow"),
+            "--comparison-output",
+            str(output),
+        ]
+    )
+    finish_run(output, manifest, "completed")
+    return int(any(outcomes))
+
+
 def main(argv=None):
     args = parse_args(argv)
     if args.compare:
@@ -716,6 +758,12 @@ def main(argv=None):
     for field in ("datasets_root", "app", "vocab", "settings", "output_folder"):
         setattr(args, field, getattr(args, field).resolve())
     sequences = discover_sequences(args.datasets_root, args.sequence)
+    if args.compare_optical_flow:
+        return run_optical_flow_comparison(args, sequences)
+    return run_benchmark(args, sequences)
+
+
+def run_benchmark(args, sequences):
     manifest = None
     if args.skip_run:
         manifest_path = args.output_folder / "run.json"

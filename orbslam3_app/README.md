@@ -351,6 +351,30 @@ run directory: saved outputs/settings are re-evaluated to stdout without changin
 any reports. For recorded runs, pass the original sequence selection. Legacy
 directories containing `summary.json` can also be compared, without provenance.
 
+To compare stereo SLAM with and without optical-flow tracking on every locally
+extracted TUM-VI sequence, run:
+
+```sh
+.venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py \
+  --compare-optical-flow --run-name stereo-optical-flow
+```
+
+This runs the complete selected dataset once with `tracking.use_optical_flow: 0`
+and once with `tracking.use_optical_flow: 1`, explicitly overriding the template
+while preserving its other feature/tracking settings. Both use the same binary,
+vocabulary, frame selection, and stereo mode without IMU. Install all desired
+sequences under `--datasets-root` first; this command does not download datasets.
+Use a unique run name for each repetition and keep the machine otherwise idle.
+
+Results are saved under `.data/benchmark/tumvi/stereo-optical-flow/`, with
+`without_optical_flow/` and `with_optical_flow/` holding the usual per-sequence
+logs, statistics, trajectories, summaries, and provenance. The parent contains
+`comparison.md`, `comparison.csv`, and `comparison.json`: baseline is flow off,
+candidate is flow on. Both modes are attempted even if individual sequences
+fail; any sequence failure returns a nonzero exit status. Ctrl+C stops the batch
+and preserves completed reports. Repeat runs before drawing performance
+conclusions; one pair is not a statistical significance test.
+
 Record a baseline and an experiment, rebuilding the executable after algorithm
 changes or selecting a different feature-settings template with `--settings`:
 
