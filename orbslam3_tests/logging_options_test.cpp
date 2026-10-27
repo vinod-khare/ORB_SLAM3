@@ -262,6 +262,14 @@ TEST_CASE("Optical-flow option supports command-line enable and disable", "[trac
     REQUIRE(settings.parse("logging: {}\n", {"--tracking.use_optical_flow=true"}).overrides.use_optical_flow == true);
 }
 
+TEST_CASE("Matcher option supports the tracking command-line namespace", "[tracking]")
+{
+    const logging_settings settings;
+    REQUIRE(settings.parse("logging: {}\n").overrides.matcher.empty());
+    REQUIRE(settings.parse("logging: {}\n", {"--tracking.matcher", "flann"}).overrides.matcher == "flann");
+    REQUIRE(settings.parse("logging: {}\n", {"--tracking.matcher=brute_force"}).overrides.matcher == "brute_force");
+}
+
 TEST_CASE("Ground truth options support YAML, CLI overrides and relative paths", "[ground_truth_options]")
 {
     const logging_settings settings;

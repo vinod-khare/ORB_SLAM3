@@ -206,7 +206,7 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--save-colmap`                                            | Export a COLMAP-compatible sparse model into the output folder.                                                                                                                |
 | `--keypoint_detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`); overrides `keypoint_detector.type` in the settings YAML.                                         |
 | `--keypoint_descriptor.type`                               | Independent OpenCV descriptor (`orb`, `sift`, `brisk`). |
-| `--descriptor_matcher.type`                                | OpenCV matcher (`brute_force`, `flann`); Hamming/LSH for binary data, L2/KD-tree for SIFT. |
+| `--tracking.matcher`                                       | OpenCV matcher (`brute_force`, `flann`); overrides `tracking.matcher` in YAML. Hamming/LSH for binary data, L2/KD-tree for SIFT. |
 | `--tracking.use_optical_flow [true/false]`                  | Enable or disable flow-first tracking; overrides YAML `tracking.use_optical_flow` (default: false). |
 | `--dbow_version`                                           | Place-recognition backend (`2` or `3`); overrides YAML `dbow_version`. Default: `2`. |
 | `--no-viewer`                                              | Run headless without the ImGui viewer.                                                                                                                                      |

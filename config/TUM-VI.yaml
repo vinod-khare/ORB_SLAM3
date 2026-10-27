@@ -44,12 +44,9 @@ keypoint_detector:
 keypoint_descriptor:
   type: "ORB"
 
-# brute_force or flann (LSH for binary descriptors, KD-tree for SIFT)
-descriptor_matcher:
-  type: "flann"
-
 # Flow-first tracking with descriptor recovery/keyframes (0: off, 1: on)
 tracking:
+  matcher: "flann" # brute_force or flann (LSH for binary descriptors, KD-tree for SIFT)
   use_optical_flow: 0
 
 #--------------------------------------------------------------------------------------------

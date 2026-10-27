@@ -130,8 +130,8 @@ keypoint_detector:
   type: FAST
 keypoint_descriptor:
   type: SIFT
-descriptor_matcher:
-  type: brute_force
+tracking:
+  matcher: brute_force
 ```
 
 - Detectors: `FAST`, `AGAST`, `GFTT`, `ORB`, `BRISK`, `SIFT`, `AKAZE` (case-insensitive).
@@ -148,7 +148,7 @@ Command-line selections override YAML:
 ```bash
 .build/Release/orbslam3_app/orbslam3_app vocab/ORBvoc.txt config/TUM-VI.yaml \
   --slam-type stereo --keypoint_detector.type fast \
-  --keypoint_descriptor.type sift --descriptor_matcher.type flann
+  --keypoint_descriptor.type sift --tracking.matcher flann
 ```
 
 The old `ORBextractor.*` and `orb_extractor.detector` settings have been replaced by the nested maps above. Project names, the upstream namespace/license notices, and ORB as an actual algorithm/vocabulary dependency are retained.

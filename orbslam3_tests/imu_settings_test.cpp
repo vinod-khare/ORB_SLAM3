@@ -153,6 +153,22 @@ TEST_CASE("Optical-flow setting supports nested YAML and CLI precedence", "[sett
     REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR), "tracking.use_optical_flow must be 0 or 1");
 }
 
+TEST_CASE("Matcher setting uses tracking YAML and command-line precedence", "[settings][tracking]")
+{
+    imu_settings files;
+    files.config["tracking"]["matcher"] = "flann";
+    files.write();
+    REQUIRE(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR).matcher_backend() == ORB_SLAM3::descriptor_matcher_type::flann);
+
+    ORB_SLAM3::feature_overrides overrides;
+    overrides.matcher = "brute_force";
+    REQUIRE(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR, overrides).matcher_backend() == ORB_SLAM3::descriptor_matcher_type::brute_force);
+
+    files.config["tracking"]["matcher"] = "invalid";
+    files.write();
+    REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR), "Unknown tracking.matcher: invalid");
+}
+
 TEST_CASE("IMU calibration values must be present and positive finite numbers", "[settings][imu]")
 {
     imu_settings files;

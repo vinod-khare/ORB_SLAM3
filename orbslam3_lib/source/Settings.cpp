@@ -342,9 +342,9 @@ void Settings::read_cameras(cv::FileStorage &settings)
     const YAML::Node    calibration = load_calibration(_calibration_file);
     const kalibr_camera camera1     = read_kalibr_camera(calibration, "cam0", _calibration_file);
 
-    cameraType_                     = camera1.type;
-    originalImSize_                 = camera1.resolution;
-    calibration1_                   = make_camera(camera1);
+    cameraType_     = camera1.type;
+    originalImSize_ = camera1.resolution;
+    calibration1_   = make_camera(camera1);
     originalCalib1_.reset(make_camera(camera1));
     vPinHoleDistorsion1_ = camera1.distortion;
 
@@ -572,9 +572,29 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
         }
         return *parsed;
     };
-    _keypoint_detector   = read_selection("keypoint_detector", overrides.detector, keypoint_detector_type::fast);
-    _keypoint_descriptor = read_selection("keypoint_descriptor", overrides.descriptor, keypoint_descriptor_type::orb);
-    _descriptor_matcher  = read_selection("descriptor_matcher", overrides.matcher, descriptor_matcher_type::brute_force);
+    _keypoint_detector           = read_selection("keypoint_detector", overrides.detector, keypoint_detector_type::fast);
+    _keypoint_descriptor         = read_selection("keypoint_descriptor", overrides.descriptor, keypoint_descriptor_type::orb);
+    const auto tracking_settings = root["tracking"];
+    if (tracking_settings && !tracking_settings.IsMap())
+    {
+        throw std::runtime_error("tracking must be a map");
+    }
+    auto matcher_name = overrides.matcher.empty() ? std::string("brute_force") : overrides.matcher;
+    if (overrides.matcher.empty() && tracking_settings && tracking_settings["matcher"])
+    {
+        const auto matcher_setting = tracking_settings["matcher"];
+        if (!matcher_setting.IsScalar())
+        {
+            throw std::runtime_error("tracking.matcher must be a string");
+        }
+        matcher_name = matcher_setting.as<std::string>();
+    }
+    const auto matcher = magic_enum::enum_cast<descriptor_matcher_type>(matcher_name, magic_enum::case_insensitive);
+    if (!matcher)
+    {
+        throw std::runtime_error("Unknown tracking.matcher: " + matcher_name);
+    }
+    _descriptor_matcher = *matcher;
     spdlog::info("Feature pipeline: detector={}, descriptor={}, matcher={}", magic_enum::enum_name(_keypoint_detector), magic_enum::enum_name(_keypoint_descriptor),
                  magic_enum::enum_name(_descriptor_matcher));
 
