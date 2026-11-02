@@ -11,7 +11,12 @@ enum class keypoint_detector_type
     orb,
     brisk,
     sift,
-    akaze
+    akaze,
+    star,
+    harris_laplace,
+    msd,
+    tbmr,
+    surf
 };
 
 } // namespace ORB_SLAM3

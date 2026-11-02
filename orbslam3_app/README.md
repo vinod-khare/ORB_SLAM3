@@ -204,9 +204,9 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--output NAME`                                            | Set the trajectory basename. Without this option, trajectory files are `CameraTrajectory.txt` and `KeyFrameTrajectory.txt`; with it, files are `f_NAME.txt` and `kf_NAME.txt`. |
 | `--save-ply`                                               | Export map points with sampled RGB colors to `pointcloud.ply` in the output folder.                                                                                           |
 | `--save-colmap`                                            | Export a COLMAP-compatible sparse model into the output folder.                                                                                                                |
-| `--keypoint_detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`); overrides `keypoint_detector.type` in the settings YAML.                                         |
-| `--keypoint_descriptor.type`                               | Independent OpenCV descriptor (`orb`, `sift`, `brisk`). |
-| `--tracking.matcher`                                       | OpenCV matcher (`brute_force`, `flann`); overrides `tracking.matcher` in YAML. Hamming/LSH for binary data, L2/KD-tree for SIFT. |
+| `--keypoint_detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`, `star`, `harris_laplace`, `msd`, `tbmr`, `surf`); overrides `keypoint_detector.type` in YAML. |
+| `--keypoint_descriptor.type`                               | Independent descriptor (`orb`, `sift`, `brisk`, `brief`, `freak`, `latch`, `beblid`, `teblid`, `daisy`, `vgg`, `boostdesc`, `surf`); overrides `keypoint_descriptor.type` in YAML. SURF requires OpenCV nonfree support. |
+| `--tracking.matcher`                                       | OpenCV matcher (`brute_force`, `flann`); overrides `tracking.matcher` in YAML. Hamming/LSH for binary data, L2/KD-tree for floating-point data. |
 | `--tracking.use_optical_flow [true/false]`                  | Enable or disable flow-first tracking; overrides YAML `tracking.use_optical_flow` (default: false). |
 | `--dbow_version`                                           | Place-recognition backend (`2` or `3`); overrides YAML `dbow_version`. Default: `2`. |
 | `--no-viewer`                                              | Run headless without the ImGui viewer.                                                                                                                                      |
@@ -268,7 +268,7 @@ See the [spdlog pattern flags](https://github.com/gabime/spdlog/wiki/Custom-form
 - Frame skipping, fixed-stride sampling, and frame-count limits for shorter runs.
 - Dockable ImGui/VTK SLAM visualization and camera/keyframe trajectory exports.
 - Optional map-point PLY and COLMAP-compatible sparse-model exports.
-- Independently configurable OpenCV detectors, descriptors (ORB, SIFT, BRISK), and matchers (brute force, FLANN). The existing vocabulary uses a separate ORB place-recognition descriptor channel; see the root README's Feature Pipeline section.
+- Independently configurable OpenCV detectors and descriptors, including contrib xfeatures2d algorithms, and matchers (brute force, FLANN). The existing vocabulary uses a separate ORB place-recognition descriptor channel; see the root README's Feature Pipeline section for supported types and build requirements.
 - Optional flow-first tracking with descriptor recovery through `tracking.use_optical_flow` in YAML or `--tracking.use_optical_flow` on the command line.
 - Median and mean tracking-time summary after each run.
 

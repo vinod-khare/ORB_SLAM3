@@ -210,6 +210,44 @@ TEST_CASE("Matcher setting uses tracking YAML and command-line precedence", "[se
     REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR), "Unknown tracking.matcher: invalid");
 }
 
+TEST_CASE("Contrib feature settings support YAML and command-line overrides", "[settings][features]")
+{
+    using namespace ORB_SLAM3;
+    imu_settings      files;
+    feature_overrides overrides;
+    SECTION("Detectors")
+    {
+        using detector                            = keypoint_detector_type;
+        const auto [name, type]                   = GENERATE(std::pair{"STAR", detector::star}, std::pair{"HARRIS_LAPLACE", detector::harris_laplace}, std::pair{"MSD", detector::msd},
+                                                             std::pair{"TBMR", detector::tbmr}, std::pair{"SURF", detector::surf});
+        files.config["keypoint_detector"]["type"] = name;
+        files.write();
+        REQUIRE(Settings(files.path.string(), System::MONOCULAR).keypoint_detector() == type);
+        overrides.detector = "FAST";
+        REQUIRE(Settings(files.path.string(), System::MONOCULAR, overrides).keypoint_detector() == detector::fast);
+        files.config["keypoint_detector"]["type"] = "fast";
+        files.write();
+        overrides.detector = name;
+        REQUIRE(Settings(files.path.string(), System::MONOCULAR, overrides).keypoint_detector() == type);
+    }
+    SECTION("Descriptors")
+    {
+        using descriptor                            = keypoint_descriptor_type;
+        const auto [name, type]                     = GENERATE(std::pair{"BRIEF", descriptor::brief}, std::pair{"FREAK", descriptor::freak}, std::pair{"LATCH", descriptor::latch},
+                                                               std::pair{"BEBLID", descriptor::beblid}, std::pair{"TEBLID", descriptor::teblid}, std::pair{"DAISY", descriptor::daisy},
+                                                               std::pair{"VGG", descriptor::vgg}, std::pair{"BOOSTDESC", descriptor::boostdesc}, std::pair{"SURF", descriptor::surf});
+        files.config["keypoint_descriptor"]["type"] = name;
+        files.write();
+        REQUIRE(Settings(files.path.string(), System::MONOCULAR).keypoint_descriptor() == type);
+        overrides.descriptor = "ORB";
+        REQUIRE(Settings(files.path.string(), System::MONOCULAR, overrides).keypoint_descriptor() == descriptor::orb);
+        files.config["keypoint_descriptor"]["type"] = "orb";
+        files.write();
+        overrides.descriptor = name;
+        REQUIRE(Settings(files.path.string(), System::MONOCULAR, overrides).keypoint_descriptor() == type);
+    }
+}
+
 TEST_CASE("IMU calibration values must be present and positive finite numbers", "[settings][imu]")
 {
     imu_settings files;

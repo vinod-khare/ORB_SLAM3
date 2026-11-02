@@ -7,6 +7,9 @@
 
 #include <algorithm>
 
+#include <opencv2/xfeatures2d.hpp>
+
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
@@ -32,8 +35,46 @@ cv::Ptr<cv::Feature2D> reference_detector(ORB_SLAM3::keypoint_detector_type type
         return cv::SIFT::create();
     case detector::akaze:
         return cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 0, 3, 0.001f, 1);
+    case detector::star:
+        return cv::xfeatures2d::StarDetector::create();
+    case detector::harris_laplace:
+        return cv::xfeatures2d::HarrisLaplaceFeatureDetector::create(1);
+    case detector::msd:
+        return cv::xfeatures2d::MSDDetector::create(3, 5, 5, 0, 250.0f, 4, 1.25f, 1);
+    case detector::tbmr:
+        return cv::xfeatures2d::TBMR::create(60, 0.01f, 1.25f, 1);
+    case detector::surf:
+        return cv::xfeatures2d::SURF::create(100, 1);
     }
     FAIL("Unknown detector type");
+    return {};
+}
+
+std::pair<int, int> descriptor_layout(ORB_SLAM3::keypoint_descriptor_type type)
+{
+    using descriptor = ORB_SLAM3::keypoint_descriptor_type;
+    switch (type)
+    {
+    case descriptor::orb:
+    case descriptor::brief:
+    case descriptor::latch:
+    case descriptor::teblid:
+    case descriptor::boostdesc:
+        return {32, CV_8U};
+    case descriptor::brisk:
+    case descriptor::freak:
+    case descriptor::beblid:
+        return {64, CV_8U};
+    case descriptor::sift:
+        return {128, CV_32F};
+    case descriptor::daisy:
+        return {200, CV_32F};
+    case descriptor::vgg:
+        return {120, CV_32F};
+    case descriptor::surf:
+        return {64, CV_32F};
+    }
+    FAIL("Unknown descriptor type");
     return {};
 }
 
@@ -100,8 +141,16 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
 TEST_CASE("Display keypoints retain detector metadata without changing tracking keypoints", "[native_keypoints]")
 {
     using detector  = ORB_SLAM3::keypoint_detector_type;
-    const auto type = GENERATE(detector::fast, detector::agast, detector::gftt, detector::orb, detector::brisk, detector::sift, detector::akaze);
+    const auto type = GENERATE(detector::fast, detector::agast, detector::gftt, detector::orb, detector::brisk, detector::sift, detector::akaze, detector::star, detector::harris_laplace,
+                               detector::msd, detector::tbmr, detector::surf);
     CAPTURE(static_cast<int>(type));
+#ifndef OPENCV_ENABLE_NONFREE
+    if (type == detector::surf)
+    {
+        REQUIRE_THROWS_AS(ORB_SLAM3::keypoint_extractor(400, 1.2f, 3, 20, 7, type), cv::Exception);
+        return;
+    }
+#endif
     ORB_SLAM3::keypoint_extractor extractor(400, 1.2f, 3, 20, 7, type);
     cv::Mat                       image(256, 256, CV_8UC1);
     cv::RNG                       random(71);
@@ -192,8 +241,17 @@ TEST_CASE("OpenCV descriptors are selectable independently of the detector", "[n
 {
     using namespace ORB_SLAM3;
     const auto detector   = GENERATE(keypoint_detector_type::fast, keypoint_detector_type::sift, keypoint_detector_type::brisk);
-    const auto descriptor = GENERATE(keypoint_descriptor_type::orb, keypoint_descriptor_type::sift, keypoint_descriptor_type::brisk);
+    const auto descriptor = GENERATE(keypoint_descriptor_type::orb, keypoint_descriptor_type::sift, keypoint_descriptor_type::brisk, keypoint_descriptor_type::brief,
+                                     keypoint_descriptor_type::freak, keypoint_descriptor_type::latch, keypoint_descriptor_type::beblid, keypoint_descriptor_type::teblid,
+                                     keypoint_descriptor_type::daisy, keypoint_descriptor_type::vgg, keypoint_descriptor_type::boostdesc, keypoint_descriptor_type::surf);
     CAPTURE(static_cast<int>(detector), static_cast<int>(descriptor));
+#ifndef OPENCV_ENABLE_NONFREE
+    if (descriptor == keypoint_descriptor_type::surf)
+    {
+        REQUIRE_THROWS_AS(keypoint_extractor(400, 1.2f, 3, 20, 7, detector, descriptor), cv::Exception);
+        return;
+    }
+#endif
     keypoint_extractor extractor(400, 1.2f, 3, 20, 7, detector, descriptor);
     cv::Mat            image(256, 256, CV_8UC1);
     cv::RNG            random(71);
@@ -205,13 +263,20 @@ TEST_CASE("OpenCV descriptors are selectable independently of the detector", "[n
     extractor(image, cv::noArray(), keys, descriptors, overlap);
     REQUIRE_FALSE(keys.empty());
     REQUIRE(descriptors.rows == static_cast<int>(keys.size()));
-    REQUIRE(descriptors.type() == (descriptor == keypoint_descriptor_type::sift ? CV_32F : CV_8U));
-    REQUIRE(descriptors.cols == (descriptor == keypoint_descriptor_type::sift ? 128 : descriptor == keypoint_descriptor_type::brisk ? 64 : 32));
+    const auto [columns, depth] = descriptor_layout(descriptor);
+    REQUIRE(descriptors.type() == depth);
+    REQUIRE(descriptors.cols == columns);
+    REQUIRE(cv::checkRange(descriptors));
     REQUIRE(cv::norm(descriptor_matrix(keys), descriptors, cv::NORM_INF) == 0);
     for (std::size_t index = 0; index < keys.size(); ++index)
     {
         REQUIRE(keys[index].descriptor.type() == descriptors.type());
         REQUIRE(keys[index].descriptor.cols == descriptors.cols);
+        if (depth == CV_32F && descriptor != keypoint_descriptor_type::sift)
+        {
+            REQUIRE(cv::norm(keys[index].descriptor, cv::NORM_L2) == Catch::Approx(512.0));
+            REQUIRE(descriptor_matcher::descriptor_distance(keys[index].descriptor, -keys[index].descriptor) == Catch::Approx(256.0));
+        }
         REQUIRE(keys[index].place_descriptor.type() == CV_8U);
         REQUIRE(keys[index].place_descriptor.cols == 32);
     }
@@ -251,16 +316,18 @@ TEST_CASE("OpenCV matchers support binary and floating-point descriptors", "[des
 {
     using namespace ORB_SLAM3;
     const auto backend    = GENERATE(descriptor_matcher_type::brute_force, descriptor_matcher_type::flann);
-    const auto descriptor = GENERATE(keypoint_descriptor_type::orb, keypoint_descriptor_type::sift, keypoint_descriptor_type::brisk);
+    const auto descriptor = GENERATE(keypoint_descriptor_type::orb, keypoint_descriptor_type::sift, keypoint_descriptor_type::brisk, keypoint_descriptor_type::brief,
+                                     keypoint_descriptor_type::freak, keypoint_descriptor_type::latch, keypoint_descriptor_type::beblid, keypoint_descriptor_type::teblid,
+                                     keypoint_descriptor_type::daisy, keypoint_descriptor_type::vgg, keypoint_descriptor_type::boostdesc, keypoint_descriptor_type::surf);
     CAPTURE(static_cast<int>(backend), static_cast<int>(descriptor));
     descriptor_matcher::set_backend(backend);
     struct reset_backend
     {
         ~reset_backend() { descriptor_matcher::set_backend(descriptor_matcher_type::brute_force); }
     } reset;
-    const int columns = descriptor == keypoint_descriptor_type::sift ? 128 : descriptor == keypoint_descriptor_type::brisk ? 64 : 32;
-    cv::Mat   train(100, columns, descriptor == keypoint_descriptor_type::sift ? CV_32F : CV_8U);
-    cv::RNG   random(71);
+    const auto [columns, depth] = descriptor_layout(descriptor);
+    cv::Mat train(100, columns, depth);
+    cv::RNG random(71);
     random.fill(train, cv::RNG::UNIFORM, 0, 256);
     const auto                           query = train.row(37).clone();
     std::vector<std::vector<cv::DMatch>> matches;

@@ -70,7 +70,7 @@ Building the project requires a C++26-capable compiler and CMake 3.25 or newer.
 The app uses Dear ImGui through Hello ImGui (GLFW/OpenGL3 backend) for a single window with resizable, dockable map and camera panes. VTK renders the map off-screen; OpenCV camera images and keypoint overlays are uploaded as ImGui textures. Install `hello-imgui[glfw-binding,opengl3-binding]` and `vtk` through vcpkg. Pangolin is no longer required. The core `ORB_SLAM3` library remains independent of UI libraries.
 
 ## OpenCV
-We use [OpenCV](http://opencv.org) to manipulate images and features. Dowload and install instructions can be found at: http://opencv.org. **Required at leat 3.0. Tested with OpenCV 3.2.0 and 4.4.0**.
+We use [OpenCV](https://opencv.org) to manipulate images and features. OpenCV 4 with the contrib `xfeatures2d` module is required (API reference: 4.13; tested with 4.14). With vcpkg, install `opencv4[contrib]`. SURF additionally requires `opencv4[contrib,nonfree]`, or an OpenCV source build with `OPENCV_ENABLE_NONFREE=ON`. VGG and BoostDesc require their model data to be included when building OpenCV.
 
 ## Eigen3
 Required by g2o (see below). Download and install instructions can be found at: http://eigen.tuxfamily.org. **Required at least 3.1.0**.
@@ -146,21 +146,23 @@ tracking:
   matcher: brute_force
 ```
 
-- Detectors: `FAST`, `AGAST`, `GFTT`, `ORB`, `BRISK`, `SIFT`, `AKAZE` (case-insensitive).
-- Descriptors: `ORB` (32-byte binary, default), `BRISK` (64-byte binary), `SIFT` (128 floating-point values). All supported descriptors can describe points from any supported detector. AKAZE descriptors are not offered because OpenCV requires AKAZE-specific scale-space metadata.
-- Matchers: `brute_force` (default) or `flann`. Binary descriptors use Hamming distance and FLANN LSH; SIFT uses L2 distance and FLANN KD-trees. SLAM projection, pyramid-level, epipolar, ratio, and map-point checks remain in place around OpenCV candidate ranking.
+- Detectors: `FAST`, `AGAST`, `GFTT`, `ORB`, `BRISK`, `SIFT`, `AKAZE`, `STAR`, `HARRIS_LAPLACE`, `MSD`, `TBMR`, `SURF` (case-insensitive).
+- Binary descriptors: `ORB` (32 bytes, default), `BRISK` (64), `BRIEF` (32, orientation-aware), `FREAK` (64), `LATCH` (32), `BEBLID` (64), `TEBLID` (32), `BOOSTDESC` (32, BINBOOST-256).
+- Floating-point descriptors: `SIFT` (128 values), `SURF` (64), `DAISY` (200, full normalization with orientation), `VGG` (120). All supported descriptors can describe points from any supported detector. SURF detection and description require nonfree support; OpenCV rejects their creation otherwise.
+- AKAZE descriptors are not offered because OpenCV requires AKAZE-specific scale-space metadata. LUCID requires color input, while the extractor receives grayscale images. AffineFeature2D wrappers, image-level PCT signatures, and module matching utilities are not standalone detector/descriptor selections. TBMR supplies ordinary keypoints; affine regions are not retained.
+- Matchers: `brute_force` (default) or `flann`. Binary descriptors use Hamming distance and FLANN LSH; floating-point descriptors use L2 distance and FLANN KD-trees. SLAM projection, pyramid-level, epipolar, ratio, and map-point checks remain in place around OpenCV candidate ranking.
 - Exhaustive ranking inside geometric/vocabulary candidate sets uses OpenCV brute force even in FLANN mode: all candidates must remain available for subsequent geometric filtering, and an approximate index cannot reliably return every neighbor. Unconstrained nearest-neighbor searches use the selected backend.
-- All detectors run across the feature pyramid with per-level spatial distribution. FAST/AGAST use the two configured corner thresholds; ORB/BRISK detectors use `initial_threshold`; the others use OpenCV defaults.
+- All detectors run across the feature pyramid with per-level spatial distribution. FAST/AGAST use the two configured corner thresholds; ORB/BRISK detectors use `initial_threshold`. Scale-space detectors use one internal scale/octave where possible; other parameters use OpenCV defaults. BEBLID/TEBLID and VGG/BoostDesc sampling factors match the extractor's normalized 31-pixel keypoint size, not the detector's display size.
 - The existing trained vocabulary still requires ORB descriptors. A separate, row-aligned OpenCV ORB channel is computed for vocabulary quantization only; tracking, stereo, triangulation, and map-point descriptors use the selected descriptor. This retains vocabulary-based loop closure and relocalization without feeding SIFT data into a binary vocabulary.
-- Internal acceptance thresholds use 32-byte Hamming-equivalent units: BRISK Hamming distances are divided by two; SIFT L2 distances by four. Nearest-neighbor ratio tests are unchanged. Different descriptors can require accuracy tuning; descriptor selection is not a guarantee of equivalent trajectories.
+- Internal acceptance thresholds use 32-byte Hamming-equivalent units: binary Hamming distances are multiplied by `32 / descriptor_bytes`; floating-point L2 distances are divided by four. New floating-point descriptors are normalized to L2 magnitude 512 to match SIFT's scale. Nearest-neighbor ratio tests are unchanged. Different descriptors can require accuracy tuning; descriptor selection is not a guarantee of equivalent trajectories.
 - Saved atlases retain both descriptor channels. Older ORB atlases can be loaded; an atlas cannot be reused with a different tracking-descriptor format. New atlases require this version of the code.
 
 Command-line selections override YAML:
 
 ```bash
 .build/Release/orbslam3_app/orbslam3_app vocab/ORBvoc.txt config/TUM-VI.yaml \
-  --slam-type stereo --keypoint_detector.type fast \
-  --keypoint_descriptor.type sift --tracking.matcher flann
+  --slam-type stereo --keypoint_detector.type star \
+  --keypoint_descriptor.type beblid --tracking.matcher flann
 ```
 
 The old `ORBextractor.*` and `orb_extractor.detector` settings have been replaced by the nested maps above. Project names, the upstream namespace/license notices, and ORB as an actual algorithm/vocabulary dependency are retained.

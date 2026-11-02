@@ -5,7 +5,7 @@ project(ORB_SLAM3 LANGUAGES C CXX)
 find_package(DBoW2 CONFIG REQUIRED)
 find_package(DBow3 CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
-find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d calib3d imgcodecs video)
+find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d calib3d imgcodecs video xfeatures2d)
 find_package(Sophus CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(g2o CONFIG REQUIRED)
@@ -67,6 +67,7 @@ target_link_libraries(ORB_SLAM3 PUBLIC
         opencv_core
         opencv_imgproc
         opencv_features2d
+        opencv_xfeatures2d
         opencv_calib3d
         opencv_imgcodecs
         opencv_video

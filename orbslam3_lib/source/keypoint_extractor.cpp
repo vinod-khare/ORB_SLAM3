@@ -61,6 +61,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/xfeatures2d.hpp>
 
 using namespace cv;
 using namespace std;
@@ -119,6 +120,33 @@ keypoint_extractor::keypoint_extractor(int _nfeatures, float _scaleFactor, int _
     case keypoint_descriptor_type::brisk:
         _descriptor = cv::BRISK::create();
         break;
+    case keypoint_descriptor_type::brief:
+        _descriptor = cv::xfeatures2d::BriefDescriptorExtractor::create(32, true);
+        break;
+    case keypoint_descriptor_type::freak:
+        _descriptor = cv::xfeatures2d::FREAK::create();
+        break;
+    case keypoint_descriptor_type::latch:
+        _descriptor = cv::xfeatures2d::LATCH::create();
+        break;
+    case keypoint_descriptor_type::beblid:
+        _descriptor = cv::xfeatures2d::BEBLID::create(1.0f);
+        break;
+    case keypoint_descriptor_type::teblid:
+        _descriptor = cv::xfeatures2d::TEBLID::create(1.0f);
+        break;
+    case keypoint_descriptor_type::daisy:
+        _descriptor = cv::xfeatures2d::DAISY::create(15, 3, 8, 8, cv::xfeatures2d::DAISY::NRM_FULL, cv::noArray(), true, true);
+        break;
+    case keypoint_descriptor_type::vgg:
+        _descriptor = cv::xfeatures2d::VGG::create(cv::xfeatures2d::VGG::VGG_120, 1.4f, true, true, 0.75f);
+        break;
+    case keypoint_descriptor_type::boostdesc:
+        _descriptor = cv::xfeatures2d::BoostDesc::create(cv::xfeatures2d::BoostDesc::BINBOOST_256, true, 0.75f);
+        break;
+    case keypoint_descriptor_type::surf:
+        _descriptor = cv::xfeatures2d::SURF::create();
+        break;
     }
     // Scale-space detectors are restricted to a single scale where possible,
     // since ORB-SLAM's own pyramid already provides the octaves.
@@ -141,6 +169,21 @@ keypoint_extractor::keypoint_extractor(int _nfeatures, float _scaleFactor, int _
         break;
     case keypoint_detector_type::akaze:
         _detector = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 0, 3, 0.001f, 1);
+        break;
+    case keypoint_detector_type::star:
+        _detector = cv::xfeatures2d::StarDetector::create();
+        break;
+    case keypoint_detector_type::harris_laplace:
+        _detector = cv::xfeatures2d::HarrisLaplaceFeatureDetector::create(1);
+        break;
+    case keypoint_detector_type::msd:
+        _detector = cv::xfeatures2d::MSDDetector::create(3, 5, 5, 0, 250.0f, 4, 1.25f, 1);
+        break;
+    case keypoint_detector_type::tbmr:
+        _detector = cv::xfeatures2d::TBMR::create(60, 0.01f, 1.25f, 1);
+        break;
+    case keypoint_detector_type::surf:
+        _detector = cv::xfeatures2d::SURF::create(100, 1);
         break;
     }
     mvScaleFactor.resize(nlevels);
@@ -729,6 +772,14 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<k
         }
         Mat level_descriptors;
         _descriptor->compute(mvImagePyramid[level], local_keys, level_descriptors);
+        if (level_descriptors.depth() == CV_32F && _descriptor_type != keypoint_descriptor_type::sift)
+        {
+            for (int row = 0; row < level_descriptors.rows; ++row)
+            {
+                auto descriptor = level_descriptors.row(row);
+                cv::normalize(descriptor, descriptor, 512.0, 0.0, cv::NORM_L2);
+            }
+        }
         auto place_keys = local_keys;
         Mat  level_place_descriptors;
         if (_descriptor_type == keypoint_descriptor_type::orb)
