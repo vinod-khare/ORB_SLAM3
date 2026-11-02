@@ -19,18 +19,15 @@
 #include "Frame.h"
 
 #include "CameraModels/KannalaBrandt8.h"
-#include "CameraModels/Pinhole.h"
 #include "Converter.h"
 #include "G2oTypes.h"
 #include "GeometricCamera.h"
 #include "KeyFrame.h"
 #include "MapPoint.h"
 #include "descriptor_matcher.h"
-#include "keypoint_extractor.h"
 
 #include <array>
 #include <cmath>
-#include <thread>
 
 #include <spdlog/spdlog.h>
 
@@ -54,16 +51,15 @@ Frame::Frame()
 // Copy Constructor
 Frame::Frame(const Frame &frame)
     : mpcpi(frame.mpcpi), mTcw(frame.mTcw), mbHasPose(false), mTlr(frame.mTlr), mTrl(frame.mTrl), mRlr(frame.mRlr), mtlr(frame.mtlr), mbHasVelocity(false),
-      place_vocabulary_ptr(frame.place_vocabulary_ptr), left_keypoint_extractor(frame.left_keypoint_extractor), right_keypoint_extractor(frame.right_keypoint_extractor),
-      mTimeStamp(frame.mTimeStamp), optical_flow_pyramid(frame.optical_flow_pyramid), mK(frame.mK.clone()), mK_(Converter::toMatrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()),
-      mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys), mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn), mvpMapPoints(frame.mvpMapPoints),
-      mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias),
-      mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated), mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame),
-      mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame), mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor),
-      mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2),
-      mvInvLevelSigma2(frame.mvInvLevelSigma2), mNameFile(frame.mNameFile), mnDataset(frame.mnDataset), mbIsSet(frame.mbIsSet), mbImuPreintegrated(frame.mbImuPreintegrated),
-      mpMutexImu(frame.mpMutexImu), Nleft(frame.Nleft), Nright(frame.Nright), monoLeft(frame.monoLeft), monoRight(frame.monoRight), mvLeftToRightMatch(frame.mvLeftToRightMatch),
-      mvRightToLeftMatch(frame.mvRightToLeftMatch), mvStereo3Dpoints(frame.mvStereo3Dpoints)
+      place_vocabulary_ptr(frame.place_vocabulary_ptr), mTimeStamp(frame.mTimeStamp), optical_flow_pyramid(frame.optical_flow_pyramid), mK(frame.mK.clone()),
+      mK_(Converter::toMatrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()), mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys),
+      mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn), mvpMapPoints(frame.mvpMapPoints), mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec),
+      mFeatVec(frame.mFeatVec), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias), mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated),
+      mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame), mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame), mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF),
+      mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors),
+      mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2), mNameFile(frame.mNameFile), mnDataset(frame.mnDataset),
+      mbIsSet(frame.mbIsSet), mbImuPreintegrated(frame.mbImuPreintegrated), mpMutexImu(frame.mpMutexImu), Nleft(frame.Nleft), Nright(frame.Nright), monoLeft(frame.monoLeft),
+      monoRight(frame.monoRight), mvLeftToRightMatch(frame.mvLeftToRightMatch), mvRightToLeftMatch(frame.mvRightToLeftMatch), mvStereo3Dpoints(frame.mvStereo3Dpoints)
 {
     color_image         = frame.color_image;
     color_image_right   = frame.color_image_right;
@@ -215,12 +211,10 @@ void Frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoin
     AssignFeaturesToGrid();
 }
 
-// TODO: why is the `Frame` class extracting features? Seems like it should be the responsibility of a separate class or module dedicated to feature extraction.
-void Frame::extract_features(const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right, GeometricCamera *right_camera)
+void Frame::initialize_features(const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right, GeometricCamera *right_camera, const std::vector<cv::Mat> &left_pyramid,
+                                const std::vector<cv::Mat> &right_pyramid)
 {
     flow_only = false;
-    mvKeys.clear();
-    mvKeysRight.clear();
     mBowVec.clear();
     mFeatVec.clear();
     mmProjectPoints.clear();
@@ -232,20 +226,6 @@ void Frame::extract_features(const cv::Mat &left, GeometricCamera *camera, const
             mGrid[x][y].clear();
             mGridRight[x][y].clear();
         }
-    }
-    if (right.empty())
-    {
-        extract_keypoints(0, left, 0, 1000);
-    }
-    else
-    {
-        const auto *left_camera          = right_camera ? static_cast<KannalaBrandt8 *>(camera) : nullptr;
-        const auto *right_fisheye_camera = right_camera ? static_cast<KannalaBrandt8 *>(right_camera) : nullptr;
-        thread      left_worker(&Frame::extract_keypoints, this, 0, left, left_camera ? left_camera->mvLappingArea[0] : 0, left_camera ? left_camera->mvLappingArea[1] : 0);
-        thread      right_worker(&Frame::extract_keypoints, this, 1, right, right_fisheye_camera ? right_fisheye_camera->mvLappingArea[0] : 0,
-                            right_fisheye_camera ? right_fisheye_camera->mvLappingArea[1] : 0);
-        left_worker.join();
-        right_worker.join();
     }
     Nleft  = right_camera ? static_cast<int>(mvKeys.size()) : -1;
     Nright = right_camera ? static_cast<int>(mvKeysRight.size()) : -1;
@@ -289,7 +269,7 @@ void Frame::extract_features(const cv::Mat &left, GeometricCamera *camera, const
     }
     else if (!right.empty())
     {
-        ComputeStereoMatches();
+        ComputeStereoMatches(left_pyramid, right_pyramid);
     }
     if (right_camera)
     {
@@ -343,148 +323,16 @@ bool Frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inlier
     return inliers >= minimum_inliers && inliers >= 0.6 * N && flow_occupied_cells >= 6;
 }
 
-Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,
-             cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera *pCamera, Frame *pPrevF, const IMU::Calib &ImuCalib)
-    : mpcpi(nullptr), mbHasPose(false), mbHasVelocity(false), place_vocabulary_ptr(voc), left_keypoint_extractor(extractorLeft), right_keypoint_extractor(extractorRight),
-      mTimeStamp(timeStamp), mK(K.clone()), mK_(Converter::toMatrix3f(K)), mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth), mImuCalib(ImuCalib), mpImuPreintegrated(NULL),
-      mpPrevFrame(pPrevF), mpImuPreintegratedFrame(NULL), mpReferenceKF(static_cast<KeyFrame *>(NULL)), mbIsSet(false), mbImuPreintegrated(false)
+Frame::Frame(double timestamp, place_vocabulary *vocabulary, const cv::Mat &calibration, const cv::Mat &distortion, float baseline_fx, float depth_threshold, Frame *previous,
+             const IMU::Calib &imu_calibration, const Sophus::SE3f &left_to_right)
+    : mpcpi(nullptr), mbHasPose(false), mTlr(left_to_right), mTrl(left_to_right.inverse()), mRlr(left_to_right.rotationMatrix()), mtlr(left_to_right.translation()), mbHasVelocity(false),
+      place_vocabulary_ptr(vocabulary), mTimeStamp(timestamp), mK(calibration.clone()), mK_(Converter::toMatrix3f(calibration)), mDistCoef(distortion.clone()), mbf(baseline_fx), mb(0),
+      mThDepth(depth_threshold), N(0), mnCloseMPs(0), mImuCalib(imu_calibration), mpImuPreintegrated(nullptr), mpLastKeyFrame(nullptr), mpPrevFrame(previous), mpImuPreintegratedFrame(nullptr),
+      mnId(nNextId++), mpReferenceKF(nullptr), mnScaleLevels(0), mfScaleFactor(1), mfLogScaleFactor(0), mnDataset(0), mbIsSet(false), mbImuPreintegrated(false), monoLeft(-1), monoRight(-1)
 {
-    // Frame ID
-    mnId = nNextId++;
-
-    // Scale Level Info
-    mnScaleLevels     = left_keypoint_extractor->get_levels();
-    mfScaleFactor     = left_keypoint_extractor->get_scale_factor();
-    mfLogScaleFactor  = log(mfScaleFactor);
-    mvScaleFactors    = left_keypoint_extractor->get_scale_factors();
-    mvInvScaleFactors = left_keypoint_extractor->get_inverse_scale_factors();
-    mvLevelSigma2     = left_keypoint_extractor->get_scale_sigma_squares();
-    mvInvLevelSigma2  = left_keypoint_extractor->get_inverse_scale_sigma_squares();
-
-    extract_features(imLeft, pCamera, imRight);
-
-    if (pPrevF)
+    if (previous && previous->HasVelocity())
     {
-        if (pPrevF->HasVelocity())
-        {
-            SetVelocity(pPrevF->GetVelocity());
-        }
-    }
-    else
-    {
-        mVw.setZero();
-    }
-}
-
-Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, cv::Mat &K, cv::Mat &distCoef, const float &bf,
-             const float &thDepth, Frame *pPrevF, const IMU::Calib &ImuCalib)
-    : mpcpi(nullptr), mbHasPose(false), mbHasVelocity(false), place_vocabulary_ptr(voc), left_keypoint_extractor(extractor), right_keypoint_extractor(static_cast<keypoint_extractor *>(NULL)),
-      mTimeStamp(timeStamp), mK(K.clone()), mK_(Converter::toMatrix3f(K)), mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth), mImuCalib(ImuCalib), mpImuPreintegrated(NULL),
-      mpPrevFrame(pPrevF), mpImuPreintegratedFrame(NULL), mpReferenceKF(static_cast<KeyFrame *>(NULL)), mbIsSet(false), mbImuPreintegrated(false)
-{
-    // Frame ID
-    mnId = nNextId++;
-
-    // Scale Level Info
-    mnScaleLevels     = left_keypoint_extractor->get_levels();
-    mfScaleFactor     = left_keypoint_extractor->get_scale_factor();
-    mfLogScaleFactor  = log(mfScaleFactor);
-    mvScaleFactors    = left_keypoint_extractor->get_scale_factors();
-    mvInvScaleFactors = left_keypoint_extractor->get_inverse_scale_factors();
-    mvLevelSigma2     = left_keypoint_extractor->get_scale_sigma_squares();
-    mvInvLevelSigma2  = left_keypoint_extractor->get_inverse_scale_sigma_squares();
-
-    // ORB extraction
-    extract_keypoints(0, imGray, 0, 0);
-
-    N = mvKeys.size();
-
-    if (mvKeys.empty())
-    {
-        return;
-    }
-
-    UndistortKeyPoints();
-
-    ComputeStereoFromRGBD(imDepth);
-
-    mvpMapPoints = vector<MapPoint *>(N, static_cast<MapPoint *>(NULL));
-
-    mmProjectPoints.clear();
-    mmMatchedInImage.clear();
-
-    mvbOutlier = vector<bool>(N, false);
-
-    // This is done only for the first Frame (or after a change in the calibration)
-    if (mbInitialComputations)
-    {
-        ComputeImageBounds(imGray);
-
-        mfGridElementWidthInv  = static_cast<float>(FRAME_GRID_COLS) / static_cast<float>(mnMaxX - mnMinX);
-        mfGridElementHeightInv = static_cast<float>(FRAME_GRID_ROWS) / static_cast<float>(mnMaxY - mnMinY);
-
-        fx    = K.at<float>(0, 0);
-        fy    = K.at<float>(1, 1);
-        cx    = K.at<float>(0, 2);
-        cy    = K.at<float>(1, 2);
-        invfx = 1.0f / fx;
-        invfy = 1.0f / fy;
-
-        mbInitialComputations = false;
-    }
-
-    mb = mbf / fx;
-
-    if (pPrevF)
-    {
-        if (pPrevF->HasVelocity())
-        {
-            SetVelocity(pPrevF->GetVelocity());
-        }
-    }
-    else
-    {
-        mVw.setZero();
-    }
-
-    // Set no stereo fisheye information
-    Nleft              = -1;
-    Nright             = -1;
-    mvLeftToRightMatch = vector<int>(0);
-    mvRightToLeftMatch = vector<int>(0);
-    mvStereo3Dpoints   = vector<Eigen::Vector3f>(0);
-    monoLeft           = -1;
-    monoRight          = -1;
-
-    AssignFeaturesToGrid();
-}
-
-Frame::Frame(const cv::Mat &imGray, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, GeometricCamera *pCamera, cv::Mat &distCoef, const float &bf,
-             const float &thDepth, Frame *pPrevF, const IMU::Calib &ImuCalib)
-    : mpcpi(nullptr), mbHasPose(false), mbHasVelocity(false), place_vocabulary_ptr(voc), left_keypoint_extractor(extractor), right_keypoint_extractor(static_cast<keypoint_extractor *>(NULL)),
-      mTimeStamp(timeStamp), mK(static_cast<Pinhole *>(pCamera)->toK()), mK_(static_cast<Pinhole *>(pCamera)->toK_()), mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
-      mImuCalib(ImuCalib), mpImuPreintegrated(NULL), mpPrevFrame(pPrevF), mpImuPreintegratedFrame(NULL), mpReferenceKF(static_cast<KeyFrame *>(NULL)), mbIsSet(false), mbImuPreintegrated(false)
-{
-    // Frame ID
-    mnId = nNextId++;
-
-    // Scale Level Info
-    mnScaleLevels     = left_keypoint_extractor->get_levels();
-    mfScaleFactor     = left_keypoint_extractor->get_scale_factor();
-    mfLogScaleFactor  = log(mfScaleFactor);
-    mvScaleFactors    = left_keypoint_extractor->get_scale_factors();
-    mvInvScaleFactors = left_keypoint_extractor->get_inverse_scale_factors();
-    mvLevelSigma2     = left_keypoint_extractor->get_scale_sigma_squares();
-    mvInvLevelSigma2  = left_keypoint_extractor->get_inverse_scale_sigma_squares();
-
-    extract_features(imGray, pCamera);
-
-    if (pPrevF)
-    {
-        if (pPrevF->HasVelocity())
-        {
-            SetVelocity(pPrevF->GetVelocity());
-        }
+        SetVelocity(previous->GetVelocity());
     }
     else
     {
@@ -527,21 +375,6 @@ void Frame::AssignFeaturesToGrid()
                 mGridRight[nGridPosX][nGridPosY].push_back(i - Nleft);
             }
         }
-    }
-}
-
-void Frame::extract_keypoints(int flag, const cv::Mat &im, const int x0, const int x1)
-{
-    vector<int> vLapping = {x0, x1};
-    if (flag == 0)
-    {
-        cv::Mat descriptors;
-        monoLeft = (*left_keypoint_extractor)(im, cv::Mat(), mvKeys, descriptors, vLapping);
-    }
-    else
-    {
-        cv::Mat descriptors;
-        monoRight = (*right_keypoint_extractor)(im, cv::Mat(), mvKeysRight, descriptors, vLapping);
     }
 }
 
@@ -933,14 +766,14 @@ void Frame::ComputeImageBounds(const cv::Mat &imLeft)
     }
 }
 
-void Frame::ComputeStereoMatches()
+void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid)
 {
     mvuRight = vector<float>(N, -1.0f);
     mvDepth  = vector<float>(N, -1.0f);
 
     const int descriptor_threshold = (descriptor_matcher::high_distance_threshold + descriptor_matcher::low_distance_threshold) / 2;
 
-    const int nRows = left_keypoint_extractor->mvImagePyramid[0].rows;
+    const int nRows = left_pyramid[0].rows;
 
     // Assign keypoints to row table
     vector<vector<size_t>> vRowIndices(nRows, vector<size_t>());
@@ -1040,7 +873,7 @@ void Frame::ComputeStereoMatches()
 
             // sliding window search
             const int w  = 5;
-            cv::Mat   IL = left_keypoint_extractor->mvImagePyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduL - w, scaleduL + w + 1);
+            cv::Mat   IL = left_pyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduL - w, scaleduL + w + 1);
 
             float         bestDist = INT_MAX;
             int           bestincR = 0;
@@ -1050,14 +883,14 @@ void Frame::ComputeStereoMatches()
 
             const float iniu = scaleduR0 + L - w;
             const float endu = scaleduR0 + L + w + 1;
-            if (iniu < 0 || endu >= right_keypoint_extractor->mvImagePyramid[kpL.octave].cols)
+            if (iniu < 0 || endu >= right_pyramid[kpL.octave].cols)
             {
                 continue;
             }
 
             for (int incR = -L; incR <= +L; incR++)
             {
-                cv::Mat IR = right_keypoint_extractor->mvImagePyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduR0 + incR - w, scaleduR0 + incR + w + 1);
+                cv::Mat IR = right_pyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduR0 + incR - w, scaleduR0 + incR + w + 1);
 
                 float dist = cv::norm(IL, IR, cv::NORM_L1);
                 if (dist < bestDist)
@@ -1175,34 +1008,6 @@ void Frame::setIntegrated()
 {
     unique_lock<std::mutex> lock(*mpMutexImu);
     mbImuPreintegrated = true;
-}
-
-Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,
-             cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera *pCamera, GeometricCamera *pCamera2, Sophus::SE3f &Tlr, Frame *pPrevF, const IMU::Calib &ImuCalib)
-    : mpcpi(nullptr), mbHasPose(false), mbHasVelocity(false), place_vocabulary_ptr(voc), left_keypoint_extractor(extractorLeft), right_keypoint_extractor(extractorRight),
-      mTimeStamp(timeStamp), mK(K.clone()), mK_(Converter::toMatrix3f(K)), mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth), mImuCalib(ImuCalib), mpImuPreintegrated(NULL),
-      mpPrevFrame(pPrevF), mpImuPreintegratedFrame(NULL), mpReferenceKF(static_cast<KeyFrame *>(NULL)), mbIsSet(false), mbImuPreintegrated(false)
-
-{
-    // Frame ID
-    mnId = nNextId++;
-
-    // Scale Level Info
-    mnScaleLevels     = left_keypoint_extractor->get_levels();
-    mfScaleFactor     = left_keypoint_extractor->get_scale_factor();
-    mfLogScaleFactor  = log(mfScaleFactor);
-    mvScaleFactors    = left_keypoint_extractor->get_scale_factors();
-    mvInvScaleFactors = left_keypoint_extractor->get_inverse_scale_factors();
-    mvLevelSigma2     = left_keypoint_extractor->get_scale_sigma_squares();
-    mvInvLevelSigma2  = left_keypoint_extractor->get_inverse_scale_sigma_squares();
-
-    // Sophus/Eigen
-    mTlr = Tlr;
-    mTrl = mTlr.inverse();
-    mRlr = mTlr.rotationMatrix();
-    mtlr = mTlr.translation();
-
-    extract_features(imLeft, pCamera, imRight, pCamera2);
 }
 
 void Frame::ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera)

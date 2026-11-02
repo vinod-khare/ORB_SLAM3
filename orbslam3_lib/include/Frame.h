@@ -16,8 +16,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef FRAME_H
-#define FRAME_H
+#pragma once
 
 #include "Converter.h"
 #include "Eigen/Core"
@@ -48,7 +47,6 @@ class MapPoint;
 class KeyFrame;
 class ConstraintPoseImu;
 class GeometricCamera;
-class keypoint_extractor;
 
 class Frame
 {
@@ -65,7 +63,9 @@ class Frame
 
     // Calibration/state for a new image, without detecting or describing features.
     Frame(Frame &previous, double timestamp);
-    void extract_features(const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right = cv::Mat(), GeometricCamera *right_camera = nullptr);
+    /** Initialize geometry and feature indexing from keypoints supplied by Tracking. */
+    void initialize_features(const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right = {}, GeometricCamera *right_camera = nullptr, const std::vector<cv::Mat> &left_pyramid = {},
+                             const std::vector<cv::Mat> &right_pyramid = {});
     void set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points);
     bool reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers = 50);
     bool flow_only{false};
@@ -74,22 +74,9 @@ class Frame
     int  flow_inliers{};
     int  flow_occupied_cells{};
 
-    // Constructor for stereo cameras.
-    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,
-          cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera *pCamera, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
-
-    // Constructor for RGB-D cameras.
-    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, cv::Mat &K, cv::Mat &distCoef, const float &bf,
-          const float &thDepth, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
-
-    // Constructor for Monocular cameras.
-    Frame(const cv::Mat &imGray, const double &timeStamp, keypoint_extractor *extractor, place_vocabulary *voc, GeometricCamera *pCamera, cv::Mat &distCoef, const float &bf,
-          const float &thDepth, Frame *pPrevF = static_cast<Frame *>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
-
-    // Destructor
-
-    // Extract ORB on the image. 0 for left image and 1 for right image.
-    void extract_keypoints(int flag, const cv::Mat &im, const int x0, const int x1);
+    /** Construct calibration/state only; Tracking supplies extracted features separately. */
+    Frame(double timestamp, place_vocabulary *vocabulary, const cv::Mat &calibration, const cv::Mat &distortion, float baseline_fx, float depth_threshold, Frame *previous = nullptr,
+          const IMU::Calib &imu_calibration = {}, const Sophus::SE3f &left_to_right = {});
 
     const std::vector<cv::Mat> &get_optical_flow_pyramid(const cv::Mat &image);
     static std::vector<cv::Mat> build_optical_flow_pyramid(const cv::Mat &image);
@@ -134,7 +121,7 @@ class Frame
 
     // Search a match for each keypoint in the left image to a keypoint in the right image.
     // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.
-    void ComputeStereoMatches();
+    void ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid);
 
     // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
     void ComputeStereoFromRGBD(const cv::Mat &imDepth);
@@ -198,9 +185,6 @@ class Frame
 
     // Vocabulary used for relocalization.
     place_vocabulary *place_vocabulary_ptr;
-
-    // Feature extractor. The right is used only in the stereo case.
-    keypoint_extractor *left_keypoint_extractor, *right_keypoint_extractor;
 
     // Frame timestamp.
     double mTimeStamp;
@@ -343,10 +327,6 @@ class Frame
     // Grid for the right image
     std::vector<std::size_t> mGridRight[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
-    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, keypoint_extractor *extractorLeft, keypoint_extractor *extractorRight, place_vocabulary *voc, cv::Mat &K,
-          cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera *pCamera, GeometricCamera *pCamera2, Sophus::SE3f &Tlr, Frame *pPrevF = static_cast<Frame *>(NULL),
-          const IMU::Calib &ImuCalib = IMU::Calib());
-
     // Stereo fisheye
     void ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera);
 
@@ -381,5 +361,3 @@ class Frame
 };
 
 } // namespace ORB_SLAM3
-
-#endif // FRAME_H

@@ -3,6 +3,7 @@
 #include "KeyFrame.h"
 #include "MapDrawer.h"
 #include "Pinhole.h"
+#include "Tracking.h"
 #include "ground_truth_trajectory.h"
 
 #include <chrono>
@@ -162,7 +163,8 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     std::vector<std::unique_ptr<ORB_SLAM3::KeyFrame>> keyframes;
     for (const double timestamp : {1.25, 2.25, 3.25})
     {
-        ORB_SLAM3::Frame frame(image, timestamp, &extractor, nullptr, &camera, distortion, 0, 40);
+        ORB_SLAM3::Frame frame(timestamp, nullptr, camera.toK(), distortion, 0, 40);
+        ORB_SLAM3::Tracking::extract_features(frame, extractor, image, &camera);
         frame.mnDataset                = 0;
         const Eigen::Vector3f position = trajectory.pose_at(timestamp)->translation().cast<float>();
         frame.SetPose(Sophus::SE3f(Eigen::Quaternionf::Identity(), -position));

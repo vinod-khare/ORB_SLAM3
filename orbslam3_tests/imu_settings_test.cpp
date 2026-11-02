@@ -1,5 +1,6 @@
 #include "Settings.h"
 #include "System.h"
+#include "Tracking.h"
 
 #include <chrono>
 #include <filesystem>
@@ -13,6 +14,16 @@
 
 namespace
 {
+class extraction_tracker : public ORB_SLAM3::Tracking
+{
+  public:
+    using Tracking::create_frame;
+    using Tracking::extract_current_features;
+    using Tracking::Tracking;
+
+    ORB_SLAM3::keypoint_extractor &extractor(bool initial) { return initial ? *initial_keypoint_extractor : *left_keypoint_extractor; }
+};
+
 struct imu_settings
 {
     std::filesystem::path directory = std::filesystem::temp_directory_path() / ("orbslam3_imu_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -59,6 +70,36 @@ update_rate: 200.0
     }
 };
 } // namespace
+
+TEST_CASE("Tracking preserves initialization extraction during deferred recovery", "[tracking][features]")
+{
+    const auto   sensor = GENERATE(ORB_SLAM3::System::MONOCULAR, ORB_SLAM3::System::IMU_MONOCULAR);
+    imu_settings files;
+    files.write();
+    ORB_SLAM3::Settings settings(files.path.string(), sensor);
+    ORB_SLAM3::Atlas    atlas(0);
+    extraction_tracker  tracker(nullptr, nullptr, &atlas, nullptr, sensor, &settings);
+    tracker.mImGray = cv::Mat(512, 512, CV_8UC1);
+    cv::RNG random(17);
+    random.fill(tracker.mImGray, cv::RNG::UNIFORM, 0, 256);
+    ORB_SLAM3::Frame::mbInitialComputations = true;
+
+    const bool initial = GENERATE(false, true);
+    tracker.create_frame(1.0, tracker.extractor(initial));
+    const auto descriptors = descriptor_matrix(tracker.mCurrentFrame.mvKeys);
+    REQUIRE(descriptors.rows > 0);
+    REQUIRE((descriptors.rows > 250) == initial);
+    REQUIRE(tracker.mCurrentFrame.mpPrevFrame == (sensor == ORB_SLAM3::System::IMU_MONOCULAR ? &tracker.mLastFrame : nullptr));
+    tracker.mLastFrame    = tracker.mCurrentFrame;
+    tracker.mCurrentFrame = ORB_SLAM3::Frame(tracker.mLastFrame, 1.05);
+    REQUIRE(tracker.mCurrentFrame.flow_only);
+    tracker.extract_current_features();
+    REQUIRE_FALSE(tracker.mCurrentFrame.flow_only);
+    REQUIRE(tracker.mCurrentFrame.mpPrevFrame == &tracker.mLastFrame);
+    REQUIRE(tracker.mCurrentFrame.mTimeStamp == 1.05);
+    REQUIRE(tracker.mCurrentFrame.N == descriptors.rows);
+    REQUIRE(cv::norm(descriptor_matrix(tracker.mCurrentFrame.mvKeys), descriptors, cv::NORM_INF) == 0);
+}
 
 TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shutdown]")
 {

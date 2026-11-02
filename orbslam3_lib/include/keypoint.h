@@ -36,10 +36,12 @@ inline std::vector<cv::KeyPoint> to_cv_keypoints(const std::vector<keypoint> &ke
 {
     std::vector<cv::KeyPoint> converted;
     converted.reserve(keypoints.size());
+
     for (const auto &item : keypoints)
     {
         converted.push_back(static_cast<const cv::KeyPoint &>(item));
     }
+    
     return converted;
 }
 
@@ -60,6 +62,7 @@ inline std::vector<cv::Mat> place_descriptor_vector(const std::vector<keypoint> 
 {
     std::vector<cv::Mat> descriptors;
     descriptors.reserve(keypoints.size());
+
     for (const auto &item : keypoints)
     {
         if (!item.place_descriptor.empty())
@@ -67,6 +70,7 @@ inline std::vector<cv::Mat> place_descriptor_vector(const std::vector<keypoint> 
             descriptors.push_back(item.place_descriptor);
         }
     }
+
     return descriptors;
 }
 

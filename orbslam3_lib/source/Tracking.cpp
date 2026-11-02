@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <future>
 #include <mutex>
 
 #include <opencv2/video/tracking.hpp>
@@ -259,29 +260,13 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
     }
 
     mImRight = imGrayRight;
-    // TODO: why does Frame class need the extractor object? I think the extractor can be external to the frame. This will reduce coupling and potentially improve performance.
     if (can_defer_features(timestamp))
     {
         mCurrentFrame = Frame(mLastFrame, timestamp);
     }
-    else if (mSensor == System::STEREO && !mpCamera2)
+    else
     {
-        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, left_keypoint_extractor.get(), right_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera);
-    }
-    else if (mSensor == System::STEREO && mpCamera2)
-    {
-        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, left_keypoint_extractor.get(), right_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera,
-                              mpCamera2, mTlr);
-    }
-    else if (mSensor == System::IMU_STEREO && !mpCamera2)
-    {
-        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, left_keypoint_extractor.get(), right_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera,
-                              &mLastFrame, *mpImuCalib);
-    }
-    else if (mSensor == System::IMU_STEREO && mpCamera2)
-    {
-        mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, left_keypoint_extractor.get(), right_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, mpCamera,
-                              mpCamera2, mTlr, &mLastFrame, *mpImuCalib);
+        create_frame(timestamp, *left_keypoint_extractor);
     }
 
     set_frame_colors(imRectLeft, imRectRight);
@@ -346,14 +331,8 @@ Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, c
         imDepth.convertTo(imDepth, CV_32F, mDepthMapFactor);
     }
 
-    if (mSensor == System::RGBD)
-    {
-        mCurrentFrame = Frame(mImGray, imDepth, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth);
-    }
-    else if (mSensor == System::IMU_RGBD)
-    {
-        mCurrentFrame = Frame(mImGray, imDepth, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, &mLastFrame, *mpImuCalib);
-    }
+    create_frame(timestamp, *left_keypoint_extractor);
+    mCurrentFrame.ComputeStereoFromRGBD(imDepth);
 
     set_frame_colors(imRGB);
     mCurrentFrame.mNameFile = filename;
@@ -395,27 +374,10 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &times
     {
         mCurrentFrame = Frame(mLastFrame, timestamp);
     }
-    else if (mSensor == System::MONOCULAR)
+    else
     {
-        if (mState == NOT_INITIALIZED || mState == NO_IMAGES_YET || (lastID - initID) < mMaxFrames)
-        {
-            mCurrentFrame = Frame(mImGray, timestamp, initial_keypoint_extractor.get(), place_vocabulary_ptr, mpCamera, mDistCoef, mbf, mThDepth);
-        }
-        else
-        {
-            mCurrentFrame = Frame(mImGray, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mpCamera, mDistCoef, mbf, mThDepth);
-        }
-    }
-    else if (mSensor == System::IMU_MONOCULAR)
-    {
-        if (mState == NOT_INITIALIZED || mState == NO_IMAGES_YET)
-        {
-            mCurrentFrame = Frame(mImGray, timestamp, initial_keypoint_extractor.get(), place_vocabulary_ptr, mpCamera, mDistCoef, mbf, mThDepth, &mLastFrame, *mpImuCalib);
-        }
-        else
-        {
-            mCurrentFrame = Frame(mImGray, timestamp, left_keypoint_extractor.get(), place_vocabulary_ptr, mpCamera, mDistCoef, mbf, mThDepth, &mLastFrame, *mpImuCalib);
-        }
+        const bool initializing = mState == NOT_INITIALIZED || mState == NO_IMAGES_YET || (mSensor == System::MONOCULAR && (lastID - initID) < mMaxFrames);
+        create_frame(timestamp, initializing ? *initial_keypoint_extractor : *left_keypoint_extractor);
     }
 
     if (mState == NO_IMAGES_YET)
@@ -1846,13 +1808,64 @@ bool Tracking::can_defer_features(double timestamp) const
            !_previous_gray.empty() && _previous_gray_frame_id == mLastFrame.mnId && _previous_gray.size() == mImGray.size() && mImGray.type() == CV_8UC1;
 }
 
+void Tracking::create_frame(double timestamp, keypoint_extractor &extractor)
+{
+    use_initial_extractor_ = &extractor == initial_keypoint_extractor.get();
+    const bool inertial    = mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD;
+    const bool stereo      = mSensor == System::STEREO || mSensor == System::IMU_STEREO;
+    mCurrentFrame          = Frame(timestamp, place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, inertial ? &mLastFrame : nullptr, inertial ? *mpImuCalib : IMU::Calib(),
+                          stereo && mpCamera2 ? mTlr : Sophus::SE3f());
+
+    extract_features(mCurrentFrame, extractor, mImGray, mpCamera, stereo ? mImRight : cv::Mat(), stereo ? right_keypoint_extractor.get() : nullptr, stereo ? mpCamera2 : nullptr);
+}
+
+void Tracking::extract_features(Frame &frame, keypoint_extractor &extractor, const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right, keypoint_extractor *right_extractor,
+                                GeometricCamera *right_camera)
+{
+    CV_Assert(!left.empty());
+    CV_Assert(right.empty() || (right_extractor && right_extractor != &extractor));
+    CV_Assert(!right_camera || (!right.empty() && camera));
+
+    frame.mnScaleLevels     = extractor.get_levels();
+    frame.mfScaleFactor     = extractor.get_scale_factor();
+    frame.mfLogScaleFactor  = std::log(frame.mfScaleFactor);
+    frame.mvScaleFactors    = extractor.get_scale_factors();
+    frame.mvInvScaleFactors = extractor.get_inverse_scale_factors();
+    frame.mvLevelSigma2     = extractor.get_scale_sigma_squares();
+    frame.mvInvLevelSigma2  = extractor.get_inverse_scale_sigma_squares();
+    frame.mvKeys.clear();
+    frame.mvKeysRight.clear();
+
+    const auto extract = [](keypoint_extractor &feature_extractor, const cv::Mat &image, std::vector<keypoint> &keys, std::vector<int> lapping)
+    {
+        cv::Mat descriptors;
+        return feature_extractor(image, cv::Mat(), keys, descriptors, lapping);
+    };
+    if (right.empty())
+    {
+        frame.monoLeft  = extract(extractor, left, frame.mvKeys, {0, 1000});
+        frame.monoRight = -1;
+    }
+    else
+    {
+        const auto *left_fisheye  = right_camera ? static_cast<KannalaBrandt8 *>(camera) : nullptr;
+        const auto *right_fisheye = right_camera ? static_cast<KannalaBrandt8 *>(right_camera) : nullptr;
+        auto        left_worker   = std::async(std::launch::async, [&] { return extract(extractor, left, frame.mvKeys, left_fisheye ? left_fisheye->mvLappingArea : std::vector<int>{0, 0}); });
+        frame.monoRight           = extract(*right_extractor, right, frame.mvKeysRight, right_fisheye ? right_fisheye->mvLappingArea : std::vector<int>{0, 0});
+        frame.monoLeft            = left_worker.get();
+    }
+    frame.initialize_features(left, camera, right, right_camera, extractor.mvImagePyramid, right.empty() ? std::vector<cv::Mat>{} : right_extractor->mvImagePyramid);
+}
+
 void Tracking::extract_current_features()
 {
     if (!mCurrentFrame.flow_only)
     {
         return;
     }
-    mCurrentFrame.extract_features(mImGray, mpCamera, (mSensor == System::STEREO || mSensor == System::IMU_STEREO) ? mImRight : cv::Mat(), mpCamera2);
+    const bool stereo    = mSensor == System::STEREO || mSensor == System::IMU_STEREO;
+    auto      &extractor = use_initial_extractor_ ? *initial_keypoint_extractor : *left_keypoint_extractor;
+    extract_features(mCurrentFrame, extractor, mImGray, mpCamera, stereo ? mImRight : cv::Mat(), stereo ? right_keypoint_extractor.get() : nullptr, stereo ? mpCamera2 : nullptr);
     last_feature_frame_id_ = mCurrentFrame.mnId;
     ++feature_frames_;
 }

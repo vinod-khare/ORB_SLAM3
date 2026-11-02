@@ -64,6 +64,10 @@ class Tracking
     Sophus::SE3f GrabImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, const double &timestamp, string filename);
     Sophus::SE3f GrabImageMonocular(const cv::Mat &im, const double &timestamp, string filename);
 
+    /** Extract current-image keypoints/descriptors and supply feature data to a frame. */
+    static void extract_features(Frame &frame, keypoint_extractor &extractor, const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right = {},
+                                 keypoint_extractor *right_extractor = nullptr, GeometricCamera *right_camera = nullptr);
+
     void GrabImuData(const IMU::Point &imuMeasurement);
 
     void SetLocalMapper(LocalMapping *pLocalMapper);
@@ -165,6 +169,7 @@ class Tracking
 
   protected:
     void set_frame_colors(const cv::Mat &left, const cv::Mat &right = {});
+    void create_frame(double timestamp, keypoint_extractor &extractor);
 
     // Main tracking function. It is independent of the input sensor.
     void Track();
@@ -234,6 +239,7 @@ class Tracking
     // ORB
     std::unique_ptr<keypoint_extractor> left_keypoint_extractor, right_keypoint_extractor;
     std::unique_ptr<keypoint_extractor> initial_keypoint_extractor;
+    bool                                use_initial_extractor_{false};
 
     // BoW
     place_vocabulary *place_vocabulary_ptr;

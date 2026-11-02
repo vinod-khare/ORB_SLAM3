@@ -129,7 +129,8 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     ORB_SLAM3::Pinhole            camera({100, 100, 64, 64});
     cv::Mat                       distortion = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::Frame::mbInitialComputations  = true;
-    ORB_SLAM3::Frame frame(input, 0.0, &extractor, nullptr, &camera, distortion, 10.f, 40.f);
+    ORB_SLAM3::Frame frame(0.0, nullptr, camera.toK(), distortion, 10.f, 40.f);
+    ORB_SLAM3::Tracking::extract_features(frame, extractor, input, &camera);
     REQUIRE(frame.N >= 2);
     frame.SetPose(Sophus::SE3f{});
     frame.mnDataset   = 0;

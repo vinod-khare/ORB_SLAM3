@@ -2,6 +2,7 @@
 #include "KannalaBrandt8.h"
 #include "MapPoint.h"
 #include "Pinhole.h"
+#include "Tracking.h"
 #include "keypoint_extractor.h"
 
 #include <algorithm>
@@ -21,6 +22,70 @@ TEST_CASE("Default and copied frames own a valid IMU integration lock")
     frame.mK = cv::Mat::eye(3, 3, CV_32F);
     const ORB_SLAM3::Frame copied(frame);
     REQUIRE(copied.imuIsPreintegrated());
+}
+
+TEST_CASE("Frame construction initializes state without extraction")
+{
+    const cv::Mat    calibration = cv::Mat(cv::Matx33f(200, 0, 128, 0, 200, 128, 0, 0, 1));
+    const cv::Mat    distortion  = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::Frame previous(1.0, nullptr, calibration, distortion, 20, 40);
+    previous.SetVelocity(Eigen::Vector3f(1, 2, 3));
+    const Sophus::SE3f relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0, 0));
+    const auto         next_id = ORB_SLAM3::Frame::nNextId;
+    ORB_SLAM3::Frame   current(1.05, nullptr, calibration, distortion, 20, 40, &previous, {}, relative_pose);
+    REQUIRE(current.mnId == next_id);
+    REQUIRE(ORB_SLAM3::Frame::nNextId == next_id + 1);
+    REQUIRE(current.mTimeStamp == 1.05);
+    REQUIRE(current.N == 0);
+    REQUIRE(current.mvKeys.empty());
+    REQUIRE(current.mvKeysRight.empty());
+    REQUIRE(current.mvScaleFactors.empty());
+    REQUIRE(current.optical_flow_pyramid.empty());
+    REQUIRE(current.mpPrevFrame == &previous);
+    REQUIRE(current.HasVelocity());
+    REQUIRE(current.GetVelocity().isApprox(previous.GetVelocity()));
+    REQUIRE(current.GetRelativePoseTlr().matrix().isApprox(relative_pose.matrix()));
+    REQUIRE_FALSE(current.HasPose());
+    REQUIRE_FALSE(current.imuIsPreintegrated());
+    REQUIRE(cv::norm(current.mK, calibration, cv::NORM_INF) == 0);
+    REQUIRE(current.mK.data != calibration.data);
+}
+
+TEST_CASE("Frame feature data survives extractor reuse and destruction")
+{
+    const auto descriptor_type = GENERATE(ORB_SLAM3::keypoint_descriptor_type::orb, ORB_SLAM3::keypoint_descriptor_type::brisk, ORB_SLAM3::keypoint_descriptor_type::sift);
+    cv::Mat    image(256, 256, CV_8UC1);
+    cv::RNG    random(17);
+    random.fill(image, cv::RNG::UNIFORM, 0, 256);
+    ORB_SLAM3::Pinhole camera({200, 200, 128, 128});
+    const cv::Mat      distortion = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::Frame   frame(1.0, nullptr, camera.toK(), distortion, 20, 40);
+    ORB_SLAM3::Frame::mbInitialComputations = true;
+    cv::Mat descriptors;
+    cv::Mat place_descriptors;
+    {
+        ORB_SLAM3::keypoint_extractor extractor(400, 1.2f, 4, 20, 7, ORB_SLAM3::keypoint_detector_type::fast, descriptor_type);
+        ORB_SLAM3::Tracking::extract_features(frame, extractor, image, &camera);
+        REQUIRE(frame.N > 0);
+        REQUIRE(frame.mnScaleLevels == extractor.get_levels());
+        REQUIRE(frame.mfScaleFactor == extractor.get_scale_factor());
+        REQUIRE(frame.mvScaleFactors == extractor.get_scale_factors());
+        REQUIRE(frame.mvInvScaleFactors == extractor.get_inverse_scale_factors());
+        REQUIRE(frame.mvLevelSigma2 == extractor.get_scale_sigma_squares());
+        REQUIRE(frame.mvInvLevelSigma2 == extractor.get_inverse_scale_sigma_squares());
+        descriptors = descriptor_matrix(frame.mvKeys).clone();
+        cv::vconcat(place_descriptor_vector(frame.mvKeys), place_descriptors);
+        ORB_SLAM3::Frame other(2.0, nullptr, camera.toK(), distortion, 20, 40);
+        ORB_SLAM3::Tracking::extract_features(other, extractor, cv::Mat::zeros(image.size(), image.type()), &camera);
+        REQUIRE(other.N == 0);
+    }
+    REQUIRE(cv::norm(descriptor_matrix(frame.mvKeys), descriptors, cv::NORM_INF) == 0);
+    cv::Mat retained_place_descriptors;
+    cv::vconcat(place_descriptor_vector(frame.mvKeys), retained_place_descriptors);
+    REQUIRE(cv::norm(retained_place_descriptors, place_descriptors, cv::NORM_INF) == 0);
+    const ORB_SLAM3::Frame copied(frame);
+    REQUIRE(copied.N == frame.N);
+    REQUIRE(cv::norm(descriptor_matrix(copied.mvKeys), descriptors, cv::NORM_INF) == 0);
 }
 
 TEST_CASE("Optical flow reuses frame pyramids and matches raw image tracking")
@@ -113,19 +178,9 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     }
     Sophus::SE3f relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0, 0));
     ORB_SLAM3::Frame::mbInitialComputations = true;
-    ORB_SLAM3::Frame previous;
-    if (!stereo)
-    {
-        previous = ORB_SLAM3::Frame(image, 1.0, &left_extractor, nullptr, &pinhole, distortion, 20, 40);
-    }
-    else if (camera_kind == 1)
-    {
-        previous = ORB_SLAM3::Frame(image, image, 1.0, &left_extractor, &right_extractor, nullptr, calibration, distortion, 20, 40, &pinhole);
-    }
-    else
-    {
-        previous = ORB_SLAM3::Frame(image, image, 1.0, &left_extractor, &right_extractor, nullptr, calibration, distortion, 20, 40, &left_camera, &right_camera, relative_pose);
-    }
+    ORB_SLAM3::Frame previous(1.0, nullptr, calibration, distortion, 20, 40, nullptr, {}, relative_pose);
+    auto            *camera = camera_kind == 2 ? static_cast<ORB_SLAM3::GeometricCamera *>(&left_camera) : &pinhole;
+    ORB_SLAM3::Tracking::extract_features(previous, left_extractor, image, camera, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr, camera_kind == 2 ? &right_camera : nullptr);
     previous.mpLastKeyFrame = nullptr;
     previous.mnDataset      = 0;
     REQUIRE(previous.N > 0);
@@ -193,8 +248,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     current.setIntegrated();
     current.get_optical_flow_pyramid(image);
     const auto *pyramid_data = current.optical_flow_pyramid.front().data;
-    current.extract_features(image, camera_kind == 2 ? static_cast<ORB_SLAM3::GeometricCamera *>(&left_camera) : &pinhole, stereo ? image : cv::Mat(),
-                             camera_kind == 2 ? &right_camera : nullptr);
+    ORB_SLAM3::Tracking::extract_features(current, left_extractor, image, camera, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr, camera_kind == 2 ? &right_camera : nullptr);
     REQUIRE_FALSE(current.flow_only);
     REQUIRE(current.flow_candidates == 100);
     REQUIRE(current.flow_tracks == 1);
@@ -232,15 +286,20 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mBowVec.empty());
     REQUIRE(current.mFeatVec.empty());
     const auto first_grid = current.GetFeaturesInArea(128, 128, 256);
-    current.extract_features(image, camera_kind == 2 ? static_cast<ORB_SLAM3::GeometricCamera *>(&left_camera) : &pinhole, stereo ? image : cv::Mat(),
-                             camera_kind == 2 ? &right_camera : nullptr);
+    ORB_SLAM3::Tracking::extract_features(current, left_extractor, image, camera, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr, camera_kind == 2 ? &right_camera : nullptr);
     REQUIRE(current.GetFeaturesInArea(128, 128, 256) == first_grid);
 
+    const cv::Mat blank = cv::Mat::zeros(image.size(), image.type());
+    ORB_SLAM3::Tracking::extract_features(current, left_extractor, blank, camera, stereo ? blank : cv::Mat(), stereo ? &right_extractor : nullptr, camera_kind == 2 ? &right_camera : nullptr);
+    REQUIRE(current.N == 0);
+    REQUIRE(current.mvKeys.empty());
+    REQUIRE(current.mvKeysRight.empty());
+    REQUIRE(current.mvKeysUn.empty());
+    REQUIRE(current.mvpMapPoints.empty());
+    REQUIRE(current.mvDepth.empty());
+    REQUIRE(current.GetFeaturesInArea(128, 128, 256).empty());
     if (camera_kind == 2)
     {
-        const cv::Mat blank = cv::Mat::zeros(image.size(), image.type());
-        current.extract_features(blank, &left_camera, blank, &right_camera);
-        REQUIRE(current.N == 0);
         REQUIRE(current.Nleft == 0);
         REQUIRE(current.Nright == 0);
         current.set_tracked_features({tracked}, {&point});
@@ -266,13 +325,14 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
     auto                          calibration = camera.toK();
     cv::Mat                       distortion  = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::Frame::mbInitialComputations   = true;
-    ORB_SLAM3::Frame previous(left, right, 1.0, &left_extractor, &right_extractor, nullptr, calibration, distortion, 20, 40, &camera);
+    ORB_SLAM3::Frame previous(1.0, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::Tracking::extract_features(previous, left_extractor, left, &camera, right, &right_extractor);
     previous.mpLastKeyFrame = nullptr;
     previous.mnDataset      = 0;
     ORB_SLAM3::Frame current(previous, 1.05);
     REQUIRE(current.flow_only);
     REQUIRE(current.mvKeysRight.empty());
-    current.extract_features(left, &camera, right);
+    ORB_SLAM3::Tracking::extract_features(current, left_extractor, left, &camera, right, &right_extractor);
     REQUIRE_FALSE(current.flow_only);
     REQUIRE(current.mvKeys.size() == previous.mvKeys.size());
     REQUIRE(current.mvKeysRight.size() == previous.mvKeysRight.size());
@@ -292,7 +352,9 @@ TEST_CASE("RGB-D frames undistort tracked features without a camera")
     cv::Mat                       distortion  = cv::Mat(cv::Vec4f(-0.1f, 0, 0, 0));
     const cv::Mat                 depth(image.size(), CV_32F, cv::Scalar(2));
     ORB_SLAM3::Frame::mbInitialComputations = true;
-    ORB_SLAM3::Frame frame(image, depth, 1.0, &extractor, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::Frame frame(1.0, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::Tracking::extract_features(frame, extractor, image, nullptr);
+    frame.ComputeStereoFromRGBD(depth);
     REQUIRE(frame.N > 0);
     REQUIRE(frame.Nleft == -1);
     REQUIRE(std::all_of(frame.mvDepth.begin(), frame.mvDepth.end(), [](float value) { return value == 2.0f; }));

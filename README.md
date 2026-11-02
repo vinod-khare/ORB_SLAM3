@@ -127,6 +127,10 @@ Directory `Examples` contains several demo programs and calibration files to run
 
 Detection, description, and matching are independently selectable. Descriptors are computed by OpenCV, not a custom sampling implementation.
 
+`Tracking` owns the extractors and supplies keypoints, descriptors, and scale metadata to `Frame` for all sensor modes, including deferred optical-flow recovery.
+Frame construction initializes calibration/state only. Stereo extraction runs concurrently, and its image pyramids are passed explicitly for stereo depth computation;
+frames retain no extractor references.
+
 ```yaml
 keypoint_extractor:
   n_features: 1024
