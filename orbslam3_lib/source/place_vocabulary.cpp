@@ -37,11 +37,14 @@ void place_vocabulary::set_version(int dbow_version)
     {
         throw std::invalid_argument("dbow_version must be 2 or 3");
     }
+
     const std::unique_lock lock(_mutex);
+    
     if (_version == dbow_version)
     {
         return;
     }
+
     if (dbow_version == 2)
     {
         auto vocabulary = std::make_unique<dbow2_vocabulary>(_filename);
@@ -54,7 +57,9 @@ void place_vocabulary::set_version(int dbow_version)
         _dbow3          = std::move(vocabulary);
         _dbow2.reset();
     }
+
     _version = dbow_version;
+    
     spdlog::info("Place recognition: DBoW{}", _version);
 }
 
