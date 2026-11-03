@@ -22,6 +22,8 @@
 #include "CameraModels/GeometricCamera.h"
 #include "G2oCompat.h"
 
+#include <memory>
+
 #include <Eigen/Geometry>
 #include <g2o/core/base_unary_edge.h>
 #include <g2o/types/sim3/sim3.h>
@@ -33,7 +35,7 @@ class EdgeSE3ProjectXYZOnlyPose : public g2o::BaseUnaryEdge<2, Eigen::Vector2d, 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    EdgeSE3ProjectXYZOnlyPose() {}
+    explicit EdgeSE3ProjectXYZOnlyPose(GeometricCamera &camera) : camera(camera) {}
 
     bool read(std::istream &is);
 
@@ -43,7 +45,7 @@ class EdgeSE3ProjectXYZOnlyPose : public g2o::BaseUnaryEdge<2, Eigen::Vector2d, 
     {
         const g2o::VertexSE3Expmap *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
         Eigen::Vector2d             obs(_measurement);
-        _error = obs - pCamera->project(v1->estimate().map(Xw));
+        _error = obs - camera.project(v1->estimate().map(Xw));
     }
 
     bool isDepthPositive()
@@ -55,7 +57,7 @@ class EdgeSE3ProjectXYZOnlyPose : public g2o::BaseUnaryEdge<2, Eigen::Vector2d, 
     virtual void linearizeOplus();
 
     Eigen::Vector3d  Xw;
-    GeometricCamera *pCamera;
+    GeometricCamera &camera;
 };
 
 class EdgeSE3ProjectXYZOnlyPoseToBody : public g2o::BaseUnaryEdge<2, Eigen::Vector2d, g2o::VertexSE3Expmap>
@@ -63,7 +65,7 @@ class EdgeSE3ProjectXYZOnlyPoseToBody : public g2o::BaseUnaryEdge<2, Eigen::Vect
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    EdgeSE3ProjectXYZOnlyPoseToBody() {}
+    explicit EdgeSE3ProjectXYZOnlyPoseToBody(GeometricCamera &camera) : camera(camera) {}
 
     bool read(std::istream &is);
 
@@ -73,7 +75,7 @@ class EdgeSE3ProjectXYZOnlyPoseToBody : public g2o::BaseUnaryEdge<2, Eigen::Vect
     {
         const g2o::VertexSE3Expmap *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
         Eigen::Vector2d             obs(_measurement);
-        _error = obs - pCamera->project((mTrl * v1->estimate()).map(Xw));
+        _error = obs - camera.project((mTrl * v1->estimate()).map(Xw));
     }
 
     bool isDepthPositive()
@@ -85,7 +87,7 @@ class EdgeSE3ProjectXYZOnlyPoseToBody : public g2o::BaseUnaryEdge<2, Eigen::Vect
     virtual void linearizeOplus();
 
     Eigen::Vector3d  Xw;
-    GeometricCamera *pCamera;
+    GeometricCamera &camera;
 
     g2o::SE3Quat mTrl;
 };
@@ -95,7 +97,7 @@ class EdgeSE3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::Ve
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    EdgeSE3ProjectXYZ();
+    explicit EdgeSE3ProjectXYZ(GeometricCamera &camera);
 
     bool read(std::istream &is);
 
@@ -106,7 +108,7 @@ class EdgeSE3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::Ve
         const g2o::VertexSE3Expmap   *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
         const g2o::VertexSBAPointXYZ *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
         Eigen::Vector2d               obs(_measurement);
-        _error = obs - pCamera->project(v1->estimate().map(v2->estimate()));
+        _error = obs - camera.project(v1->estimate().map(v2->estimate()));
     }
 
     bool isDepthPositive()
@@ -118,7 +120,7 @@ class EdgeSE3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::Ve
 
     virtual void linearizeOplus();
 
-    GeometricCamera *pCamera;
+    GeometricCamera &camera;
 };
 
 class EdgeSE3ProjectXYZToBody : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>
@@ -126,7 +128,7 @@ class EdgeSE3ProjectXYZToBody : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    EdgeSE3ProjectXYZToBody();
+    explicit EdgeSE3ProjectXYZToBody(GeometricCamera &camera);
 
     bool read(std::istream &is);
 
@@ -137,7 +139,7 @@ class EdgeSE3ProjectXYZToBody : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g
         const g2o::VertexSE3Expmap   *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
         const g2o::VertexSBAPointXYZ *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
         Eigen::Vector2d               obs(_measurement);
-        _error = obs - pCamera->project((mTrl * v1->estimate()).map(v2->estimate()));
+        _error = obs - camera.project((mTrl * v1->estimate()).map(v2->estimate()));
     }
 
     bool isDepthPositive()
@@ -149,7 +151,7 @@ class EdgeSE3ProjectXYZToBody : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g
 
     virtual void linearizeOplus();
 
-    GeometricCamera *pCamera;
+    GeometricCamera &camera;
     g2o::SE3Quat     mTrl;
 };
 
@@ -157,7 +159,7 @@ class VertexSim3Expmap : public g2o::BaseVertex<7, g2o::Sim3>
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    VertexSim3Expmap();
+    explicit VertexSim3Expmap(const camera_vector &cameras);
     virtual bool read(std::istream &is);
     virtual bool write(std::ostream &os) const;
 
@@ -176,7 +178,7 @@ class VertexSim3Expmap : public g2o::BaseVertex<7, g2o::Sim3>
         setEstimate(s * estimate());
     }
 
-    GeometricCamera *pCamera1, *pCamera2;
+    const camera_vector &cameras;
 
     bool _fix_scale;
 };
@@ -195,7 +197,7 @@ class EdgeSim3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::V
         const g2o::VertexSBAPointXYZ      *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
 
         Eigen::Vector2d obs(_measurement);
-        _error = obs - v1->pCamera1->project(v1->estimate().map(v2->estimate()));
+        _error = obs - v1->cameras[0]->project(v1->estimate().map(v2->estimate()));
     }
 };
 
@@ -213,7 +215,7 @@ class EdgeInverseSim3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d,
         const g2o::VertexSBAPointXYZ      *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
 
         Eigen::Vector2d obs(_measurement);
-        _error = obs - v1->pCamera2->project((v1->estimate().inverse().map(v2->estimate())));
+        _error = obs - v1->cameras[0]->project((v1->estimate().inverse().map(v2->estimate())));
     }
 };
 

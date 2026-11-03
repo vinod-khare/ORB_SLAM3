@@ -203,14 +203,14 @@ Eigen::Matrix3f KannalaBrandt8::toK_()
     return K;
 }
 
-bool KannalaBrandt8::epipolarConstrain(GeometricCamera *pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12,
+bool KannalaBrandt8::epipolarConstrain(GeometricCamera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12,
                                        const float sigmaLevel, const float unc)
 {
     Eigen::Vector3f p3D;
     return this->TriangulateMatches(pCamera2, kp1, kp2, R12, t12, sigmaLevel, unc, p3D) > 0.0001f;
 }
 
-bool KannalaBrandt8::matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, GeometricCamera *pOther, Sophus::SE3f &Tcw1, Sophus::SE3f &Tcw2, const float sigmaLevel1,
+bool KannalaBrandt8::matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, GeometricCamera &pOther, Sophus::SE3f &Tcw1, Sophus::SE3f &Tcw2, const float sigmaLevel1,
                                          const float sigmaLevel2, Eigen::Vector3f &x3Dtriangulated)
 {
     Eigen::Matrix<float, 3, 4> eigTcw1 = Tcw1.matrix3x4();
@@ -221,7 +221,7 @@ bool KannalaBrandt8::matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyP
     Eigen::Matrix3f            Rwc2    = Rcw2.transpose();
 
     cv::Point3f ray1c = this->unproject(kp1.pt);
-    cv::Point3f ray2c = pOther->unproject(kp2.pt);
+    cv::Point3f ray2c = pOther.unproject(kp2.pt);
 
     Eigen::Vector3f r1(ray1c.x, ray1c.y, ray1c.z);
     Eigen::Vector3f r2(ray2c.x, ray2c.y, ray2c.z);
@@ -280,7 +280,7 @@ bool KannalaBrandt8::matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyP
     // Check reprojection error in second keyframe;
     //   -Transform point into camera reference system
     Eigen::Vector3f x3D2 = Rcw2 * x3D + Tcw2.translation(); // avoid using q
-    Eigen::Vector2f uv2  = pOther->project(x3D2);
+    Eigen::Vector2f uv2  = pOther.project(x3D2);
 
     float errX2 = uv2(0) - kp2.pt.x;
     float errY2 = uv2(1) - kp2.pt.y;
@@ -297,12 +297,12 @@ bool KannalaBrandt8::matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyP
     return true;
 }
 
-float KannalaBrandt8::TriangulateMatches(GeometricCamera *pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12,
+float KannalaBrandt8::TriangulateMatches(GeometricCamera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12,
                                          const float sigmaLevel, const float unc, Eigen::Vector3f &p3D)
 {
 
     Eigen::Vector3f r1 = this->unprojectEig(kp1.pt);
-    Eigen::Vector3f r2 = pCamera2->unprojectEig(kp2.pt);
+    Eigen::Vector3f r2 = pCamera2.unprojectEig(kp2.pt);
 
     // Check parallax
     Eigen::Vector3f r21 = R12 * r2;
@@ -358,7 +358,7 @@ float KannalaBrandt8::TriangulateMatches(GeometricCamera *pCamera2, const cv::Ke
     }
 
     Eigen::Vector3f x3D2 = R21 * x3D + Tcw2.col(3);
-    Eigen::Vector2f uv2  = pCamera2->project(x3D2);
+    Eigen::Vector2f uv2  = pCamera2.project(x3D2);
 
     float errX2 = uv2(0) - kp2.pt.x;
     float errY2 = uv2(1) - kp2.pt.y;
@@ -405,21 +405,21 @@ void KannalaBrandt8::Triangulate(const cv::Point2f &p1, const cv::Point2f &p2, c
     x3D                                    = x3Dh.head(3) / x3Dh(3);
 }
 
-bool KannalaBrandt8::IsEqual(GeometricCamera *pCam)
+bool KannalaBrandt8::IsEqual(GeometricCamera &pCam)
 {
-    if (pCam->GetType() != GeometricCamera::CAM_FISHEYE)
+    if (pCam.GetType() != GeometricCamera::CAM_FISHEYE)
     {
         return false;
     }
 
-    KannalaBrandt8 *pKBCam = (KannalaBrandt8 *)pCam;
+    auto &pKBCam = static_cast<KannalaBrandt8 &>(pCam);
 
-    if (abs(precision - pKBCam->GetPrecision()) > 1e-6)
+    if (abs(precision - pKBCam.GetPrecision()) > 1e-6)
     {
         return false;
     }
 
-    if (size() != pKBCam->size())
+    if (size() != pKBCam.size())
     {
         return false;
     }
@@ -427,7 +427,7 @@ bool KannalaBrandt8::IsEqual(GeometricCamera *pCam)
     bool is_same_camera = true;
     for (size_t i = 0; i < size(); ++i)
     {
-        if (abs(mvParameters[i] - pKBCam->getParameter(i)) > 1e-6)
+        if (abs(mvParameters[i] - pKBCam.getParameter(i)) > 1e-6)
         {
             is_same_camera = false;
             break;

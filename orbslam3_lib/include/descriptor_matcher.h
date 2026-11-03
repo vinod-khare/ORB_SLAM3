@@ -26,6 +26,7 @@
 #include "sophus/sim3.hpp"
 
 #include <functional>
+#include <memory>
 #include <vector>
 
 #include <opencv2/core/core.hpp>
@@ -56,11 +57,11 @@ class descriptor_matcher
 
     // Project MapPoints tracked in last frame into the current frame and search matches.
     // Used to track from previous frame (Tracking)
-    int search_by_projection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono, GeometricCamera *camera);
+    int search_by_projection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono, const camera_vector &cameras);
 
     // Project MapPoints seen in KeyFrame into the Frame and search matches.
     // Used in relocalisation (Tracking)
-    int search_by_projection(Frame &CurrentFrame, KeyFrame *pKF, const std::set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold, GeometricCamera *camera);
+    int search_by_projection(Frame &CurrentFrame, KeyFrame *pKF, const std::set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras);
 
     // Project MapPoints using a Similarity Transformation and search matches.
     // Used in loop detection (Loop Closing)

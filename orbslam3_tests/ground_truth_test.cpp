@@ -153,9 +153,10 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     ORB_SLAM3::Atlas              atlas(0);
     auto                         *map = atlas.GetCurrentMap();
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
-    ORB_SLAM3::Pinhole            camera({200, 200, 128, 128});
-    cv::Mat                       image(256, 256, CV_8UC1);
-    cv::RNG                       random(42);
+    ORB_SLAM3::camera_vector      cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+    cv::Mat image(256, 256, CV_8UC1);
+    cv::RNG random(42);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     cv::Mat distortion                      = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::Frame::mbInitialComputations = true;
@@ -163,12 +164,12 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     std::vector<std::unique_ptr<ORB_SLAM3::KeyFrame>> keyframes;
     for (const double timestamp : {1.25, 2.25, 3.25})
     {
-        ORB_SLAM3::Frame frame(timestamp, nullptr, camera.toK(), distortion, 0, 40);
-        ORB_SLAM3::Tracking::extract_features(frame, extractor, image, &camera);
+        ORB_SLAM3::Frame frame(timestamp, nullptr, cameras[0]->toK(), distortion, 0, 40);
+        ORB_SLAM3::Tracking::extract_features(frame, extractor, image, cameras);
         frame.mnDataset                = 0;
         const Eigen::Vector3f position = trajectory.pose_at(timestamp)->translation().cast<float>();
         frame.SetPose(Sophus::SE3f(Eigen::Quaternionf::Identity(), -position));
-        keyframes.push_back(std::make_unique<ORB_SLAM3::KeyFrame>(frame, map, nullptr, &camera));
+        keyframes.push_back(std::make_unique<ORB_SLAM3::KeyFrame>(frame, map, nullptr, cameras));
         map->AddKeyFrame(keyframes.back().get());
     }
     ORB_SLAM3::MapDrawer drawer(atlas, settings);

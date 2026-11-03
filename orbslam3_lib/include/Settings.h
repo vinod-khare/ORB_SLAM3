@@ -66,11 +66,10 @@ class Settings
     /*
      * Getter methods
      */
-    CameraType       cameraType() { return cameraType_; }
-    GeometricCamera *camera1() { return calibration1_; }
-    GeometricCamera *camera2() { return calibration2_; }
-    cv::Mat          camera1DistortionCoef() { return cv::Mat(vPinHoleDistorsion1_.size(), 1, CV_32F, vPinHoleDistorsion1_.data()); }
-    cv::Mat          camera2DistortionCoef() { return cv::Mat(vPinHoleDistorsion2_.size(), 1, CV_32F, vPinHoleDistorsion2_.data()); }
+    CameraType           cameraType() { return cameraType_; }
+    const camera_vector &cameras() const { return _cameras; }
+    cv::Mat              camera1DistortionCoef() { return cv::Mat(vPinHoleDistorsion1_.size(), 1, CV_32F, vPinHoleDistorsion1_.data()); }
+    cv::Mat              camera2DistortionCoef() { return cv::Mat(vPinHoleDistorsion2_.size(), 1, CV_32F, vPinHoleDistorsion2_.data()); }
 
     Sophus::SE3f Tlr() { return Tlr_; }
     float        bf() { return bf_; }
@@ -114,6 +113,8 @@ class Settings
     cv::Mat M2r() { return M2r_; }
 
   private:
+    friend class System;
+
     template <typename T> T readParameter(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required = true)
     {
         cv::FileNode node = fSettings[name];
@@ -154,9 +155,9 @@ class Settings
     /*
      * Visual stuff
      */
-    GeometricCamera                 *calibration1_{}, *calibration2_{}; // Camera calibration
-    std::unique_ptr<GeometricCamera> originalCalib1_, originalCalib2_;
-    std::vector<float>               vPinHoleDistorsion1_, vPinHoleDistorsion2_;
+    camera_vector      _cameras;
+    camera_vector      _original_cameras;
+    std::vector<float> vPinHoleDistorsion1_, vPinHoleDistorsion2_;
 
     cv::Size originalImSize_, newImSize_;
     float    fps_;

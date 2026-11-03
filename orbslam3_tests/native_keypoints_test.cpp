@@ -6,6 +6,7 @@
 #include "keypoint_extractor.h"
 
 #include <algorithm>
+#include <memory>
 
 #include <opencv2/xfeatures2d.hpp>
 
@@ -113,11 +114,12 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     cv::RNG random(42);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
-    ORB_SLAM3::Pinhole            camera({100, 100, 64, 64});
-    cv::Mat                       distortion = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::Frame::mbInitialComputations  = true;
-    ORB_SLAM3::Frame frame(0.0, nullptr, camera.toK(), distortion, 10.f, 40.f);
-    ORB_SLAM3::Tracking::extract_features(frame, extractor, image, &camera);
+    ORB_SLAM3::camera_vector      cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{100, 100, 64, 64}));
+    cv::Mat distortion                      = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::Frame::mbInitialComputations = true;
+    ORB_SLAM3::Frame frame(0.0, nullptr, cameras[0]->toK(), distortion, 10.f, 40.f);
+    ORB_SLAM3::Tracking::extract_features(frame, extractor, image, cameras);
     REQUIRE(frame.N >= 2);
     REQUIRE(frame.extraction_ms > 0);
     REQUIRE(frame.stereo_matching_ms >= 0);
@@ -136,7 +138,10 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     ORB_SLAM3::Map map;
     const auto     second_keypoint                                                          = frame.mvKeys[1].pt;
     frame.color_image.at<cv::Vec3b>(cvRound(second_keypoint.y), cvRound(second_keypoint.x)) = cv::Vec3b(220, 40, 10);
-    ORB_SLAM3::KeyFrame colored_keyframe(frame, &map, nullptr, &camera);
+    ORB_SLAM3::KeyFrame colored_keyframe(frame, &map, nullptr, cameras);
+    REQUIRE(&colored_keyframe.cameras == &cameras);
+    REQUIRE(colored_keyframe.cameras[0]->getParameter(0) == 100);
+    REQUIRE(colored_keyframe.cameras.size() == 1);
     REQUIRE(colored_keyframe.mvKeys[0].color == frame.keypoint_color(0));
     const std::array<unsigned char, 3> second_color{10, 40, 220};
     REQUIRE(colored_keyframe.mvKeys[1].color == second_color);

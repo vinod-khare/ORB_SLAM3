@@ -29,16 +29,16 @@
 namespace ORB_SLAM3
 {
 
-bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_points, const std::vector<cv::Point2f> &image_points, const std::vector<float> &max_errors, GeometricCamera *camera,
+bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_points, const std::vector<cv::Point2f> &image_points, const std::vector<float> &max_errors, GeometricCamera &camera,
                                       int min_inliers, Eigen::Matrix4f &Tcw, std::vector<bool> &inliers)
 {
     inliers.assign(world_points.size(), false);
-    if (!camera || world_points.size() < static_cast<size_t>(min_inliers) || image_points.size() != world_points.size() || max_errors.size() != world_points.size())
+    if (world_points.size() < static_cast<size_t>(min_inliers) || image_points.size() != world_points.size() || max_errors.size() != world_points.size())
     {
         return false;
     }
 
-    const bool is_fisheye      = camera->GetType() == GeometricCamera::CAM_FISHEYE;
+    const bool is_fisheye      = camera.GetType() == GeometricCamera::CAM_FISHEYE;
     double     max_pixel_error = 0.0;
     for (size_t i = 0; i < image_points.size(); ++i)
     {
@@ -49,11 +49,11 @@ bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poin
         max_pixel_error = std::max(max_pixel_error, static_cast<double>(max_errors[i]));
     }
 
-    cv::Mat camera_matrix = cv::Mat(cv::Matx33d(camera->getParameter(0), 0.0, camera->getParameter(2), 0.0, camera->getParameter(1), camera->getParameter(3), 0.0, 0.0, 1.0));
+    cv::Mat camera_matrix = cv::Mat(cv::Matx33d(camera.getParameter(0), 0.0, camera.getParameter(2), 0.0, camera.getParameter(1), camera.getParameter(3), 0.0, 0.0, 1.0));
     cv::Mat distortion_coefficients;
     if (is_fisheye)
     {
-        distortion_coefficients = cv::Mat(cv::Vec4d(camera->getParameter(4), camera->getParameter(5), camera->getParameter(6), camera->getParameter(7)));
+        distortion_coefficients = cv::Mat(cv::Vec4d(camera.getParameter(4), camera.getParameter(5), camera.getParameter(6), camera.getParameter(7)));
     }
 
     cv::Mat          rotation_vector;
@@ -82,7 +82,7 @@ bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poin
 
         if (is_fisheye)
         {
-            const double focal_length = std::min(camera->getParameter(0), camera->getParameter(1));
+            const double focal_length = std::min(camera.getParameter(0), camera.getParameter(1));
 
             if (focal_length <= 0.0)
             {
@@ -91,7 +91,7 @@ bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poin
 
             for (size_t i = 0; i < image_points.size(); ++i)
             {
-                const cv::Point3f bearing = camera->unproject(image_points[i]);
+                const cv::Point3f bearing = camera.unproject(image_points[i]);
                 if (!std::isfinite(bearing.x) || !std::isfinite(bearing.y) || !std::isfinite(bearing.z) || bearing.z <= 0.0f)
                 {
                     return false;
@@ -163,7 +163,7 @@ bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poin
                     continue;
                 }
 
-                const Eigen::Vector2f projected = camera->project(camera_point);
+                const Eigen::Vector2f projected = camera.project(camera_point);
                 const Eigen::Vector2f observed(image_points[i].x, image_points[i].y);
 
                 if ((projected - observed).squaredNorm() < max_errors[i])
@@ -246,8 +246,8 @@ Eigen::Matrix3f GeometricTools::ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2)
 
     Eigen::Matrix3f tc1c2x = Sophus::SO3f::hat(tc1c2);
 
-    const Eigen::Matrix3f K1 = pKF1->mpCamera->toK_();
-    const Eigen::Matrix3f K2 = pKF2->mpCamera->toK_();
+    const Eigen::Matrix3f K1 = pKF1->cameras[0]->toK_();
+    const Eigen::Matrix3f K2 = pKF2->cameras[0]->toK_();
 
     return K1.transpose().inverse() * tc1c2x * Rc1c2 * K2.inverse();
 }

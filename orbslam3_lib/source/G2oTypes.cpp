@@ -23,7 +23,7 @@
 namespace ORB_SLAM3
 {
 
-ImuCamPose::ImuCamPose(KeyFrame *pKF) : its(0)
+ImuCamPose::ImuCamPose(KeyFrame *pKF) : cameras(pKF->cameras), its(0)
 {
     // Load IMU pose
     twb = pKF->GetImuPosition().cast<double>();
@@ -31,7 +31,7 @@ ImuCamPose::ImuCamPose(KeyFrame *pKF) : its(0)
 
     // Load camera poses
     int num_cams;
-    if (pKF->mpCamera2)
+    if (is_fisheye_stereo(pKF->cameras))
     {
         num_cams = 2;
     }
@@ -46,17 +46,15 @@ ImuCamPose::ImuCamPose(KeyFrame *pKF) : its(0)
     Rcb.resize(num_cams);
     Rbc.resize(num_cams);
     tbc.resize(num_cams);
-    pCamera.resize(num_cams);
 
     // Left camera
-    tcw[0]     = pKF->GetTranslation().cast<double>();
-    Rcw[0]     = pKF->GetRotation().cast<double>();
-    tcb[0]     = pKF->mImuCalib.mTcb.translation().cast<double>();
-    Rcb[0]     = pKF->mImuCalib.mTcb.rotationMatrix().cast<double>();
-    Rbc[0]     = Rcb[0].transpose();
-    tbc[0]     = pKF->mImuCalib.mTbc.translation().cast<double>();
-    pCamera[0] = pKF->mpCamera;
-    bf         = pKF->mbf;
+    tcw[0] = pKF->GetTranslation().cast<double>();
+    Rcw[0] = pKF->GetRotation().cast<double>();
+    tcb[0] = pKF->mImuCalib.mTcb.translation().cast<double>();
+    Rcb[0] = pKF->mImuCalib.mTcb.rotationMatrix().cast<double>();
+    Rbc[0] = Rcb[0].transpose();
+    tbc[0] = pKF->mImuCalib.mTbc.translation().cast<double>();
+    bf     = pKF->mbf;
 
     if (num_cams > 1)
     {
@@ -67,7 +65,6 @@ ImuCamPose::ImuCamPose(KeyFrame *pKF) : its(0)
         Rcb[1]              = Trl.block<3, 3>(0, 0) * Rcb[0];
         Rbc[1]              = Rcb[1].transpose();
         tbc[1]              = -Rbc[1] * tcb[1];
-        pCamera[1]          = pKF->mpCamera2;
     }
 
     // For posegraph 4DoF
@@ -75,7 +72,7 @@ ImuCamPose::ImuCamPose(KeyFrame *pKF) : its(0)
     DR.setIdentity();
 }
 
-ImuCamPose::ImuCamPose(Frame *pF, GeometricCamera *camera, GeometricCamera *right_camera) : its(0)
+ImuCamPose::ImuCamPose(Frame *pF, const camera_vector &cameras) : cameras(cameras), its(0)
 {
     // Load IMU pose
     twb = pF->GetImuPosition().cast<double>();
@@ -83,7 +80,7 @@ ImuCamPose::ImuCamPose(Frame *pF, GeometricCamera *camera, GeometricCamera *righ
 
     // Load camera poses
     int num_cams;
-    if (right_camera)
+    if (is_fisheye_stereo(cameras))
     {
         num_cams = 2;
     }
@@ -98,17 +95,15 @@ ImuCamPose::ImuCamPose(Frame *pF, GeometricCamera *camera, GeometricCamera *righ
     Rcb.resize(num_cams);
     Rbc.resize(num_cams);
     tbc.resize(num_cams);
-    pCamera.resize(num_cams);
 
     // Left camera
-    tcw[0]     = pF->GetPose().translation().cast<double>();
-    Rcw[0]     = pF->GetPose().rotationMatrix().cast<double>();
-    tcb[0]     = pF->mImuCalib.mTcb.translation().cast<double>();
-    Rcb[0]     = pF->mImuCalib.mTcb.rotationMatrix().cast<double>();
-    Rbc[0]     = Rcb[0].transpose();
-    tbc[0]     = pF->mImuCalib.mTbc.translation().cast<double>();
-    pCamera[0] = camera;
-    bf         = pF->mbf;
+    tcw[0] = pF->GetPose().translation().cast<double>();
+    Rcw[0] = pF->GetPose().rotationMatrix().cast<double>();
+    tcb[0] = pF->mImuCalib.mTcb.translation().cast<double>();
+    Rcb[0] = pF->mImuCalib.mTcb.rotationMatrix().cast<double>();
+    Rbc[0] = Rcb[0].transpose();
+    tbc[0] = pF->mImuCalib.mTbc.translation().cast<double>();
+    bf     = pF->mbf;
 
     if (num_cams > 1)
     {
@@ -119,7 +114,6 @@ ImuCamPose::ImuCamPose(Frame *pF, GeometricCamera *camera, GeometricCamera *righ
         Rcb[1]              = Trl.block<3, 3>(0, 0) * Rcb[0];
         Rbc[1]              = Rcb[1].transpose();
         tbc[1]              = -Rbc[1] * tcb[1];
-        pCamera[1]          = right_camera;
     }
 
     // For posegraph 4DoF
@@ -127,7 +121,7 @@ ImuCamPose::ImuCamPose(Frame *pF, GeometricCamera *camera, GeometricCamera *righ
     DR.setIdentity();
 }
 
-ImuCamPose::ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF) : its(0)
+ImuCamPose::ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF) : cameras(pKF->cameras), its(0)
 {
     // This is only for posegrpah, we do not care about multicamera
     tcw.resize(1);
@@ -136,18 +130,16 @@ ImuCamPose::ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *p
     Rcb.resize(1);
     Rbc.resize(1);
     tbc.resize(1);
-    pCamera.resize(1);
 
-    tcb[0]     = pKF->mImuCalib.mTcb.translation().cast<double>();
-    Rcb[0]     = pKF->mImuCalib.mTcb.rotationMatrix().cast<double>();
-    Rbc[0]     = Rcb[0].transpose();
-    tbc[0]     = pKF->mImuCalib.mTbc.translation().cast<double>();
-    twb        = _Rwc * tcb[0] + _twc;
-    Rwb        = _Rwc * Rcb[0];
-    Rcw[0]     = _Rwc.transpose();
-    tcw[0]     = -Rcw[0] * _twc;
-    pCamera[0] = pKF->mpCamera;
-    bf         = pKF->mbf;
+    tcb[0] = pKF->mImuCalib.mTcb.translation().cast<double>();
+    Rcb[0] = pKF->mImuCalib.mTcb.rotationMatrix().cast<double>();
+    Rbc[0] = Rcb[0].transpose();
+    tbc[0] = pKF->mImuCalib.mTbc.translation().cast<double>();
+    twb    = _Rwc * tcb[0] + _twc;
+    Rwb    = _Rwc * Rcb[0];
+    Rcw[0] = _Rwc.transpose();
+    tcw[0] = -Rcw[0] * _twc;
+    bf     = pKF->mbf;
 
     // For posegraph 4DoF
     Rwb0 = Rwb;
@@ -180,7 +172,7 @@ Eigen::Vector2d ImuCamPose::Project(const Eigen::Vector3d &Xw, int cam_idx) cons
 {
     Eigen::Vector3d Xc = Rcw[cam_idx] * Xw + tcw[cam_idx];
 
-    return pCamera[cam_idx]->project(Xc);
+    return cameras[cam_idx]->project(Xc);
 }
 
 Eigen::Vector3d ImuCamPose::ProjectStereo(const Eigen::Vector3d &Xw, int cam_idx) const
@@ -188,7 +180,7 @@ Eigen::Vector3d ImuCamPose::ProjectStereo(const Eigen::Vector3d &Xw, int cam_idx
     Eigen::Vector3d Pc = Rcw[cam_idx] * Xw + tcw[cam_idx];
     Eigen::Vector3d pc;
     double          invZ = 1 / Pc(2);
-    pc.head(2)           = pCamera[cam_idx]->project(Pc);
+    pc.head(2)           = cameras[cam_idx]->project(Pc);
     pc(2)                = pc(0) - bf * invZ;
     return pc;
 }
@@ -217,7 +209,7 @@ void ImuCamPose::Update(const double *pu)
     const Eigen::Matrix3d Rbw = Rwb.transpose();
     const Eigen::Vector3d tbw = -Rbw * twb;
 
-    for (size_t i = 0; i < pCamera.size(); i++)
+    for (size_t i = 0; i < Rcw.size(); i++)
     {
         Rcw[i] = Rcb[i] * Rbw;
         tcw[i] = Rcb[i] * tbw + tcb[i];
@@ -252,7 +244,7 @@ void ImuCamPose::UpdateW(const double *pu)
     const Eigen::Matrix3d Rbw = Rwb.transpose();
     const Eigen::Vector3d tbw = -Rbw * twb;
 
-    for (size_t i = 0; i < pCamera.size(); i++)
+    for (size_t i = 0; i < Rcw.size(); i++)
     {
         Rcw[i] = Rcb[i] * Rbw;
         tcw[i] = Rcb[i] * tbw + tcb[i];
@@ -268,10 +260,10 @@ void InvDepthPoint::Update(const double *pu) { rho += *pu; }
 
 bool VertexPose::read(std::istream &is)
 {
-    std::vector<Eigen::Matrix<double, 3, 3>> Rcw;
-    std::vector<Eigen::Matrix<double, 3, 1>> tcw;
-    std::vector<Eigen::Matrix<double, 3, 3>> Rbc;
-    std::vector<Eigen::Matrix<double, 3, 1>> tbc;
+    std::vector<Eigen::Matrix<double, 3, 3>> Rcw(_estimate.Rcw.size());
+    std::vector<Eigen::Matrix<double, 3, 1>> tcw(_estimate.tcw.size());
+    std::vector<Eigen::Matrix<double, 3, 3>> Rbc(_estimate.Rbc.size());
+    std::vector<Eigen::Matrix<double, 3, 1>> tbc(_estimate.tbc.size());
 
     const int num_cams = _estimate.Rbc.size();
     for (int idx = 0; idx < num_cams; idx++)
@@ -301,10 +293,12 @@ bool VertexPose::read(std::istream &is)
         }
 
         float nextParam;
-        for (size_t i = 0; i < _estimate.pCamera[idx]->size(); i++)
+        for (size_t i = 0; i < _estimate.cameras[idx]->size(); i++)
         {
-            is >> nextParam;
-            _estimate.pCamera[idx]->setParameter(nextParam, i);
+            if (!(is >> nextParam))
+            {
+                return false;
+            }
         }
     }
 
@@ -352,9 +346,9 @@ bool VertexPose::write(std::ostream &os) const
             os << tbc[idx](i) << " ";
         }
 
-        for (size_t i = 0; i < _estimate.pCamera[idx]->size(); i++)
+        for (size_t i = 0; i < _estimate.cameras[idx]->size(); i++)
         {
-            os << _estimate.pCamera[idx]->getParameter(i) << " ";
+            os << _estimate.cameras[idx]->getParameter(i) << " ";
         }
     }
 
@@ -374,7 +368,7 @@ void EdgeMono::linearizeOplus()
     const Eigen::Vector3d  Xb  = VPose->estimate().Rbc[cam_idx] * Xc + VPose->estimate().tbc[cam_idx];
     const Eigen::Matrix3d &Rcb = VPose->estimate().Rcb[cam_idx];
 
-    const Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().pCamera[cam_idx]->projectJac(Xc);
+    const Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().cameras[cam_idx]->projectJac(Xc);
     _jacobianOplusXi                           = -proj_jac * Rcw;
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
@@ -397,7 +391,7 @@ void EdgeMonoOnlyPose::linearizeOplus()
     const Eigen::Vector3d  Xb  = VPose->estimate().Rbc[cam_idx] * Xc + VPose->estimate().tbc[cam_idx];
     const Eigen::Matrix3d &Rcb = VPose->estimate().Rcb[cam_idx];
 
-    Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().pCamera[cam_idx]->projectJac(Xc);
+    Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().cameras[cam_idx]->projectJac(Xc);
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     double                      x = Xb(0);
@@ -421,7 +415,7 @@ void EdgeStereo::linearizeOplus()
     const double           inv_z2 = 1.0 / (Xc(2) * Xc(2));
 
     Eigen::Matrix<double, 3, 3> proj_jac;
-    proj_jac.block<2, 3>(0, 0)  = VPose->estimate().pCamera[cam_idx]->projectJac(Xc);
+    proj_jac.block<2, 3>(0, 0)  = VPose->estimate().cameras[cam_idx]->projectJac(Xc);
     proj_jac.block<1, 3>(2, 0)  = proj_jac.block<1, 3>(0, 0);
     proj_jac(2, 2)             += bf * inv_z2;
 
@@ -450,7 +444,7 @@ void EdgeStereoOnlyPose::linearizeOplus()
     const double           inv_z2 = 1.0 / (Xc(2) * Xc(2));
 
     Eigen::Matrix<double, 3, 3> proj_jac;
-    proj_jac.block<2, 3>(0, 0)  = VPose->estimate().pCamera[cam_idx]->projectJac(Xc);
+    proj_jac.block<2, 3>(0, 0)  = VPose->estimate().cameras[cam_idx]->projectJac(Xc);
     proj_jac.block<1, 3>(2, 0)  = proj_jac.block<1, 3>(0, 0);
     proj_jac(2, 2)             += bf * inv_z2;
 

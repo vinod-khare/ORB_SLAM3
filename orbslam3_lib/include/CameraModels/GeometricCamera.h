@@ -22,6 +22,8 @@
 #include "Converter.h"
 #include "GeometricTools.h"
 
+#include <memory>
+#include <span>
 #include <vector>
 
 #include <Eigen/Geometry>
@@ -35,7 +37,7 @@ class GeometricCamera
   public:
     GeometricCamera() {}
     GeometricCamera(const std::vector<float> &_vParameters) : mvParameters(_vParameters) {}
-    ~GeometricCamera() {}
+    virtual ~GeometricCamera() = default;
 
     virtual cv::Point2f     project(const cv::Point3f &p3D)     = 0;
     virtual Eigen::Vector2d project(const Eigen::Vector3d &v3D) = 0;
@@ -55,7 +57,7 @@ class GeometricCamera
     virtual cv::Mat         toK()  = 0;
     virtual Eigen::Matrix3f toK_() = 0;
 
-    virtual bool epipolarConstrain(GeometricCamera *otherCamera, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12,
+    virtual bool epipolarConstrain(GeometricCamera &otherCamera, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12,
                                    const float sigmaLevel, const float unc) = 0;
 
     float getParameter(const int i) { return mvParameters[i]; }
@@ -63,7 +65,7 @@ class GeometricCamera
 
     size_t size() { return mvParameters.size(); }
 
-    virtual bool matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, GeometricCamera *pOther, Sophus::SE3f &Tcw1, Sophus::SE3f &Tcw2, const float sigmaLevel1,
+    virtual bool matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, GeometricCamera &pOther, Sophus::SE3f &Tcw1, Sophus::SE3f &Tcw2, const float sigmaLevel1,
                                      const float sigmaLevel2, Eigen::Vector3f &x3Dtriangulated) = 0;
 
     unsigned int GetId() { return mnId; }
@@ -82,6 +84,11 @@ class GeometricCamera
 
     unsigned int mnType;
 };
+
+using camera_vector = std::vector<std::unique_ptr<GeometricCamera>>;
+using camera_view   = std::span<const std::unique_ptr<GeometricCamera>>;
+
+inline bool is_fisheye_stereo(camera_view cameras) { return cameras.size() == 2 && cameras[0]->GetType() == GeometricCamera::CAM_FISHEYE; }
 } // namespace ORB_SLAM3
 
 #endif // CAMERAMODELS_GEOMETRICCAMERA_H

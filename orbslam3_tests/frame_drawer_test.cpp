@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <future>
+#include <memory>
 
 #include <opencv2/imgproc.hpp>
 
@@ -126,11 +127,12 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     cv::RNG          random(42);
     random.fill(input, cv::RNG::UNIFORM, 0, 256);
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
-    ORB_SLAM3::Pinhole            camera({100, 100, 64, 64});
-    cv::Mat                       distortion = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::Frame::mbInitialComputations  = true;
-    ORB_SLAM3::Frame frame(0.0, nullptr, camera.toK(), distortion, 10.f, 40.f);
-    ORB_SLAM3::Tracking::extract_features(frame, extractor, input, &camera);
+    ORB_SLAM3::camera_vector      cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{100, 100, 64, 64}));
+    cv::Mat distortion                      = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::Frame::mbInitialComputations = true;
+    ORB_SLAM3::Frame frame(0.0, nullptr, cameras[0]->toK(), distortion, 10.f, 40.f);
+    ORB_SLAM3::Tracking::extract_features(frame, extractor, input, cameras);
     REQUIRE(frame.N >= 2);
     frame.SetPose(Sophus::SE3f{});
     frame.mnDataset   = 0;
@@ -140,7 +142,7 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
         const auto &position                                                      = frame.mvKeys[index].pt;
         frame.color_image.at<cv::Vec3b>(cvRound(position.y), cvRound(position.x)) = index == 0 ? cv::Vec3b(0, 0, 255) : cv::Vec3b(255, 0, 0);
     }
-    ORB_SLAM3::KeyFrame keyframe(frame, &map, nullptr, &camera);
+    ORB_SLAM3::KeyFrame keyframe(frame, &map, nullptr, cameras);
     ORB_SLAM3::MapPoint red(Eigen::Vector3f(-0.2f, 0.f, 0.f), &keyframe, &map);
     ORB_SLAM3::MapPoint blue(Eigen::Vector3f(0.2f, 0.f, 0.f), &keyframe, &map);
     red.AddObservation(&keyframe, 0);

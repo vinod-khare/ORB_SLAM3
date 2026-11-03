@@ -46,17 +46,7 @@ std::vector<keypoint> keypoints_with_color(Frame &frame, const std::vector<keypo
 
 long unsigned int KeyFrame::nNextId = 0;
 
-KeyFrame::KeyFrame()
-    : mnFrameId(0), mTimeStamp(0), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS), mfGridElementWidthInv(0), mfGridElementHeightInv(0), mnTrackReferenceForFrame(0),
-      mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0), mnNumberOfOpt(0), mnLoopQuery(0), mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), mnMergeQuery(0), mnMergeWords(0),
-      mnPlaceRecognitionQuery(0), mnPlaceRecognitionWords(0), mPlaceRecognitionScore(0), mbCurrentPlaceRecognition(false), mnBAGlobalForKF(0), mnMergeCorrectedForKF(0), mnBALocalForMerge(0),
-      fx(0), fy(0), cx(0), cy(0), invfx(0), invfy(0), mbf(0), mb(0), mThDepth(0), N(0), mnScaleLevels(0), mfScaleFactor(0), mfLogScaleFactor(0), mvScaleFactors(0), mvLevelSigma2(0),
-      mvInvLevelSigma2(0), mnMinX(0), mnMinY(0), mnMaxX(0), mnMaxY(0), mPrevKF(nullptr), mNextKF(nullptr), mbHasVelocity(false), mbFirstConnection(true), mpParent(nullptr), mbNotErase(false),
-      mbToBeErased(false), mbBad(false), mHalfBaseline(0), NLeft(0), NRight(0)
-{
-}
-
-KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, GeometricCamera *camera, GeometricCamera *right_camera)
+KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras)
     : bImu(pMap->isImuInitialized()), mnFrameId(F.mnId), mTimeStamp(F.mTimeStamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS), mfGridElementWidthInv(F.mfGridElementWidthInv),
       mfGridElementHeightInv(F.mfGridElementHeightInv), mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0), mnNumberOfOpt(0), mnLoopQuery(0),
       mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), mnPlaceRecognitionQuery(0), mnPlaceRecognitionWords(0), mPlaceRecognitionScore(0), mbCurrentPlaceRecognition(false), mnBAGlobalForKF(0),
@@ -66,8 +56,8 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, GeometricCamera
       mvLevelSigma2(F.mvLevelSigma2), mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX), mnMaxY(F.mnMaxY), mPrevKF(nullptr), mNextKF(nullptr),
       mpImuPreintegrated(F.mpImuPreintegrated), mImuCalib(F.mImuCalib), mNameFile(F.mNameFile), mnDataset(F.mnDataset), mbHasVelocity(false), mTlr(F.GetRelativePoseTlr()),
       mTrl(F.GetRelativePoseTrl()), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), place_vocabulary_ptr(F.place_vocabulary_ptr), mbFirstConnection(true), mpParent(nullptr),
-      mbNotErase(false), mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb / 2), mpMap(pMap), mK_(F.mK_), mpCamera(camera), mpCamera2(right_camera),
-      mvLeftToRightMatch(F.mvLeftToRightMatch), mvRightToLeftMatch(F.mvRightToLeftMatch), mvKeysRight(keypoints_with_color(F, F.mvKeysRight, F.Nleft)), NLeft(F.Nleft), NRight(F.Nright)
+      mbNotErase(false), mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb / 2), mpMap(pMap), mK_(F.mK_), cameras(cameras), mvLeftToRightMatch(F.mvLeftToRightMatch),
+      mvRightToLeftMatch(F.mvRightToLeftMatch), mvKeysRight(keypoints_with_color(F, F.mvKeysRight, F.Nleft)), NLeft(F.Nleft), NRight(F.Nright)
 {
     mnId = nNextId++;
     mGrid.resize(mnGridCols);

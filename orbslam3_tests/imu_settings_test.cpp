@@ -12,11 +12,14 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include <yaml-cpp/yaml.h>
 
+void write_binary_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type, int descriptor_size);
+
 namespace
 {
 class extraction_tracker : public ORB_SLAM3::Tracking
 {
   public:
+    using Tracking::cameras;
     using Tracking::create_frame;
     using Tracking::extract_current_features;
     using Tracking::Tracking;
@@ -79,7 +82,8 @@ TEST_CASE("Tracking preserves initialization extraction during deferred recovery
     files.write();
     ORB_SLAM3::Settings settings(files.path.string(), sensor);
     ORB_SLAM3::Atlas    atlas(0);
-    extraction_tracker  tracker(nullptr, nullptr, &atlas, nullptr, sensor, &settings);
+    extraction_tracker  tracker(nullptr, nullptr, &atlas, nullptr, sensor, &settings, settings.cameras());
+    REQUIRE(&tracker.cameras == &settings.cameras());
     tracker.mImGray = cv::Mat(512, 512, CV_8UC1);
     cv::RNG random(17);
     random.fill(tracker.mImGray, cv::RNG::UNIFORM, 0, 256);
@@ -105,26 +109,40 @@ TEST_CASE("Tracking preserves initialization extraction during deferred recovery
 TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shutdown]")
 {
     imu_settings files;
-    files.write();
-    const auto vocabulary_path = files.directory / "vocabulary.txt";
+    const auto   sensor      = GENERATE(ORB_SLAM3::System::MONOCULAR, ORB_SLAM3::System::STEREO);
+    const bool   fisheye     = GENERATE(false, true);
+    auto         calibration = YAML::LoadFile((files.directory / "calibration/camchain.yaml").string());
+    if (fisheye)
     {
-        std::ofstream vocabulary(vocabulary_path);
-        vocabulary << "2 1 0 0\n";
-        for (int word = 0; word < 2; ++word)
-        {
-            vocabulary << "0 1";
-            for (int column = 0; column < 32; ++column)
-            {
-                vocabulary << ' ' << word * 255;
-            }
-            vocabulary << " 1\n";
-        }
+        calibration["cam0"]["distortion_model"]  = "equidistant";
+        calibration["cam0"]["distortion_coeffs"] = std::vector<float>{0, 0, 0, 0};
     }
+    if (sensor == ORB_SLAM3::System::STEREO)
+    {
+        calibration["cam1"]              = YAML::Clone(calibration["cam0"]);
+        calibration["cam1"]["T_cn_cnm1"] = YAML::Load("[[1, 0, 0, -0.1], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]");
+        files.config["Stereo.ThDepth"]   = 40.5;
+    }
+    std::ofstream(files.directory / "calibration/camchain.yaml") << calibration;
+    files.write();
+    const auto vocabulary_path = files.directory / "vocabulary.dbow3";
+    write_binary_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
 
     const bool        explicit_shutdown = GENERATE(false, true);
-    ORB_SLAM3::System system(vocabulary_path.string(), files.path.string(), ORB_SLAM3::System::MONOCULAR);
-    const cv::Mat     image(512, 512, CV_8UC1, cv::Scalar(0));
-    system.TrackMonocular(image, 1.0);
+    ORB_SLAM3::System system(vocabulary_path.string(), files.path.string(), sensor);
+    REQUIRE(system.cameras().size() == (sensor == ORB_SLAM3::System::STEREO ? 2 : 1));
+    REQUIRE(system.cameras()[0]->GetType() == (fisheye ? ORB_SLAM3::GeometricCamera::CAM_FISHEYE : ORB_SLAM3::GeometricCamera::CAM_PINHOLE));
+    const auto   &primary_camera = *system.cameras()[0];
+    const cv::Mat image(512, 512, CV_8UC1, cv::Scalar(0));
+    if (sensor == ORB_SLAM3::System::STEREO)
+    {
+        system.TrackStereo(image, image, 1.0);
+    }
+    else
+    {
+        system.TrackMonocular(image, 1.0);
+    }
+    REQUIRE(&primary_camera == &*system.cameras()[0]);
     system.record_frame_statistics(2.0, 3.0);
     REQUIRE(system.statistics().get_snapshot().frames == 1);
     REQUIRE(system.statistics().get_snapshot().frame.frontend_ms == 3.0);

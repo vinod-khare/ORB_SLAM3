@@ -19,6 +19,7 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
+#include "CameraModels/GeometricCamera.h"
 #include "ImuTypes.h"
 #include "feature_overrides.h"
 #include "keypoint.h"
@@ -168,10 +169,11 @@ class System
 
     void ChangeDataset();
 
-    float     GetImageScale();
-    Atlas    *GetAtlas() const;
-    Tracking *GetTracker() const;
-    float     GetCameraFrameRate() const;
+    float                GetImageScale();
+    Atlas               *GetAtlas() const;
+    Tracking            *GetTracker() const;
+    float                GetCameraFrameRate() const;
+    const camera_vector &cameras() const { return _cameras; }
 
     processing_statistics       &statistics() { return _statistics; }
     const processing_statistics &statistics() const { return _statistics; }
@@ -187,34 +189,37 @@ class System
     // Input sensor
     eSensor mSensor;
 
+    std::unique_ptr<Settings> settings_;
+    camera_vector             _cameras;
+    processing_statistics     _statistics;
+
     // ORB vocabulary used for place recognition and feature matching.
-    place_vocabulary *mpVocabulary;
+    std::unique_ptr<place_vocabulary> mpVocabulary;
 
     // KeyFrame database for place recognition (relocalization and loop detection).
-    KeyFrameDatabase *mpKeyFrameDatabase;
+    std::unique_ptr<KeyFrameDatabase> mpKeyFrameDatabase;
 
     // Map structure that stores the pointers to all KeyFrames and MapPoints.
     // Map* mpMap;
-    Atlas *mpAtlas;
+    std::unique_ptr<Atlas> mpAtlas;
 
     // Tracker. It receives a frame and computes the associated camera pose.
     // It also decides when to insert a new keyframe, create some new MapPoints and
     // performs relocalization if tracking fails.
-    Tracking *mpTracker;
+    std::unique_ptr<Tracking> mpTracker;
 
     // Local Mapper. It manages the local map and performs local bundle adjustment.
-    LocalMapping *mpLocalMapper;
+    std::unique_ptr<LocalMapping> mpLocalMapper;
 
     // Loop Closer. It searches loops with every new keyframe. If there is a loop it performs
     // a pose graph optimization and full bundle adjustment (in a new thread) afterwards.
-    LoopClosing *mpLoopCloser;
+    std::unique_ptr<LoopClosing> mpLoopCloser;
 
     // System threads: Local Mapping and Loop Closing.
     // The Tracking thread "lives" in the main execution thread that creates the System object.
-    processing_statistics _statistics;
-    std::mutex            _shutdown_mutex;
-    std::jthread          _local_mapping_thread;
-    std::jthread          _loop_closing_thread;
+    std::mutex   _shutdown_mutex;
+    std::jthread _local_mapping_thread;
+    std::jthread _loop_closing_thread;
 
     // Reset flag
     std::mutex mMutexReset;
@@ -241,8 +246,6 @@ class System
 
     //
     string mStrVocabularyFilePath;
-
-    std::unique_ptr<Settings> settings_;
 };
 
 } // namespace ORB_SLAM3

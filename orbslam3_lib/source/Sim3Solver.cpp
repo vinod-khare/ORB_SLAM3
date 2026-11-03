@@ -35,7 +35,7 @@ namespace ORB_SLAM3
 {
 
 Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> &vpMatched12, const bool bFixScale, vector<KeyFrame *> vpKeyFrameMatchedMP)
-    : mnIterations(0), mnBestInliers(0), mbFixScale(bFixScale), pCamera1(pKF1->mpCamera), pCamera2(pKF2->mpCamera)
+    : mnIterations(0), mnBestInliers(0), mbFixScale(bFixScale), cameras(pKF1->cameras)
 {
     bool bDifferentKFs = false;
     if (vpKeyFrameMatchedMP.empty())
@@ -122,8 +122,8 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
         }
     }
 
-    FromCameraToImage(mvX3Dc1, mvP1im1, pCamera1);
-    FromCameraToImage(mvX3Dc2, mvP2im2, pCamera2);
+    FromCameraToImage(mvX3Dc1, mvP1im1, *cameras[0]);
+    FromCameraToImage(mvX3Dc2, mvP2im2, *cameras[0]);
 
     SetRansacParameters();
 }
@@ -453,8 +453,8 @@ bool Sim3Solver::ComputeSim3(Eigen::Matrix3f &P1, Eigen::Matrix3f &P2)
 void Sim3Solver::CheckInliers()
 {
     vector<Eigen::Vector2f> vP1im2, vP2im1;
-    Project(mvX3Dc2, vP2im1, mT12i, pCamera1);
-    Project(mvX3Dc1, vP1im2, mT21i, pCamera2);
+    Project(mvX3Dc2, vP2im1, mT12i, *cameras[0]);
+    Project(mvX3Dc1, vP1im2, mT21i, *cameras[0]);
 
     mnInliersi = 0;
 
@@ -486,7 +486,7 @@ Eigen::Vector3f Sim3Solver::GetEstimatedTranslation() { return mBestTranslation;
 
 float Sim3Solver::GetEstimatedScale() { return mBestScale; }
 
-void Sim3Solver::Project(const vector<Eigen::Vector3f> &vP3Dw, vector<Eigen::Vector2f> &vP2D, Eigen::Matrix4f Tcw, GeometricCamera *pCamera)
+void Sim3Solver::Project(const vector<Eigen::Vector3f> &vP3Dw, vector<Eigen::Vector2f> &vP2D, Eigen::Matrix4f Tcw, GeometricCamera &camera)
 {
     Eigen::Matrix3f Rcw = Tcw.block<3, 3>(0, 0);
     Eigen::Vector3f tcw = Tcw.block<3, 1>(0, 3);
@@ -497,19 +497,19 @@ void Sim3Solver::Project(const vector<Eigen::Vector3f> &vP3Dw, vector<Eigen::Vec
     for (size_t i = 0, iend = vP3Dw.size(); i < iend; i++)
     {
         Eigen::Vector3f P3Dc = Rcw * vP3Dw[i] + tcw;
-        Eigen::Vector2f pt2D = pCamera->project(P3Dc);
+        Eigen::Vector2f pt2D = camera.project(P3Dc);
         vP2D.push_back(pt2D);
     }
 }
 
-void Sim3Solver::FromCameraToImage(const vector<Eigen::Vector3f> &vP3Dc, vector<Eigen::Vector2f> &vP2D, GeometricCamera *pCamera)
+void Sim3Solver::FromCameraToImage(const vector<Eigen::Vector3f> &vP3Dc, vector<Eigen::Vector2f> &vP2D, GeometricCamera &camera)
 {
     vP2D.clear();
     vP2D.reserve(vP3Dc.size());
 
     for (size_t i = 0, iend = vP3Dc.size(); i < iend; i++)
     {
-        Eigen::Vector2f pt2D = pCamera->project(vP3Dc[i]);
+        Eigen::Vector2f pt2D = camera.project(vP3Dc[i]);
         vP2D.push_back(pt2D);
     }
 }

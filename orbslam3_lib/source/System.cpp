@@ -87,6 +87,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     std::ostringstream settings_output;
     settings_output << *settings_;
     spdlog::info("{}", settings_output.str());
+    _cameras = std::move(settings_->_cameras);
 
     cv::FileNode node     = fsSettings["loopClosing"];
     bool         activeLC = true;
@@ -96,11 +97,11 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     }
 
     mStrVocabularyFilePath = strVocFile;
-    mpVocabulary           = new place_vocabulary(strVocFile, settings_->dbow_version());
-    mpKeyFrameDatabase     = new KeyFrameDatabase(*mpVocabulary);
+    mpVocabulary           = std::make_unique<place_vocabulary>(strVocFile, settings_->dbow_version());
+    mpKeyFrameDatabase     = std::make_unique<KeyFrameDatabase>(*mpVocabulary);
 
     spdlog::info("Initialization of Atlas from scratch");
-    mpAtlas = new Atlas(0);
+    mpAtlas = std::make_unique<Atlas>(0);
 
     if (mSensor == IMU_STEREO || mSensor == IMU_MONOCULAR || mSensor == IMU_RGBD)
     {
@@ -110,11 +111,11 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     // Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     spdlog::info("Sequence name: {}", strSequence);
-    mpTracker = new Tracking(this, mpVocabulary, mpAtlas, mpKeyFrameDatabase, mSensor, settings_.get(), strSequence);
+    mpTracker = std::make_unique<Tracking>(this, mpVocabulary.get(), mpAtlas.get(), mpKeyFrameDatabase.get(), mSensor, settings_.get(), _cameras, strSequence);
 
     // Initialize the Local Mapping thread and launch
-    mpLocalMapper =
-        new LocalMapping(_statistics, this, mpAtlas, mSensor == MONOCULAR || mSensor == IMU_MONOCULAR, mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD, strSequence);
+    mpLocalMapper               = std::make_unique<LocalMapping>(_statistics, this, mpAtlas.get(), mSensor == MONOCULAR || mSensor == IMU_MONOCULAR,
+                                                                 mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD, strSequence);
     mpLocalMapper->mInitFr      = initFr;
     mpLocalMapper->mThFarPoints = settings_->thFarPoints();
     if (mpLocalMapper->mThFarPoints != 0)
@@ -128,22 +129,22 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     }
 
     // Initialize the Loop Closing thread and launch
-    mpLoopCloser = new LoopClosing(_statistics, mpAtlas, mpKeyFrameDatabase, mpVocabulary, mSensor != MONOCULAR, activeLC);
+    mpLoopCloser = std::make_unique<LoopClosing>(_statistics, mpAtlas.get(), mpKeyFrameDatabase.get(), mpVocabulary.get(), mSensor != MONOCULAR, activeLC);
 
     // Set pointers between threads
-    mpTracker->SetLocalMapper(mpLocalMapper);
-    mpTracker->SetLoopClosing(mpLoopCloser);
+    mpTracker->SetLocalMapper(mpLocalMapper.get());
+    mpTracker->SetLoopClosing(mpLoopCloser.get());
 
-    mpLocalMapper->SetTracker(mpTracker);
-    mpLocalMapper->SetLoopCloser(mpLoopCloser);
+    mpLocalMapper->SetTracker(mpTracker.get());
+    mpLocalMapper->SetLoopCloser(mpLoopCloser.get());
 
-    mpLoopCloser->SetTracker(mpTracker);
-    mpLoopCloser->SetLocalMapper(mpLocalMapper);
+    mpLoopCloser->SetTracker(mpTracker.get());
+    mpLoopCloser->SetLocalMapper(mpLocalMapper.get());
 
     try
     {
-        _local_mapping_thread = std::jthread(&LocalMapping::Run, mpLocalMapper);
-        _loop_closing_thread  = std::jthread(&LoopClosing::Run, mpLoopCloser);
+        _local_mapping_thread = std::jthread(&LocalMapping::Run, mpLocalMapper.get());
+        _loop_closing_thread  = std::jthread(&LoopClosing::Run, mpLoopCloser.get());
     }
     catch (...)
     {
@@ -1007,9 +1008,9 @@ void System::SaveCOLMAP(const string &strDir)
         fc << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
         fc << "# Number of cameras: 1\n";
 
-        int              width  = settings_->newImSize().width;
-        int              height = settings_->newImSize().height;
-        GeometricCamera *cam    = settings_->camera1();
+        int         width  = settings_->newImSize().width;
+        int         height = settings_->newImSize().height;
+        const auto &cam    = _cameras[0];
 
         if (cam)
         {
@@ -1471,9 +1472,9 @@ void System::ChangeDataset()
 
 float System::GetImageScale() { return mpTracker->GetImageScale(); }
 
-Atlas *System::GetAtlas() const { return mpAtlas; }
+Atlas *System::GetAtlas() const { return mpAtlas.get(); }
 
-Tracking *System::GetTracker() const { return mpTracker; }
+Tracking *System::GetTracker() const { return mpTracker.get(); }
 
 float System::GetCameraFrameRate() const { return settings_->fps(); }
 

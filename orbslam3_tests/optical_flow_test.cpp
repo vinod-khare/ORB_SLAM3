@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <memory>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -57,15 +58,16 @@ TEST_CASE("Frame feature data survives extractor reuse and destruction")
     cv::Mat    image(256, 256, CV_8UC1);
     cv::RNG    random(17);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
-    ORB_SLAM3::Pinhole camera({200, 200, 128, 128});
-    const cv::Mat      distortion = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::Frame   frame(1.0, nullptr, camera.toK(), distortion, 20, 40);
+    ORB_SLAM3::camera_vector cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+    const cv::Mat    distortion = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::Frame frame(1.0, nullptr, cameras[0]->toK(), distortion, 20, 40);
     ORB_SLAM3::Frame::mbInitialComputations = true;
     cv::Mat descriptors;
     cv::Mat place_descriptors;
     {
         ORB_SLAM3::keypoint_extractor extractor(400, 1.2f, 4, 20, 7, ORB_SLAM3::keypoint_detector_type::fast, descriptor_type);
-        ORB_SLAM3::Tracking::extract_features(frame, extractor, image, &camera);
+        ORB_SLAM3::Tracking::extract_features(frame, extractor, image, cameras);
         REQUIRE(frame.N > 0);
         REQUIRE(frame.mnScaleLevels == extractor.get_levels());
         REQUIRE(frame.mfScaleFactor == extractor.get_scale_factor());
@@ -75,8 +77,8 @@ TEST_CASE("Frame feature data survives extractor reuse and destruction")
         REQUIRE(frame.mvInvLevelSigma2 == extractor.get_inverse_scale_sigma_squares());
         descriptors = descriptor_matrix(frame.mvKeys).clone();
         cv::vconcat(place_descriptor_vector(frame.mvKeys), place_descriptors);
-        ORB_SLAM3::Frame other(2.0, nullptr, camera.toK(), distortion, 20, 40);
-        ORB_SLAM3::Tracking::extract_features(other, extractor, cv::Mat::zeros(image.size(), image.type()), &camera);
+        ORB_SLAM3::Frame other(2.0, nullptr, cameras[0]->toK(), distortion, 20, 40);
+        ORB_SLAM3::Tracking::extract_features(other, extractor, cv::Mat::zeros(image.size(), image.type()), cameras);
         REQUIRE(other.N == 0);
     }
     REQUIRE(cv::norm(descriptor_matrix(frame.mvKeys), descriptors, cv::NORM_INF) == 0);
@@ -162,14 +164,22 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
 
     ORB_SLAM3::keypoint_extractor left_extractor(400, 1.2f, 4, 20, 7);
     ORB_SLAM3::keypoint_extractor right_extractor(400, 1.2f, 4, 20, 7);
-    ORB_SLAM3::Pinhole            pinhole({200, 200, 128, 128});
-    ORB_SLAM3::KannalaBrandt8     left_camera({200, 200, 128, 128, 0, 0, 0, 0});
-    ORB_SLAM3::KannalaBrandt8     right_camera({200, 200, 128, 128, 0, 0, 0, 0});
+    ORB_SLAM3::camera_vector      cameras;
+    for (int camera_index = 0; camera_index < (stereo ? 2 : 1); ++camera_index)
+    {
+        if (camera_kind == 2)
+        {
+            auto camera           = std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
+            camera->mvLappingArea = {0, 256};
+            cameras.push_back(std::move(camera));
+        }
+        else
+        {
+            cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+        }
+    }
 
-    left_camera.mvLappingArea  = {0, 256};
-    right_camera.mvLappingArea = {0, 256};
-
-    auto    calibration = pinhole.toK();
+    auto    calibration = cameras[0]->toK();
     cv::Mat distortion  = cv::Mat::zeros(4, 1, CV_32F);
 
     if (camera_kind == 3)
@@ -179,8 +189,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     Sophus::SE3f relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0, 0));
     ORB_SLAM3::Frame::mbInitialComputations = true;
     ORB_SLAM3::Frame previous(1.0, nullptr, calibration, distortion, 20, 40, nullptr, {}, relative_pose);
-    auto            *camera = camera_kind == 2 ? static_cast<ORB_SLAM3::GeometricCamera *>(&left_camera) : &pinhole;
-    ORB_SLAM3::Tracking::extract_features(previous, left_extractor, image, camera, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr, camera_kind == 2 ? &right_camera : nullptr);
+    ORB_SLAM3::Tracking::extract_features(previous, left_extractor, image, cameras, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr);
     previous.mpLastKeyFrame = nullptr;
     previous.mnDataset      = 0;
     REQUIRE(previous.N > 0);
@@ -248,7 +257,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     current.setIntegrated();
     current.get_optical_flow_pyramid(image);
     const auto *pyramid_data = current.optical_flow_pyramid.front().data;
-    ORB_SLAM3::Tracking::extract_features(current, left_extractor, image, camera, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr, camera_kind == 2 ? &right_camera : nullptr);
+    ORB_SLAM3::Tracking::extract_features(current, left_extractor, image, cameras, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr);
     REQUIRE_FALSE(current.flow_only);
     REQUIRE(current.flow_candidates == 100);
     REQUIRE(current.flow_tracks == 1);
@@ -286,11 +295,11 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mBowVec.empty());
     REQUIRE(current.mFeatVec.empty());
     const auto first_grid = current.GetFeaturesInArea(128, 128, 256);
-    ORB_SLAM3::Tracking::extract_features(current, left_extractor, image, camera, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr, camera_kind == 2 ? &right_camera : nullptr);
+    ORB_SLAM3::Tracking::extract_features(current, left_extractor, image, cameras, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr);
     REQUIRE(current.GetFeaturesInArea(128, 128, 256) == first_grid);
 
     const cv::Mat blank = cv::Mat::zeros(image.size(), image.type());
-    ORB_SLAM3::Tracking::extract_features(current, left_extractor, blank, camera, stereo ? blank : cv::Mat(), stereo ? &right_extractor : nullptr, camera_kind == 2 ? &right_camera : nullptr);
+    ORB_SLAM3::Tracking::extract_features(current, left_extractor, blank, cameras, stereo ? blank : cv::Mat(), stereo ? &right_extractor : nullptr);
     REQUIRE(current.N == 0);
     REQUIRE(current.mvKeys.empty());
     REQUIRE(current.mvKeysRight.empty());
@@ -328,25 +337,33 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
     cv::warpAffine(left, right, shift, left.size());
     ORB_SLAM3::keypoint_extractor left_extractor(400, 1.2f, 4, 20, 7);
     ORB_SLAM3::keypoint_extractor right_extractor(400, 1.2f, 4, 20, 7);
-    ORB_SLAM3::Pinhole            camera({200, 200, 128, 128});
-    ORB_SLAM3::KannalaBrandt8     left_camera({200, 200, 128, 128, 0, 0, 0, 0});
-    ORB_SLAM3::KannalaBrandt8     right_camera({200, 200, 128, 128, 0, 0, 0, 0});
-    left_camera.mvLappingArea               = {0, 256};
-    right_camera.mvLappingArea              = {0, 256};
-    auto   *tracking_camera                 = fisheye ? static_cast<ORB_SLAM3::GeometricCamera *>(&left_camera) : &camera;
-    auto    calibration                     = camera.toK();
+    ORB_SLAM3::camera_vector      cameras;
+    for (int camera_index = 0; camera_index < 2; ++camera_index)
+    {
+        if (fisheye)
+        {
+            auto camera           = std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
+            camera->mvLappingArea = {0, 256};
+            cameras.push_back(std::move(camera));
+        }
+        else
+        {
+            cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+        }
+    }
+    auto    calibration                     = cameras[0]->toK();
     cv::Mat distortion                      = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::Frame::mbInitialComputations = true;
     const Sophus::SE3f relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0, 0));
     ORB_SLAM3::Frame   previous(1.0, nullptr, calibration, distortion, 20, 40, nullptr, {}, relative_pose);
-    ORB_SLAM3::Tracking::extract_features(previous, left_extractor, left, tracking_camera, right, &right_extractor, fisheye ? &right_camera : nullptr);
+    ORB_SLAM3::Tracking::extract_features(previous, left_extractor, left, cameras, right, &right_extractor);
     previous.mpLastKeyFrame = nullptr;
     previous.mnDataset      = 0;
     ORB_SLAM3::Frame current(previous, 1.05);
     REQUIRE(current.flow_only);
     REQUIRE(current.mvKeysRight.empty());
     cv::setNumThreads(4);
-    ORB_SLAM3::Tracking::extract_features(current, left_extractor, left, tracking_camera, right, &right_extractor, fisheye ? &right_camera : nullptr);
+    ORB_SLAM3::Tracking::extract_features(current, left_extractor, left, cameras, right, &right_extractor);
     REQUIRE_FALSE(current.flow_only);
     REQUIRE(current.mvKeys.size() == previous.mvKeys.size());
     REQUIRE(current.mvKeysRight.size() == previous.mvKeysRight.size());
@@ -364,13 +381,13 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
         current.mvKeys.push_back(current.mvKeys[left_index]);
         ++current.Nleft;
         ++current.N;
-        current.ComputeStereoFishEyeMatches(&left_camera, &right_camera);
+        current.ComputeStereoFishEyeMatches(cameras);
         REQUIRE(current.mvLeftToRightMatch.back() == right_index);
         REQUIRE(current.mvRightToLeftMatch[right_index] == current.Nleft - 1);
     }
 }
 
-TEST_CASE("RGB-D frames undistort tracked features without a camera")
+TEST_CASE("RGB-D frames undistort tracked features using the primary camera")
 {
     cv::Mat image(256, 256, CV_8UC1);
     cv::RNG random(17);
@@ -380,8 +397,10 @@ TEST_CASE("RGB-D frames undistort tracked features without a camera")
     cv::Mat                       distortion  = cv::Mat(cv::Vec4f(-0.1f, 0, 0, 0));
     const cv::Mat                 depth(image.size(), CV_32F, cv::Scalar(2));
     ORB_SLAM3::Frame::mbInitialComputations = true;
-    ORB_SLAM3::Frame frame(1.0, nullptr, calibration, distortion, 20, 40);
-    ORB_SLAM3::Tracking::extract_features(frame, extractor, image, nullptr);
+    ORB_SLAM3::Frame         frame(1.0, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::camera_vector cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+    ORB_SLAM3::Tracking::extract_features(frame, extractor, image, cameras);
     frame.ComputeStereoFromRGBD(depth);
     REQUIRE(frame.N > 0);
     REQUIRE(frame.Nleft == -1);

@@ -93,13 +93,13 @@ Eigen::Matrix3f Pinhole::toK_()
     return K;
 }
 
-bool Pinhole::epipolarConstrain(GeometricCamera *pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel,
+bool Pinhole::epipolarConstrain(GeometricCamera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel,
                                 const float unc)
 {
     // Compute Fundamental Matrix
     Eigen::Matrix3f t12x = Sophus::SO3f::hat(t12);
     Eigen::Matrix3f K1   = this->toK_();
-    Eigen::Matrix3f K2   = pCamera2->toK_();
+    Eigen::Matrix3f K2   = pCamera2.toK_();
     Eigen::Matrix3f F12  = K1.transpose().inverse() * t12x * R12 * K2.inverse();
 
     // Epipolar line in second image l = x1'F12 = [a b c]
@@ -139,16 +139,14 @@ std::istream &operator>>(std::istream &is, Pinhole &ph)
     return is;
 }
 
-bool Pinhole::IsEqual(GeometricCamera *pCam)
+bool Pinhole::IsEqual(GeometricCamera &pCam)
 {
-    if (pCam->GetType() != GeometricCamera::CAM_PINHOLE)
+    if (pCam.GetType() != GeometricCamera::CAM_PINHOLE)
     {
         return false;
     }
 
-    Pinhole *pPinholeCam = (Pinhole *)pCam;
-
-    if (size() != pPinholeCam->size())
+    if (size() != pCam.size())
     {
         return false;
     }
@@ -156,7 +154,7 @@ bool Pinhole::IsEqual(GeometricCamera *pCam)
     bool is_same_camera = true;
     for (size_t i = 0; i < size(); ++i)
     {
-        if (abs(mvParameters[i] - pPinholeCam->getParameter(i)) > 1e-6)
+        if (abs(mvParameters[i] - pCam.getParameter(i)) > 1e-6)
         {
             is_same_camera = false;
             break;

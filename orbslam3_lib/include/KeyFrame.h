@@ -27,6 +27,7 @@
 #include "keypoint_extractor.h"
 #include "place_vocabulary.h"
 
+#include <memory>
 #include <mutex>
 
 #include <DBoW2/BowVector.h>
@@ -47,8 +48,7 @@ class KeyFrame
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    KeyFrame();
-    KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, GeometricCamera *camera, GeometricCamera *right_camera = nullptr);
+    KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras);
 
     // Pose functions
     void SetPose(const Sophus::SE3f &Tcw);
@@ -327,7 +327,7 @@ class KeyFrame
     std::mutex mMutexMap;
 
   public:
-    GeometricCamera *mpCamera, *mpCamera2;
+    const camera_vector &cameras;
 
     // Indexes of stereo observations correspondences
     std::vector<int> mvLeftToRightMatch, mvRightToLeftMatch;

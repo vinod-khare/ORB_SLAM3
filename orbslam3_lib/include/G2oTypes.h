@@ -25,6 +25,8 @@
 #include <KeyFrame.h>
 #include <math.h>
 
+#include <memory>
+
 #include <opencv2/core/core.hpp>
 
 #include <Eigen/Core>
@@ -75,7 +77,7 @@ class ImuCamPose
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     ImuCamPose() {}
     ImuCamPose(KeyFrame *pKF);
-    ImuCamPose(Frame *pF, GeometricCamera *camera, GeometricCamera *right_camera = nullptr);
+    ImuCamPose(Frame *pF, const camera_vector &cameras);
     ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF);
 
     void SetParam(const std::vector<Eigen::Matrix3d> &_Rcw, const std::vector<Eigen::Vector3d> &_tcw, const std::vector<Eigen::Matrix3d> &_Rbc, const std::vector<Eigen::Vector3d> &_tbc,
@@ -93,12 +95,12 @@ class ImuCamPose
     Eigen::Vector3d twb;
 
     // For set of cameras
-    std::vector<Eigen::Matrix3d>   Rcw;
-    std::vector<Eigen::Vector3d>   tcw;
-    std::vector<Eigen::Matrix3d>   Rcb, Rbc;
-    std::vector<Eigen::Vector3d>   tcb, tbc;
-    double                         bf;
-    std::vector<GeometricCamera *> pCamera;
+    std::vector<Eigen::Matrix3d> Rcw;
+    std::vector<Eigen::Vector3d> tcw;
+    std::vector<Eigen::Matrix3d> Rcb, Rbc;
+    std::vector<Eigen::Vector3d> tcb, tbc;
+    double                       bf;
+    camera_view                  cameras;
 
     // For posegraph 4DoF
     Eigen::Matrix3d Rwb0;
@@ -129,9 +131,8 @@ class VertexPose : public g2o::BaseVertex<6, ImuCamPose>
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    VertexPose() {}
     VertexPose(KeyFrame *pKF) { setEstimate(ImuCamPose(pKF)); }
-    VertexPose(Frame *pF, GeometricCamera *camera, GeometricCamera *right_camera = nullptr) { setEstimate(ImuCamPose(pF, camera, right_camera)); }
+    VertexPose(Frame *pF, const camera_vector &cameras) { setEstimate(ImuCamPose(pF, cameras)); }
 
     virtual bool read(std::istream &is);
     virtual bool write(std::ostream &os) const;
@@ -150,9 +151,8 @@ class VertexPose4DoF : public g2o::BaseVertex<4, ImuCamPose>
     // Translation and yaw are the only optimizable variables
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    VertexPose4DoF() {}
     VertexPose4DoF(KeyFrame *pKF) { setEstimate(ImuCamPose(pKF)); }
-    VertexPose4DoF(Frame *pF, GeometricCamera *camera, GeometricCamera *right_camera = nullptr) { setEstimate(ImuCamPose(pF, camera, right_camera)); }
+    VertexPose4DoF(Frame *pF, const camera_vector &cameras) { setEstimate(ImuCamPose(pF, cameras)); }
     VertexPose4DoF(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF) { setEstimate(ImuCamPose(_Rwc, _twc, pKF)); }
 
     virtual bool read(std::istream &is) { return false; }

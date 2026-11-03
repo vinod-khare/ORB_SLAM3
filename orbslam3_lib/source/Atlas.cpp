@@ -106,47 +106,6 @@ void Atlas::AddMapPoint(MapPoint *pMP)
     pMapMP->AddMapPoint(pMP);
 }
 
-GeometricCamera *Atlas::AddCamera(GeometricCamera *pCam)
-{
-    if (!pCam)
-    {
-        throw std::invalid_argument("Cannot add a null camera to the atlas");
-    }
-
-    std::lock_guard<std::mutex> lock(mMutexAtlas);
-    for (GeometricCamera *existing_camera : mvpCameras)
-    {
-        if (!existing_camera || pCam->GetType() != existing_camera->GetType())
-        {
-            continue;
-        }
-
-        if (pCam->GetType() == GeometricCamera::CAM_PINHOLE)
-        {
-            if (static_cast<Pinhole *>(existing_camera)->IsEqual(pCam))
-            {
-                return existing_camera;
-            }
-        }
-        else if (pCam->GetType() == GeometricCamera::CAM_FISHEYE)
-        {
-            if (static_cast<KannalaBrandt8 *>(existing_camera)->IsEqual(pCam))
-            {
-                return existing_camera;
-            }
-        }
-    }
-
-    mvpCameras.push_back(pCam);
-    return pCam;
-}
-
-std::vector<GeometricCamera *> Atlas::GetAllCameras()
-{
-    std::lock_guard<std::mutex> lock(mMutexAtlas);
-    return mvpCameras;
-}
-
 void Atlas::SetReferenceMapPoints(const std::vector<MapPoint *> &vpMPs)
 {
     std::lock_guard<std::mutex> lock(mMutexAtlas);

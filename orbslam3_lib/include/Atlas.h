@@ -27,6 +27,7 @@
 #include "Pinhole.h"
 
 #include <map>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <vector>
@@ -52,9 +53,6 @@ class Atlas
 
     void AddKeyFrame(KeyFrame *pKF);
     void AddMapPoint(MapPoint *pMP);
-
-    GeometricCamera               *AddCamera(GeometricCamera *pCam);
-    std::vector<GeometricCamera *> GetAllCameras();
 
     void SetReferenceMapPoints(const std::vector<MapPoint *> &vpMPs);
     void InformNewBigChange();
@@ -97,9 +95,6 @@ class Atlas
     // Retain maps removed from the active set while SLAM objects may still reference them.
     std::set<Map *> mspOwnedMaps;
     Map            *mpCurrentMap{nullptr};
-
-    // Camera lifetime is managed by the settings/serialization owner, not by Atlas.
-    std::vector<GeometricCamera *> mvpCameras;
 
     unsigned long int mnLastInitKFidMap{0};
 

@@ -176,7 +176,7 @@ void MapPoint::AddObservation(KeyFrame *pKF, int idx)
 
     mObservations[pKF] = indexes;
 
-    if (!pKF->mpCamera2 && pKF->mvuRight[idx] >= 0)
+    if (!is_fisheye_stereo(pKF->cameras) && pKF->mvuRight[idx] >= 0)
     {
         nObs += 2;
     }
@@ -198,7 +198,7 @@ void MapPoint::EraseObservation(KeyFrame *pKF)
 
             if (leftIndex != -1)
             {
-                if (!pKF->mpCamera2 && pKF->mvuRight[leftIndex] >= 0)
+                if (!is_fisheye_stereo(pKF->cameras) && pKF->mvuRight[leftIndex] >= 0)
                 {
                     nObs -= 2;
                 }

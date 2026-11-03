@@ -61,7 +61,7 @@ void EdgeSE3ProjectXYZOnlyPose::linearizeOplus()
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;
 
-    _jacobianOplusXi = -pCamera->projectJac(xyz_trans) * SE3deriv;
+    _jacobianOplusXi = -camera.projectJac(xyz_trans) * SE3deriv;
 }
 
 bool EdgeSE3ProjectXYZOnlyPoseToBody::read(std::istream &is)
@@ -107,10 +107,10 @@ void EdgeSE3ProjectXYZOnlyPoseToBody::linearizeOplus()
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z_w, -y_w, 1.f, 0.f, 0.f, -z_w, 0.f, x_w, 0.f, 1.f, 0.f, y_w, -x_w, 0.f, 0.f, 0.f, 1.f;
 
-    _jacobianOplusXi = -pCamera->projectJac(X_r) * mTrl.rotation().toRotationMatrix() * SE3deriv;
+    _jacobianOplusXi = -camera.projectJac(X_r) * mTrl.rotation().toRotationMatrix() * SE3deriv;
 }
 
-EdgeSE3ProjectXYZ::EdgeSE3ProjectXYZ() : BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>() {}
+EdgeSE3ProjectXYZ::EdgeSE3ProjectXYZ(GeometricCamera &camera) : BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>(), camera(camera) {}
 
 bool EdgeSE3ProjectXYZ::read(std::istream &is)
 {
@@ -154,7 +154,7 @@ void EdgeSE3ProjectXYZ::linearizeOplus()
     double z = xyz_trans[2];
 
     // Materialize: `auto` would keep an Eigen expression referencing a destroyed temporary.
-    const Eigen::Matrix<double, 2, 3> projectJac = -pCamera->projectJac(xyz_trans);
+    const Eigen::Matrix<double, 2, 3> projectJac = -camera.projectJac(xyz_trans);
 
     _jacobianOplusXi = projectJac * T.rotation().toRotationMatrix();
 
@@ -164,7 +164,7 @@ void EdgeSE3ProjectXYZ::linearizeOplus()
     _jacobianOplusXj = projectJac * SE3deriv;
 }
 
-EdgeSE3ProjectXYZToBody::EdgeSE3ProjectXYZToBody() : BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>() {}
+EdgeSE3ProjectXYZToBody::EdgeSE3ProjectXYZToBody(GeometricCamera &camera) : BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>(), camera(camera) {}
 
 bool EdgeSE3ProjectXYZToBody::read(std::istream &is)
 {
@@ -205,7 +205,7 @@ void EdgeSE3ProjectXYZToBody::linearizeOplus()
     Eigen::Vector3d         X_l  = T_lw.map(X_w);
     Eigen::Vector3d         X_r  = mTrl.map(T_lw.map(X_w));
 
-    _jacobianOplusXi = -pCamera->projectJac(X_r) * T_rw.rotation().toRotationMatrix();
+    _jacobianOplusXi = -camera.projectJac(X_r) * T_rw.rotation().toRotationMatrix();
 
     double x = X_l[0];
     double y = X_l[1];
@@ -214,10 +214,10 @@ void EdgeSE3ProjectXYZToBody::linearizeOplus()
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;
 
-    _jacobianOplusXj = -pCamera->projectJac(X_r) * mTrl.rotation().toRotationMatrix() * SE3deriv;
+    _jacobianOplusXj = -camera.projectJac(X_r) * mTrl.rotation().toRotationMatrix() * SE3deriv;
 }
 
-VertexSim3Expmap::VertexSim3Expmap() : BaseVertex<7, g2o::Sim3>()
+VertexSim3Expmap::VertexSim3Expmap(const camera_vector &cameras) : BaseVertex<7, g2o::Sim3>(), cameras(cameras)
 {
     _marginalized = false;
     _fix_scale    = false;
@@ -232,17 +232,16 @@ bool VertexSim3Expmap::read(std::istream &is)
     }
     is >> cam2world[6];
 
-    float nextParam;
-    for (size_t i = 0; i < pCamera1->size(); i++)
+    for (int observation_index = 0; observation_index < 2; ++observation_index)
     {
-        is >> nextParam;
-        pCamera1->setParameter(nextParam, i);
-    }
-
-    for (size_t i = 0; i < pCamera2->size(); i++)
-    {
-        is >> nextParam;
-        pCamera2->setParameter(nextParam, i);
+        for (size_t parameter_index = 0; parameter_index < cameras[0]->size(); ++parameter_index)
+        {
+            float parameter;
+            if (!(is >> parameter))
+            {
+                return false;
+            }
+        }
     }
 
     setEstimate(g2o::Sim3(cam2world).inverse());
@@ -258,14 +257,12 @@ bool VertexSim3Expmap::write(std::ostream &os) const
         os << lv[i] << " ";
     }
 
-    for (size_t i = 0; i < pCamera1->size(); i++)
+    for (int observation_index = 0; observation_index < 2; ++observation_index)
     {
-        os << pCamera1->getParameter(i) << " ";
-    }
-
-    for (size_t i = 0; i < pCamera2->size(); i++)
-    {
-        os << pCamera2->getParameter(i) << " ";
+        for (size_t parameter_index = 0; parameter_index < cameras[0]->size(); ++parameter_index)
+        {
+            os << cameras[0]->getParameter(parameter_index) << " ";
+        }
     }
 
     return os.good();

@@ -55,7 +55,8 @@ class Tracking
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Tracking(System *pSys, place_vocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings, const string &_nameSeq = std::string());
+    Tracking(System *pSys, place_vocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings, const camera_vector &cameras,
+             const string &_nameSeq = std::string());
 
     ~Tracking();
 
@@ -65,8 +66,8 @@ class Tracking
     Sophus::SE3f GrabImageMonocular(const cv::Mat &im, const double &timestamp, string filename);
 
     /** Extract current-image keypoints/descriptors and supply feature data to a frame. */
-    static void extract_features(Frame &frame, keypoint_extractor &extractor, const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right = {},
-                                 keypoint_extractor *right_extractor = nullptr, GeometricCamera *right_camera = nullptr);
+    static void extract_features(Frame &frame, keypoint_extractor &extractor, const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {},
+                                 keypoint_extractor *right_extractor = nullptr);
 
     void GrabImuData(const IMU::Point &imuMeasurement);
 
@@ -334,13 +335,13 @@ class Tracking
     double   mTime_LocalMapTrack;
     double   mTime_NewKF_Dec;
 
-    GeometricCamera *mpCamera, *mpCamera2;
+    const camera_vector &cameras;
 
     int initID, lastID;
 
     Sophus::SE3f mTlr;
 
-    void newParameterLoader(Settings *settings);
+    void load_parameters(Settings *settings);
 
 #ifdef REGISTER_LOOP
     bool Stop();

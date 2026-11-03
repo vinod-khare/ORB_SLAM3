@@ -64,7 +64,7 @@ class Frame
     // Calibration/state for a new image, without detecting or describing features.
     Frame(Frame &previous, double timestamp);
     /** Initialize geometry and feature indexing from keypoints supplied by Tracking. */
-    void initialize_features(const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right = {}, GeometricCamera *right_camera = nullptr, const std::vector<cv::Mat> &left_pyramid = {},
+    void initialize_features(const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {}, const std::vector<cv::Mat> &left_pyramid = {},
                              const std::vector<cv::Mat> &right_pyramid = {});
     void set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points);
     bool reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers = 50);
@@ -108,7 +108,7 @@ class Frame
 
     // Check if a MapPoint is in the frustum of the camera
     // and fill variables of the MapPoint to be used by the tracking
-    bool isInFrustum(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, GeometricCamera *right_camera = nullptr);
+    bool isInFrustum(MapPoint *pMP, float viewingCosLimit, const camera_vector &cameras);
 
     bool ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v);
 
@@ -331,9 +331,9 @@ class Frame
     std::vector<std::size_t> mGridRight[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Stereo fisheye
-    void ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera);
+    void ComputeStereoFishEyeMatches(const camera_vector &cameras);
 
-    bool isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, bool bRight = false);
+    bool isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight = false);
 
     Eigen::Vector3f UnprojectStereoFishEye(const int &i);
 

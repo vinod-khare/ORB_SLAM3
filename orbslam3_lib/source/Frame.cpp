@@ -218,8 +218,7 @@ void Frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoin
     AssignFeaturesToGrid();
 }
 
-void Frame::initialize_features(const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right, GeometricCamera *right_camera, const std::vector<cv::Mat> &left_pyramid,
-                                const std::vector<cv::Mat> &right_pyramid)
+void Frame::initialize_features(const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right, const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid)
 {
     flow_only = false;
     mBowVec.clear();
@@ -234,9 +233,9 @@ void Frame::initialize_features(const cv::Mat &left, GeometricCamera *camera, co
             mGridRight[x][y].clear();
         }
     }
-    Nleft  = right_camera ? static_cast<int>(mvKeys.size()) : -1;
-    Nright = right_camera ? static_cast<int>(mvKeysRight.size()) : -1;
-    N      = static_cast<int>(mvKeys.size() + (right_camera ? mvKeysRight.size() : 0));
+    Nleft  = is_fisheye_stereo(cameras) ? static_cast<int>(mvKeys.size()) : -1;
+    Nright = is_fisheye_stereo(cameras) ? static_cast<int>(mvKeysRight.size()) : -1;
+    N      = static_cast<int>(mvKeys.size() + (is_fisheye_stereo(cameras) ? mvKeysRight.size() : 0));
     mvpMapPoints.assign(N, nullptr);
     mvbOutlier.assign(N, false);
     mvuRight.assign(mvKeys.size(), -1.0f);
@@ -245,7 +244,7 @@ void Frame::initialize_features(const cv::Mat &left, GeometricCamera *camera, co
     mvRightToLeftMatch.clear();
     mvStereo3Dpoints.clear();
     mnCloseMPs = 0;
-    if (!right_camera)
+    if (!is_fisheye_stereo(cameras))
     {
         monoLeft = monoRight = -1;
     }
@@ -269,18 +268,18 @@ void Frame::initialize_features(const cv::Mat &left, GeometricCamera *camera, co
     }
     mb                        = mbf / fx;
     const auto stereo_started = std::chrono::steady_clock::now();
-    if (right_camera)
+    if (is_fisheye_stereo(cameras))
     {
         imgLeft  = left.clone();
         imgRight = right.clone();
-        ComputeStereoFishEyeMatches(camera, right_camera);
+        ComputeStereoFishEyeMatches(cameras);
     }
     else if (!right.empty())
     {
         ComputeStereoMatches(left_pyramid, right_pyramid);
     }
     stereo_matching_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - stereo_started).count();
-    if (right_camera)
+    if (is_fisheye_stereo(cameras))
     {
         mvKeysUn = mvKeys;
     }
@@ -453,7 +452,7 @@ Eigen::Matrix3f Frame::GetRelativePoseTlr_rotation() { return mTlr.rotationMatri
 
 Eigen::Vector3f Frame::GetRelativePoseTlr_translation() { return mTlr.translation(); }
 
-bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, GeometricCamera *right_camera)
+bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, const camera_vector &cameras)
 {
     if (Nleft == -1)
     {
@@ -476,7 +475,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, GeometricCamera *c
             return false;
         }
 
-        const Eigen::Vector2f uv = camera->project(Pc);
+        const Eigen::Vector2f uv = cameras[0]->project(Pc);
 
         if (uv(0) < mnMinX || uv(0) > mnMaxX)
         {
@@ -534,8 +533,8 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, GeometricCamera *c
         pMP->mnTrackScaleLevel  = -1;
         pMP->mnTrackScaleLevelR = -1;
 
-        pMP->mbTrackInView  = isInFrustumChecks(pMP, viewingCosLimit, camera);
-        pMP->mbTrackInViewR = isInFrustumChecks(pMP, viewingCosLimit, right_camera, true);
+        pMP->mbTrackInView  = isInFrustumChecks(pMP, viewingCosLimit, *cameras[0]);
+        pMP->mbTrackInViewR = isInFrustumChecks(pMP, viewingCosLimit, *cameras[1], true);
 
         return pMP->mbTrackInView || pMP->mbTrackInViewR;
     }
@@ -1019,7 +1018,7 @@ void Frame::setIntegrated()
     mbImuPreintegrated = true;
 }
 
-void Frame::ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera)
+void Frame::ComputeStereoFishEyeMatches(const camera_vector &cameras)
 {
     cv::Mat stereoDescLeft  = descriptor_matrix(mvKeys, monoLeft);
     cv::Mat stereoDescRight = descriptor_matrix(mvKeysRight, monoRight);
@@ -1053,7 +1052,7 @@ void Frame::ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera
                 const auto      sigma_right = mvLevelSigma2[mvKeysRight[right_index].octave];
                 Eigen::Vector3f point;
                 const auto      depth =
-                    static_cast<KannalaBrandt8 *>(camera)->TriangulateMatches(right_camera, mvKeys[left_index], mvKeysRight[right_index], mRlr, mtlr, sigma_left, sigma_right, point);
+                    static_cast<KannalaBrandt8 &>(*cameras[0]).TriangulateMatches(*cameras[1], mvKeys[left_index], mvKeysRight[right_index], mRlr, mtlr, sigma_left, sigma_right, point);
                 if (depth > 0.0001f)
                 {
                     mvLeftToRightMatch[left_index] = right_index;
@@ -1077,7 +1076,7 @@ void Frame::ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera
     }
 }
 
-bool Frame::isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCamera *camera, bool bRight)
+bool Frame::isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight)
 {
     // 3D in absolute coordinates
     Eigen::Vector3f P = pMP->GetWorldPos();
@@ -1112,7 +1111,7 @@ bool Frame::isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCam
 
     // Project in image and check it is not outside
     Eigen::Vector2f uv;
-    uv = camera->project(Pc);
+    uv = camera.project(Pc);
 
     if (uv(0) < mnMinX || uv(0) > mnMaxX)
     {

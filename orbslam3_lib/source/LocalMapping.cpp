@@ -397,7 +397,8 @@ void LocalMapping::CreateNewMapPoints()
 
         KeyFrame *pKF2 = vpNeighKFs[i];
 
-        GeometricCamera *pCamera1 = mpCurrentKeyFrame->mpCamera, *pCamera2 = pKF2->mpCamera;
+        size_t camera_index1 = 0;
+        size_t camera_index2 = 0;
 
         // Check first that baseline is not too short
         Eigen::Vector3f Ow2       = pKF2->GetCameraCenter();
@@ -452,16 +453,16 @@ void LocalMapping::CreateNewMapPoints()
                                            : (idx1 < mpCurrentKeyFrame->NLeft) ? mpCurrentKeyFrame->mvKeys[idx1]
                                                                                : mpCurrentKeyFrame->mvKeysRight[idx1 - mpCurrentKeyFrame->NLeft];
             const float         kp1_ur   = mpCurrentKeyFrame->mvuRight[idx1];
-            bool                bStereo1 = (!mpCurrentKeyFrame->mpCamera2 && kp1_ur >= 0);
+            bool                bStereo1 = (!is_fisheye_stereo(mpCurrentKeyFrame->cameras) && kp1_ur >= 0);
             const bool          bRight1  = (mpCurrentKeyFrame->NLeft == -1 || idx1 < mpCurrentKeyFrame->NLeft) ? false : true;
 
             const cv::KeyPoint &kp2 = (pKF2->NLeft == -1) ? pKF2->mvKeysUn[idx2] : (idx2 < pKF2->NLeft) ? pKF2->mvKeys[idx2] : pKF2->mvKeysRight[idx2 - pKF2->NLeft];
 
             const float kp2_ur   = pKF2->mvuRight[idx2];
-            bool        bStereo2 = (!pKF2->mpCamera2 && kp2_ur >= 0);
+            bool        bStereo2 = (!is_fisheye_stereo(pKF2->cameras) && kp2_ur >= 0);
             const bool  bRight2  = (pKF2->NLeft == -1 || idx2 < pKF2->NLeft) ? false : true;
 
-            if (mpCurrentKeyFrame->mpCamera2 && pKF2->mpCamera2)
+            if (is_fisheye_stereo(mpCurrentKeyFrame->cameras) && is_fisheye_stereo(pKF2->cameras))
             {
                 if (bRight1 && bRight2)
                 {
@@ -471,8 +472,8 @@ void LocalMapping::CreateNewMapPoints()
                     sophTcw2 = pKF2->GetRightPose();
                     Ow2      = pKF2->GetRightCameraCenter();
 
-                    pCamera1 = mpCurrentKeyFrame->mpCamera2;
-                    pCamera2 = pKF2->mpCamera2;
+                    camera_index1 = 1;
+                    camera_index2 = 1;
                 }
                 else if (bRight1 && !bRight2)
                 {
@@ -482,8 +483,8 @@ void LocalMapping::CreateNewMapPoints()
                     sophTcw2 = pKF2->GetPose();
                     Ow2      = pKF2->GetCameraCenter();
 
-                    pCamera1 = mpCurrentKeyFrame->mpCamera2;
-                    pCamera2 = pKF2->mpCamera;
+                    camera_index1 = 1;
+                    camera_index2 = 0;
                 }
                 else if (!bRight1 && bRight2)
                 {
@@ -493,8 +494,8 @@ void LocalMapping::CreateNewMapPoints()
                     sophTcw2 = pKF2->GetRightPose();
                     Ow2      = pKF2->GetRightCameraCenter();
 
-                    pCamera1 = mpCurrentKeyFrame->mpCamera;
-                    pCamera2 = pKF2->mpCamera2;
+                    camera_index1 = 0;
+                    camera_index2 = 1;
                 }
                 else
                 {
@@ -504,8 +505,8 @@ void LocalMapping::CreateNewMapPoints()
                     sophTcw2 = pKF2->GetPose();
                     Ow2      = pKF2->GetCameraCenter();
 
-                    pCamera1 = mpCurrentKeyFrame->mpCamera;
-                    pCamera2 = pKF2->mpCamera;
+                    camera_index1 = 0;
+                    camera_index2 = 0;
                 }
                 eigTcw1 = sophTcw1.matrix3x4();
                 Rcw1    = eigTcw1.block<3, 3>(0, 0);
@@ -519,8 +520,8 @@ void LocalMapping::CreateNewMapPoints()
             }
 
             // Check parallax between rays
-            Eigen::Vector3f xn1 = pCamera1->unprojectEig(kp1.pt);
-            Eigen::Vector3f xn2 = pCamera2->unprojectEig(kp2.pt);
+            Eigen::Vector3f xn1 = mpCurrentKeyFrame->cameras[camera_index1]->unprojectEig(kp1.pt);
+            Eigen::Vector3f xn2 = pKF2->cameras[camera_index2]->unprojectEig(kp2.pt);
 
             Eigen::Vector3f ray1            = Rwc1 * xn1;
             Eigen::Vector3f ray2            = Rwc2 * xn2;
@@ -606,7 +607,7 @@ void LocalMapping::CreateNewMapPoints()
 
             if (!bStereo1)
             {
-                cv::Point2f uv1   = pCamera1->project(cv::Point3f(x1, y1, z1));
+                cv::Point2f uv1   = mpCurrentKeyFrame->cameras[camera_index1]->project(cv::Point3f(x1, y1, z1));
                 float       errX1 = uv1.x - kp1.pt.x;
                 float       errY1 = uv1.y - kp1.pt.y;
 
@@ -636,7 +637,7 @@ void LocalMapping::CreateNewMapPoints()
             const float invz2        = 1.0 / z2;
             if (!bStereo2)
             {
-                cv::Point2f uv2   = pCamera2->project(cv::Point3f(x2, y2, z2));
+                cv::Point2f uv2   = pKF2->cameras[camera_index2]->project(cv::Point3f(x2, y2, z2));
                 float       errX2 = uv2.x - kp2.pt.x;
                 float       errY2 = uv2.y - kp2.pt.y;
                 if ((errX2 * errX2 + errY2 * errY2) > 5.991 * sigmaSquare2)

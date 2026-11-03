@@ -38,7 +38,7 @@ class GeometricTools
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    static bool solve_pnp_ransac(const std::vector<cv::Point3f> &world_points, const std::vector<cv::Point2f> &image_points, const std::vector<float> &max_errors, GeometricCamera *camera,
+    static bool solve_pnp_ransac(const std::vector<cv::Point3f> &world_points, const std::vector<cv::Point2f> &image_points, const std::vector<float> &max_errors, GeometricCamera &camera,
                                  int min_inliers, Eigen::Matrix4f &Tcw, std::vector<bool> &inliers);
 
     // Compute the Fundamental matrix between KF1 and KF2

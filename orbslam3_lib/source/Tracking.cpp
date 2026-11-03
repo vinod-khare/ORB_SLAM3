@@ -42,21 +42,19 @@ using namespace std;
 namespace ORB_SLAM3
 {
 
-Tracking::Tracking(System *pSys, place_vocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings, const string &_nameSeq)
+Tracking::Tracking(System *pSys, place_vocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings, const camera_vector &cameras, const string &_nameSeq)
     : mState(NO_IMAGES_YET), mSensor(sensor), mTrackedFr(0), mbStep(false), mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), place_vocabulary_ptr(pVoc), mpKeyFrameDB(pKFDB),
       mbReadyToInitializate(false), mpSystem(pSys), bStepByStep(false), mpAtlas(pAtlas), mpLastKeyFrame(nullptr), mnLastRelocFrameId(0), time_recently_lost(5.0), mnFirstFrameId(0),
-      mnInitialFrameId(0), mbCreatedMap(false), mpCamera2(nullptr)
+      mnInitialFrameId(0), mbCreatedMap(false), cameras(cameras)
 {
-    newParameterLoader(settings);
+    load_parameters(settings);
 
     initID         = 0;
     lastID         = 0;
     mbInitWith3KFs = false;
     mnNumDataset   = 0;
 
-    vector<GeometricCamera *> vpCams = mpAtlas->GetAllCameras();
-    spdlog::debug("There are {} cameras in the atlas", vpCams.size());
-    for (GeometricCamera *pCam : vpCams)
+    for (const auto &pCam : cameras)
     {
         const char *camera_type = "unknown";
         if (pCam->GetType() == GeometricCamera::CAM_PINHOLE)
@@ -74,10 +72,8 @@ Tracking::Tracking(System *pSys, place_vocabulary *pVoc, Atlas *pAtlas, KeyFrame
 Tracking::~Tracking() {}
 
 // TODO: don't use raw pointer
-void Tracking::newParameterLoader(Settings *settings)
+void Tracking::load_parameters(Settings *settings)
 {
-    mpCamera = settings->camera1();
-    mpCamera = mpAtlas->AddCamera(mpCamera);
 
     if (settings->needToUndistort())
     {
@@ -92,21 +88,19 @@ void Tracking::newParameterLoader(Settings *settings)
     mImageScale = 1.0f;
 
     mK                 = cv::Mat::eye(3, 3, CV_32F);
-    mK.at<float>(0, 0) = mpCamera->getParameter(0);
-    mK.at<float>(1, 1) = mpCamera->getParameter(1);
-    mK.at<float>(0, 2) = mpCamera->getParameter(2);
-    mK.at<float>(1, 2) = mpCamera->getParameter(3);
+    mK.at<float>(0, 0) = cameras[0]->getParameter(0);
+    mK.at<float>(1, 1) = cameras[0]->getParameter(1);
+    mK.at<float>(0, 2) = cameras[0]->getParameter(2);
+    mK.at<float>(1, 2) = cameras[0]->getParameter(3);
 
     mK_.setIdentity();
-    mK_(0, 0) = mpCamera->getParameter(0);
-    mK_(1, 1) = mpCamera->getParameter(1);
-    mK_(0, 2) = mpCamera->getParameter(2);
-    mK_(1, 2) = mpCamera->getParameter(3);
+    mK_(0, 0) = cameras[0]->getParameter(0);
+    mK_(1, 1) = cameras[0]->getParameter(1);
+    mK_(0, 2) = cameras[0]->getParameter(2);
+    mK_(1, 2) = cameras[0]->getParameter(3);
 
     if ((mSensor == System::STEREO || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && settings->cameraType() == Settings::KannalaBrandt)
     {
-        mpCamera2 = settings->camera2();
-        mpCamera2 = mpAtlas->AddCamera(mpCamera2);
 
         mTlr = settings->Tlr();
     }
@@ -1151,13 +1145,13 @@ void Tracking::StereoInitialization()
         }
 
         // Create KeyFrame
-        KeyFrame *pKFini = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, mpCamera, mpCamera2);
+        KeyFrame *pKFini = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, cameras);
 
         // Insert KeyFrame in the map
         mpAtlas->AddKeyFrame(pKFini);
 
         // Create MapPoints and asscoiate to KeyFrame
-        if (!mpCamera2)
+        if (!is_fisheye_stereo(cameras))
         {
             for (int i = 0; i < mCurrentFrame.N; i++)
             {
@@ -1284,7 +1278,7 @@ void Tracking::MonocularInitialization()
 
         const auto initial_keys = to_cv_keypoints(mInitialFrame.mvKeysUn);
         const auto current_keys = to_cv_keypoints(mCurrentFrame.mvKeysUn);
-        if (mpCamera->ReconstructWithTwoViews(initial_keys, current_keys, mvIniMatches, Tcw, mvIniP3D, vbTriangulated))
+        if (cameras[0]->ReconstructWithTwoViews(initial_keys, current_keys, mvIniMatches, Tcw, mvIniP3D, vbTriangulated))
         {
             for (size_t i = 0, iend = mvIniMatches.size(); i < iend; i++)
             {
@@ -1307,8 +1301,8 @@ void Tracking::MonocularInitialization()
 void Tracking::CreateInitialMapMonocular()
 {
     // Create KeyFrames
-    KeyFrame *pKFini = new KeyFrame(mInitialFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, mpCamera, mpCamera2);
-    KeyFrame *pKFcur = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, mpCamera, mpCamera2);
+    KeyFrame *pKFini = new KeyFrame(mInitialFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, cameras);
+    KeyFrame *pKFcur = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, cameras);
 
     if (mSensor == System::IMU_MONOCULAR)
     {
@@ -1525,7 +1519,7 @@ bool Tracking::TrackReferenceKeyFrame()
     mCurrentFrame.mvpMapPoints = vpMapPointMatches;
     mCurrentFrame.SetPose(mLastFrame.GetPose());
 
-    Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
+    Optimizer::PoseOptimization(&mCurrentFrame, cameras);
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -1681,7 +1675,7 @@ bool Tracking::TrackWithMotionModel()
 
         if (flow_matches >= 50)
         {
-            Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
+            Optimizer::PoseOptimization(&mCurrentFrame, cameras);
 
             const int minimum_inliers = stereo ? std::clamp(flow_reference_matches_ / 2, 100, 300) : 50;
             reliable_flow             = mCurrentFrame.reliable_flow_inliers(mImGray.size(), minimum_inliers);
@@ -1726,7 +1720,7 @@ bool Tracking::TrackWithMotionModel()
     }
 
     // TODO: projecting points should be trackers responsiblity, leaving matcher to match pre-projected points.
-    int nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR, mpCamera);
+    int nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR, cameras);
 
     // If few matches, uses a wider window search
     if (nmatches < 20)
@@ -1734,7 +1728,7 @@ bool Tracking::TrackWithMotionModel()
         spdlog::debug("Not enough matches, wider window search!!");
         fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
 
-        nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, 2 * th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR, mpCamera);
+        nmatches = matcher.search_by_projection(mCurrentFrame, mLastFrame, 2 * th, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR, cameras);
         spdlog::debug("Matches with wider search: " + to_string(nmatches));
     }
 
@@ -1752,7 +1746,7 @@ bool Tracking::TrackWithMotionModel()
     }
 
     // Optimize frame pose with all matches
-    Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
+    Optimizer::PoseOptimization(&mCurrentFrame, cameras);
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -1814,17 +1808,16 @@ void Tracking::create_frame(double timestamp, keypoint_extractor &extractor)
     const bool inertial    = mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD;
     const bool stereo      = mSensor == System::STEREO || mSensor == System::IMU_STEREO;
     mCurrentFrame          = Frame(timestamp, place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, inertial ? &mLastFrame : nullptr, inertial ? *mpImuCalib : IMU::Calib(),
-                          stereo && mpCamera2 ? mTlr : Sophus::SE3f());
+                          stereo && is_fisheye_stereo(cameras) ? mTlr : Sophus::SE3f());
 
-    extract_features(mCurrentFrame, extractor, mImGray, mpCamera, stereo ? mImRight : cv::Mat(), stereo ? right_keypoint_extractor.get() : nullptr, stereo ? mpCamera2 : nullptr);
+    extract_features(mCurrentFrame, extractor, mImGray, cameras, stereo ? mImRight : cv::Mat(), stereo ? right_keypoint_extractor.get() : nullptr);
 }
 
-void Tracking::extract_features(Frame &frame, keypoint_extractor &extractor, const cv::Mat &left, GeometricCamera *camera, const cv::Mat &right, keypoint_extractor *right_extractor,
-                                GeometricCamera *right_camera)
+void Tracking::extract_features(Frame &frame, keypoint_extractor &extractor, const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right, keypoint_extractor *right_extractor)
 {
     CV_Assert(!left.empty());
     CV_Assert(right.empty() || (right_extractor && right_extractor != &extractor));
-    CV_Assert(!right_camera || (!right.empty() && camera));
+    CV_Assert(cameras.size() == (right.empty() ? 1u : 2u));
 
     const auto extraction_started = std::chrono::steady_clock::now();
     frame.mnScaleLevels           = extractor.get_levels();
@@ -1849,14 +1842,14 @@ void Tracking::extract_features(Frame &frame, keypoint_extractor &extractor, con
     }
     else
     {
-        const auto *left_fisheye  = right_camera ? static_cast<KannalaBrandt8 *>(camera) : nullptr;
-        const auto *right_fisheye = right_camera ? static_cast<KannalaBrandt8 *>(right_camera) : nullptr;
-        auto        left_worker   = std::async(std::launch::async, [&] { return extract(extractor, left, frame.mvKeys, left_fisheye ? left_fisheye->mvLappingArea : std::vector<int>{0, 0}); });
-        frame.monoRight           = extract(*right_extractor, right, frame.mvKeysRight, right_fisheye ? right_fisheye->mvLappingArea : std::vector<int>{0, 0});
-        frame.monoLeft            = left_worker.get();
+        auto left_worker =
+            std::async(std::launch::async,
+                       [&] { return extract(extractor, left, frame.mvKeys, is_fisheye_stereo(cameras) ? static_cast<KannalaBrandt8 &>(*cameras[0]).mvLappingArea : std::vector<int>{0, 0}); });
+        frame.monoRight = extract(*right_extractor, right, frame.mvKeysRight, is_fisheye_stereo(cameras) ? static_cast<KannalaBrandt8 &>(*cameras[1]).mvLappingArea : std::vector<int>{0, 0});
+        frame.monoLeft  = left_worker.get();
     }
     frame.extraction_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extraction_started).count();
-    frame.initialize_features(left, camera, right, right_camera, extractor.mvImagePyramid, right.empty() ? std::vector<cv::Mat>{} : right_extractor->mvImagePyramid);
+    frame.initialize_features(left, cameras, right, extractor.mvImagePyramid, right.empty() ? std::vector<cv::Mat>{} : right_extractor->mvImagePyramid);
 }
 
 void Tracking::extract_current_features()
@@ -1867,7 +1860,7 @@ void Tracking::extract_current_features()
     }
     const bool stereo    = mSensor == System::STEREO || mSensor == System::IMU_STEREO;
     auto      &extractor = use_initial_extractor_ ? *initial_keypoint_extractor : *left_keypoint_extractor;
-    extract_features(mCurrentFrame, extractor, mImGray, mpCamera, stereo ? mImRight : cv::Mat(), stereo ? right_keypoint_extractor.get() : nullptr, stereo ? mpCamera2 : nullptr);
+    extract_features(mCurrentFrame, extractor, mImGray, cameras, stereo ? mImRight : cv::Mat(), stereo ? right_keypoint_extractor.get() : nullptr);
     last_feature_frame_id_ = mCurrentFrame.mnId;
     ++feature_frames_;
 }
@@ -1936,12 +1929,12 @@ int Tracking::track_with_optical_flow()
         map_points.push_back(map_point);
         cv::Point2f prediction = key.pt;
         // Camera-model projections are in LK coordinates except for distorted pinhole input.
-        if (mpCamera2 || mDistCoef.at<float>(0) == 0.0f)
+        if (is_fisheye_stereo(cameras) || mDistCoef.at<float>(0) == 0.0f)
         {
             const Eigen::Vector3f position = mCurrentFrame.GetPose() * map_point->GetWorldPos();
             if (position.z() > 0)
             {
-                const Eigen::Vector2f projected = mpCamera->project(position);
+                const Eigen::Vector2f projected = cameras[0]->project(position);
                 if (projected.allFinite() && projected.x() >= 0 && projected.y() >= 0 && projected.x() < mImGray.cols && projected.y() < mImGray.rows)
                 {
                     prediction = cv::Point2f(projected.x(), projected.y());
@@ -2039,14 +2032,14 @@ bool Tracking::TrackLocalMap()
 
     if (!mpAtlas->isImuInitialized())
     {
-        Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
+        Optimizer::PoseOptimization(&mCurrentFrame, cameras);
     }
     else
     {
         if (mCurrentFrame.mnId <= mnLastRelocFrameId + mnFramesToResetIMU)
         {
             spdlog::debug("TLM: PoseOptimization ");
-            Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
+            Optimizer::PoseOptimization(&mCurrentFrame, cameras);
         }
         else
         {
@@ -2056,12 +2049,12 @@ bool Tracking::TrackLocalMap()
             if (!mbMapUpdated && mLastFrame.mpcpi)
             {
                 spdlog::trace("TLM: PoseInertialOptimizationLastFrame ");
-                Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame, mpCamera, mpCamera2);
+                Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame, cameras);
             }
             else
             {
                 spdlog::trace("TLM: PoseInertialOptimizationLastKeyFrame ");
-                Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame, mpCamera, mpCamera2);
+                Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame, cameras);
             }
         }
     }
@@ -2263,7 +2256,7 @@ bool Tracking::NeedNewKeyFrame()
         thRefRatio = 0.9f;
     }
 
-    if (mpCamera2)
+    if (is_fisheye_stereo(cameras))
     {
         thRefRatio = 0.75f;
     }
@@ -2365,9 +2358,9 @@ void Tracking::CreateNewKeyFrame()
         const Frame flow_frame(mCurrentFrame);
         extract_current_features();
         descriptor_matcher matcher(0.9, true);
-        matcher.search_by_projection(mCurrentFrame, mLastFrame, mSensor == System::STEREO ? 7 : 15, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR, mpCamera);
+        matcher.search_by_projection(mCurrentFrame, mLastFrame, mSensor == System::STEREO ? 7 : 15, mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR, cameras);
         SearchLocalPoints();
-        const int inliers = Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
+        const int inliers = Optimizer::PoseOptimization(&mCurrentFrame, cameras);
         if (inliers < 50)
         {
             spdlog::warn("Frame {}: postponing keyframe; only {} descriptor inliers after feature refresh", mCurrentFrame.mnId, inliers);
@@ -2387,7 +2380,7 @@ void Tracking::CreateNewKeyFrame()
         return;
     }
 
-    KeyFrame *pKF = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, mpCamera, mpCamera2);
+    KeyFrame *pKF = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, cameras);
 
     if (mpAtlas->isImuInitialized())
     {
@@ -2557,7 +2550,7 @@ void Tracking::SearchLocalPoints()
             continue;
         }
         // Project (this fills MapPoint variables for matching)
-        if (mCurrentFrame.isInFrustum(pMP, 0.5, mpCamera, mpCamera2))
+        if (mCurrentFrame.isInFrustum(pMP, 0.5, cameras))
         {
             pMP->IncreaseVisible();
             nToMatch++;
@@ -2896,7 +2889,7 @@ bool Tracking::Relocalization()
         vector<bool>    pnp_inliers;
         Eigen::Matrix4f Tcw_matrix;
         const int       min_inliers = std::max(10, static_cast<int>(world_points.size() * 0.5));
-        if (!GeometricTools::solve_pnp_ransac(world_points, image_points, max_errors, mpCamera, min_inliers, Tcw_matrix, pnp_inliers))
+        if (!GeometricTools::solve_pnp_ransac(world_points, image_points, max_errors, *cameras[0], min_inliers, Tcw_matrix, pnp_inliers))
         {
             continue;
         }
@@ -2920,7 +2913,7 @@ bool Tracking::Relocalization()
             ++correspondence_index;
         }
 
-        int nGood = Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
+        int nGood = Optimizer::PoseOptimization(&mCurrentFrame, cameras);
 
         if (nGood < 10)
         {
@@ -2938,11 +2931,11 @@ bool Tracking::Relocalization()
         // If few inliers, search by projection in a coarse window and optimize again
         if (nGood < 50)
         {
-            int nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 10, 100, mpCamera);
+            int nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 10, 100, cameras);
 
             if (nadditional + nGood >= 50)
             {
-                nGood = Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
+                nGood = Optimizer::PoseOptimization(&mCurrentFrame, cameras);
 
                 // If many inliers but still not enough, search by projection again in a narrower window
                 // the camera has been already optimized with many points
@@ -2956,11 +2949,11 @@ bool Tracking::Relocalization()
                             sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
                         }
                     }
-                    nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 3, 64, mpCamera);
+                    nadditional = matcher2.search_by_projection(mCurrentFrame, vpCandidateKFs[i], sFound, 3, 64, cameras);
 
                     if (nadditional + nGood >= 50)
                     {
-                        nGood = Optimizer::PoseOptimization(&mCurrentFrame, mpCamera, mpCamera2);
+                        nGood = Optimizer::PoseOptimization(&mCurrentFrame, cameras);
 
                         for (int io = 0; io < mCurrentFrame.N; io++)
                         {

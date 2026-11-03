@@ -21,6 +21,7 @@
 
 #include "KeyFrame.h"
 
+#include <memory>
 #include <vector>
 
 #include <opencv2/opencv.hpp>
@@ -53,8 +54,8 @@ class Sim3Solver
 
     void CheckInliers();
 
-    void Project(const std::vector<Eigen::Vector3f> &vP3Dw, std::vector<Eigen::Vector2f> &vP2D, Eigen::Matrix4f Tcw, GeometricCamera *pCamera);
-    void FromCameraToImage(const std::vector<Eigen::Vector3f> &vP3Dc, std::vector<Eigen::Vector2f> &vP2D, GeometricCamera *pCamera);
+    void Project(const std::vector<Eigen::Vector3f> &vP3Dw, std::vector<Eigen::Vector2f> &vP2D, Eigen::Matrix4f Tcw, GeometricCamera &camera);
+    void FromCameraToImage(const std::vector<Eigen::Vector3f> &vP3Dc, std::vector<Eigen::Vector2f> &vP2D, GeometricCamera &camera);
 
   protected:
     // KeyFrames and matches
@@ -118,7 +119,7 @@ class Sim3Solver
 
     // Calibration
 
-    GeometricCamera *pCamera1, *pCamera2;
+    const camera_vector &cameras;
 };
 
 } // namespace ORB_SLAM3

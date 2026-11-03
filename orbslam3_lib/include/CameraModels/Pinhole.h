@@ -76,10 +76,10 @@ class Pinhole : public GeometricCamera
     cv::Mat         toK();
     Eigen::Matrix3f toK_();
 
-    bool epipolarConstrain(GeometricCamera *pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel,
+    bool epipolarConstrain(GeometricCamera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel,
                            const float unc);
 
-    bool matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, GeometricCamera *pOther, Sophus::SE3f &Tcw1, Sophus::SE3f &Tcw2, const float sigmaLevel1,
+    bool matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, GeometricCamera &pOther, Sophus::SE3f &Tcw1, Sophus::SE3f &Tcw2, const float sigmaLevel1,
                              const float sigmaLevel2, Eigen::Vector3f &x3Dtriangulated)
     {
         return false;
@@ -88,7 +88,7 @@ class Pinhole : public GeometricCamera
     friend std::ostream &operator<<(std::ostream &os, const Pinhole &ph);
     friend std::istream &operator>>(std::istream &os, Pinhole &ph);
 
-    bool IsEqual(GeometricCamera *pCam);
+    bool IsEqual(GeometricCamera &pCam);
 
   private:
     // Parameters vector corresponds to

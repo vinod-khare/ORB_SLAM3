@@ -28,6 +28,8 @@
 
 #include <math.h>
 
+#include <memory>
+
 #include <g2o/core/block_solver.h>
 #include <g2o/core/optimization_algorithm_gauss_newton.h>
 #include <g2o/core/optimization_algorithm_levenberg.h>
@@ -53,9 +55,9 @@ class Optimizer
 
     void static LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges);
 
-    int static PoseOptimization(Frame *pFrame, GeometricCamera *camera, GeometricCamera *right_camera = nullptr);
-    int static PoseInertialOptimizationLastKeyFrame(Frame *pFrame, GeometricCamera *camera, GeometricCamera *right_camera = nullptr, bool bRecInit = false);
-    int static PoseInertialOptimizationLastFrame(Frame *pFrame, GeometricCamera *camera, GeometricCamera *right_camera = nullptr, bool bRecInit = false);
+    int static PoseOptimization(Frame *pFrame, const camera_vector &cameras);
+    int static PoseInertialOptimizationLastKeyFrame(Frame *pFrame, const camera_vector &cameras, bool bRecInit = false);
+    int static PoseInertialOptimizationLastFrame(Frame *pFrame, const camera_vector &cameras, bool bRecInit = false);
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
     void static OptimizeEssentialGraph(Map *pMap, KeyFrame *pLoopKF, KeyFrame *pCurKF, const LoopClosing::KeyFrameAndPose &NonCorrectedSim3, const LoopClosing::KeyFrameAndPose &CorrectedSim3,

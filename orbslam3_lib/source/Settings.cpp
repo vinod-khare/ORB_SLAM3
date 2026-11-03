@@ -147,14 +147,14 @@ kalibr_camera read_kalibr_camera(const YAML::Node &calibration, const std::strin
     return result;
 }
 
-ORB_SLAM3::GeometricCamera *make_camera(const kalibr_camera &camera)
+std::unique_ptr<ORB_SLAM3::GeometricCamera> make_camera(const kalibr_camera &camera)
 {
     if (camera.type == ORB_SLAM3::Settings::KannalaBrandt)
     {
-        return new ORB_SLAM3::KannalaBrandt8(camera.parameters);
+        return std::make_unique<ORB_SLAM3::KannalaBrandt8>(camera.parameters);
     }
 
-    return new ORB_SLAM3::Pinhole(camera.parameters);
+    return std::make_unique<ORB_SLAM3::Pinhole>(camera.parameters);
 }
 } // namespace
 
@@ -343,8 +343,8 @@ void Settings::read_cameras(cv::FileStorage &settings)
 
     cameraType_     = camera1.type;
     originalImSize_ = camera1.resolution;
-    calibration1_   = make_camera(camera1);
-    originalCalib1_.reset(make_camera(camera1));
+    _cameras.push_back(make_camera(camera1));
+    _original_cameras.push_back(make_camera(camera1));
     vPinHoleDistorsion1_ = camera1.distortion;
 
     if ((sensor_ == System::MONOCULAR || sensor_ == System::IMU_MONOCULAR) && !vPinHoleDistorsion1_.empty())
@@ -364,8 +364,8 @@ void Settings::read_cameras(cv::FileStorage &settings)
         throw std::runtime_error("cam0 and cam1 must share distortion model and resolution in calibration file: " + _calibration_file.string());
     }
 
-    calibration2_ = make_camera(camera2);
-    originalCalib2_.reset(make_camera(camera2));
+    _cameras.push_back(make_camera(camera2));
+    _original_cameras.push_back(make_camera(camera2));
     vPinHoleDistorsion2_ = camera2.distortion;
 
     if (cameraType_ == PinHole)
@@ -381,15 +381,15 @@ void Settings::read_cameras(cv::FileStorage &settings)
             return found ? value : default_value;
         };
 
-        const int last_column                                       = originalImSize_.width - 1;
-        static_cast<KannalaBrandt8 *>(calibration1_)->mvLappingArea = {read_overlap("Camera1.overlappingBegin", 0), read_overlap("Camera1.overlappingEnd", last_column)};
-        static_cast<KannalaBrandt8 *>(calibration2_)->mvLappingArea = {read_overlap("Camera2.overlappingBegin", 0), read_overlap("Camera2.overlappingEnd", last_column)};
+        const int last_column                                     = originalImSize_.width - 1;
+        static_cast<KannalaBrandt8 &>(*_cameras[0]).mvLappingArea = {read_overlap("Camera1.overlappingBegin", 0), read_overlap("Camera1.overlappingEnd", last_column)};
+        static_cast<KannalaBrandt8 &>(*_cameras[1]).mvLappingArea = {read_overlap("Camera2.overlappingBegin", 0), read_overlap("Camera2.overlappingEnd", last_column)};
     }
 
     // Kalibr T_cn_cnm1 maps cam0 points into cam1, so Tlr is its inverse.
     Tlr_ = read_transform(calibration["cam1"]["T_cn_cnm1"], "cam1.T_cn_cnm1", _calibration_file).inverse();
     b_   = Tlr_.translation().norm();
-    bf_  = b_ * calibration1_->getParameter(0);
+    bf_  = b_ * _cameras[0]->getParameter(0);
 
     bool found;
     thDepth_ = readParameter<float>(settings, "Stereo.ThDepth", found);
@@ -409,13 +409,13 @@ void Settings::readImageInfo(cv::FileStorage &fSettings)
         {
             // Update calibration
             float scaleRowFactor = (float)newImSize_.height / (float)originalImSize_.height;
-            calibration1_->setParameter(calibration1_->getParameter(1) * scaleRowFactor, 1);
-            calibration1_->setParameter(calibration1_->getParameter(3) * scaleRowFactor, 3);
+            _cameras[0]->setParameter(_cameras[0]->getParameter(1) * scaleRowFactor, 1);
+            _cameras[0]->setParameter(_cameras[0]->getParameter(3) * scaleRowFactor, 3);
 
             if (sensor_ == System::STEREO || sensor_ == System::IMU_STEREO)
             {
-                calibration2_->setParameter(calibration2_->getParameter(1) * scaleRowFactor, 1);
-                calibration2_->setParameter(calibration2_->getParameter(3) * scaleRowFactor, 3);
+                _cameras[1]->setParameter(_cameras[1]->getParameter(1) * scaleRowFactor, 1);
+                _cameras[1]->setParameter(_cameras[1]->getParameter(3) * scaleRowFactor, 3);
             }
         }
     }
@@ -430,21 +430,21 @@ void Settings::readImageInfo(cv::FileStorage &fSettings)
         {
             // Update calibration
             float scaleColFactor = (float)newImSize_.width / (float)originalImSize_.width;
-            calibration1_->setParameter(calibration1_->getParameter(0) * scaleColFactor, 0);
-            calibration1_->setParameter(calibration1_->getParameter(2) * scaleColFactor, 2);
+            _cameras[0]->setParameter(_cameras[0]->getParameter(0) * scaleColFactor, 0);
+            _cameras[0]->setParameter(_cameras[0]->getParameter(2) * scaleColFactor, 2);
 
             if (sensor_ == System::STEREO || sensor_ == System::IMU_STEREO)
             {
-                calibration2_->setParameter(calibration2_->getParameter(0) * scaleColFactor, 0);
-                calibration2_->setParameter(calibration2_->getParameter(2) * scaleColFactor, 2);
+                _cameras[1]->setParameter(_cameras[1]->getParameter(0) * scaleColFactor, 0);
+                _cameras[1]->setParameter(_cameras[1]->getParameter(2) * scaleColFactor, 2);
 
                 if (cameraType_ == KannalaBrandt)
                 {
-                    static_cast<KannalaBrandt8 *>(calibration1_)->mvLappingArea[0] *= scaleColFactor;
-                    static_cast<KannalaBrandt8 *>(calibration1_)->mvLappingArea[1] *= scaleColFactor;
+                    static_cast<KannalaBrandt8 &>(*_cameras[0]).mvLappingArea[0] *= scaleColFactor;
+                    static_cast<KannalaBrandt8 &>(*_cameras[0]).mvLappingArea[1] *= scaleColFactor;
 
-                    static_cast<KannalaBrandt8 *>(calibration2_)->mvLappingArea[0] *= scaleColFactor;
-                    static_cast<KannalaBrandt8 *>(calibration2_)->mvLappingArea[1] *= scaleColFactor;
+                    static_cast<KannalaBrandt8 &>(*_cameras[1]).mvLappingArea[0] *= scaleColFactor;
+                    static_cast<KannalaBrandt8 &>(*_cameras[1]).mvLappingArea[1] *= scaleColFactor;
                 }
             }
         }
@@ -525,7 +525,7 @@ void Settings::readRGBD(cv::FileStorage &fSettings)
     depthMapFactor_ = readParameter<float>(fSettings, "RGBD.DepthMapFactor", found);
     thDepth_        = readParameter<float>(fSettings, "Stereo.ThDepth", found);
     b_              = readParameter<float>(fSettings, "Stereo.b", found);
-    bf_             = b_ * calibration1_->getParameter(0);
+    bf_             = b_ * _cameras[0]->getParameter(0);
 }
 
 void Settings::read_features(cv::FileStorage &fSettings, const std::string &config_file, const feature_overrides &overrides)
@@ -631,9 +631,9 @@ void Settings::readOtherParameters(cv::FileStorage &fSettings)
 void Settings::precomputeRectificationMaps()
 {
     // Precompute rectification maps, new calibrations, ...
-    cv::Mat K1 = static_cast<Pinhole *>(calibration1_)->toK();
+    cv::Mat K1 = _cameras[0]->toK();
     K1.convertTo(K1, CV_64F);
-    cv::Mat K2 = static_cast<Pinhole *>(calibration2_)->toK();
+    cv::Mat K2 = _cameras[1]->toK();
     K2.convertTo(K2, CV_64F);
 
     cv::Mat cvTlr;
@@ -651,10 +651,14 @@ void Settings::precomputeRectificationMaps()
     cv::initUndistortRectifyMap(K2, camera2DistortionCoef(), R_r2_u2, P2.rowRange(0, 3).colRange(0, 3), newImSize_, CV_32F, M1r_, M2r_);
 
     // Update calibration
-    calibration1_->setParameter(P1.at<double>(0, 0), 0);
-    calibration1_->setParameter(P1.at<double>(1, 1), 1);
-    calibration1_->setParameter(P1.at<double>(0, 2), 2);
-    calibration1_->setParameter(P1.at<double>(1, 2), 3);
+    _cameras[0]->setParameter(P1.at<double>(0, 0), 0);
+    _cameras[0]->setParameter(P1.at<double>(1, 1), 1);
+    _cameras[0]->setParameter(P1.at<double>(0, 2), 2);
+    _cameras[0]->setParameter(P1.at<double>(1, 2), 3);
+    _cameras[1]->setParameter(P2.at<double>(0, 0), 0);
+    _cameras[1]->setParameter(P2.at<double>(1, 1), 1);
+    _cameras[1]->setParameter(P2.at<double>(0, 2), 2);
+    _cameras[1]->setParameter(P2.at<double>(1, 2), 3);
 
     // Update bf
     bf_ = b_ * P1.at<double>(0, 0);
@@ -684,9 +688,9 @@ ostream &operator<<(std::ostream &output, const Settings &settings)
         output << "Kannala-Brandt";
     }
     output << ")" << ": [";
-    for (size_t i = 0; i < settings.originalCalib1_->size(); i++)
+    for (size_t i = 0; i < settings._original_cameras[0]->size(); i++)
     {
-        output << " " << settings.originalCalib1_->getParameter(i);
+        output << " " << settings._original_cameras[0]->getParameter(i);
     }
     output << " ]" << endl;
 
@@ -712,9 +716,9 @@ ostream &operator<<(std::ostream &output, const Settings &settings)
             output << "Kannala-Brandt";
         }
         output << "" << ": [";
-        for (size_t i = 0; i < settings.originalCalib2_->size(); i++)
+        for (size_t i = 0; i < settings._original_cameras[1]->size(); i++)
         {
-            output << " " << settings.originalCalib2_->getParameter(i);
+            output << " " << settings._original_cameras[1]->getParameter(i);
         }
         output << " ]" << endl;
 
@@ -735,27 +739,27 @@ ostream &operator<<(std::ostream &output, const Settings &settings)
     if (settings.bNeedToRectify_)
     {
         output << "\t-Camera 1 parameters after rectification: [ ";
-        for (size_t i = 0; i < settings.calibration1_->size(); i++)
+        for (size_t i = 0; i < settings._cameras[0]->size(); i++)
         {
-            output << " " << settings.calibration1_->getParameter(i);
+            output << " " << settings._cameras[0]->getParameter(i);
         }
         output << " ]" << endl;
     }
     else if (settings.bNeedToResize1_)
     {
         output << "\t-Camera 1 parameters after resize: [ ";
-        for (size_t i = 0; i < settings.calibration1_->size(); i++)
+        for (size_t i = 0; i < settings._cameras[0]->size(); i++)
         {
-            output << " " << settings.calibration1_->getParameter(i);
+            output << " " << settings._cameras[0]->getParameter(i);
         }
         output << " ]" << endl;
 
         if ((settings.sensor_ == System::STEREO || settings.sensor_ == System::IMU_STEREO) && settings.cameraType_ == Settings::KannalaBrandt)
         {
             output << "\t-Camera 2 parameters after resize: [ ";
-            for (size_t i = 0; i < settings.calibration2_->size(); i++)
+            for (size_t i = 0; i < settings._cameras[1]->size(); i++)
             {
-                output << " " << settings.calibration2_->getParameter(i);
+                output << " " << settings._cameras[1]->getParameter(i);
             }
             output << " ]" << endl;
         }
@@ -771,8 +775,8 @@ ostream &operator<<(std::ostream &output, const Settings &settings)
 
         if (settings.cameraType_ == Settings::KannalaBrandt)
         {
-            auto vOverlapping1 = static_cast<KannalaBrandt8 *>(settings.calibration1_)->mvLappingArea;
-            auto vOverlapping2 = static_cast<KannalaBrandt8 *>(settings.calibration2_)->mvLappingArea;
+            auto vOverlapping1 = static_cast<KannalaBrandt8 &>(*settings._cameras[0]).mvLappingArea;
+            auto vOverlapping2 = static_cast<KannalaBrandt8 &>(*settings._cameras[1]).mvLappingArea;
             output << "\t-Camera 1 overlapping area: [ " << vOverlapping1[0] << " , " << vOverlapping1[1] << " ]" << endl;
             output << "\t-Camera 2 overlapping area: [ " << vOverlapping2[0] << " , " << vOverlapping2[1] << " ]" << endl;
         }
