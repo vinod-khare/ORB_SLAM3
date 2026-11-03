@@ -320,8 +320,9 @@ void Viewer::Run()
         _map_drawer.release();
     }
     _controls.set_step_by_step(false);
-    _stopped  = true;
-    _finished = true;
+    _exit_requested = true;
+    _stopped        = true;
+    _finished       = true;
 }
 
 void Viewer::process_commands()
