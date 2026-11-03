@@ -39,8 +39,6 @@
 #include <memory>
 #include <thread>
 
-#include <opencv2/core/core.hpp>
-
 #include <spdlog/spdlog.h>
 
 using namespace std;
@@ -54,6 +52,7 @@ class system_viewer_control final : public ORB_SLAM3::viewer_control
 
     void set_step_by_step(bool enabled) override { _tracker.SetStepByStep(enabled); }
     void process_next_frame() override { _tracker.mbStep = true; }
+
     void set_localization_mode(bool enabled) override
     {
         if (enabled)
@@ -65,6 +64,7 @@ class system_viewer_control final : public ORB_SLAM3::viewer_control
             _system.DeactivateLocalizationMode();
         }
     }
+
     void reset_active_map() override { _system.ResetActiveMap(); }
     int  dbow_version() const override { return _system.dbow_version(); }
     void set_dbow_version(int version) override { _system.set_dbow_version(version); }
@@ -81,6 +81,7 @@ int main(int argc, char **argv)
     try
     {
         const command_line_options options(argc, argv);
+
         if (options.exit_code.has_value())
         {
             return *options.exit_code;
@@ -96,11 +97,13 @@ int main(int argc, char **argv)
         if (options.output_folder.has_value())
         {
             output_folder = *options.output_folder;
+
             if (!std::filesystem::exists(output_folder))
             {
                 std::filesystem::create_directories(output_folder);
                 spdlog::info("Created output folder: {}", output_folder);
             }
+
             output_folder += "/";
         }
 
@@ -117,6 +120,7 @@ int main(int argc, char **argv)
 
         const string output_filename = options.output_filename.value_or(string{});
         const bool   bFileName       = options.output_filename.has_value();
+
         if (bFileName)
         {
             spdlog::info("Output filename: {}", output_filename);
@@ -126,17 +130,19 @@ int main(int argc, char **argv)
         const bool    save_ply    = options.save_ply;
         const bool    use_viewer  = options.use_viewer;
         const string &slam_type   = options.slam_type;
+        const bool    stereo      = slam_type == "stereo" || slam_type == "stereo-inertial";
+        const bool    inertial    = slam_type == "mono-inertial" || slam_type == "stereo-inertial";
 
-        const bool stereo   = slam_type == "stereo" || slam_type == "stereo-inertial";
-        const bool inertial = slam_type == "mono-inertial" || slam_type == "stereo-inertial";
         if (options.input.left_image_path.empty())
         {
             throw std::runtime_error("A left image folder is required; set data.left in the settings YAML or pass --data.left");
         }
+
         if (stereo && options.input.right_image_path.empty())
         {
             throw std::runtime_error("Stereo modes require data.right in the settings YAML or --data.right");
         }
+
         if (inertial && options.input.imu_path.empty())
         {
             throw std::runtime_error("Inertial modes require data.imu in the settings YAML or --data.imu");
@@ -162,9 +168,10 @@ int main(int argc, char **argv)
 
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
-        system_viewer_control                   viewer_controls(SLAM, *SLAM.GetTracker());
         std::unique_ptr<ORB_SLAM3::Viewer>      viewer;
+        system_viewer_control                   viewer_controls(SLAM, *SLAM.GetTracker());
         std::jthread                            viewer_thread;
+
         if (use_viewer)
         {
             frame_drawer       = std::make_unique<ORB_SLAM3::FrameDrawer>(*SLAM.GetAtlas());
@@ -172,17 +179,20 @@ int main(int argc, char **argv)
             map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(*SLAM.GetAtlas(), options.viewer);
             viewer             = std::make_unique<ORB_SLAM3::Viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, options.viewer);
             viewer->both       = stereo;
+
             SLAM.GetTracker()->SetResetHooks(
                 [&viewer, &map_drawer]
                 {
                     map_drawer->break_camera_trajectory();
                     viewer->RequestStop();
+
                     while (!viewer->isStopped())
                     {
                         std::this_thread::sleep_for(std::chrono::milliseconds(3));
                     }
                 },
                 [&viewer] { viewer->Release(); });
+
             viewer_thread = std::jthread(&ORB_SLAM3::Viewer::Run, viewer.get());
         }
 
@@ -197,11 +207,15 @@ int main(int argc, char **argv)
 
         int                                 proccIm = 0;
         std::chrono::steady_clock::duration playback_time{};
+
         try
         {
             const ORB_SLAM3::time_this playback_timer(playback_time);
+
             SLAM.statistics().start();
+
             frame_prefetcher prefetch(reader, stereo, inertial, image_scale, SLAM.can_precompute_optical_flow_pyramid());
+
             for (int ni = 0; ni < nImages; ni++, proccIm++)
             {
                 if (viewer)
@@ -211,21 +225,26 @@ int main(int argc, char **argv)
                         viewer->process_commands();
                         std::this_thread::sleep_for(std::chrono::milliseconds(3));
                     }
+
                     viewer->process_commands();
+
                     if (viewer->exit_requested())
                     {
                         break;
                     }
                 }
+
                 const auto input_started = std::chrono::steady_clock::now();
                 auto       frame         = prefetch.read();
                 const auto input_wait_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - input_started).count();
+
                 SLAM.set_next_optical_flow_pyramid(std::move(frame.optical_flow_pyramid));
                 SLAM.SetNextFrameColor(frame.color, frame.color_right);
 
                 std::chrono::steady_clock::duration frontend_time{};
                 {
                     const ORB_SLAM3::time_this timer(frontend_time);
+
                     if (stereo)
                     {
                         SLAM.TrackStereo(frame.image, frame.image_right, frame.timestamp, frame.imu, frame.filename);
@@ -235,13 +254,17 @@ int main(int argc, char **argv)
                         SLAM.TrackMonocular(frame.image, frame.timestamp, frame.imu, frame.filename);
                     }
                 }
+
                 const double frontend_ms = std::chrono::duration<double, std::milli>(frontend_time).count();
                 double       viewer_publication_ms{};
+
                 if (viewer)
                 {
                     const auto publication_started = std::chrono::steady_clock::now();
                     auto      *tracker             = SLAM.GetTracker();
+
                     frame_drawer->Update(tracker);
+
                     if (tracker->mCurrentFrame.isSet() && tracker->mState == ORB_SLAM3::Tracking::OK)
                     {
                         map_drawer->SetCurrentCameraPose(tracker->mCurrentFrame.GetPose(), SLAM.GetAtlas()->GetCurrentMap()->GetId());
@@ -250,8 +273,10 @@ int main(int argc, char **argv)
                     {
                         map_drawer->break_camera_trajectory();
                     }
+
                     viewer_publication_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - publication_started).count();
                 }
+
                 SLAM.record_frame_statistics(frame.preprocessing_ms, frontend_ms);
                 const auto statistics = SLAM.statistics().get_snapshot();
 
@@ -281,6 +306,7 @@ int main(int argc, char **argv)
             SLAM.Shutdown();
             throw;
         }
+
         const double playback_seconds = std::chrono::duration<double>(playback_time).count();
         spdlog::info("Playback: {} frames in {:.3f} s ({:.1f} frames/s), including input/prefetch waits", proccIm, playback_seconds, proccIm / playback_seconds);
 
@@ -290,6 +316,7 @@ int main(int argc, char **argv)
 
         const auto   statistics       = SLAM.statistics().get_snapshot();
         const double processed_frames = static_cast<double>(statistics.frames);
+
         spdlog::info("Processing summary: {} frames, mean preprocessing={:.3f} ms, mean frontend={:.3f} ms", statistics.frames,
                      processed_frames > 0.0 ? statistics.preprocessing_total_ms / processed_frames : 0.0, processed_frames > 0.0 ? statistics.frontend_total_ms / processed_frames : 0.0);
         spdlog::info("Backend completed work: local={} jobs/{:.3f} ms, loop={} jobs/{:.3f} ms, GBA={} jobs/{:.3f} ms (independent workers; times overlap)", statistics.local_mapping.jobs,
