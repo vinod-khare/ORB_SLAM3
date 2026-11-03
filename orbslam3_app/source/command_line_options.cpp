@@ -1,7 +1,7 @@
 #include "command_line_options.h"
 
-#include <filesystem>
-#include <fstream>
+#include "yaml_settings.h"
+
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -9,7 +9,6 @@
 #include <boost/program_options.hpp>
 
 #include <spdlog/spdlog.h>
-#include <yaml-cpp/yaml.h>
 
 namespace po = boost::program_options;
 
@@ -77,47 +76,27 @@ command_line_options::command_line_options(int argc, char **argv)
     vocab_path    = values["vocab"].as<std::string>();
     settings_path = values["settings"].as<std::string>();
 
-    std::ifstream stream(settings_path);
-    if (!stream)
-    {
-        throw std::runtime_error("Failed to open settings file: " + settings_path);
-    }
-    // OpenCV settings use a non-standard %YAML:1.0 directive.
-    if (stream.peek() == '%')
-    {
-        std::string directive;
-        std::getline(stream, directive);
-    }
-    const auto root = YAML::Load(stream);
-    autostart       = values.count("autostart") ? values["autostart"].as<bool>() : root["autostart"] ? root["autostart"].as<bool>() : true;
+    const yaml_settings settings(settings_path);
+    autostart = values.count("autostart") ? values["autostart"].as<bool>() : settings.autostart().value_or(true);
     if (!autostart && values["no-viewer"].as<bool>())
     {
         throw std::runtime_error("autostart=false requires the ImGui viewer");
     }
-    dbow_version = values.count("dbow_version") ? values["dbow_version"].as<int>() : root["dbow_version"] ? root["dbow_version"].as<int>() : 2;
+    dbow_version = values.count("dbow_version") ? values["dbow_version"].as<int>() : settings.dbow_version().value_or(2);
     if (dbow_version != 2 && dbow_version != 3)
     {
         throw std::runtime_error("dbow_version must be 2 or 3");
     }
-    const auto ground_truth = root["ground_truth"];
-    if (ground_truth)
+    if (!values.count("ground_truth.path"))
     {
-        if (!ground_truth.IsMap())
+        if (const auto path = settings.ground_truth_path())
         {
-            throw std::runtime_error("Settings entry ground_truth must be a map");
+            ground_truth_path = *path;
         }
-        if (!values.count("ground_truth.path") && ground_truth["path"])
-        {
-            const auto path = ground_truth["path"].as<std::string>();
-            if (!path.empty())
-            {
-                ground_truth_path = (std::filesystem::absolute(settings_path).parent_path() / path).lexically_normal().string();
-            }
-        }
-        if (!values.count("ground_truth.visible") && ground_truth["visible"])
-        {
-            ground_truth_visible = ground_truth["visible"].as<bool>();
-        }
+    }
+    if (!values.count("ground_truth.visible"))
+    {
+        ground_truth_visible = settings.ground_truth_visible().value_or(false);
     }
     if (values.count("ground_truth.path"))
     {
@@ -131,60 +110,35 @@ command_line_options::command_line_options(int argc, char **argv)
     {
         throw std::runtime_error("ground_truth.visible requires ground_truth.path");
     }
-    const auto camera_trajectory = root["camera_trajectory"];
-    if (camera_trajectory)
-    {
-        if (!camera_trajectory.IsMap())
-        {
-            throw std::runtime_error("Settings entry camera_trajectory must be a map");
-        }
-        if (!values.count("camera_trajectory.visible") && camera_trajectory["visible"])
-        {
-            camera_trajectory_visible = camera_trajectory["visible"].as<bool>();
-        }
-    }
     if (values.count("camera_trajectory.visible"))
     {
         camera_trajectory_visible = values["camera_trajectory.visible"].as<bool>();
     }
-
-    const auto logging = root["logging"];
-    if (logging && !logging.IsMap())
+    else
     {
-        throw std::runtime_error("Settings entry logging must be a map");
+        camera_trajectory_visible = settings.camera_trajectory_visible().value_or(true);
     }
-    if (values.count("logging.level") || (logging && logging["level"]))
+
+    if (values.count("logging.level"))
     {
-        const auto level_node = logging ? logging["level"] : YAML::Node{};
-        if (!values.count("logging.level") && !level_node.IsScalar())
-        {
-            throw std::runtime_error("Settings entry logging.level must be a string");
-        }
-        const auto level = values.count("logging.level") ? values["logging.level"].as<std::string>() : level_node.as<std::string>();
+        const auto level = values["logging.level"].as<std::string>();
         logging_level    = spdlog::level::from_str(level);
         if (logging_level == spdlog::level::off && level != "off")
         {
             throw std::runtime_error("logging.level must be trace, debug, info, warning, error, critical or off");
         }
     }
+    else if (const auto level = settings.logging_level())
+    {
+        logging_level = *level;
+    }
     if (values.count("logging.pattern"))
     {
         logging_pattern = values["logging.pattern"].as<std::string>();
     }
-    else
+    else if (const auto pattern = settings.logging_pattern())
     {
-        if (logging)
-        {
-            const auto pattern = logging["pattern"];
-            if (pattern)
-            {
-                if (!pattern.IsScalar())
-                {
-                    throw std::runtime_error("Settings entry logging.pattern must be a string");
-                }
-                logging_pattern = pattern.as<std::string>();
-            }
-        }
+        logging_pattern = *pattern;
     }
     if (values.count("data.root"))
     {

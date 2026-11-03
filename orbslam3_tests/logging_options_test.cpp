@@ -3,6 +3,7 @@
 #include "folder_reader.h"
 #include "processing_statistics.h"
 #include "time_this.h"
+#include "yaml_settings.h"
 
 #include <atomic>
 #include <chrono>
@@ -51,6 +52,22 @@ struct logging_settings
     }
 };
 } // namespace
+
+TEST_CASE("YAML settings parse independently from command-line options", "[settings]")
+{
+    const logging_settings file;
+    std::ofstream(file.path) << "%YAML:1.0\n---\nautostart: false\ndbow_version: 3\nground_truth:\n  path: mocap/data.csv\n  visible: true\ncamera_trajectory:\n  visible: false\nlogging:\n  "
+                                "level: warning\n  pattern: '[%l] %v'\n";
+
+    const yaml_settings settings(file.path.string());
+    REQUIRE(settings.autostart() == false);
+    REQUIRE(settings.dbow_version() == 3);
+    REQUIRE(settings.ground_truth_path() == (file.directory / "mocap/data.csv").string());
+    REQUIRE(settings.ground_truth_visible() == true);
+    REQUIRE(settings.camera_trajectory_visible() == false);
+    REQUIRE(settings.logging_level() == spdlog::level::warn);
+    REQUIRE(settings.logging_pattern() == "[%l] %v");
+}
 
 TEST_CASE("Scope timing writes elapsed duration on all exit paths", "[statistics]")
 {

@@ -15,7 +15,8 @@ add_executable(orbslam3_tests
     binary_vocabulary_fixture.cpp
     imu_settings_test.cpp
     pnp_test.cpp
-    ../orbslam3_app/source/command_line_options.cpp)
+    ../orbslam3_app/source/command_line_options.cpp
+    ../orbslam3_app/source/yaml_settings.cpp)
 
 target_link_libraries(orbslam3_tests PRIVATE orbslam3_input orbslam3_ui Catch2::Catch2WithMain Boost::program_options spdlog::spdlog yaml-cpp::yaml-cpp)
 

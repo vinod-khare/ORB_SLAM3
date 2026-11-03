@@ -31,6 +31,7 @@ vtk_module_autoinit(TARGETS orbslam3_ui MODULES VTK::RenderingOpenGL2)
 
 hello_imgui_add_app(orbslam3_app
     source/command_line_options.cpp
+    source/yaml_settings.cpp
     source/orbslam3.cpp)
 
 target_compile_options(orbslam3_app PRIVATE -Wall)
