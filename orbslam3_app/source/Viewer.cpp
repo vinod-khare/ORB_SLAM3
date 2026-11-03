@@ -146,7 +146,7 @@ void Viewer::Run()
                 }
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip("Reloads the same ORB text vocabulary; tracking waits while loading.");
+                    ImGui::SetTooltip("Reloads the same binary ORB vocabulary; tracking waits while loading.");
                 }
                 if (_dbow_error)
                 {

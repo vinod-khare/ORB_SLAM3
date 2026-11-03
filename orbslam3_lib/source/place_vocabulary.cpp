@@ -18,10 +18,7 @@
 
 #include "dbow3_vocabulary.h"
 
-#include <cmath>
-#include <fstream>
 #include <mutex>
-#include <sstream>
 #include <stdexcept>
 
 #include <DBoW2/FORB.h>
@@ -35,75 +32,37 @@ class dbow2_vocabulary : public DBoW2::TemplatedVocabulary<DBoW2::FORB::TDescrip
   public:
     explicit dbow2_vocabulary(const std::string &filename)
     {
-        std::ifstream stream(filename);
-        std::string   line;
-        std::getline(stream, line);
-        std::istringstream header(line);
-        int                scoring{};
-        int                weighting{};
-        if (!(header >> m_k >> m_L >> scoring >> weighting) || m_k < 2 || m_k > 20 || m_L < 1 || m_L > 10 || scoring < 0 || scoring > 5 || weighting < 0 || weighting > 3)
-        {
-            throw std::runtime_error("Invalid ORB text vocabulary header: " + filename);
-        }
-        m_scoring   = static_cast<DBoW2::ScoringType>(scoring);
-        m_weighting = static_cast<DBoW2::WeightingType>(weighting);
+        const dbow3_vocabulary binary(filename);
+        const auto             parameters = binary.parameters();
+        m_k                               = parameters[0];
+        m_L                               = parameters[1];
+        m_scoring                         = static_cast<DBoW2::ScoringType>(parameters[2]);
+        m_weighting                       = static_cast<DBoW2::WeightingType>(parameters[3]);
         createScoringObject();
         m_nodes.clear();
         m_words.clear();
-        m_nodes.reserve(static_cast<std::size_t>((std::pow(m_k, m_L + 1) - 1) / (m_k - 1)));
-        m_nodes.resize(1);
-        m_nodes[0].id = 0;
-        std::vector<unsigned int> word_nodes;
-        while (std::getline(stream, line))
+        m_words.resize(binary.size());
+        binary.visit_nodes(
+            [&](unsigned int id, unsigned int parent, double weight, const cv::Mat &descriptor, const std::vector<unsigned int> &children, unsigned int word_id)
+            {
+                m_nodes.emplace_back(id);
+                auto &node      = m_nodes.back();
+                node.parent     = parent;
+                node.weight     = weight;
+                node.descriptor = descriptor;
+                node.children   = children;
+                node.word_id    = word_id;
+            });
+        for (auto &node : m_nodes)
         {
-            if (line.find_first_not_of(" \t\r") == std::string::npos)
+            if (node.isLeaf())
             {
-                continue;
-            }
-            std::istringstream node_stream(line);
-            unsigned int       parent{};
-            int                leaf{};
-            const auto         id = static_cast<unsigned int>(m_nodes.size());
-            if (!(node_stream >> parent >> leaf) || parent >= id || (leaf != 0 && leaf != 1))
-            {
-                throw std::runtime_error("Invalid ORB vocabulary node: " + filename);
-            }
-            m_nodes.emplace_back();
-            auto &node  = m_nodes.back();
-            node.id     = id;
-            node.parent = parent;
-            m_nodes[parent].children.push_back(id);
-            node.descriptor.create(1, DBoW2::FORB::L, CV_8U);
-            for (int column = 0; column < DBoW2::FORB::L; ++column)
-            {
-                int value{};
-                if (!(node_stream >> value) || value < 0 || value > 255)
+                if (node.word_id >= m_words.size())
                 {
-                    throw std::runtime_error("Invalid ORB vocabulary descriptor: " + filename);
+                    throw std::runtime_error("Invalid binary vocabulary word ID: " + filename);
                 }
-                node.descriptor.at<unsigned char>(0, column) = static_cast<unsigned char>(value);
+                m_words[node.word_id] = &node;
             }
-            if (!(node_stream >> node.weight) || !std::isfinite(node.weight))
-            {
-                throw std::runtime_error("Invalid ORB vocabulary weight: " + filename);
-            }
-            if (leaf)
-            {
-                node.word_id = static_cast<unsigned int>(word_nodes.size());
-                word_nodes.push_back(id);
-            }
-            else
-            {
-                node.children.reserve(m_k);
-            }
-        }
-        for (const auto id : word_nodes)
-        {
-            m_words.push_back(&m_nodes[id]);
-        }
-        if (stream.bad() || empty())
-        {
-            throw std::runtime_error("Failed to read nonempty ORB vocabulary: " + filename);
         }
     }
 };
@@ -123,7 +82,6 @@ void place_vocabulary::set_version(int dbow_version)
     {
         return;
     }
-    // Both loaders preserve text-file word/node IDs, so existing vectors remain valid.
     if (dbow_version == 2)
     {
         auto vocabulary = std::make_unique<dbow2_vocabulary>(_filename);

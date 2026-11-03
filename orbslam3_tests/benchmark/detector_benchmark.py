@@ -15,7 +15,7 @@ ALL_DETECTORS = "fast,agast,gftt,orb,brisk,sift,akaze"
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--app", type=Path, default=REPO / ".build/Release/orbslam3_app/orbslam3_app")
-    p.add_argument("--vocab", type=Path, default=REPO / "vocab/ORBvoc.txt")
+    p.add_argument("--vocab", type=Path, default=REPO / "vocab/ORBvoc.dbow3")
     p.add_argument("--settings", type=Path, default=REPO / "config/TUM-VI.yaml")
     p.add_argument("--benchmark.slam_type", dest="slam_type", default="stereo")
     p.add_argument("--benchmark.detectors", dest="detectors", default=ALL_DETECTORS, help="Comma-separated detector names")

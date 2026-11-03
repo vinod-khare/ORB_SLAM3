@@ -110,7 +110,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--app", type=Path, default=REPO / ".build/Release/orbslam3_app/orbslam3_app"
     )
-    parser.add_argument("--vocab", type=Path, default=REPO / "vocab/ORBvoc.txt")
+    parser.add_argument("--vocab", type=Path, default=REPO / "vocab/ORBvoc.dbow3")
     parser.add_argument("--settings", type=Path, default=REPO / "config/TUM-VI.yaml")
     parser.add_argument(
         "--output-folder", type=Path, default=REPO / ".data/benchmark/tumvi"

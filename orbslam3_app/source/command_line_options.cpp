@@ -16,9 +16,9 @@ namespace po = boost::program_options;
 command_line_options::command_line_options(int argc, char **argv)
 {
     po::options_description description("ORB-SLAM3 TUM-VI Example - Monocular / Stereo Modes\n\nUsage options");
-    description.add_options()("help,h", "Show this help message")("vocab,v", po::value<std::string>()->required(),
-                                                                  "Path to ORB vocabulary file")("settings,s", po::value<std::string>()->required(), "Path to settings YAML file")(
-        "data.root", po::value<std::string>(), "Dataset root folder")("data.left", po::value<std::string>(), "Left image folder, absolute or relative to data.root")(
+    description.add_options()("help,h", "Show this help message")("vocab,v", po::value<std::string>()->required(), "Path to compressed binary ORB vocabulary (.dbow3)")(
+        "settings,s", po::value<std::string>()->required(), "Path to settings YAML file")("data.root", po::value<std::string>(), "Dataset root folder")(
+        "data.left", po::value<std::string>(), "Left image folder, absolute or relative to data.root")(
         "data.right", po::value<std::string>(), "Right image folder, absolute or relative to data.root")("data.imu", po::value<std::string>(),
                                                                                                          "IMU CSV file, absolute or relative to data.root")(
         "output,o", po::value<std::string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")("output-folder", po::value<std::string>(),

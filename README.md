@@ -77,7 +77,8 @@ Required by g2o (see below). Download and install instructions can be found at: 
 
 ## DBoW2, DBoW3 and g2o
 Install `dbow2`, `dbow3`, and `g2o` through vcpkg. Place recognition supports
-DBoW2 (default) or DBoW3 using the same ORB text vocabulary. Set `dbow_version: 3`
+DBoW2 (default) or DBoW3 using the same compressed binary ORB vocabulary,
+`vocab/ORBvoc.dbow3`. Text and YAML vocabularies are not supported. Set `dbow_version: 3`
 in YAML, pass `--dbow_version 3`, or select **DBoW version** in the viewer's
 Tracking controls. Only values `2` and `3` are accepted; CLI overrides YAML.
 See the [app guide](orbslam3_app/README.md#dbow-place-recognition) for runtime
@@ -120,7 +121,7 @@ Directory `Examples` contains several demo programs and calibration files to run
 4. Run ORB-SLAM3. For example, for our D435i camera, we would execute:
 
 ```
-./Examples/Stereo-Inertial/stereo_inertial_realsense_D435i Vocabulary/ORBvoc.txt ./Examples/Stereo-Inertial/RealSense_D435i.yaml
+./Examples/Stereo-Inertial/stereo_inertial_realsense_D435i vocab/ORBvoc.dbow3 ./Examples/Stereo-Inertial/RealSense_D435i.yaml
 ```
 
 ## Feature Pipeline
@@ -160,7 +161,7 @@ tracking:
 Command-line selections override YAML:
 
 ```bash
-.build/Release/orbslam3_app/orbslam3_app vocab/ORBvoc.txt config/TUM-VI.yaml \
+.build/Release/orbslam3_app/orbslam3_app vocab/ORBvoc.dbow3 config/TUM-VI.yaml \
   --slam-type stereo --keypoint_detector.type star \
   --keypoint_descriptor.type beblid --tracking.matcher flann
 ```
@@ -270,7 +271,7 @@ For an RGB-D input from topics `/camera/rgb/image_raw` and `/camera/depth_regist
   ```
   
   ```
-  rosrun ORB_SLAM3 Stereo_Inertial Vocabulary/ORBvoc.txt Examples/Stereo-Inertial/EuRoC.yaml true
+  rosrun ORB_SLAM3 Stereo_Inertial vocab/ORBvoc.dbow3 Examples/Stereo-Inertial/EuRoC.yaml true
   ```
   
   ```

@@ -38,11 +38,11 @@ keypoint_extractor:
 
 # FAST, AGAST, GFTT, ORB, BRISK, SIFT, AKAZE
 keypoint_detector:
-  type: "STAR"
+  type: "FAST"
 
 # ORB, SIFT, BRISK; independent of the detector
 keypoint_descriptor:
-  type: "SURF"
+  type: "ORB"
 
 # Flow-first tracking with descriptor recovery/keyframes (0: off, 1: on)
 tracking:

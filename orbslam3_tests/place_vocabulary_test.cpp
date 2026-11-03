@@ -14,30 +14,29 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
+
+void write_binary_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type = CV_8U, int descriptor_size = 32);
 
 namespace
 {
 struct vocabulary_file
 {
-    std::filesystem::path path = std::filesystem::temp_directory_path() / ("orbslam3_vocabulary_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".txt");
+    std::filesystem::path path = std::filesystem::temp_directory_path() / ("orbslam3_vocabulary_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".dbow3");
     std::vector<cv::Mat>  features;
 
     vocabulary_file(int scoring = 0, int weighting = 0)
     {
-        std::ofstream stream(path);
-        stream << "2 6 " << scoring << ' ' << weighting << '\n';
+        write_binary_vocabulary_fixture(path.string(), scoring, weighting);
         for (int id = 1; id < 127; ++id)
         {
             const bool leaf = id >= 63;
-            stream << (id - 1) / 2 << ' ' << leaf;
-            cv::Mat descriptor(1, 32, CV_8U);
+            cv::Mat    descriptor(1, 32, CV_8U);
             for (int column = 0; column < 32; ++column)
             {
-                const int value = (id * 37 + column * 13) % 256;
-                stream << ' ' << value;
+                const int value                         = (id * 37 + column * 13) % 256;
                 descriptor.at<unsigned char>(0, column) = static_cast<unsigned char>(value);
             }
-            stream << ' ' << 0.25 * (id % 4 + 1) << '\n';
             if (leaf)
             {
                 features.push_back(descriptor);
@@ -47,6 +46,33 @@ struct vocabulary_file
     ~vocabulary_file() { std::filesystem::remove(path); }
 };
 } // namespace
+
+TEST_CASE("Text vocabularies are rejected by the binary loader", "[dbow-binary]")
+{
+    const vocabulary_file file;
+    std::ofstream(file.path) << "2 6 0 0\n";
+    const int backend = GENERATE(2, 3);
+    REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), backend));
+}
+
+TEST_CASE("Missing and empty binary vocabularies are rejected", "[dbow-binary]")
+{
+    const vocabulary_file file;
+    const int             backend = GENERATE(2, 3);
+    std::filesystem::resize_file(file.path, 0);
+    REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), backend));
+    std::filesystem::remove(file.path);
+    REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), backend));
+}
+
+TEST_CASE("Place recognition rejects incompatible descriptor vocabularies", "[dbow-binary]")
+{
+    const vocabulary_file file;
+    const int             backend = GENERATE(2, 3);
+    const auto            format  = GENERATE(std::pair{CV_32F, 128}, std::pair{CV_8U, 64});
+    write_binary_vocabulary_fixture(file.path.string(), 0, 0, format.first, format.second);
+    REQUIRE_THROWS_WITH(ORB_SLAM3::place_vocabulary(file.path.string(), backend), Catch::Matchers::ContainsSubstring("binary ORB vocabulary"));
+}
 
 TEST_CASE("DBoW backends preserve word IDs, feature nodes, scores and runtime switching", "[dbow]")
 {
@@ -96,7 +122,7 @@ TEST_CASE("Failed backend switches retain a usable vocabulary", "[dbow]")
     REQUIRE_FALSE(bow.empty());
 }
 
-TEST_CASE("DBoW backends agree for every text-vocabulary scoring and weighting mode", "[dbow]")
+TEST_CASE("DBoW backends agree for every binary-vocabulary scoring and weighting mode", "[dbow]")
 {
     const int scoring   = GENERATE(0, 1, 2, 3, 4, 5);
     const int weighting = GENERATE(0, 1, 2, 3);
@@ -159,12 +185,12 @@ TEST_CASE("Vocabulary queries remain valid while the backend changes", "[dbow]")
     REQUIRE(queries.load() > 0);
 }
 
-TEST_CASE("Full ORB text vocabulary preserves DBoW word and node identities", "[.][dbow-full]")
+TEST_CASE("Full ORB binary vocabulary preserves DBoW word and node identities", "[.][dbow-full]")
 {
     const auto *filename = std::getenv("ORBSLAM3_TEST_VOCABULARY");
     if (!filename)
     {
-        SKIP("Set ORBSLAM3_TEST_VOCABULARY to an ORBvoc.txt path");
+        SKIP("Set ORBSLAM3_TEST_VOCABULARY to an ORBvoc.dbow3 path");
     }
     ORB_SLAM3::place_vocabulary vocabulary(filename);
     const auto                  words = vocabulary.size();

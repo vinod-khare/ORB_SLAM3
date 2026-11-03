@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(orbslam3_lib)
 add_subdirectory(orbslam3_app)
+add_subdirectory(tools/vocabulary_trainer)
 
 include(CTest)
 if(BUILD_TESTING)

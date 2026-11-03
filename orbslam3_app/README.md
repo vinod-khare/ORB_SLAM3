@@ -163,7 +163,7 @@ The checked-in [`TUM-VI.yaml`](../config/TUM-VI.yaml) expects a TUM-VI sequence 
 
 ```sh
 ./.build/Release/orbslam3_app/orbslam3_app \
-  --vocab vocab/ORBvoc.txt \
+  --vocab vocab/ORBvoc.dbow3 \
   --settings config/TUM-VI.yaml \
   --slam-type stereo \
   --output-folder output/corridor \
@@ -232,10 +232,16 @@ dbow_version: 3
 ```
 
 Only integer values `2` and `3` are accepted; the command line overrides YAML.
-Both backends use the same ORB-SLAM text vocabulary (`ORBvoc.txt`) and the separate
-ORB place-recognition descriptors, regardless of the tracking descriptor selected.
-Use this text format when switching between backends; native DBoW3 binary/YAML
-vocabularies are not interchangeable with the DBoW2 text loader.
+Both backends use the same compressed DBoW3 binary vocabulary (`vocab/ORBvoc.dbow3`)
+and the separate ORB place-recognition descriptors, regardless of the tracking
+descriptor selected. DBoW2 imports the binary tree without changing node IDs,
+word IDs, child order, descriptors, or double-precision weights. Text and YAML
+vocabularies are rejected by both backends, regardless of filename extension.
+
+The shipped vocabulary was losslessly converted from the original ORB text file:
+971,814 words and 1,082,072 non-root nodes, reduced from 145,250,924 to 50,559,373
+bytes (65.2% smaller). Compression changes storage only, not tree size or accuracy.
+Do not prune or retrain this file to reduce size while reusing an existing atlas.
 
 During playback, use **Controls > Tracking > DBoW version** to switch backends.
 The selected backend loads the same vocabulary file between tracked frames;
@@ -244,6 +250,50 @@ unchanged during playback. Word/node IDs and saved-atlas vector types remain
 unchanged, so existing keyframes and the inverted index remain valid without a
 map reset. A failed switch is logged and shown in the GUI, retaining the previous
 backend. GUI changes apply only to the current run; they do not rewrite YAML.
+
+### Training A Vocabulary
+
+Vocabularies belong to a descriptor algorithm and its settings, not to the storage
+format or detector alone. SIFT's 128 floating-point values require a different
+trained tree and distance metric from ORB's 32-byte binary descriptors. Even
+equal-sized descriptors such as ORB and BRIEF are not interchangeable.
+However, **SIFT tracking does not require a SIFT vocabulary in this app**: place
+recognition always uses the separate ORB channel. Both runtime backends therefore
+require a 32-byte ORB vocabulary. Non-ORB training outputs are for external use or
+a future descriptor-specific place-recognition pipeline; they do not enable that
+pipeline automatically. A file's shape alone cannot identify its algorithm, so
+keep descriptor names and training settings with generated files.
+
+Build the `vocabulary_trainer` CMake target, then run the dependency-free script:
+
+```bash
+bash tools/generate_vocabulary.sh \
+  --sequence .data/tumvi/dataset-corridor1_512_16/dso/cam0/images \
+  --output vocab/corridor-orb.dbow3 --descriptor orb \
+  --stride 10 --max-frames 500 --features 1000 --branching 10 --levels 5
+```
+
+Use the camera's image directory, not a dataset root containing multiple cameras,
+vignettes, and output images. Images are recursively collected and lexically sorted;
+timestamp names should sort chronologically. `--stride` samples every Nth image,
+and `--max-frames` bounds sampled frames, including featureless images. The trainer
+uses the app's extractor (eight pyramid levels, scale factor 1.2, FAST thresholds
+20/7), supports the same detector/descriptor names, and defaults to FAST + ORB.
+Training stores at most `max-frames * features` descriptors in RAM; clustering and
+the tree consume additional memory. The default tree has at most 100,000 words;
+larger branching/depth values increase file size, training time, and memory use.
+Compact trees must be evaluated for loop-closure/relocalization recall, not just size.
+
+For a standalone SIFT vocabulary, choose `--descriptor sift` and a distinct output
+such as `vocab/corridor-sift.dbow3`. SURF requires OpenCV nonfree support. Output
+always uses compressed binary storage, TF-IDF weighting, and L1 scoring. Training
+checks a binary round-trip against every sampled image and refuses to overwrite an
+existing file. `--seed` defaults to 42; `BUILD_TYPE=Debug` selects a Debug trainer.
+Use `bash tools/generate_vocabulary.sh --help` for all options.
+
+Train on representative, varied imagery, preferably separate from evaluation
+sequences; a single corridor can overfit. New vocabularies change word identities:
+start a fresh atlas and keep the chosen file unchanged during playback.
 
 ## Logging
 
