@@ -25,10 +25,6 @@
 #include "keypoint_descriptor_type.h"
 #include "keypoint_detector_type.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
 #include <filesystem>
 #include <memory>
 #include <string>

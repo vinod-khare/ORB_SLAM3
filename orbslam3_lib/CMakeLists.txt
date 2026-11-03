@@ -51,7 +51,6 @@ add_library(ORB_SLAM3 SHARED
         source/OptimizableTypes.cpp
         source/GeometricTools.cpp
         source/TwoViewReconstruction.cpp
-        source/Config.cpp
         source/Settings.cpp
         source/DUtils/Random.cpp
         source/DUtils/Timestamp.cpp)
