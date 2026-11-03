@@ -82,11 +82,14 @@ command_line_options::command_line_options(int argc, char **argv)
     {
         throw std::runtime_error("autostart=false requires the ImGui viewer");
     }
+
     dbow_version = values.count("dbow_version") ? values["dbow_version"].as<int>() : settings.dbow_version().value_or(2);
+
     if (dbow_version != 2 && dbow_version != 3)
     {
         throw std::runtime_error("dbow_version must be 2 or 3");
     }
+
     if (!values.count("ground_truth.path"))
     {
         if (const auto path = settings.ground_truth_path())
@@ -94,22 +97,27 @@ command_line_options::command_line_options(int argc, char **argv)
             ground_truth_path = *path;
         }
     }
+
     if (!values.count("ground_truth.visible"))
     {
         ground_truth_visible = settings.ground_truth_visible().value_or(false);
     }
+
     if (values.count("ground_truth.path"))
     {
         ground_truth_path = values["ground_truth.path"].as<std::string>();
     }
+
     if (values.count("ground_truth.visible"))
     {
         ground_truth_visible = values["ground_truth.visible"].as<bool>();
     }
+
     if (ground_truth_visible && ground_truth_path.empty())
     {
         throw std::runtime_error("ground_truth.visible requires ground_truth.path");
     }
+
     if (values.count("camera_trajectory.visible"))
     {
         camera_trajectory_visible = values["camera_trajectory.visible"].as<bool>();
@@ -132,6 +140,7 @@ command_line_options::command_line_options(int argc, char **argv)
     {
         logging_level = *level;
     }
+
     if (values.count("logging.pattern"))
     {
         logging_pattern = values["logging.pattern"].as<std::string>();
@@ -140,26 +149,32 @@ command_line_options::command_line_options(int argc, char **argv)
     {
         logging_pattern = *pattern;
     }
+
     if (values.count("data.root"))
     {
         data_root = values["data.root"].as<std::string>();
     }
+
     if (values.count("data.left"))
     {
         data_left = values["data.left"].as<std::string>();
     }
+
     if (values.count("data.right"))
     {
         data_right = values["data.right"].as<std::string>();
     }
+
     if (values.count("data.imu"))
     {
         data_imu = values["data.imu"].as<std::string>();
     }
+
     if (values.count("output"))
     {
         output_filename = values["output"].as<std::string>();
     }
+
     if (values.count("output-folder"))
     {
         output_folder = values["output-folder"].as<std::string>();
@@ -173,7 +188,7 @@ command_line_options::command_line_options(int argc, char **argv)
     use_viewer    = !values["no-viewer"].as<bool>();
     slam_type     = values["slam-type"].as<std::string>();
     overrides     = {values.count("keypoint_detector.type") ? values["keypoint_detector.type"].as<std::string>() : std::string{},
-                 values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
-                 values.count("tracking.matcher") ? values["tracking.matcher"].as<std::string>() : std::string{}, dbow_version,
-                 values.count("tracking.use_optical_flow") ? std::optional<bool>(values["tracking.use_optical_flow"].as<bool>()) : std::nullopt};
+                     values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
+                     values.count("tracking.matcher") ? values["tracking.matcher"].as<std::string>() : std::string{}, dbow_version,
+                     values.count("tracking.use_optical_flow") ? std::optional<bool>(values["tracking.use_optical_flow"].as<bool>()) : std::nullopt};
 }
