@@ -27,6 +27,7 @@ endif()
 
 add_library(ORB_SLAM3 SHARED
         source/place_vocabulary.cpp
+        source/dbow2_vocabulary.cpp
         source/dbow3_vocabulary.cpp
         source/System.cpp
         source/Tracking.cpp
