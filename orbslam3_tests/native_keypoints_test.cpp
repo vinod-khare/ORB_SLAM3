@@ -119,6 +119,17 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     ORB_SLAM3::Frame frame(0.0, nullptr, camera.toK(), distortion, 10.f, 40.f);
     ORB_SLAM3::Tracking::extract_features(frame, extractor, image, &camera);
     REQUIRE(frame.N >= 2);
+    REQUIRE(frame.extraction_ms > 0);
+    REQUIRE(frame.stereo_matching_ms >= 0);
+    frame.optical_flow_ms = 2.0;
+    const ORB_SLAM3::Frame copied(frame);
+    REQUIRE(copied.extraction_ms == frame.extraction_ms);
+    REQUIRE(copied.stereo_matching_ms == frame.stereo_matching_ms);
+    REQUIRE(copied.optical_flow_ms == frame.optical_flow_ms);
+    const ORB_SLAM3::Frame next(frame, 0.1);
+    REQUIRE(next.extraction_ms == 0);
+    REQUIRE(next.stereo_matching_ms == 0);
+    REQUIRE(next.optical_flow_ms == 0);
     frame.SetPose(Sophus::SE3f{});
     frame.mnDataset   = 0;
     frame.color_image = cv::Mat(128, 128, CV_8UC3, cv::Scalar(10, 30, 200));

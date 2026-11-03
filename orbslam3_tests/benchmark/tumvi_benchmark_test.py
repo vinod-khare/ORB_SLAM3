@@ -348,6 +348,7 @@ class TumviBenchmarkTest(unittest.TestCase):
             for index in range(3):
                 row = {field: 10 for field in benchmark.FRAME_FIELDS}
                 row.update({field: 100 for field in benchmark.QUALITY_FIELDS})
+                row.update({field: index + 0.5 for field in benchmark.PROFILE_FIELDS})
                 row.update(
                     frames=index + 1,
                     elapsed_seconds=1,
@@ -368,6 +369,11 @@ class TumviBenchmarkTest(unittest.TestCase):
                 writer.writerows(rows)
             samples, counters = benchmark.read_statistics(path)
             self.assertEqual(samples["left_keypoints"], [100, 100, 100])
+            for field in benchmark.PROFILE_FIELDS:
+                self.assertEqual(samples[field], [0.5, 1.5, 2.5])
+                self.assertEqual(
+                    benchmark.summarize(samples, counters)[f"{field}_mean"], 1.5
+                )
             self.assertEqual(counters["tracking_loss_events"], 1)
             self.assertEqual(counters["map_switches"], 1)
             self.assertEqual(counters["map_corrections"], 1)

@@ -165,6 +165,9 @@ void System::record_frame_statistics(double preprocessing_ms, double frontend_ms
                                                .detected_keypoints = frame.mvKeys.size() + frame.mvKeysRight.size(),
                                                .preprocessing_ms   = preprocessing_ms,
                                                .frontend_ms        = frontend_ms};
+    sample.extraction_ms       = frame.extraction_ms;
+    sample.stereo_matching_ms  = frame.stereo_matching_ms;
+    sample.optical_flow_ms     = frame.optical_flow_ms;
     sample.left_keypoints      = frame.mvKeys.size();
     sample.right_keypoints     = frame.mvKeysRight.size();
     sample.flow_candidates     = frame.flow_candidates;

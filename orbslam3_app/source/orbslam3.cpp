@@ -186,7 +186,8 @@ int main(int argc, char **argv)
         statistics_csv << "frame_id,timestamp,detected_keypoints,matched_keypoints,preprocessing_ms,frontend_ms,frames,elapsed_seconds,throughput_fps,"
                           "preprocessing_total_ms,frontend_total_ms,local_mapping_jobs,local_mapping_last_ms,local_mapping_total_ms,"
                           "loop_closing_jobs,loop_closing_last_ms,loop_closing_total_ms,global_bundle_adjustment_jobs,global_bundle_adjustment_last_ms,global_bundle_adjustment_total_ms,"
-                          "left_keypoints,right_keypoints,flow_candidates,flow_tracks,flow_inliers,flow_occupied_cells,flow_only,features_extracted,tracking_state,map_id,map_change_index\n";
+                          "left_keypoints,right_keypoints,flow_candidates,flow_tracks,flow_inliers,flow_occupied_cells,flow_only,features_extracted,tracking_state,map_id,map_change_index,"
+                          "extraction_ms,stereo_matching_ms,optical_flow_ms,input_wait_ms,viewer_publication_ms\n";
 
         const string output_filename = options.output_filename.value_or(string{});
         const bool   bFileName       = options.output_filename.has_value();
@@ -300,7 +301,9 @@ int main(int argc, char **argv)
                         break;
                     }
                 }
-                auto frame = prefetch.read();
+                const auto input_started = std::chrono::steady_clock::now();
+                auto       frame         = prefetch.read();
+                const auto input_wait_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - input_started).count();
                 SLAM.set_next_optical_flow_pyramid(std::move(frame.optical_flow_pyramid));
                 SLAM.SetNextFrameColor(frame.color, frame.color_right);
 
@@ -317,6 +320,22 @@ int main(int argc, char **argv)
                     }
                 }
                 const double frontend_ms = std::chrono::duration<double, std::milli>(frontend_time).count();
+                double       viewer_publication_ms{};
+                if (viewer)
+                {
+                    const auto publication_started = std::chrono::steady_clock::now();
+                    auto      *tracker             = SLAM.GetTracker();
+                    frame_drawer->Update(tracker);
+                    if (tracker->mCurrentFrame.isSet() && tracker->mState == ORB_SLAM3::Tracking::OK)
+                    {
+                        map_drawer->SetCurrentCameraPose(tracker->mCurrentFrame.GetPose(), SLAM.GetAtlas()->GetCurrentMap()->GetId());
+                    }
+                    else
+                    {
+                        map_drawer->break_camera_trajectory();
+                    }
+                    viewer_publication_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - publication_started).count();
+                }
                 SLAM.record_frame_statistics(frame.preprocessing_ms, frontend_ms);
                 const auto statistics = SLAM.statistics().get_snapshot();
 
@@ -328,26 +347,14 @@ int main(int argc, char **argv)
                                << statistics.global_bundle_adjustment.total_ms << ',' << statistics.frame.left_keypoints << ',' << statistics.frame.right_keypoints << ','
                                << statistics.frame.flow_candidates << ',' << statistics.frame.flow_tracks << ',' << statistics.frame.flow_inliers << ',' << statistics.frame.flow_occupied_cells
                                << ',' << statistics.frame.flow_only << ',' << statistics.frame.features_extracted << ',' << statistics.frame.tracking_state << ',' << statistics.frame.map_id
-                               << ',' << statistics.frame.map_change_index << '\n';
+                               << ',' << statistics.frame.map_change_index << ',' << statistics.frame.extraction_ms << ',' << statistics.frame.stereo_matching_ms << ','
+                               << statistics.frame.optical_flow_ms << ',' << input_wait_ms << ',' << viewer_publication_ms << '\n';
 
                 spdlog::info("Frame {}/{}: detected={} matched={} preprocessing={:.3f} ms frontend={:.3f} ms throughput={:.1f} FPS | backend last completed: local={:.3f} ms ({} jobs) "
                              "loop={:.3f} ms ({} jobs) GBA={:.3f} ms ({} jobs)",
                              ni + 1, nImages, statistics.frame.detected_keypoints, statistics.frame.matched_keypoints, statistics.frame.preprocessing_ms, statistics.frame.frontend_ms,
                              statistics.throughput_fps, statistics.local_mapping.last_ms, statistics.local_mapping.jobs, statistics.loop_closing.last_ms, statistics.loop_closing.jobs,
                              statistics.global_bundle_adjustment.last_ms, statistics.global_bundle_adjustment.jobs);
-                if (viewer)
-                {
-                    auto *tracker = SLAM.GetTracker();
-                    frame_drawer->Update(tracker);
-                    if (tracker->mCurrentFrame.isSet() && tracker->mState == ORB_SLAM3::Tracking::OK)
-                    {
-                        map_drawer->SetCurrentCameraPose(tracker->mCurrentFrame.GetPose(), SLAM.GetAtlas()->GetCurrentMap()->GetId());
-                    }
-                    else
-                    {
-                        map_drawer->break_camera_trajectory();
-                    }
-                }
             }
 
             statistics_csv.close();

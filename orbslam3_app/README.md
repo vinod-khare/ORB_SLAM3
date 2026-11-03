@@ -373,6 +373,14 @@ inventories (names and sizes, not image contents).
   matched-pose count after independent per-sequence alignments.
 - Frame statistics: mean, median, p95, min, and max of detected/matched keypoint
   counts and preprocessing/frontend milliseconds, both per sequence and pooled.
+  New CSVs also report `extraction_ms` (left/right extraction wall time, including
+  their overlap), `stereo_matching_ms` (matching and triangulation),
+  `optical_flow_ms` (forward/backward LK, including lazy pyramid construction),
+  `input_wait_ms` (waiting for prefetch), and `viewer_publication_ms` (camera image
+  and pose handoff on the playback thread). The first three are frontend
+  sub-stages, not additional time; extraction also includes pyramid generation.
+  Input preprocessing overlaps tracking, so do not sum these columns to estimate
+  throughput. Older CSVs without the optional columns remain supported.
 - Tracking quality: separate left/right feature counts, flow candidates,
   surviving tracks, geometric flow inliers, and occupied cells in a 4x4 grid.
   The original `detected_keypoints` column remains the sum of left and right
@@ -398,6 +406,43 @@ the parent directory for new runs. With `--skip-run`, it instead names an existi
 run directory: saved outputs/settings are re-evaluated to stdout without changing
 any reports. For recorded runs, pass the original sequence selection. Legacy
 directories containing `summary.json` can also be compared, without provenance.
+
+### Stereo Throughput
+
+The TUM-VI sample uses `tracking.matcher: brute_force`: at about 1,000 binary
+descriptors per image, exact Hamming matching avoids rebuilding a FLANN LSH
+index every frame. Override with `--tracking.matcher flann` for comparisons;
+larger descriptor sets and floating-point descriptors need separate measurements.
+Fisheye triangulation uses up to four OpenCV parallel stripes for at least 128
+queries; smaller sets stay serial. Reverse match conflicts are committed in the
+original order, preserving deterministic results. Left/right feature extraction,
+image prefetch, local mapping, and loop closing already overlap on worker threads.
+
+The viewer already runs on a separate `std::jthread` at 30 FPS. Camera-image
+publication is demand-driven and uses `try_lock` to drop stale display updates;
+map snapshots coalesce per map, and camera poses queue for the viewer to drain.
+No live tracker object is passed to the renderer. Reset/localization commands
+are intentionally handled by playback between frames. A small
+`viewer_publication_ms` with a large viewer-on throughput penalty indicates
+resource contention, not a blocking image handoff. Compare `--no-viewer` first,
+especially with software OpenGL rendering. Another unbounded display queue
+would retain stale frames rather than solve that contention.
+
+Pyramids are built once **per image and layout**, not once globally: each camera
+has a feature pyramid at `keypoint_extractor.scale_factor` (normally 1.2), while
+left-image LK uses a separate 2x pyramid with interleaved derivatives and different
+border requirements. Prefetch builds the LK pyramid, playback transfers it into
+the frame, and forward/backward LK and the next frame reuse that cache. Lazy
+construction covers library callers without prefetch. Feature refresh preserves
+the LK cache, and a new timestamp clears it. These layouts cannot be substituted
+without changing feature scales or LK behavior.
+
+Right-image temporal flow and left-to-right LK stereo are not enabled by these
+changes. They could save right extraction only with calibrated fisheye projection
+seeds, forward/backward checks, geometric triangulation/reprojection validation,
+spatial coverage checks, and descriptor recovery on keyframes or tracking loss.
+Running additional LK while retaining both extractions adds work; measure it
+against exact stereo matching before accepting that accuracy tradeoff.
 
 To compare stereo SLAM with and without optical-flow tracking on every locally
 extracted TUM-VI sequence, run:

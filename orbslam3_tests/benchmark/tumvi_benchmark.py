@@ -26,6 +26,13 @@ FRAME_FIELDS = (
     "preprocessing_ms",
     "frontend_ms",
 )
+PROFILE_FIELDS = (
+    "extraction_ms",
+    "stereo_matching_ms",
+    "optical_flow_ms",
+    "input_wait_ms",
+    "viewer_publication_ms",
+)
 
 
 def load_settings(path):
@@ -61,7 +68,9 @@ def evaluate_accuracy(
     with (output_folder / "statistics.csv").open(newline="") as statistics_file:
         statistics = list(csv.DictReader(statistics_file))
     if len(statistics) != num_images:
-        raise ValueError(f"Expected {num_images} statistics rows, got {len(statistics)}")
+        raise ValueError(
+            f"Expected {num_images} statistics rows, got {len(statistics)}"
+        )
     for frame_number, sample in enumerate(statistics, start=1):
         if int(sample["frames"]) != frame_number or not all(
             np.isfinite(float(value)) for value in sample.values()
@@ -93,6 +102,8 @@ def evaluate_accuracy(
         "tracked_ratio": float(tracked_ratio),
         "matched_poses": int(reference.num_poses),
     }
+
+
 WORKERS = ("local_mapping", "loop_closing", "global_bundle_adjustment")
 QUALITY_FIELDS = (
     "left_keypoints",
@@ -371,7 +382,9 @@ def read_statistics(path):
     if not rows:
         raise ValueError(f"No frame statistics in {path}")
     samples = {field: [] for field in FRAME_FIELDS}
-    samples.update({field: [] for field in QUALITY_FIELDS if field in rows[0]})
+    samples.update(
+        {field: [] for field in (*QUALITY_FIELDS, *PROFILE_FIELDS) if field in rows[0]}
+    )
     for index, row in enumerate(rows, start=1):
         if int(row["frames"]) != index or not all(
             np.isfinite(float(value)) for value in row.values()
@@ -504,7 +517,9 @@ def run_sequence(args, sequence):
             evaluate_accuracy(
                 settings,
                 output,
-                matched_output=None if args.skip_run else output / "accuracy_samples.csv",
+                matched_output=(
+                    None if args.skip_run else output / "accuracy_samples.csv"
+                ),
             )
         )
     except Exception as error:
@@ -775,9 +790,7 @@ def shared_accuracy(baseline, candidate):
         raise ValueError("Reference positions differ at common timestamps")
     results = []
     orientations = np.tile([1.0, 0.0, 0.0, 0.0], (len(timestamps), 1))
-    reference = PoseTrajectory3D(
-        selected[0][:, 1:4], orientations, timestamps
-    )
+    reference = PoseTrajectory3D(selected[0][:, 1:4], orientations, timestamps)
     for data in selected:
         estimate = PoseTrajectory3D(data[:, 4:7], orientations, timestamps)
         estimate.align(reference, correct_scale=False)

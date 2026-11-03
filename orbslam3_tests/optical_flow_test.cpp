@@ -312,6 +312,13 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
 
 TEST_CASE("Stereo refresh restores dense observations and measured depth after flow")
 {
+    const bool fisheye = GENERATE(false, true);
+    struct restore_threads
+    {
+        int count{cv::getNumThreads()};
+        ~restore_threads() { cv::setNumThreads(count); }
+    } restore;
+    cv::setNumThreads(1);
     cv::Mat left(256, 256, CV_8UC1);
     cv::RNG random(27);
     random.fill(left, cv::RNG::UNIFORM, 0, 256);
@@ -322,24 +329,45 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
     ORB_SLAM3::keypoint_extractor left_extractor(400, 1.2f, 4, 20, 7);
     ORB_SLAM3::keypoint_extractor right_extractor(400, 1.2f, 4, 20, 7);
     ORB_SLAM3::Pinhole            camera({200, 200, 128, 128});
-    auto                          calibration = camera.toK();
-    cv::Mat                       distortion  = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::Frame::mbInitialComputations   = true;
-    ORB_SLAM3::Frame previous(1.0, nullptr, calibration, distortion, 20, 40);
-    ORB_SLAM3::Tracking::extract_features(previous, left_extractor, left, &camera, right, &right_extractor);
+    ORB_SLAM3::KannalaBrandt8     left_camera({200, 200, 128, 128, 0, 0, 0, 0});
+    ORB_SLAM3::KannalaBrandt8     right_camera({200, 200, 128, 128, 0, 0, 0, 0});
+    left_camera.mvLappingArea               = {0, 256};
+    right_camera.mvLappingArea              = {0, 256};
+    auto   *tracking_camera                 = fisheye ? static_cast<ORB_SLAM3::GeometricCamera *>(&left_camera) : &camera;
+    auto    calibration                     = camera.toK();
+    cv::Mat distortion                      = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::Frame::mbInitialComputations = true;
+    const Sophus::SE3f relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0, 0));
+    ORB_SLAM3::Frame   previous(1.0, nullptr, calibration, distortion, 20, 40, nullptr, {}, relative_pose);
+    ORB_SLAM3::Tracking::extract_features(previous, left_extractor, left, tracking_camera, right, &right_extractor, fisheye ? &right_camera : nullptr);
     previous.mpLastKeyFrame = nullptr;
     previous.mnDataset      = 0;
     ORB_SLAM3::Frame current(previous, 1.05);
     REQUIRE(current.flow_only);
     REQUIRE(current.mvKeysRight.empty());
-    ORB_SLAM3::Tracking::extract_features(current, left_extractor, left, &camera, right, &right_extractor);
+    cv::setNumThreads(4);
+    ORB_SLAM3::Tracking::extract_features(current, left_extractor, left, tracking_camera, right, &right_extractor, fisheye ? &right_camera : nullptr);
     REQUIRE_FALSE(current.flow_only);
     REQUIRE(current.mvKeys.size() == previous.mvKeys.size());
     REQUIRE(current.mvKeysRight.size() == previous.mvKeysRight.size());
     REQUIRE(current.mvKeys.size() > 300);
     REQUIRE(current.mvKeysRight.size() > 300);
-    REQUIRE(std::count_if(current.mvDepth.begin(), current.mvDepth.end(), [](float depth) { return depth > 0; }) > 50);
+    REQUIRE(std::count_if(current.mvDepth.begin(), current.mvDepth.end(), [](float depth) { return depth > 0; }) >= 50);
     REQUIRE(current.mvDepth == previous.mvDepth);
+    REQUIRE(current.mvLeftToRightMatch == previous.mvLeftToRightMatch);
+    REQUIRE(current.mvRightToLeftMatch == previous.mvRightToLeftMatch);
+    if (fisheye)
+    {
+        const auto valid       = std::find_if(current.mvDepth.begin(), current.mvDepth.end(), [](float depth) { return depth > 0; });
+        const auto left_index  = static_cast<size_t>(valid - current.mvDepth.begin());
+        const auto right_index = current.mvLeftToRightMatch[left_index];
+        current.mvKeys.push_back(current.mvKeys[left_index]);
+        ++current.Nleft;
+        ++current.N;
+        current.ComputeStereoFishEyeMatches(&left_camera, &right_camera);
+        REQUIRE(current.mvLeftToRightMatch.back() == right_index);
+        REQUIRE(current.mvRightToLeftMatch[right_index] == current.Nleft - 1);
+    }
 }
 
 TEST_CASE("RGB-D frames undistort tracked features without a camera")

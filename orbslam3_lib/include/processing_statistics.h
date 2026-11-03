@@ -29,6 +29,9 @@ class processing_statistics
         std::size_t   matched_keypoints{};
         double        preprocessing_ms{};
         double        frontend_ms{};
+        double        extraction_ms{};
+        double        stereo_matching_ms{};
+        double        optical_flow_ms{};
         std::size_t   left_keypoints{};
         std::size_t   right_keypoints{};
         int           flow_candidates{};

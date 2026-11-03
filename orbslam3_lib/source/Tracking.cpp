@@ -1826,13 +1826,14 @@ void Tracking::extract_features(Frame &frame, keypoint_extractor &extractor, con
     CV_Assert(right.empty() || (right_extractor && right_extractor != &extractor));
     CV_Assert(!right_camera || (!right.empty() && camera));
 
-    frame.mnScaleLevels     = extractor.get_levels();
-    frame.mfScaleFactor     = extractor.get_scale_factor();
-    frame.mfLogScaleFactor  = std::log(frame.mfScaleFactor);
-    frame.mvScaleFactors    = extractor.get_scale_factors();
-    frame.mvInvScaleFactors = extractor.get_inverse_scale_factors();
-    frame.mvLevelSigma2     = extractor.get_scale_sigma_squares();
-    frame.mvInvLevelSigma2  = extractor.get_inverse_scale_sigma_squares();
+    const auto extraction_started = std::chrono::steady_clock::now();
+    frame.mnScaleLevels           = extractor.get_levels();
+    frame.mfScaleFactor           = extractor.get_scale_factor();
+    frame.mfLogScaleFactor        = std::log(frame.mfScaleFactor);
+    frame.mvScaleFactors          = extractor.get_scale_factors();
+    frame.mvInvScaleFactors       = extractor.get_inverse_scale_factors();
+    frame.mvLevelSigma2           = extractor.get_scale_sigma_squares();
+    frame.mvInvLevelSigma2        = extractor.get_inverse_scale_sigma_squares();
     frame.mvKeys.clear();
     frame.mvKeysRight.clear();
 
@@ -1854,6 +1855,7 @@ void Tracking::extract_features(Frame &frame, keypoint_extractor &extractor, con
         frame.monoRight           = extract(*right_extractor, right, frame.mvKeysRight, right_fisheye ? right_fisheye->mvLappingArea : std::vector<int>{0, 0});
         frame.monoLeft            = left_worker.get();
     }
+    frame.extraction_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extraction_started).count();
     frame.initialize_features(left, camera, right, right_camera, extractor.mvImagePyramid, right.empty() ? std::vector<cv::Mat>{} : right_extractor->mvImagePyramid);
 }
 
@@ -1960,6 +1962,7 @@ int Tracking::track_with_optical_flow()
     std::vector<float>         forward_error;
     const cv::Size             window_size(21, 21);
     const cv::TermCriteria     criteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
+    const auto                 flow_started     = std::chrono::steady_clock::now();
     const auto                &previous_pyramid = mLastFrame.get_optical_flow_pyramid(_previous_gray);
     const auto                &current_pyramid  = mCurrentFrame.get_optical_flow_pyramid(mImGray);
     cv::calcOpticalFlowPyrLK(previous_pyramid, current_pyramid, previous_points, current_points, forward_status, forward_error, window_size, 3, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
@@ -1968,6 +1971,7 @@ int Tracking::track_with_optical_flow()
     std::vector<unsigned char> backward_status;
     std::vector<float>         backward_error;
     cv::calcOpticalFlowPyrLK(current_pyramid, previous_pyramid, current_points, backward_points, backward_status, backward_error, window_size, 3, criteria);
+    mCurrentFrame.optical_flow_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - flow_started).count();
 
     std::vector<keypoint>   tracked_keys;
     std::vector<MapPoint *> tracked_points;

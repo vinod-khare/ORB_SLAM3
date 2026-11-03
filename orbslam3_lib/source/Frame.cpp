@@ -27,6 +27,7 @@
 #include "descriptor_matcher.h"
 
 #include <array>
+#include <chrono>
 #include <cmath>
 
 #include <spdlog/spdlog.h>
@@ -69,6 +70,9 @@ Frame::Frame(const Frame &frame)
     flow_tracks         = frame.flow_tracks;
     flow_inliers        = frame.flow_inliers;
     flow_occupied_cells = frame.flow_occupied_cells;
+    extraction_ms       = frame.extraction_ms;
+    stereo_matching_ms  = frame.stereo_matching_ms;
+    optical_flow_ms     = frame.optical_flow_ms;
     for (int i = 0; i < FRAME_GRID_COLS; i++)
     {
         for (int j = 0; j < FRAME_GRID_ROWS; j++)
@@ -156,6 +160,9 @@ Frame::Frame(Frame &previous, double timestamp) : Frame(static_cast<const Frame 
     flow_tracks             = 0;
     flow_inliers            = 0;
     flow_occupied_cells     = 0;
+    extraction_ms           = 0;
+    stereo_matching_ms      = 0;
+    optical_flow_ms         = 0;
 
     optical_flow_pyramid.clear();
     imgLeft.release();
@@ -260,7 +267,8 @@ void Frame::initialize_features(const cv::Mat &left, GeometricCamera *camera, co
         invfy                  = 1.0f / fy;
         mbInitialComputations  = false;
     }
-    mb = mbf / fx;
+    mb                        = mbf / fx;
+    const auto stereo_started = std::chrono::steady_clock::now();
     if (right_camera)
     {
         imgLeft  = left.clone();
@@ -271,6 +279,7 @@ void Frame::initialize_features(const cv::Mat &left, GeometricCamera *camera, co
     {
         ComputeStereoMatches(left_pyramid, right_pyramid);
     }
+    stereo_matching_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - stereo_started).count();
     if (right_camera)
     {
         mvKeysUn = mvKeys;
@@ -1012,10 +1021,6 @@ void Frame::setIntegrated()
 
 void Frame::ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera *right_camera)
 {
-    // Speed it up by matching keypoints in the lapping area
-    vector<keypoint> stereoLeft(mvKeys.begin() + monoLeft, mvKeys.end());
-    vector<keypoint> stereoRight(mvKeysRight.begin() + monoRight, mvKeysRight.end());
-
     cv::Mat stereoDescLeft  = descriptor_matrix(mvKeys, monoLeft);
     cv::Mat stereoDescRight = descriptor_matrix(mvKeysRight, monoRight);
 
@@ -1031,27 +1036,42 @@ void Frame::ComputeStereoFishEyeMatches(GeometricCamera *camera, GeometricCamera
 
     descriptor_matcher::knn_match(stereoDescLeft, stereoDescRight, matches, 2);
 
-    int nMatches    = 0;
-    int descMatches = 0;
-
-    // Check matches using Lowe's ratio
-    for (vector<vector<cv::DMatch>>::iterator it = matches.begin(); it != matches.end(); ++it)
-    {
-        if ((*it).size() >= 2 && (*it)[0].distance < (*it)[1].distance * 0.7)
+    cv::parallel_for_(
+        cv::Range(0, static_cast<int>(matches.size())),
+        [&](const cv::Range &range)
         {
-            // For every good match, check parallax and reprojection error to discard spurious matches
-            Eigen::Vector3f p3D;
-            descMatches++;
-            float sigma1 = mvLevelSigma2[mvKeys[(*it)[0].queryIdx + monoLeft].octave], sigma2 = mvLevelSigma2[mvKeysRight[(*it)[0].trainIdx + monoRight].octave];
-            float depth = static_cast<KannalaBrandt8 *>(camera)->TriangulateMatches(right_camera, mvKeys[(*it)[0].queryIdx + monoLeft], mvKeysRight[(*it)[0].trainIdx + monoRight], mRlr, mtlr,
-                                                                                    sigma1, sigma2, p3D);
-            if (depth > 0.0001f)
+            for (int index = range.start; index < range.end; ++index)
             {
-                mvLeftToRightMatch[(*it)[0].queryIdx + monoLeft]  = (*it)[0].trainIdx + monoRight;
-                mvRightToLeftMatch[(*it)[0].trainIdx + monoRight] = (*it)[0].queryIdx + monoLeft;
-                mvStereo3Dpoints[(*it)[0].queryIdx + monoLeft]    = p3D;
-                mvDepth[(*it)[0].queryIdx + monoLeft]             = depth;
-                nMatches++;
+                const auto &neighbors = matches[index];
+                if (neighbors.size() < 2 || !(neighbors[0].distance < neighbors[1].distance * 0.7))
+                {
+                    continue;
+                }
+                const auto      left_index  = neighbors[0].queryIdx + monoLeft;
+                const auto      right_index = neighbors[0].trainIdx + monoRight;
+                const auto      sigma_left  = mvLevelSigma2[mvKeys[left_index].octave];
+                const auto      sigma_right = mvLevelSigma2[mvKeysRight[right_index].octave];
+                Eigen::Vector3f point;
+                const auto      depth =
+                    static_cast<KannalaBrandt8 *>(camera)->TriangulateMatches(right_camera, mvKeys[left_index], mvKeysRight[right_index], mRlr, mtlr, sigma_left, sigma_right, point);
+                if (depth > 0.0001f)
+                {
+                    mvLeftToRightMatch[left_index] = right_index;
+                    mvStereo3Dpoints[left_index]   = point;
+                    mvDepth[left_index]            = depth;
+                }
+            }
+        },
+        matches.size() >= 128 ? 4 : 1);
+    for (const auto &neighbors : matches)
+    {
+        if (!neighbors.empty())
+        {
+            const auto left_index  = neighbors[0].queryIdx + monoLeft;
+            const auto right_index = mvLeftToRightMatch[left_index];
+            if (right_index >= 0)
+            {
+                mvRightToLeftMatch[right_index] = left_index;
             }
         }
     }
