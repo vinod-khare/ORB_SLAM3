@@ -77,7 +77,7 @@ viewer_settings read_viewer_settings(const std::string &settings_file, const std
             std::getline(stream, directive);
         }
         const auto root        = YAML::Load(stream);
-        const auto calibration = root["calibration"];
+        const auto calibration = root["data"] ? root["data"]["calibration"] : YAML::Node{};
         if (calibration && calibration["file"])
         {
             const auto calibration_path = std::filesystem::path(settings_file).parent_path() / calibration["file"].as<std::string>();

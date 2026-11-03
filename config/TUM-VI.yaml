@@ -12,11 +12,11 @@ data:
   right: "cam1/data"
   imu:   "imu0/data.csv"
 
-# Kalibr camchain file providing intrinsics, distortion, resolution, cam0->cam1 and IMU->cam0 extrinsics
-# (relative paths are resolved from this file)
-calibration:
-  file: "../.data/tumvi/dataset-corridor1_512_16/dso/camchain.yaml"
-  imu_file: "../.data/tumvi/dataset-corridor1_512_16/dso/imu_config.yaml"
+  # Kalibr intrinsics, distortion, resolution, camera and IMU extrinsics.
+  # Calibration paths are relative to this settings file, not data.root.
+  calibration:
+    file: "../.data/tumvi/dataset-corridor1_512_16/dso/camchain.yaml"
+    imu_file: "../.data/tumvi/dataset-corridor1_512_16/dso/imu_config.yaml"
 
 # Close/Far threshold. Baseline times.
 Stereo.ThDepth: 40.0

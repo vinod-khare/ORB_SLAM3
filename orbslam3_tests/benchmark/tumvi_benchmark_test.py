@@ -38,6 +38,7 @@ class TumviBenchmarkTest(unittest.TestCase):
                 (sequence / "dso/camchain.yaml").write_text(
                     yaml.safe_dump({"cam0": {"T_cam_imu": transform.tolist()}})
                 )
+                (sequence / "dso/imu_config.yaml").write_text("update_rate: 200\n")
                 mocap = sequence / "mav0/mocap0"
                 mocap.mkdir()
                 with (mocap / "data.csv").open("w") as stream:
@@ -59,7 +60,11 @@ class TumviBenchmarkTest(unittest.TestCase):
                 self.assertEqual(
                     Path(settings["data"]["root"]).parent.name, destination.name
                 )
-                self.assertTrue(Path(settings["calibration"]["file"]).is_file())
+                self.assertNotIn("calibration", settings)
+                self.assertTrue(Path(settings["data"]["calibration"]["file"]).is_file())
+                self.assertTrue(
+                    Path(settings["data"]["calibration"]["imu_file"]).is_file()
+                )
                 rows = []
                 for index in range(4):
                     row = {field: index + 1 for field in benchmark.FRAME_FIELDS}

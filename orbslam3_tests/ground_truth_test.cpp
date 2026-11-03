@@ -111,7 +111,7 @@ TEST_CASE("Ground truth viewer settings use Kalibr camera-to-IMU calibration", "
     const ground_truth_file calibration;
     config.write("%YAML:1.0\n---\nViewer.KeyFrameSize: 0.05\nViewer.KeyFrameLineWidth: 1.0\nViewer.GraphLineWidth: 1.0\nViewer.PointSize: 2.0\n"
                  "Viewer.CameraSize: 0.08\nViewer.CameraLineWidth: 3.0\nViewer.ViewpointX: 0.0\nViewer.ViewpointY: -0.7\nViewer.ViewpointZ: -1.8\nViewer.ViewpointF: 500.0\n"
-                 "calibration:\n  file: " +
+                 "data:\n  calibration:\n    file: " +
                  calibration.path.string() + "\n");
     calibration.write("cam0:\n  T_cam_imu: [[1, 0, 0, 1], [0, 1, 0, 2], [0, 0, 1, 3], [0, 0, 0, 1]]\n");
     const auto settings = ORB_SLAM3::read_viewer_settings(config.path.string(), "ground_truth.csv", true, true);

@@ -41,9 +41,10 @@ struct imu_settings
   resolution: [512, 512]
   T_cam_imu: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 )";
-        config = YAML::Load(R"(calibration:
-  file: calibration/camchain.yaml
-  imu_file: calibration/imu.yaml
+        config = YAML::Load(R"(data:
+      calibration:
+        file: calibration/camchain.yaml
+        imu_file: calibration/imu.yaml
 Camera.fps: 20
 Camera.RGB: 1
 keypoint_extractor:
@@ -141,7 +142,7 @@ TEST_CASE("IMU settings come from Kalibr calibration", "[settings][imu]")
     imu_settings files;
     if (GENERATE(false, true))
     {
-        files.config["calibration"]["imu_file"] = (files.directory / "calibration/imu.yaml").string();
+        files.config["data"]["calibration"]["imu_file"] = (files.directory / "calibration/imu.yaml").string();
     }
     files.write();
     ORB_SLAM3::Settings settings(files.path.string(), ORB_SLAM3::System::IMU_MONOCULAR);
@@ -278,12 +279,12 @@ TEST_CASE("Legacy IMU settings are rejected", "[settings][imu]")
 TEST_CASE("Only inertial modes require an IMU calibration file", "[settings][imu]")
 {
     imu_settings files;
-    files.config["calibration"].remove("imu_file");
+    files.config["data"]["calibration"].remove("imu_file");
     files.write();
     REQUIRE_NOTHROW(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR));
-    REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::IMU_MONOCULAR), Catch::Matchers::ContainsSubstring("calibration.imu_file"));
+    REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::IMU_MONOCULAR), Catch::Matchers::ContainsSubstring("data.calibration.imu_file"));
 
-    files.config["calibration"]["imu_file"] = "missing.yaml";
+    files.config["data"]["calibration"]["imu_file"] = "missing.yaml";
     files.write();
     REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::IMU_MONOCULAR), Catch::Matchers::ContainsSubstring("missing.yaml"));
 }

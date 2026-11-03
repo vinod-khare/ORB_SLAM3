@@ -290,10 +290,10 @@ Settings::Settings(const std::string &config_file, const int &sensor, const feat
         spdlog::info("Loading settings from {}", config_file);
     }
 
-    const cv::FileNode calibration = fSettings["calibration"];
+    const cv::FileNode calibration = fSettings["data"]["calibration"];
     if (!calibration.isMap() || !calibration["file"].isString())
     {
-        throw std::runtime_error("Settings entry calibration.file (Kalibr camchain YAML) is required in " + config_file);
+        throw std::runtime_error("Settings entry data.calibration.file (Kalibr camchain YAML) is required in " + config_file);
     }
     _calibration_file = calibration["file"].string();
     if (_calibration_file.is_relative())
@@ -460,14 +460,14 @@ void Settings::read_imu(cv::FileStorage &settings, const std::string &config_fil
     {
         if (!settings[key].empty())
         {
-            throw std::runtime_error(std::string(key) + " is no longer supported in settings; use calibration.imu_file (Kalibr IMU YAML)");
+            throw std::runtime_error(std::string(key) + " is no longer supported in settings; use data.calibration.imu_file (Kalibr IMU YAML)");
         }
     }
 
-    const auto imu_file = settings["calibration"]["imu_file"];
+    const auto imu_file = settings["data"]["calibration"]["imu_file"];
     if (!imu_file.isString())
     {
-        throw std::runtime_error("Settings entry calibration.imu_file (Kalibr IMU YAML) is required in " + config_file);
+        throw std::runtime_error("Settings entry data.calibration.imu_file (Kalibr IMU YAML) is required in " + config_file);
     }
 
     auto imu_path = std::filesystem::path(imu_file.string());

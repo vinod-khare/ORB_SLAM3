@@ -104,7 +104,7 @@ def evaluate_accuracy(
     settings_dir = settings_path.resolve().parent
     data_root = settings_dir / settings["data"]["root"]
     camchain = yaml.safe_load(
-        (settings_dir / settings["calibration"]["file"]).read_text()
+        (settings_dir / settings["data"]["calibration"]["file"]).read_text()
     )
     t_cam_imu = np.array(camchain["cam0"]["T_cam_imu"])
     num_images = sum(1 for _ in (data_root / settings["data"]["left"]).glob("*.png"))
@@ -411,11 +411,11 @@ def write_settings(template, sequence, output):
         "left": "cam0/data",
         "right": "cam1/data",
         "imu": "imu0/data.csv",
+        "calibration": {"file": str(sequence / "dso/camchain.yaml")},
     }
-    settings["calibration"] = {"file": str(sequence / "dso/camchain.yaml")}
     imu = sequence / "dso/imu_config.yaml"
     if imu.is_file():
-        settings["calibration"]["imu_file"] = str(imu)
+        settings["data"]["calibration"]["imu_file"] = str(imu)
     settings["ground_truth"] = {"path": str(root / "mocap0/data.csv"), "visible": False}
     path = output / "settings.yaml"
     path.write_text("%YAML:1.0\n---\n" + yaml.safe_dump(settings, sort_keys=False))
