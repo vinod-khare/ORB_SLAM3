@@ -82,6 +82,12 @@ The UI runs on a separate, lower-priority thread capped at 30 FPS. Camera image 
 
 The core `ORB_SLAM3` library runs without UI dependencies; `--no-viewer` skips loading viewer settings and starting the UI. Neither Pangolin nor OpenCV HighGUI is required by the app.
 
+SLAM starts immediately by default. Set `autostart: false` in YAML or pass
+`--autostart=false` to start paused, then click Play in the viewer. The same
+Play/Pause button pauses and resumes playback. `--autostart=true` overrides a
+paused YAML setting. Starting paused requires the viewer and cannot be combined
+with `--no-viewer`.
+
 ## Ground Truth
 
 Display a ground-truth trajectory as an orange line in the map pane:

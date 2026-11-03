@@ -26,6 +26,7 @@ struct viewer_settings
     Sophus::SE3d ground_truth_body_to_camera{};
     bool         camera_trajectory_visible{true};
     std::string  logging_pattern{"%+"};
+    bool         autostart{true};
 };
 
 viewer_settings read_viewer_settings(const std::string &settings_file, const std::string &ground_truth_path = {}, bool ground_truth_visible = false, bool correct_scale = false);

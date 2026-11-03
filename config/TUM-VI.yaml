@@ -1,5 +1,7 @@
 %YAML:1.0
 
+autostart: true
+
 # spdlog settings; CLI --logging.level and --logging.pattern override these.
 logging:
   level: "info" # trace, debug, info, warning, error, critical, off

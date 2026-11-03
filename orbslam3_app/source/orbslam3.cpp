@@ -246,6 +246,7 @@ int main(int argc, char **argv)
                 std::make_unique<ORB_SLAM3::viewer_settings>(ORB_SLAM3::read_viewer_settings(settings_path, options.ground_truth_path, options.ground_truth_visible, slam_type == "mono"));
             ui_settings->camera_trajectory_visible = options.camera_trajectory_visible;
             ui_settings->logging_pattern           = options.logging_pattern;
+            ui_settings->autostart                 = options.autostart;
         }
         const ORB_SLAM3::feature_overrides overrides = options.overrides;
         ORB_SLAM3::System                  SLAM(vocab_path, settings_path, sensor, 0, output_filename, overrides);
@@ -297,6 +298,11 @@ int main(int argc, char **argv)
             {
                 if (viewer)
                 {
+                    while (viewer->paused() && !viewer->exit_requested())
+                    {
+                        viewer->process_commands();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                    }
                     viewer->process_commands();
                     if (viewer->exit_requested())
                     {

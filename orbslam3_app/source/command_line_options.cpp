@@ -38,7 +38,8 @@ command_line_options::command_line_options(int argc, char **argv)
         "logging.level", po::value<std::string>(), "spdlog level: trace, debug, info, warning, error, critical, off (overrides YAML; default: info)")(
         "ground_truth.path", po::value<std::string>(), "Ground-truth trajectory file (TUM text or EuRoC/TUM-VI CSV)")("ground_truth.visible", po::value<bool>()->implicit_value(true),
                                                                                                                       "Initially display ground truth (true/false; default: false)")(
-        "camera_trajectory.visible", po::value<bool>()->implicit_value(true), "Initially display the full camera trajectory (true/false; default: true)");
+        "camera_trajectory.visible", po::value<bool>()->implicit_value(true), "Initially display the full camera trajectory (true/false; default: true)")(
+        "autostart", po::value<bool>()->implicit_value(true), "Start SLAM immediately (true/false; overrides YAML; default: true)");
 
     po::positional_options_description positional;
     positional.add("vocab", 1);
@@ -88,7 +89,12 @@ command_line_options::command_line_options(int argc, char **argv)
         std::getline(stream, directive);
     }
     const auto root = YAML::Load(stream);
-    dbow_version    = values.count("dbow_version") ? values["dbow_version"].as<int>() : root["dbow_version"] ? root["dbow_version"].as<int>() : 2;
+    autostart       = values.count("autostart") ? values["autostart"].as<bool>() : root["autostart"] ? root["autostart"].as<bool>() : true;
+    if (!autostart && values["no-viewer"].as<bool>())
+    {
+        throw std::runtime_error("autostart=false requires the ImGui viewer");
+    }
+    dbow_version = values.count("dbow_version") ? values["dbow_version"].as<int>() : root["dbow_version"] ? root["dbow_version"].as<int>() : 2;
     if (dbow_version != 2 && dbow_version != 3)
     {
         throw std::runtime_error("dbow_version must be 2 or 3");

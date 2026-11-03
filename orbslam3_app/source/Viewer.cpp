@@ -79,6 +79,7 @@ Viewer::Viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &m
     : _controls(controls), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _settings(settings), _tracked_image_scale(tracked_image_scale)
 {
     _dbow_version = controls.dbow_version();
+    _paused       = !settings.autostart;
 }
 
 void Viewer::Run()
@@ -140,6 +141,13 @@ void Viewer::Run()
             [&]
             {
                 ImGui::SeparatorText("Tracking");
+                const bool paused = _paused.load();
+                if (tool_button(paused ? ICON_FA_PLAY : ICON_FA_PAUSE, paused ? "Play" : "Pause"))
+                {
+                    _controls.set_step_by_step(false);
+                    step_by_step = false;
+                    _paused      = !paused;
+                }
                 int dbow_selection = _dbow_version.load() - 2;
                 if (ImGui::Combo("DBoW version", &dbow_selection,
                                  "2\0"
@@ -163,6 +171,7 @@ void Viewer::Run()
                 if (ImGui::Checkbox("Step by step", &step_by_step))
                 {
                     _controls.set_step_by_step(step_by_step);
+                    _paused = false;
                 }
                 ImGui::BeginDisabled(!step_by_step);
                 if (tool_button(ICON_FA_STEP_FORWARD, "Process next frame"))
@@ -358,6 +367,7 @@ void Viewer::RequestStop() { _stop_requested = true; }
 bool Viewer::isFinished() const { return _finished; }
 bool Viewer::isStopped() const { return _stopped || _finished; }
 bool Viewer::exit_requested() const { return _exit_requested; }
+bool Viewer::paused() const { return _paused; }
 void Viewer::Release()
 {
     _stop_requested = false;

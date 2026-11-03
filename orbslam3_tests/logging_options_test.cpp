@@ -214,6 +214,24 @@ TEST_CASE("Global bundle adjustment shutdown joins its worker before returning",
     REQUIRE(measurements.get_snapshot().global_bundle_adjustment.jobs == 1);
 }
 
+TEST_CASE("Autostart supports defaults, YAML, command-line precedence and headless validation", "[autostart]")
+{
+    const logging_settings settings;
+    REQUIRE(settings.parse("other: value\n").autostart);
+    REQUIRE(settings.parse("autostart: true\n").autostart);
+    REQUIRE_FALSE(settings.parse("autostart: false\n").autostart);
+    REQUIRE_FALSE(settings.parse("autostart: true\n", {"--autostart", "false"}).autostart);
+    REQUIRE(settings.parse("autostart: false\n", {"--autostart=true"}).autostart);
+    REQUIRE(settings.parse("autostart: false\n", {"--autostart"}).autostart);
+    REQUIRE(settings.parse("other: value\n", {"--no-viewer"}).autostart);
+    REQUIRE(settings.parse("autostart: false\n", {"--no-viewer", "--autostart=true"}).autostart);
+    REQUIRE_THROWS_WITH(settings.parse("autostart: false\n", {"--no-viewer"}), "autostart=false requires the ImGui viewer");
+    REQUIRE_THROWS_WITH(settings.parse("autostart: true\n", {"--no-viewer", "--autostart=false"}), "autostart=false requires the ImGui viewer");
+    REQUIRE_THROWS(settings.parse("autostart: invalid\n"));
+    REQUIRE_THROWS(settings.parse("autostart: []\n"));
+    REQUIRE_THROWS(settings.parse("autostart: null\n"));
+}
+
 TEST_CASE("Logging pattern supports defaults, YAML and command-line precedence", "[logging]")
 {
     const logging_settings settings;

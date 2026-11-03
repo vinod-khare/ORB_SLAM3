@@ -40,6 +40,7 @@ class Viewer
     bool isStopped() const;
     void Release();
     bool exit_requested() const;
+    bool paused() const;
     void process_commands();
 
     bool both{false};
@@ -55,6 +56,7 @@ class Viewer
     std::atomic<bool> _stop_requested{false};
     std::atomic<bool> _stopped{true};
     std::atomic<bool> _exit_requested{false};
+    std::atomic<bool> _paused{false};
     std::atomic<bool> _reset_requested{false};
     std::atomic<bool> _localization_requested{false};
     bool              _localization_active{false};
