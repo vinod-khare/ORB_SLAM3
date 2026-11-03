@@ -1,5 +1,49 @@
 #!/usr/bin/env python3
-"""Record and compare headless stereo SLAM runs on local TUM-VI sequences."""
+"""Record and compare headless stereo SLAM runs on local TUM-VI sequences.
+
+What it does:
+- Runs every selected ``dataset-*`` sequence from a local TUM-VI extraction,
+    headless in stereo mode, and records timing, tracking, and accuracy results.
+- Saves logs, trajectories, frame statistics, settings, dataset fingerprints,
+  and provenance in a unique run folder.
+- Compares two saved runs without rerunning SLAM, including accuracy on shared
+    ground-truth timestamps when both runs have archived samples.
+- Optionally runs paired optical-flow-off/on experiments in alternating order,
+    repeated by default three times, and reports medians and ranges.
+- Can re-evaluate saved outputs with ``--skip-run`` or limit each sequence with
+    ``--timeout``. Failed sequences are reported and make a benchmark run exit
+    nonzero.
+
+Quick start from the repository root (build ``orbslam3_app`` first):
+
+        python3 -m venv .venv
+        .venv/bin/pip install -r orbslam3_tests/benchmark/requirements.txt
+        .venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py
+
+By default, the script reads ``.data/tumvi/dataset-*``, uses the Release app,
+``vocab/ORBvoc.dbow3`` and ``config/TUM-VI.yaml``, and creates a timestamped run
+under ``.data/benchmark/tumvi``. Each sequence needs
+``mav0/cam0/data/*.png``, ``mav0/cam1/data/*.png`` and
+``dso/camchain.yaml``; ``mav0/mocap0/data.csv`` is needed for accuracy scoring.
+Use ``--help`` for all options. Full setup, output, metric, and comparison
+details are in ``orbslam3_app/README.md#tum-vi-stereo-benchmark``.
+
+Examples:
+
+        # Select sequences and name a run
+        .venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py \\
+            --sequence dataset-room1_512_16 --run-name baseline
+
+        # Compare existing runs without rerunning SLAM
+        .venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py \\
+            --compare \\
+                .data/benchmark/tumvi/baseline \\
+                .data/benchmark/tumvi/candidate
+
+        # Run a repeated, paired optical-flow comparison
+        .venv/bin/python orbslam3_tests/benchmark/tumvi_benchmark.py \\
+            --compare-optical-flow --repetitions 3 --run-name flow-study
+"""
 
 import argparse
 import csv
@@ -116,7 +160,9 @@ QUALITY_FIELDS = (
 
 
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--datasets-root", type=Path, default=REPO / ".data/tumvi")
     parser.add_argument(
         "--app", type=Path, default=REPO / ".build/Release/orbslam3_app/orbslam3_app"
