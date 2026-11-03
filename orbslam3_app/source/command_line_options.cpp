@@ -35,6 +35,7 @@ command_line_options::command_line_options(int argc, char **argv)
         "Descriptor matcher (brute_force, flann)")("tracking.use_optical_flow", po::value<bool>()->implicit_value(true),
                                                    "Enable or disable flow-first tracking")("dbow_version", po::value<int>(), "Place recognition backend: 2 or 3 (overrides YAML; default: 2)")(
         "logging.pattern", po::value<std::string>(), "spdlog output pattern; overrides logging.pattern in YAML (default: %+, spdlog default)")(
+        "logging.level", po::value<std::string>(), "spdlog level: trace, debug, info, warning, error, critical, off (overrides YAML; default: info)")(
         "ground_truth.path", po::value<std::string>(), "Ground-truth trajectory file (TUM text or EuRoC/TUM-VI CSV)")("ground_truth.visible", po::value<bool>()->implicit_value(true),
                                                                                                                       "Initially display ground truth (true/false; default: false)")(
         "camera_trajectory.visible", po::value<bool>()->implicit_value(true), "Initially display the full camera trajectory (true/false; default: true)");
@@ -141,19 +142,33 @@ command_line_options::command_line_options(int argc, char **argv)
         camera_trajectory_visible = values["camera_trajectory.visible"].as<bool>();
     }
 
+    const auto logging = root["logging"];
+    if (logging && !logging.IsMap())
+    {
+        throw std::runtime_error("Settings entry logging must be a map");
+    }
+    if (values.count("logging.level") || (logging && logging["level"]))
+    {
+        const auto level_node = logging ? logging["level"] : YAML::Node{};
+        if (!values.count("logging.level") && !level_node.IsScalar())
+        {
+            throw std::runtime_error("Settings entry logging.level must be a string");
+        }
+        const auto level = values.count("logging.level") ? values["logging.level"].as<std::string>() : level_node.as<std::string>();
+        logging_level    = spdlog::level::from_str(level);
+        if (logging_level == spdlog::level::off && level != "off")
+        {
+            throw std::runtime_error("logging.level must be trace, debug, info, warning, error, critical or off");
+        }
+    }
     if (values.count("logging.pattern"))
     {
         logging_pattern = values["logging.pattern"].as<std::string>();
     }
     else
     {
-        const auto logging = root["logging"];
         if (logging)
         {
-            if (!logging.IsMap())
-            {
-                throw std::runtime_error("Settings entry logging must be a map");
-            }
             const auto pattern = logging["pattern"];
             if (pattern)
             {

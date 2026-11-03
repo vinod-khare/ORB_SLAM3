@@ -227,6 +227,25 @@ TEST_CASE("Logging pattern supports defaults, YAML and command-line precedence",
     REQUIRE_THROWS_WITH(settings.parse("logging:\n  pattern: null\n"), "Settings entry logging.pattern must be a string");
 }
 
+TEST_CASE("Logging level supports defaults, YAML and independent command-line overrides", "[logging]")
+{
+    const logging_settings settings;
+    REQUIRE(settings.parse("other: value\n").logging_level == spdlog::level::info);
+    REQUIRE(settings.parse("logging: {}\n").logging_level == spdlog::level::info);
+    const auto level = GENERATE("trace", "debug", "info", "warning", "error", "critical", "off", "warn", "err");
+    REQUIRE(settings.parse(std::string("logging:\n  level: '") + level + "'\n").logging_level == spdlog::level::from_str(level));
+    REQUIRE(settings.parse("logging:\n  level: trace\n", {"--logging.level", level}).logging_level == spdlog::level::from_str(level));
+    const auto overridden = settings.parse("logging:\n  level: error\n  pattern: '%v'\n", {"--logging.level=debug"});
+    REQUIRE(overridden.logging_level == spdlog::level::debug);
+    REQUIRE(overridden.logging_pattern == "%v");
+    REQUIRE(settings.parse("logging:\n  level: warning\n", {"--logging.pattern", "%v"}).logging_level == spdlog::level::warn);
+    REQUIRE_THROWS_WITH(settings.parse("logging:\n  level: invalid\n"), "logging.level must be trace, debug, info, warning, error, critical or off");
+    REQUIRE_THROWS(settings.parse("logging: {}\n", {"--logging.level=invalid"}));
+    REQUIRE_THROWS_WITH(settings.parse("logging:\n  level: [info]\n"), "Settings entry logging.level must be a string");
+    REQUIRE_THROWS_WITH(settings.parse("logging:\n  level: null\n"), "Settings entry logging.level must be a string");
+    REQUIRE(settings.parse("logging:\n  level: [invalid]\n", {"--logging.level=info"}).logging_level == spdlog::level::info);
+}
+
 TEST_CASE("External timestamp file options are rejected")
 {
     const logging_settings settings;

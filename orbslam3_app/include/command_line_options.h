@@ -5,6 +5,8 @@
 #include <optional>
 #include <string>
 
+#include <spdlog/common.h>
+
 class command_line_options
 {
   public:
@@ -15,6 +17,7 @@ class command_line_options
     std::string                  vocab_path;
     std::string                  settings_path;
     std::string                  logging_pattern = "%+";
+    spdlog::level::level_enum    logging_level   = spdlog::level::info;
     std::string                  ground_truth_path;
     bool                         ground_truth_visible      = false;
     bool                         camera_trajectory_visible = true;

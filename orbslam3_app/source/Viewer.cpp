@@ -31,6 +31,9 @@
 #include <sys/syscall.h>
 
 #define GLFW_INCLUDE_NONE
+#include <imgui.h>
+#include <imgui_stdlib.h>
+
 #include <opencv2/imgproc.hpp>
 
 #include <GLFW/glfw3.h>
@@ -112,6 +115,7 @@ void Viewer::Run()
         bool                      top_view{false};
         bool                      localization{false};
         bool                      step_by_step{false};
+        std::string               logging_pattern = _settings.logging_pattern;
         HelloImGui::TextureGpuPtr map_texture;
         HelloImGui::TextureGpuPtr left_texture;
         HelloImGui::TextureGpuPtr right_texture;
@@ -216,6 +220,23 @@ void Viewer::Run()
                 if (tool_button(ICON_FA_COLUMNS, "Restore pane layout"))
                 {
                     params.dockingParams.layoutReset = true;
+                }
+                if (ImGui::CollapsingHeader("Logging"))
+                {
+                    int logging_level = static_cast<int>(spdlog::get_level());
+                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+                    if (ImGui::Combo("##logging_level", &logging_level, "trace\0debug\0info\0warning\0error\0critical\0off\0"))
+                    {
+                        spdlog::set_level(static_cast<spdlog::level::level_enum>(logging_level));
+                    }
+                    ImGui::TextUnformatted("Pattern");
+                    ImGui::SetNextItemWidth(std::max(1.f, ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeightWithSpacing()));
+                    const bool apply_pattern = ImGui::InputText("##logging_pattern", &logging_pattern, ImGuiInputTextFlags_EnterReturnsTrue);
+                    ImGui::SameLine();
+                    if (tool_button(ICON_FA_CHECK, "Apply logging pattern") || apply_pattern)
+                    {
+                        spdlog::set_pattern(logging_pattern);
+                    }
                 }
             });
         params.dockingParams.dockableWindows.emplace_back(

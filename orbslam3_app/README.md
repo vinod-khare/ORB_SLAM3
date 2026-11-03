@@ -214,6 +214,7 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--ground_truth.visible [true/false]`                      | Initial ground-truth visibility; overrides YAML `ground_truth.visible` (default: false). |
 | `--camera_trajectory.visible [true/false]`                 | Initial full camera-trail visibility; overrides YAML `camera_trajectory.visible` (default: true). |
 | `--logging.pattern`                                       | spdlog output pattern; overrides `logging.pattern` in YAML. Default: `%+` (spdlog's built-in default). |
+| `--logging.level`                                         | spdlog minimum level; overrides `logging.level` in YAML. Default: `info`. |
 
 Map points use colors sampled from the original camera images, before CLAHE or
 grayscale conversion. The viewer and PLY export share the same stored RGB values;
@@ -297,14 +298,21 @@ start a fresh atlas and keep the chosen file unchanged during playback.
 
 ## Logging
 
-Set the spdlog output pattern in the settings YAML:
+Set the spdlog minimum level and output pattern in the settings YAML:
 
 ```yaml
 logging:
+  level: "info"
   pattern: "[%H:%M:%S] [%^%l%$] %v"
 ```
 
-Or override it with `--logging.pattern '[%H:%M:%S] [%^%l%$] %v'`.
+Override either value independently with `--logging.level warning` or
+`--logging.pattern '[%H:%M:%S] [%^%l%$] %v'`. Levels are `trace`, `debug`,
+`info` (default), `warning`, `error`, `critical`, and `off`; spdlog aliases
+`warn` and `err` are also accepted. Invalid levels are rejected.
+The viewer's **Logging** controls start with the resolved YAML/CLI settings and
+change the active level or pattern at runtime. Apply a pattern with the checkmark
+or Enter. Runtime changes do not rewrite the YAML file.
 Quote patterns to preserve `%` characters and spaces. With neither setting, logs
 use spdlog's project default (`%+`), including date, time with milliseconds,
 logger name (when nonempty), colored level, and message. `%v` prints only the message.
