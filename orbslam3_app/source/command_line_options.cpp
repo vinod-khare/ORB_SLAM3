@@ -1,16 +1,83 @@
 #include "command_line_options.h"
 
-#include "yaml_settings.h"
-
+#include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 #include <boost/program_options.hpp>
 
 #include <spdlog/spdlog.h>
+#include <yaml-cpp/yaml.h>
 
 namespace po = boost::program_options;
+
+namespace
+{
+YAML::Node load_settings(const std::string &path)
+{
+    std::ifstream stream(path);
+    if (!stream)
+    {
+        throw std::runtime_error("Failed to open settings file: " + path);
+    }
+    if (stream.peek() == '%')
+    {
+        std::string directive;
+        std::getline(stream, directive);
+    }
+    auto root = YAML::Load(stream);
+    if (!root.IsMap())
+    {
+        throw std::runtime_error("Settings must be a map");
+    }
+    return root;
+}
+
+YAML::Node find_setting(const YAML::Node &root, const std::string &key)
+{
+    const auto separator = key.find('.');
+    if (separator == std::string::npos)
+    {
+        return root[key];
+    }
+    const auto section = key.substr(0, separator);
+    const auto node    = root[section];
+    if (!node)
+    {
+        return YAML::Node(YAML::NodeType::Undefined);
+    }
+    if (!node.IsMap())
+    {
+        throw std::runtime_error("Settings entry " + section + " must be a map");
+    }
+    return find_setting(node, key.substr(separator + 1));
+}
+
+template <typename VALUE_T> VALUE_T read_option(const po::variables_map &values, const YAML::Node &root, const std::string &key, VALUE_T fallback, const std::string &yaml_key = {})
+{
+    const auto option = values.find(key);
+    if (option != values.end() && !option->second.defaulted())
+    {
+        return option->second.as<VALUE_T>();
+    }
+    const auto node = find_setting(root, yaml_key.empty() ? key : yaml_key);
+    if (!node)
+    {
+        return fallback;
+    }
+    if constexpr (std::is_same_v<VALUE_T, std::string>)
+    {
+        if (!node.IsScalar())
+        {
+            throw std::runtime_error("Settings entry " + key + " must be a string");
+        }
+    }
+    return node.as<VALUE_T>();
+}
+} // namespace
 
 command_line_options::command_line_options(int argc, char **argv)
 {
@@ -22,12 +89,13 @@ command_line_options::command_line_options(int argc, char **argv)
                                                                                                          "IMU CSV file, absolute or relative to data.root")(
         "output,o", po::value<std::string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")("output-folder", po::value<std::string>(),
                                                                                                                 "Folder to write trajectory files into (created if needed)")(
-        "save-colmap", po::bool_switch()->default_value(false), "Save COLMAP-compatible sparse model output")("save-ply", po::bool_switch()->default_value(false),
-                                                                                                              "Save map points as PLY point cloud")(
-        "no-viewer", po::bool_switch()->default_value(false), "Run headless without the ImGui viewer")("slam-type", po::value<std::string>()->default_value("mono"),
-                                                                                                       "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
-        "frames-skip", po::value<int>()->default_value(0), "Number of frames to skip at the beginning")("frames-stride", po::value<int>()->default_value(1), "Take every Nth frame (stride)")(
-        "frames-take", po::value<int>()->default_value(0), "Maximum number of frames to process (0 = all)")(
+        "save-colmap", po::value<bool>()->implicit_value(true)->default_value(save_colmap),
+        "Save COLMAP-compatible sparse model output")("save-ply", po::value<bool>()->implicit_value(true)->default_value(save_ply), "Save map points as PLY point cloud")(
+        "no-viewer", po::value<bool>()->implicit_value(true)->default_value(!use_viewer),
+        "Run headless without the ImGui viewer")("slam-type", po::value<std::string>()->default_value(slam_type), "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
+        "frames-skip", po::value<int>()->default_value(input.frames_skip), "Number of frames to skip at the beginning")(
+        "frames-stride", po::value<int>()->default_value(input.frames_stride), "Take every Nth frame (stride)")("frames-take", po::value<int>()->default_value(input.frames_take),
+                                                                                                                "Maximum number of frames to process (0 = all)")(
         "keypoint_detector.type", po::value<std::string>(), "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze, star, harris_laplace, msd, tbmr, surf)")(
         "keypoint_descriptor.type", po::value<std::string>(), "Keypoint descriptor (orb, sift, brisk, brief, freak, latch, beblid, teblid, daisy, vgg, boostdesc, surf)")(
         "tracking.matcher", po::value<std::string>(),
@@ -76,119 +144,108 @@ command_line_options::command_line_options(int argc, char **argv)
     vocab_path    = values["vocab"].as<std::string>();
     settings_path = values["settings"].as<std::string>();
 
-    const yaml_settings settings(settings_path);
-    autostart = values.count("autostart") ? values["autostart"].as<bool>() : settings.autostart().value_or(true);
-    if (!autostart && values["no-viewer"].as<bool>())
+    const auto settings = load_settings(settings_path);
+    for (const auto *section : {"ground_truth", "camera_trajectory", "logging"})
+    {
+        if (const auto node = settings[section]; node && !node.IsMap())
+        {
+            throw std::runtime_error(std::string("Settings entry ") + section + " must be a map");
+        }
+    }
+    viewer.autostart = read_option(values, settings, "autostart", viewer.autostart);
+    use_viewer       = !read_option(values, settings, "no-viewer", false);
+    if (!viewer.autostart && !use_viewer)
     {
         throw std::runtime_error("autostart=false requires the ImGui viewer");
     }
 
-    dbow_version = values.count("dbow_version") ? values["dbow_version"].as<int>() : settings.dbow_version().value_or(2);
+    overrides.dbow_version = read_option(values, settings, "dbow_version", 2);
 
-    if (dbow_version != 2 && dbow_version != 3)
+    if (*overrides.dbow_version != 2 && *overrides.dbow_version != 3)
     {
         throw std::runtime_error("dbow_version must be 2 or 3");
     }
 
-    if (!values.count("ground_truth.path"))
+    viewer.ground_truth_path = read_option(values, settings, "ground_truth.path", viewer.ground_truth_path);
+    if (!viewer.ground_truth_path.empty() && !values.count("ground_truth.path"))
     {
-        if (const auto path = settings.ground_truth_path())
-        {
-            ground_truth_path = *path;
-        }
+        viewer.ground_truth_path = (std::filesystem::absolute(settings_path).parent_path() / viewer.ground_truth_path).lexically_normal().string();
     }
+    viewer.ground_truth_visible = read_option(values, settings, "ground_truth.visible", viewer.ground_truth_visible);
 
-    if (!values.count("ground_truth.visible"))
-    {
-        ground_truth_visible = settings.ground_truth_visible().value_or(false);
-    }
-
-    if (values.count("ground_truth.path"))
-    {
-        ground_truth_path = values["ground_truth.path"].as<std::string>();
-    }
-
-    if (values.count("ground_truth.visible"))
-    {
-        ground_truth_visible = values["ground_truth.visible"].as<bool>();
-    }
-
-    if (ground_truth_visible && ground_truth_path.empty())
+    if (viewer.ground_truth_visible && viewer.ground_truth_path.empty())
     {
         throw std::runtime_error("ground_truth.visible requires ground_truth.path");
     }
 
-    if (values.count("camera_trajectory.visible"))
+    viewer.camera_trajectory_visible = read_option(values, settings, "camera_trajectory.visible", viewer.camera_trajectory_visible);
+    const auto level                 = read_option(values, settings, "logging.level", std::string(spdlog::level::to_string_view(logging_level).data()));
+    logging_level                    = spdlog::level::from_str(level);
+    if (logging_level == spdlog::level::off && level != "off")
     {
-        camera_trajectory_visible = values["camera_trajectory.visible"].as<bool>();
+        throw std::runtime_error("logging.level must be trace, debug, info, warning, error, critical or off");
     }
-    else
-    {
-        camera_trajectory_visible = settings.camera_trajectory_visible().value_or(true);
-    }
+    viewer.logging_pattern = read_option(values, settings, "logging.pattern", viewer.logging_pattern);
 
-    if (values.count("logging.level"))
+    const auto settings_directory = std::filesystem::absolute(settings_path).parent_path();
+    const auto root_value         = read_option(values, settings, "data.root", std::string{});
+    const auto root      = root_value.empty() ? settings_directory : ((values.count("data.root") ? std::filesystem::current_path() : settings_directory) / root_value).lexically_normal();
+    const auto read_path = [&](const std::string &key)
     {
-        const auto level = values["logging.level"].as<std::string>();
-        logging_level    = spdlog::level::from_str(level);
-        if (logging_level == spdlog::level::off && level != "off")
+        const auto value = read_option(values, settings, key, std::string{});
+        return value.empty() ? std::string{} : (root / value).lexically_normal().string();
+    };
+    input.left_image_path  = read_path("data.left");
+    input.right_image_path = read_path("data.right");
+    input.imu_path         = read_path("data.imu");
+    for (const auto *key : {"output", "output-folder"})
+    {
+        if (values.count(key) || find_setting(settings, key))
         {
-            throw std::runtime_error("logging.level must be trace, debug, info, warning, error, critical or off");
+            (std::string(key) == "output" ? output_filename : output_folder) = read_option(values, settings, key, std::string{});
         }
     }
-    else if (const auto level = settings.logging_level())
+    input.frames_skip   = read_option(values, settings, "frames-skip", input.frames_skip, "frames.skip");
+    input.frames_stride = read_option(values, settings, "frames-stride", input.frames_stride, "frames.stride");
+    input.frames_take   = read_option(values, settings, "frames-take", input.frames_take, "frames.take");
+    if (input.frames_skip < 0 || input.frames_stride <= 0 || input.frames_take < 0)
     {
-        logging_level = *level;
+        throw std::runtime_error("Invalid frame parameters (skip and take must be >= 0, stride must be > 0)");
     }
-
-    if (values.count("logging.pattern"))
+    save_colmap = read_option(values, settings, "save-colmap", save_colmap);
+    save_ply    = read_option(values, settings, "save-ply", save_ply);
+    slam_type   = read_option(values, settings, "slam-type", slam_type);
+    if (slam_type != "mono" && slam_type != "mono-inertial" && slam_type != "stereo" && slam_type != "stereo-inertial")
     {
-        logging_pattern = values["logging.pattern"].as<std::string>();
+        throw std::runtime_error("Invalid slam type: " + slam_type + ". Expected mono, mono-inertial, stereo or stereo-inertial");
     }
-    else if (const auto pattern = settings.logging_pattern())
+    if (slam_type == "mono" || slam_type == "mono-inertial")
     {
-        logging_pattern = *pattern;
+        input.right_image_path.clear();
     }
-
-    if (values.count("data.root"))
+    if (slam_type == "mono" || slam_type == "stereo")
     {
-        data_root = values["data.root"].as<std::string>();
+        input.imu_path.clear();
     }
-
-    if (values.count("data.left"))
+    viewer.ground_truth_correct_scale = slam_type == "mono";
+    if (use_viewer)
     {
-        data_left = values["data.left"].as<std::string>();
+        ORB_SLAM3::read_viewer_settings(viewer, settings, settings_path);
     }
-
-    if (values.count("data.right"))
+    if (values.count("keypoint_detector.type"))
     {
-        data_right = values["data.right"].as<std::string>();
+        overrides.detector = values["keypoint_detector.type"].as<std::string>();
     }
-
-    if (values.count("data.imu"))
+    if (values.count("keypoint_descriptor.type"))
     {
-        data_imu = values["data.imu"].as<std::string>();
+        overrides.descriptor = values["keypoint_descriptor.type"].as<std::string>();
     }
-
-    if (values.count("output"))
+    if (values.count("tracking.matcher"))
     {
-        output_filename = values["output"].as<std::string>();
+        overrides.matcher = values["tracking.matcher"].as<std::string>();
     }
-
-    if (values.count("output-folder"))
+    if (values.count("tracking.use_optical_flow"))
     {
-        output_folder = values["output-folder"].as<std::string>();
+        overrides.use_optical_flow = values["tracking.use_optical_flow"].as<bool>();
     }
-
-    frames_skip   = values["frames-skip"].as<int>();
-    frames_stride = values["frames-stride"].as<int>();
-    frames_take   = values["frames-take"].as<int>();
-    save_colmap   = values["save-colmap"].as<bool>();
-    save_ply      = values["save-ply"].as<bool>();
-    use_viewer    = !values["no-viewer"].as<bool>();
-    slam_type     = values["slam-type"].as<std::string>();
-    overrides     = {values.count("keypoint_detector.type") ? values["keypoint_detector.type"].as<std::string>() : std::string{},
-                     values.count("keypoint_descriptor.type") ? values["keypoint_descriptor.type"].as<std::string>() : std::string{},
-                     values.count("tracking.matcher") ? values["tracking.matcher"].as<std::string>() : std::string{}, dbow_version,
-                     values.count("tracking.use_optical_flow") ? std::optional<bool>(values["tracking.use_optical_flow"].as<bool>()) : std::nullopt};
 }

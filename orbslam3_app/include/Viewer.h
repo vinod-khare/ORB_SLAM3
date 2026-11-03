@@ -31,6 +31,7 @@ class MapDrawer;
 class Viewer
 {
   public:
+    /** All dependencies, including settings, must outlive the viewer. */
     Viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings);
 
     void Run();
@@ -46,21 +47,21 @@ class Viewer
     bool both{false};
 
   private:
-    viewer_control   &_controls;
-    FrameDrawer      &_frame_drawer;
-    MapDrawer        &_map_drawer;
-    viewer_settings   _settings;
-    float             _tracked_image_scale;
-    std::atomic<bool> _finish_requested{false};
-    std::atomic<bool> _finished{false};
-    std::atomic<bool> _stop_requested{false};
-    std::atomic<bool> _stopped{true};
-    std::atomic<bool> _exit_requested{false};
-    std::atomic<bool> _paused{false};
-    std::atomic<bool> _reset_requested{false};
-    std::atomic<bool> _localization_requested{false};
-    bool              _localization_active{false};
-    std::atomic<int>  _dbow_version{2};
-    std::atomic<bool> _dbow_error{false};
+    viewer_control        &_controls;
+    FrameDrawer           &_frame_drawer;
+    MapDrawer             &_map_drawer;
+    const viewer_settings &_settings;
+    float                  _tracked_image_scale;
+    std::atomic<bool>      _finish_requested{false};
+    std::atomic<bool>      _finished{false};
+    std::atomic<bool>      _stop_requested{false};
+    std::atomic<bool>      _stopped{true};
+    std::atomic<bool>      _exit_requested{false};
+    std::atomic<bool>      _paused{false};
+    std::atomic<bool>      _reset_requested{false};
+    std::atomic<bool>      _localization_requested{false};
+    bool                   _localization_active{false};
+    std::atomic<int>       _dbow_version{2};
+    std::atomic<bool>      _dbow_error{false};
 };
 } // namespace ORB_SLAM3

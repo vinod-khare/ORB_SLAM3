@@ -45,6 +45,7 @@ class Atlas;
 class MapDrawer
 {
   public:
+    /** Atlas and settings must outlive the map drawer. */
     MapDrawer(Atlas &atlas, const viewer_settings &settings);
     ~MapDrawer();
 
@@ -59,7 +60,7 @@ class MapDrawer
 
   private:
     Atlas                                        &_atlas;
-    viewer_settings                               _settings;
+    const viewer_settings                        &_settings;
     ground_truth_trajectory                       _ground_truth;
     std::optional<Eigen::Matrix4d>                _ground_truth_alignment;
     vtkSmartPointer<vtkActor>                     _ground_truth_actor;

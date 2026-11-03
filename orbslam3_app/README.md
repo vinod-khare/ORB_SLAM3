@@ -2,6 +2,96 @@
 
 `orbslam3_app` replays image sequences from folders through the ORB-SLAM3 library. It supports monocular and stereo input, optionally paired with IMU measurements. It is an offline dataset runner, not a live-camera or RGB-D application.
 
+## Configuration
+
+Application options are resolved once when `command_line_options` is constructed:
+explicit command-line arguments override YAML, which overrides the defaults in
+the settings objects. A command-line default is not an explicit override.
+Invalid merged values are rejected before playback. `--help` does not require
+a vocabulary or settings file.
+
+In addition to the data, logging, trajectory and feature options described below,
+the settings YAML supports these application controls:
+
+```yaml
+slam-type: stereo
+no-viewer: false
+autostart: true
+frames:
+  skip: 0
+  stride: 1
+  take: 0
+output: trajectory
+output-folder: results
+save-colmap: false
+save-ply: false
+```
+
+| YAML entry | Command-line override |
+| --- | --- |
+| `slam-type` | `--slam-type` |
+| `no-viewer` | `--no-viewer` or `--no-viewer=false` |
+| `autostart` | `--autostart=true/false` |
+| `frames.skip` | `--frames-skip` |
+| `frames.stride` | `--frames-stride` |
+| `frames.take` | `--frames-take` |
+| `output` | `--output` / `-o` |
+| `output-folder` | `--output-folder` |
+| `save-colmap` | `--save-colmap` or `--save-colmap=false` |
+| `save-ply` | `--save-ply` or `--save-ply=false` |
+
+`frames` is a nested YAML map, not literal dotted YAML keys. Existing CLI names
+remain unchanged. Explicit zero and false values override YAML normally.
+Output paths remain relative to the working directory.
+
+Input paths are resolved directly into `folder_reader::settings`. A relative
+YAML `data.root` is relative to the settings file; a relative CLI `--data.root`
+is relative to the working directory. Without a root, paths are relative to the
+settings file. Child image/IMU paths are relative to that resolved root unless
+absolute. Unused right-image and IMU paths are not passed to the reader.
+
+### Settings Review
+
+The consolidation addresses these sources of complexity:
+
+- **Redundant YAML wrapper:** `yaml_settings` held a parsed document only to
+  return individual optional values that were immediately copied into another
+  settings object. It has been removed. One typed merge helper now resolves
+  application options with consistent precedence and string validation.
+- **Separate data-path pipeline:** `main` reopened the YAML with OpenCV, merged
+  path overrides, built `data_paths`, and copied paths and frame options into
+  `folder_reader::settings`. The options object now owns that reader settings
+  type directly; `main` passes it through unchanged.
+- **Duplicated viewer state:** ground-truth, visibility, logging pattern and
+  autostart values previously lived in application fields and were copied into
+  a separately allocated viewer settings object. They now live in the owned
+  `viewer_settings` member. Geometry is read from the same parsed YAML document;
+  headless runs skip geometry and ground-truth calibration loading.
+- **Copies in UI consumers:** `Viewer` and `MapDrawer` each copied the entire
+  viewer settings object. Both now borrow the same immutable settings. The
+  application options outlive the UI objects and their worker thread. Runtime
+  controls retain their own mutable state rather than mutating startup settings.
+- **Duplicated backend selection:** the application no longer stores a second
+  DBoW version beside the value passed to the library in `feature_overrides`.
+- **Missing application YAML support:** frame selection, sensor mode, output,
+  export switches and headless mode previously bypassed YAML. They now follow
+  the same precedence rule, including explicit false overrides for switches.
+
+The remaining types represent different responsibilities, not successive copies
+of one configuration. `command_line_options` owns resolved application inputs;
+`folder_reader::settings` and `viewer_settings` are its component-specific values.
+The small `feature_overrides` object crosses the UI-independent library boundary.
+Core `ORB_SLAM3::Settings` remains responsible for calibrated camera models,
+IMU parameters, feature validation and derived rectification maps; merging it
+with the application options would couple library consumers to UI/CLI concerns.
+
+There are still deliberate limits: the core settings loader retains mixed
+OpenCV/yaml-cpp parsing and its legacy flat camera/viewer key names. Calibration
+and extractor numeric parameters remain YAML-only, while detector, descriptor,
+matcher, optical flow and DBoW selections have CLI overrides. Full schema/CLI
+parity for those remaining library parameters requires a separate compatibility
+change; this refactor does not silently rename their keys or change SLAM math.
+
 Playback is unpaced. A persistent worker reads, resizes, and applies grayscale/CLAHE preprocessing ahead of tracking, with at most three prepared frames queued. Tracking remains sequential, preserving image order, timestamps, and IMU associations; input failures are reported on the main thread.
 
 Stereo input uses an additional persistent right-camera worker, overlapping left/right decoding and preprocessing with separate CLAHE instances. A single-image right-camera handoff keeps buffering bounded. Monocular input does not start this additional worker.

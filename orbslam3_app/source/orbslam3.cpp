@@ -29,7 +29,6 @@
 #include "command_line_options.h"
 #include "frame_prefetcher.h"
 #include "time_this.h"
-#include "viewer_settings.h"
 
 #include <chrono>
 #include <filesystem>
@@ -48,13 +47,6 @@ using namespace std;
 
 namespace
 {
-struct data_paths
-{
-    std::string left;
-    std::string right;
-    std::string imu;
-};
-
 class system_viewer_control final : public ORB_SLAM3::viewer_control
 {
   public:
@@ -82,73 +74,6 @@ class system_viewer_control final : public ORB_SLAM3::viewer_control
     ORB_SLAM3::Tracking &_tracker;
 };
 
-std::string read_data_setting(const cv::FileStorage &settings, const std::string &name)
-{
-    const cv::FileNode data = settings["data"];
-    if (data.empty())
-    {
-        return {};
-    }
-    if (!data.isMap())
-    {
-        throw std::runtime_error("Settings entry data must be a map");
-    }
-
-    const cv::FileNode node = data[name];
-    if (node.empty())
-    {
-        return {};
-    }
-    if (!node.isString())
-    {
-        throw std::runtime_error("Settings entry data." + name + " must be a string");
-    }
-    return static_cast<std::string>(node);
-}
-
-std::filesystem::path resolve_path(const std::filesystem::path &root, const std::string &value)
-{
-    const std::filesystem::path path(value);
-    return (path.is_absolute() ? path : root / path).lexically_normal();
-}
-
-data_paths read_data_paths(const std::string &settings_path, const command_line_options &options, bool stereo, bool inertial)
-{
-    cv::FileStorage settings(settings_path, cv::FileStorage::READ);
-    if (!settings.isOpened())
-    {
-        throw std::runtime_error("Failed to open settings file: " + settings_path);
-    }
-
-    const std::filesystem::path settings_directory = std::filesystem::absolute(settings_path).parent_path();
-    const bool                  root_from_cli      = options.data_root.has_value();
-    const std::string           root_value         = root_from_cli ? *options.data_root : read_data_setting(settings, "root");
-    const std::filesystem::path root               = root_value.empty() ? settings_directory : resolve_path(root_from_cli ? std::filesystem::current_path() : settings_directory, root_value);
-
-    const auto read_path = [&](const std::optional<std::string> &option, const std::string &name) { return option.has_value() ? *option : read_data_setting(settings, name); };
-
-    const std::string left_value  = read_path(options.data_left, "left");
-    const std::string right_value = read_path(options.data_right, "right");
-    const std::string imu_value   = read_path(options.data_imu, "imu");
-
-    if (left_value.empty())
-    {
-        throw std::runtime_error("A left image folder is required; set data.left in the settings YAML or pass --data.left");
-    }
-
-    if (stereo && right_value.empty())
-    {
-        throw std::runtime_error("Stereo modes require data.right in the settings YAML or --data.right");
-    }
-
-    if (inertial && imu_value.empty())
-    {
-        throw std::runtime_error("Inertial modes require data.imu in the settings YAML or --data.imu");
-    }
-
-    return {std::filesystem::canonical(resolve_path(root, left_value)).string(), stereo ? std::filesystem::canonical(resolve_path(root, right_value)).string() : std::string{},
-            inertial ? resolve_path(root, imu_value).string() : std::string{}};
-}
 } // namespace
 
 int main(int argc, char **argv)
@@ -161,7 +86,7 @@ int main(int argc, char **argv)
             return *options.exit_code;
         }
 
-        spdlog::set_pattern(options.logging_pattern);
+        spdlog::set_pattern(options.viewer.logging_pattern);
         spdlog::set_level(options.logging_level);
 
         const string &vocab_path    = options.vocab_path;
@@ -197,36 +122,29 @@ int main(int argc, char **argv)
             spdlog::info("Output filename: {}", output_filename);
         }
 
-        const int     frames_skip   = options.frames_skip;
-        const int     frames_stride = options.frames_stride;
-        const int     frames_take   = options.frames_take;
-        const bool    save_colmap   = options.save_colmap;
-        const bool    save_ply      = options.save_ply;
-        const bool    use_viewer    = options.use_viewer;
-        const string &slam_type     = options.slam_type;
+        const bool    save_colmap = options.save_colmap;
+        const bool    save_ply    = options.save_ply;
+        const bool    use_viewer  = options.use_viewer;
+        const string &slam_type   = options.slam_type;
 
-        if (slam_type != "mono" && slam_type != "mono-inertial" && slam_type != "stereo" && slam_type != "stereo-inertial")
+        const bool stereo   = slam_type == "stereo" || slam_type == "stereo-inertial";
+        const bool inertial = slam_type == "mono-inertial" || slam_type == "stereo-inertial";
+        if (options.input.left_image_path.empty())
         {
-            spdlog::error("Invalid slam type: {}. Expected mono, mono-inertial, stereo or stereo-inertial", slam_type);
-            return 1;
+            throw std::runtime_error("A left image folder is required; set data.left in the settings YAML or pass --data.left");
         }
-        const bool       stereo          = slam_type == "stereo" || slam_type == "stereo-inertial";
-        const bool       inertial        = slam_type == "mono-inertial" || slam_type == "stereo-inertial";
-        const data_paths paths           = read_data_paths(settings_path, options, stereo, inertial);
-        const string    &left_image_dir  = paths.left;
-        const string    &right_image_dir = paths.right;
-        const string    &imu_csv_path    = paths.imu;
-
-        if (frames_skip < 0 || frames_stride <= 0 || frames_take < 0)
+        if (stereo && options.input.right_image_path.empty())
         {
-            spdlog::error("Invalid frame parameters (skip and take must be >= 0, stride must be > 0)");
-            return 1;
+            throw std::runtime_error("Stereo modes require data.right in the settings YAML or --data.right");
+        }
+        if (inertial && options.input.imu_path.empty())
+        {
+            throw std::runtime_error("Inertial modes require data.imu in the settings YAML or --data.imu");
         }
 
-        spdlog::info("Loading sequence: {} using filename nanoseconds as timestamps", left_image_dir);
+        spdlog::info("Loading sequence: {} using filename nanoseconds as timestamps", options.input.left_image_path);
 
-        const folder_reader::settings reader_settings{left_image_dir, right_image_dir, frames_skip, frames_stride, frames_take, imu_csv_path};
-        folder_reader                 reader(reader_settings);
+        folder_reader reader(options.input);
         spdlog::info("Loaded sequence");
 
         const int nImages = static_cast<int>(reader.size());
@@ -239,18 +157,8 @@ int main(int argc, char **argv)
         // Create SLAM system
         const ORB_SLAM3::System::eSensor sensor =
             stereo ? (inertial ? ORB_SLAM3::System::IMU_STEREO : ORB_SLAM3::System::STEREO) : (inertial ? ORB_SLAM3::System::IMU_MONOCULAR : ORB_SLAM3::System::MONOCULAR);
-        std::unique_ptr<ORB_SLAM3::viewer_settings> ui_settings;
-        if (use_viewer)
-        {
-            ui_settings =
-                std::make_unique<ORB_SLAM3::viewer_settings>(ORB_SLAM3::read_viewer_settings(settings_path, options.ground_truth_path, options.ground_truth_visible, slam_type == "mono"));
-            ui_settings->camera_trajectory_visible = options.camera_trajectory_visible;
-            ui_settings->logging_pattern           = options.logging_pattern;
-            ui_settings->autostart                 = options.autostart;
-        }
-        const ORB_SLAM3::feature_overrides overrides = options.overrides;
-        ORB_SLAM3::System                  SLAM(vocab_path, settings_path, sensor, 0, output_filename, overrides);
-        const float                        image_scale = SLAM.GetImageScale();
+        ORB_SLAM3::System SLAM(vocab_path, settings_path, sensor, 0, output_filename, options.overrides);
+        const float       image_scale = SLAM.GetImageScale();
 
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
@@ -261,8 +169,8 @@ int main(int argc, char **argv)
         {
             frame_drawer       = std::make_unique<ORB_SLAM3::FrameDrawer>(*SLAM.GetAtlas());
             frame_drawer->both = stereo;
-            map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(*SLAM.GetAtlas(), *ui_settings);
-            viewer             = std::make_unique<ORB_SLAM3::Viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, *ui_settings);
+            map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(*SLAM.GetAtlas(), options.viewer);
+            viewer             = std::make_unique<ORB_SLAM3::Viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, options.viewer);
             viewer->both       = stereo;
             SLAM.GetTracker()->SetResetHooks(
                 [&viewer, &map_drawer]

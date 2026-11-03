@@ -5,8 +5,6 @@
 #include <fstream>
 #include <stdexcept>
 
-#include <opencv2/core.hpp>
-
 #include <yaml-cpp/yaml.h>
 
 namespace ORB_SLAM3
@@ -14,14 +12,14 @@ namespace ORB_SLAM3
 namespace
 {
 
-float read_required_float(const cv::FileStorage &file, const std::string &key)
+float read_required_float(const YAML::Node &root, const std::string &key)
 {
-    const cv::FileNode node = file[key];
-    if (node.empty() || (!node.isReal() && !node.isInt()))
+    const auto node = root[key];
+    if (!node || !node.IsScalar())
     {
         throw std::runtime_error("Missing or invalid viewer setting: " + key);
     }
-    const float value = static_cast<float>(node);
+    const auto value = node.as<float>();
     if (!std::isfinite(value))
     {
         throw std::runtime_error("Viewer setting must be finite: " + key);
@@ -33,50 +31,54 @@ float read_required_float(const cv::FileStorage &file, const std::string &key)
 
 viewer_settings read_viewer_settings(const std::string &settings_file, const std::string &ground_truth_path, bool ground_truth_visible, bool correct_scale)
 {
-    cv::FileStorage file(settings_file, cv::FileStorage::READ);
-    if (!file.isOpened())
+    std::ifstream stream(settings_file);
+    if (!stream)
     {
         throw std::runtime_error("Failed to open settings file for viewer: " + settings_file);
     }
-
-    const cv::FileNode image_view_scale = file["Viewer.imageViewScale"];
-    float              scale            = 1.0f;
-    if (!image_view_scale.empty())
+    if (stream.peek() == '%')
     {
-        if (!image_view_scale.isReal() && !image_view_scale.isInt())
+        std::string directive;
+        std::getline(stream, directive);
+    }
+    viewer_settings settings;
+    settings.ground_truth_path          = ground_truth_path;
+    settings.ground_truth_visible       = ground_truth_visible;
+    settings.ground_truth_correct_scale = correct_scale;
+    read_viewer_settings(settings, YAML::Load(stream), settings_file);
+    return settings;
+}
+
+void read_viewer_settings(viewer_settings &settings, const YAML::Node &root, const std::string &settings_file)
+{
+    const auto image_view_scale = root["Viewer.imageViewScale"];
+    float      scale            = 1.0f;
+    if (image_view_scale)
+    {
+        if (!image_view_scale.IsScalar())
         {
             throw std::runtime_error("Invalid viewer setting: Viewer.imageViewScale");
         }
-        scale = static_cast<float>(image_view_scale);
+        scale = image_view_scale.as<float>();
         if (!std::isfinite(scale) || scale <= 0.0f)
         {
             throw std::runtime_error("Viewer.imageViewScale must be a positive finite number");
         }
     }
 
-    viewer_settings settings{read_required_float(file, "Viewer.KeyFrameSize"),
-                             read_required_float(file, "Viewer.KeyFrameLineWidth"),
-                             read_required_float(file, "Viewer.GraphLineWidth"),
-                             read_required_float(file, "Viewer.PointSize"),
-                             read_required_float(file, "Viewer.CameraSize"),
-                             read_required_float(file, "Viewer.CameraLineWidth"),
-                             read_required_float(file, "Viewer.ViewpointX"),
-                             read_required_float(file, "Viewer.ViewpointY"),
-                             read_required_float(file, "Viewer.ViewpointZ"),
-                             read_required_float(file, "Viewer.ViewpointF"),
-                             scale};
-    settings.ground_truth_path          = ground_truth_path;
-    settings.ground_truth_visible       = ground_truth_visible;
-    settings.ground_truth_correct_scale = correct_scale;
-    if (!ground_truth_path.empty())
+    settings.key_frame_size       = read_required_float(root, "Viewer.KeyFrameSize");
+    settings.key_frame_line_width = read_required_float(root, "Viewer.KeyFrameLineWidth");
+    settings.graph_line_width     = read_required_float(root, "Viewer.GraphLineWidth");
+    settings.point_size           = read_required_float(root, "Viewer.PointSize");
+    settings.camera_size          = read_required_float(root, "Viewer.CameraSize");
+    settings.camera_line_width    = read_required_float(root, "Viewer.CameraLineWidth");
+    settings.viewpoint_x          = read_required_float(root, "Viewer.ViewpointX");
+    settings.viewpoint_y          = read_required_float(root, "Viewer.ViewpointY");
+    settings.viewpoint_z          = read_required_float(root, "Viewer.ViewpointZ");
+    settings.viewpoint_f          = read_required_float(root, "Viewer.ViewpointF");
+    settings.image_view_scale     = scale;
+    if (!settings.ground_truth_path.empty())
     {
-        std::ifstream stream(settings_file);
-        if (stream.peek() == '%')
-        {
-            std::string directive;
-            std::getline(stream, directive);
-        }
-        const auto root        = YAML::Load(stream);
         const auto calibration = root["data"] ? root["data"]["calibration"] : YAML::Node{};
         if (calibration && calibration["file"])
         {
@@ -110,7 +112,6 @@ viewer_settings read_viewer_settings(const std::string &settings_file, const std
             }
         }
     }
-    return settings;
 }
 
 } // namespace ORB_SLAM3
