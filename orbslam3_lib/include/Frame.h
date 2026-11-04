@@ -64,8 +64,8 @@ class Frame
     // Calibration/state for a new image, without detecting or describing features.
     Frame(Frame &previous, double timestamp);
     /** Initialize geometry and feature indexing from keypoints supplied by Tracking. */
-    void initialize_features(const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {}, const std::vector<cv::Mat> &left_pyramid = {},
-                             const std::vector<cv::Mat> &right_pyramid = {});
+    void initialize_features(
+        const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {}, const std::vector<cv::Mat> &left_pyramid = {}, const std::vector<cv::Mat> &right_pyramid = {});
     void set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points);
     bool reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers = 50);
     bool flow_only{false};
@@ -75,8 +75,15 @@ class Frame
     int  flow_occupied_cells{};
 
     /** Construct calibration/state only; Tracking supplies extracted features separately. */
-    Frame(double timestamp, place_vocabulary *vocabulary, const cv::Mat &calibration, const cv::Mat &distortion, float baseline_fx, float depth_threshold, Frame *previous = nullptr,
-          const IMU::Calib &imu_calibration = {}, const Sophus::SE3f &left_to_right = {});
+    Frame(double              timestamp,
+          place_vocabulary   *vocabulary,
+          const cv::Mat      &calibration,
+          const cv::Mat      &distortion,
+          float               baseline_fx,
+          float               depth_threshold,
+          Frame              *previous        = nullptr,
+          const IMU::Calib   &imu_calibration = {},
+          const Sophus::SE3f &left_to_right   = {});
 
     const std::vector<cv::Mat> &get_optical_flow_pyramid(const cv::Mat &image);
     static std::vector<cv::Mat> build_optical_flow_pyramid(const cv::Mat &image);
@@ -215,14 +222,11 @@ class Frame
     // Number of KeyPoints.
     int N;
 
-    // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
-    // In the stereo case, mvKeysUn is redundant as images must be rectified.
-    // In the RGB-D case, RGB images can be distorted.
+    // Keypoints retain original image coordinates in pt and geometry coordinates in pt_undistorted.
     double                extraction_ms{};
     double                stereo_matching_ms{};
     double                optical_flow_ms{};
     std::vector<keypoint> mvKeys, mvKeysRight;
-    std::vector<keypoint> mvKeysUn;
 
     // Corresponding stereo coordinate and depth for each keypoint.
     std::vector<MapPoint *> mvpMapPoints;

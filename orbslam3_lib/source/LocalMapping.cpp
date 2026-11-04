@@ -114,7 +114,14 @@ void LocalMapping::Run()
                         }
 
                         bool bLarge = ((mpTracker->GetMatchesInliers() > 75) && mbMonocular) || ((mpTracker->GetMatchesInliers() > 100) && !mbMonocular);
-                        Optimizer::LocalInertialBA(mpCurrentKeyFrame, &mbAbortBA, mpCurrentKeyFrame->GetMap(), num_FixedKF_BA, num_OptKF_BA, num_MPs_BA, num_edges_BA, bLarge,
+                        Optimizer::LocalInertialBA(mpCurrentKeyFrame,
+                                                   &mbAbortBA,
+                                                   mpCurrentKeyFrame->GetMap(),
+                                                   num_FixedKF_BA,
+                                                   num_OptKF_BA,
+                                                   num_MPs_BA,
+                                                   num_edges_BA,
+                                                   bLarge,
                                                    !mpCurrentKeyFrame->GetMap()->GetIniertialBA2());
                         b_doneLBA = true;
                     }
@@ -449,14 +456,15 @@ void LocalMapping::CreateNewMapPoints()
             const int &idx1 = vMatchedIndices[ikp].first;
             const int &idx2 = vMatchedIndices[ikp].second;
 
-            const cv::KeyPoint &kp1      = (mpCurrentKeyFrame->NLeft == -1)    ? mpCurrentKeyFrame->mvKeysUn[idx1]
-                                           : (idx1 < mpCurrentKeyFrame->NLeft) ? mpCurrentKeyFrame->mvKeys[idx1]
-                                                                               : mpCurrentKeyFrame->mvKeysRight[idx1 - mpCurrentKeyFrame->NLeft];
-            const float         kp1_ur   = mpCurrentKeyFrame->mvuRight[idx1];
-            bool                bStereo1 = (!is_fisheye_stereo(mpCurrentKeyFrame->cameras) && kp1_ur >= 0);
-            const bool          bRight1  = (mpCurrentKeyFrame->NLeft == -1 || idx1 < mpCurrentKeyFrame->NLeft) ? false : true;
+            const cv::KeyPoint &kp1 = ((mpCurrentKeyFrame->NLeft == -1)    ? mpCurrentKeyFrame->mvKeys[idx1]
+                                       : (idx1 < mpCurrentKeyFrame->NLeft) ? mpCurrentKeyFrame->mvKeys[idx1]
+                                                                           : mpCurrentKeyFrame->mvKeysRight[idx1 - mpCurrentKeyFrame->NLeft])
+                                          .undistorted();
+            const float kp1_ur   = mpCurrentKeyFrame->mvuRight[idx1];
+            bool        bStereo1 = (!is_fisheye_stereo(mpCurrentKeyFrame->cameras) && kp1_ur >= 0);
+            const bool  bRight1  = (mpCurrentKeyFrame->NLeft == -1 || idx1 < mpCurrentKeyFrame->NLeft) ? false : true;
 
-            const cv::KeyPoint &kp2 = (pKF2->NLeft == -1) ? pKF2->mvKeysUn[idx2] : (idx2 < pKF2->NLeft) ? pKF2->mvKeys[idx2] : pKF2->mvKeysRight[idx2 - pKF2->NLeft];
+            const cv::KeyPoint &kp2 = ((pKF2->NLeft == -1) ? pKF2->mvKeys[idx2] : (idx2 < pKF2->NLeft) ? pKF2->mvKeys[idx2] : pKF2->mvKeysRight[idx2 - pKF2->NLeft]).undistorted();
 
             const float kp2_ur   = pKF2->mvuRight[idx2];
             bool        bStereo2 = (!is_fisheye_stereo(pKF2->cameras) && kp2_ur >= 0);
@@ -990,7 +998,7 @@ void LocalMapping::KeyFrameCulling()
                     nMPs++;
                     if (pMP->Observations() > thObs)
                     {
-                        const int &scaleLevel = (pKF->NLeft == -1) ? pKF->mvKeysUn[i].octave : (gsl::narrow_cast<int>(i) < pKF->NLeft) ? pKF->mvKeys[i].octave : pKF->mvKeysRight[i].octave;
+                        const int &scaleLevel = (pKF->NLeft == -1) ? pKF->mvKeys[i].octave : (gsl::narrow_cast<int>(i) < pKF->NLeft) ? pKF->mvKeys[i].octave : pKF->mvKeysRight[i].octave;
                         const map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
                         int                                    nObs         = 0;
                         for (map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
@@ -1005,7 +1013,7 @@ void LocalMapping::KeyFrameCulling()
                             int             scaleLeveli = -1;
                             if (pKFi->NLeft == -1)
                             {
-                                scaleLeveli = pKFi->mvKeysUn[leftIndex].octave;
+                                scaleLeveli = pKFi->mvKeys[leftIndex].octave;
                             }
                             else
                             {

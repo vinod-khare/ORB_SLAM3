@@ -81,12 +81,108 @@ std::pair<int, int> descriptor_layout(ORB_SLAM3::keypoint_descriptor_type type)
 
 } // namespace
 
+TEST_CASE("Keypoints expose undistorted coordinates without changing image coordinates", "[undistorted_keypoints]")
+{
+    const cv::KeyPoint               tracked(73.25f, 81.75f, 31.f, 42.f, 0.75f, 2, 7);
+    const cv::KeyPoint               display(tracked.pt, 7.f, -1.f);
+    std::vector<ORB_SLAM3::keypoint> keys{
+        ORB_SLAM3::keypoint{},
+        ORB_SLAM3::keypoint(tracked.pt, tracked.size),
+        ORB_SLAM3::keypoint(tracked.pt.x, tracked.pt.y, tracked.size),
+        ORB_SLAM3::keypoint(tracked),
+        ORB_SLAM3::keypoint(tracked, display),
+    };
+    for (auto &key : keys)
+    {
+        REQUIRE(key.pt_undistorted == key.pt);
+        const auto original   = key.pt;
+        key.pt_undistorted   += cv::Point2f(2, 3);
+        const auto converted  = key.undistorted();
+        REQUIRE(converted.pt == key.pt_undistorted);
+        REQUIRE(converted.size == key.size);
+        REQUIRE(converted.angle == key.angle);
+        REQUIRE(converted.response == key.response);
+        REQUIRE(converted.octave == key.octave);
+        REQUIRE(converted.class_id == key.class_id);
+        REQUIRE(key.pt == original);
+    }
+    const auto original    = ORB_SLAM3::to_cv_keypoints(keys);
+    const auto undistorted = ORB_SLAM3::to_cv_keypoints(keys, true);
+    REQUIRE(original.size() == keys.size());
+    REQUIRE(undistorted.size() == keys.size());
+    for (std::size_t index = 0; index < keys.size(); ++index)
+    {
+        REQUIRE(original[index].pt == keys[index].pt);
+        REQUIRE(undistorted[index].pt == keys[index].pt_undistorted);
+    }
+}
+
+TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometry", "[undistorted_keypoints]")
+{
+    const auto               distortion_coefficient = GENERATE(0.f, -0.1f);
+    const cv::Mat            calibration            = cv::Mat(cv::Matx33f(200, 0, 128, 0, 200, 128, 0, 0, 1));
+    const cv::Mat            distortion             = cv::Mat(cv::Vec4f(distortion_coefficient, 0, 0, 0));
+    const cv::Mat            image                  = cv::Mat::zeros(256, 256, CV_8U);
+    ORB_SLAM3::camera_vector cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+    ORB_SLAM3::Frame::mbInitialComputations = true;
+    ORB_SLAM3::Frame    frame(0.0, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::keypoint key(73.25f, 81.75f, 31.f);
+    key.pt_undistorted = cv::Point2f(-10, -20);
+    key.descriptor     = cv::Mat::zeros(1, 32, CV_8U);
+    frame.mvKeys       = {key};
+    frame.initialize_features(image, cameras);
+    frame.SetPose(Sophus::SE3f{});
+    std::vector<cv::Point2f> expected;
+    cv::undistortPoints(std::vector<cv::Point2f>{key.pt}, expected, calibration, distortion, cv::noArray(), calibration);
+    const auto &position = expected.front();
+    REQUIRE(frame.mvKeys.front().pt == key.pt);
+    REQUIRE(frame.mvKeys.front().display.pt == key.pt);
+    REQUIRE(cv::norm(frame.mvKeys.front().pt_undistorted - position) < 0.001);
+    REQUIRE(frame.GetFeaturesInArea(position.x, position.y, 0.01f) == std::vector<std::size_t>{0});
+    if (distortion_coefficient != 0)
+    {
+        REQUIRE(frame.GetFeaturesInArea(key.pt.x, key.pt.y, 0.01f).empty());
+    }
+
+    cv::Mat depth                                                           = cv::Mat::zeros(image.size(), CV_32F);
+    depth.at<float>(static_cast<int>(key.pt.y), static_cast<int>(key.pt.x)) = 2.f;
+    frame.ComputeStereoFromRGBD(depth);
+    REQUIRE(frame.mvDepth.front() == 2.f);
+    REQUIRE(frame.mvuRight.front() == Catch::Approx(position.x - 10.f));
+    Eigen::Vector3f point;
+    REQUIRE(frame.UnprojectStereo(0, point));
+    REQUIRE(point.x() == Catch::Approx((position.x - 128.f) * 2.f / 200.f));
+    REQUIRE(point.y() == Catch::Approx((position.y - 128.f) * 2.f / 200.f));
+    REQUIRE(point.z() == 2.f);
+
+    ORB_SLAM3::Map         map;
+    ORB_SLAM3::KeyFrame    keyframe(frame, &map, nullptr, cameras);
+    const ORB_SLAM3::Frame copied(frame);
+    REQUIRE(keyframe.mvKeys.front().pt == key.pt);
+    REQUIRE(keyframe.mvKeys.front().pt_undistorted == frame.mvKeys.front().pt_undistorted);
+    REQUIRE(copied.mvKeys.front().pt_undistorted == frame.mvKeys.front().pt_undistorted);
+    REQUIRE(keyframe.GetFeaturesInArea(position.x, position.y, 0.01f) == std::vector<std::size_t>{0});
+    REQUIRE(keyframe.descriptor(0).data == frame.descriptor(0).data);
+
+    ORB_SLAM3::descriptor_matcher matcher(0.9f, false);
+    std::vector<cv::Point2f>      previous_matches{position};
+    std::vector<int>              matches;
+    REQUIRE(matcher.search_for_initialization(frame, frame, previous_matches, matches, 2) == 1);
+    REQUIRE(matches == std::vector<int>{0});
+    REQUIRE(previous_matches.front() == frame.mvKeys.front().pt_undistorted);
+
+    frame.set_tracked_features({}, {});
+    REQUIRE(frame.mvKeys.empty());
+    REQUIRE(frame.GetFeaturesInArea(position.x, position.y, 2).empty());
+}
+
 TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]")
 {
     ORB_SLAM3::Frame frame;
     frame.Nleft                                 = -1;
     frame.mvKeys                                = {cv::KeyPoint(1.f, 1.f, 1.f), cv::KeyPoint(-1.f, 0.f, 1.f), cv::KeyPoint(2.9f, 2.9f, 1.f)};
-    frame.mvKeysUn                              = {cv::KeyPoint(0.f, 0.f, 1.f)};
+    frame.mvKeys.front().pt_undistorted         = cv::Point2f(0.f, 0.f);
     const int channels                          = GENERATE(1, 3, 4);
     frame.color_image                           = cv::Mat(3, 3, CV_MAKETYPE(CV_8U, channels), cv::Scalar(10, 20, 30, 40));
     const std::array<unsigned char, 3> expected = channels == 1 ? std::array<unsigned char, 3>{10, 10, 10} : std::array<unsigned char, 3>{30, 20, 10};
@@ -157,8 +253,18 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
 TEST_CASE("Display keypoints retain detector metadata without changing tracking keypoints", "[native_keypoints]")
 {
     using detector  = ORB_SLAM3::keypoint_detector_type;
-    const auto type = GENERATE(detector::fast, detector::agast, detector::gftt, detector::orb, detector::brisk, detector::sift, detector::akaze, detector::star, detector::harris_laplace,
-                               detector::msd, detector::tbmr, detector::surf);
+    const auto type = GENERATE(detector::fast,
+                               detector::agast,
+                               detector::gftt,
+                               detector::orb,
+                               detector::brisk,
+                               detector::sift,
+                               detector::akaze,
+                               detector::star,
+                               detector::harris_laplace,
+                               detector::msd,
+                               detector::tbmr,
+                               detector::surf);
     CAPTURE(static_cast<int>(type));
 #ifndef OPENCV_ENABLE_NONFREE
     if (type == detector::surf)
@@ -210,7 +316,8 @@ TEST_CASE("Display keypoints retain detector metadata without changing tracking 
             }
             else
             {
-                REQUIRE(std::any_of(raw_keys.begin(), raw_keys.end(),
+                REQUIRE(std::any_of(raw_keys.begin(),
+                                    raw_keys.end(),
                                     [&](const auto &raw)
                                     {
                                         return cv::norm(raw.pt * scales[level] - native.pt) < 0.001 && std::abs(raw.size * scales[level] - native.size) < 0.001 && raw.angle == native.angle &&
@@ -257,9 +364,18 @@ TEST_CASE("OpenCV descriptors are selectable independently of the detector", "[n
 {
     using namespace ORB_SLAM3;
     const auto detector   = GENERATE(keypoint_detector_type::fast, keypoint_detector_type::sift, keypoint_detector_type::brisk);
-    const auto descriptor = GENERATE(keypoint_descriptor_type::orb, keypoint_descriptor_type::sift, keypoint_descriptor_type::brisk, keypoint_descriptor_type::brief,
-                                     keypoint_descriptor_type::freak, keypoint_descriptor_type::latch, keypoint_descriptor_type::beblid, keypoint_descriptor_type::teblid,
-                                     keypoint_descriptor_type::daisy, keypoint_descriptor_type::vgg, keypoint_descriptor_type::boostdesc, keypoint_descriptor_type::surf);
+    const auto descriptor = GENERATE(keypoint_descriptor_type::orb,
+                                     keypoint_descriptor_type::sift,
+                                     keypoint_descriptor_type::brisk,
+                                     keypoint_descriptor_type::brief,
+                                     keypoint_descriptor_type::freak,
+                                     keypoint_descriptor_type::latch,
+                                     keypoint_descriptor_type::beblid,
+                                     keypoint_descriptor_type::teblid,
+                                     keypoint_descriptor_type::daisy,
+                                     keypoint_descriptor_type::vgg,
+                                     keypoint_descriptor_type::boostdesc,
+                                     keypoint_descriptor_type::surf);
     CAPTURE(static_cast<int>(detector), static_cast<int>(descriptor));
 #ifndef OPENCV_ENABLE_NONFREE
     if (descriptor == keypoint_descriptor_type::surf)
@@ -332,9 +448,18 @@ TEST_CASE("OpenCV matchers support binary and floating-point descriptors", "[des
 {
     using namespace ORB_SLAM3;
     const auto backend    = GENERATE(descriptor_matcher_type::brute_force, descriptor_matcher_type::flann);
-    const auto descriptor = GENERATE(keypoint_descriptor_type::orb, keypoint_descriptor_type::sift, keypoint_descriptor_type::brisk, keypoint_descriptor_type::brief,
-                                     keypoint_descriptor_type::freak, keypoint_descriptor_type::latch, keypoint_descriptor_type::beblid, keypoint_descriptor_type::teblid,
-                                     keypoint_descriptor_type::daisy, keypoint_descriptor_type::vgg, keypoint_descriptor_type::boostdesc, keypoint_descriptor_type::surf);
+    const auto descriptor = GENERATE(keypoint_descriptor_type::orb,
+                                     keypoint_descriptor_type::sift,
+                                     keypoint_descriptor_type::brisk,
+                                     keypoint_descriptor_type::brief,
+                                     keypoint_descriptor_type::freak,
+                                     keypoint_descriptor_type::latch,
+                                     keypoint_descriptor_type::beblid,
+                                     keypoint_descriptor_type::teblid,
+                                     keypoint_descriptor_type::daisy,
+                                     keypoint_descriptor_type::vgg,
+                                     keypoint_descriptor_type::boostdesc,
+                                     keypoint_descriptor_type::surf);
     CAPTURE(static_cast<int>(backend), static_cast<int>(descriptor));
     descriptor_matcher::set_backend(backend);
     struct reset_backend

@@ -434,8 +434,8 @@ bool LoopClosing::NewDetectCommonRegions()
     return false;
 }
 
-bool LoopClosing::DetectAndReffineSim3FromLastKF(KeyFrame *pCurrentKF, KeyFrame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<MapPoint *> &vpMPs,
-                                                 std::vector<MapPoint *> &vpMatchedMPs)
+bool LoopClosing::DetectAndReffineSim3FromLastKF(
+    KeyFrame *pCurrentKF, KeyFrame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<MapPoint *> &vpMPs, std::vector<MapPoint *> &vpMatchedMPs)
 {
     set<MapPoint *> spAlreadyMatchedMPs;
     nNumProjMatches = FindMatchesByProjection(pCurrentKF, pMatchedKF, gScw, spAlreadyMatchedMPs, vpMPs, vpMatchedMPs);
@@ -476,8 +476,13 @@ bool LoopClosing::DetectAndReffineSim3FromLastKF(KeyFrame *pCurrentKF, KeyFrame 
     return false;
 }
 
-bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand, KeyFrame *&pMatchedKF2, KeyFrame *&pLastCurrentKF, g2o::Sim3 &g2oScw, int &nNumCoincidences,
-                                             std::vector<MapPoint *> &vpMPs, std::vector<MapPoint *> &vpMatchedMPs)
+bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
+                                             KeyFrame               *&pMatchedKF2,
+                                             KeyFrame               *&pLastCurrentKF,
+                                             g2o::Sim3               &g2oScw,
+                                             int                     &nNumCoincidences,
+                                             std::vector<MapPoint *> &vpMPs,
+                                             std::vector<MapPoint *> &vpMatchedMPs)
 {
     int nBoWMatches     = 20;
     int nBoWInliers     = 15;
@@ -690,7 +695,7 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
                                 int                   index   = get<0>(indexes);
                                 if (index >= 0)
                                 {
-                                    int coord_x = pKFi->mvKeysUn[index].pt.x;
+                                    int coord_x = pKFi->mvKeys[index].pt_undistorted.x;
                                     if (coord_x < min_x)
                                     {
                                         min_x = coord_x;
@@ -699,7 +704,7 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
                                     {
                                         max_x = coord_x;
                                     }
-                                    int coord_y = pKFi->mvKeysUn[index].pt.y;
+                                    int coord_y = pKFi->mvKeys[index].pt_undistorted.y;
                                     if (coord_y < min_y)
                                     {
                                         min_y = coord_y;
@@ -790,8 +795,8 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
     return false;
 }
 
-bool LoopClosing::DetectCommonRegionsFromLastKF(KeyFrame *pCurrentKF, KeyFrame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<MapPoint *> &vpMPs,
-                                                std::vector<MapPoint *> &vpMatchedMPs)
+bool LoopClosing::DetectCommonRegionsFromLastKF(
+    KeyFrame *pCurrentKF, KeyFrame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<MapPoint *> &vpMPs, std::vector<MapPoint *> &vpMatchedMPs)
 {
     set<MapPoint *> spAlreadyMatchedMPs(vpMatchedMPs.begin(), vpMatchedMPs.end());
     nNumProjMatches = FindMatchesByProjection(pCurrentKF, pMatchedKF, gScw, spAlreadyMatchedMPs, vpMPs, vpMatchedMPs);
@@ -805,8 +810,8 @@ bool LoopClosing::DetectCommonRegionsFromLastKF(KeyFrame *pCurrentKF, KeyFrame *
     return false;
 }
 
-int LoopClosing::FindMatchesByProjection(KeyFrame *pCurrentKF, KeyFrame *pMatchedKFw, g2o::Sim3 &g2oScw, set<MapPoint *> &spMatchedMPinOrigin, vector<MapPoint *> &vpMapPoints,
-                                         vector<MapPoint *> &vpMatchedMapPoints)
+int LoopClosing::FindMatchesByProjection(
+    KeyFrame *pCurrentKF, KeyFrame *pMatchedKFw, g2o::Sim3 &g2oScw, set<MapPoint *> &spMatchedMPinOrigin, vector<MapPoint *> &vpMapPoints, vector<MapPoint *> &vpMatchedMapPoints)
 {
     int                nNumCovisibles = 10;
     vector<KeyFrame *> vpCovKFm       = pMatchedKFw->GetBestCovisibilityKeyFrames(nNumCovisibles);

@@ -197,6 +197,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(previous.mvKeys.front().display.angle == -1);
     const ORB_SLAM3::Frame copied(previous);
     REQUIRE(copied.mvKeys.front().display.size == previous.mvKeys.front().display.size);
+    REQUIRE(copied.mvKeys.front().pt_undistorted == previous.mvKeys.front().pt_undistorted);
     REQUIRE(copied.mvKeysRight.size() == previous.mvKeysRight.size());
     REQUIRE_FALSE(previous.mvKeys.front().descriptor.empty());
     previous.get_optical_flow_pyramid(image);
@@ -219,6 +220,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     cv::KeyPoint        tracked(73.25f, 81.75f, 31.0f);
     const cv::KeyPoint  native_tracked(tracked.pt, 7.f, -1.f);
     ORB_SLAM3::keypoint tracked_feature(tracked, native_tracked);
+    tracked_feature.pt_undistorted   = cv::Point2f(-10, -20);
     tracked_feature.descriptor       = cv::Mat::ones(1, 32, CV_8U);
     tracked_feature.place_descriptor = cv::Mat::ones(1, 32, CV_8U);
     current.set_tracked_features({tracked_feature}, {&point});
@@ -235,7 +237,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mvKeysRight.empty());
     std::vector<cv::Point2f> expected_undistorted;
     cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected_undistorted, calibration, distortion, cv::noArray(), calibration);
-    REQUIRE(cv::norm(current.mvKeysUn.front().pt - expected_undistorted.front()) < 0.001);
+    REQUIRE(cv::norm(current.mvKeys.front().pt_undistorted - expected_undistorted.front()) < 0.001);
     REQUIRE(current.mvpMapPoints.front() == &point);
     REQUIRE(current.mvuRight.front() == -1);
     REQUIRE(current.mvDepth.front() == -1);
@@ -288,6 +290,11 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(std::all_of(current.mvpMapPoints.begin(), current.mvpMapPoints.end(), [](const auto *entry) { return entry == nullptr; }));
     REQUIRE(current.mvKeys.size() == previous.mvKeys.size());
     REQUIRE(current.mvKeysRight.size() == previous.mvKeysRight.size());
+    if (camera_kind == 2)
+    {
+        REQUIRE(std::all_of(current.mvKeys.begin(), current.mvKeys.end(), [](const auto &key) { return key.pt_undistorted == key.pt; }));
+        REQUIRE(std::all_of(current.mvKeysRight.begin(), current.mvKeysRight.end(), [](const auto &key) { return key.pt_undistorted == key.pt; }));
+    }
     REQUIRE(current.mvKeys.front().display.size == previous.mvKeys.front().display.size);
     REQUIRE(current.mvKeys.front().display.angle == previous.mvKeys.front().display.angle);
     REQUIRE(current.mvLeftToRightMatch == previous.mvLeftToRightMatch);
@@ -303,7 +310,6 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.N == 0);
     REQUIRE(current.mvKeys.empty());
     REQUIRE(current.mvKeysRight.empty());
-    REQUIRE(current.mvKeysUn.empty());
     REQUIRE(current.mvpMapPoints.empty());
     REQUIRE(current.mvDepth.empty());
     REQUIRE(current.GetFeaturesInArea(128, 128, 256).empty());
@@ -314,7 +320,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
         current.set_tracked_features({tracked}, {&point});
         REQUIRE(current.Nleft == 1);
         REQUIRE(current.Nright == 0);
-        REQUIRE(current.mvKeysUn.front().pt == tracked.pt);
+        REQUIRE(current.mvKeys.front().pt_undistorted == tracked.pt);
         REQUIRE(current.mvLeftToRightMatch == std::vector<int>{-1});
     }
 }
@@ -412,7 +418,7 @@ TEST_CASE("RGB-D frames undistort tracked features using the primary camera")
     frame.set_tracked_features({tracked}, {&point});
     std::vector<cv::Point2f> expected;
     cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected, calibration, distortion, cv::noArray(), calibration);
-    REQUIRE(cv::norm(frame.mvKeysUn.front().pt - expected.front()) < 0.001);
+    REQUIRE(cv::norm(frame.mvKeys.front().pt_undistorted - expected.front()) < 0.001);
     REQUIRE(frame.Nleft == -1);
 }
 

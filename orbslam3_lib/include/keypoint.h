@@ -14,7 +14,7 @@ class keypoint : public cv::KeyPoint
   public:
     keypoint() = default;
     keypoint(const cv::Point2f &position, float size, float angle = -1.f, float response = 0.f, int octave = 0, int class_id = -1)
-        : cv::KeyPoint(position, size, angle, response, octave, class_id), display(position, size, angle, response, octave, class_id)
+        : cv::KeyPoint(position, size, angle, response, octave, class_id), pt_undistorted(position), display(position, size, angle, response, octave, class_id)
     {
     }
 
@@ -22,9 +22,19 @@ class keypoint : public cv::KeyPoint
     {
     }
 
-    keypoint(const cv::KeyPoint &tracked_keypoint) : cv::KeyPoint(tracked_keypoint), display(tracked_keypoint) {}
-    keypoint(const cv::KeyPoint &tracked_keypoint, const cv::KeyPoint &display_keypoint) : cv::KeyPoint(tracked_keypoint), display(display_keypoint) {}
+    keypoint(const cv::KeyPoint &tracked_keypoint) : cv::KeyPoint(tracked_keypoint), pt_undistorted(tracked_keypoint.pt), display(tracked_keypoint) {}
+    keypoint(const cv::KeyPoint &tracked_keypoint, const cv::KeyPoint &display_keypoint) : cv::KeyPoint(tracked_keypoint), pt_undistorted(tracked_keypoint.pt), display(display_keypoint) {}
 
+    /** Return an OpenCV keypoint with undistorted coordinates and unchanged metadata. */
+    cv::KeyPoint undistorted() const
+    {
+        auto converted = static_cast<const cv::KeyPoint &>(*this);
+        converted.pt   = pt_undistorted;
+        return converted;
+    }
+
+    /** Geometry coordinates; equal to pt for rectified images and native fisheye observations. */
+    cv::Point2f                  pt_undistorted;
     cv::KeyPoint                 display;
     cv::Mat                      descriptor;
     cv::Mat                      place_descriptor;
@@ -32,16 +42,16 @@ class keypoint : public cv::KeyPoint
     bool                         has_color{false};
 };
 
-inline std::vector<cv::KeyPoint> to_cv_keypoints(const std::vector<keypoint> &keypoints)
+inline std::vector<cv::KeyPoint> to_cv_keypoints(const std::vector<keypoint> &keypoints, bool undistorted = false)
 {
     std::vector<cv::KeyPoint> converted;
     converted.reserve(keypoints.size());
 
     for (const auto &item : keypoints)
     {
-        converted.push_back(static_cast<const cv::KeyPoint &>(item));
+        converted.push_back(undistorted ? item.undistorted() : static_cast<const cv::KeyPoint &>(item));
     }
-    
+
     return converted;
 }
 

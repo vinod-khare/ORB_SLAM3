@@ -1230,10 +1230,10 @@ void Tracking::MonocularInitialization()
 
             mInitialFrame = Frame(mCurrentFrame);
             mLastFrame    = Frame(mCurrentFrame);
-            mvbPrevMatched.resize(mCurrentFrame.mvKeysUn.size());
-            for (size_t i = 0; i < mCurrentFrame.mvKeysUn.size(); i++)
+            mvbPrevMatched.resize(mCurrentFrame.mvKeys.size());
+            for (size_t i = 0; i < mCurrentFrame.mvKeys.size(); i++)
             {
-                mvbPrevMatched[i] = mCurrentFrame.mvKeysUn[i].pt;
+                mvbPrevMatched[i] = mCurrentFrame.mvKeys[i].pt_undistorted;
             }
 
             fill(mvIniMatches.begin(), mvIniMatches.end(), -1);
@@ -1276,8 +1276,8 @@ void Tracking::MonocularInitialization()
         Sophus::SE3f Tcw;
         vector<bool> vbTriangulated; // Triangulated Correspondences (mvIniMatches)
 
-        const auto initial_keys = to_cv_keypoints(mInitialFrame.mvKeysUn);
-        const auto current_keys = to_cv_keypoints(mCurrentFrame.mvKeysUn);
+        const auto initial_keys = to_cv_keypoints(mInitialFrame.mvKeys, true);
+        const auto current_keys = to_cv_keypoints(mCurrentFrame.mvKeys, true);
         if (cameras[0]->ReconstructWithTwoViews(initial_keys, current_keys, mvIniMatches, Tcw, mvIniP3D, vbTriangulated))
         {
             for (size_t i = 0, iend = mvIniMatches.size(); i < iend; i++)
@@ -1807,7 +1807,14 @@ void Tracking::create_frame(double timestamp, keypoint_extractor &extractor)
     use_initial_extractor_ = &extractor == initial_keypoint_extractor.get();
     const bool inertial    = mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD;
     const bool stereo      = mSensor == System::STEREO || mSensor == System::IMU_STEREO;
-    mCurrentFrame          = Frame(timestamp, place_vocabulary_ptr, mK, mDistCoef, mbf, mThDepth, inertial ? &mLastFrame : nullptr, inertial ? *mpImuCalib : IMU::Calib(),
+    mCurrentFrame          = Frame(timestamp,
+                          place_vocabulary_ptr,
+                          mK,
+                          mDistCoef,
+                          mbf,
+                          mThDepth,
+                          inertial ? &mLastFrame : nullptr,
+                          inertial ? *mpImuCalib : IMU::Calib(),
                           stereo && is_fisheye_stereo(cameras) ? mTlr : Sophus::SE3f());
 
     extract_features(mCurrentFrame, extractor, mImGray, cameras, stereo ? mImRight : cv::Mat(), stereo ? right_keypoint_extractor.get() : nullptr);
@@ -2875,11 +2882,11 @@ bool Tracking::Relocalization()
         for (size_t j = 0; j < vvpMapPointMatches[i].size(); ++j)
         {
             MapPoint *map_point = vvpMapPointMatches[i][j];
-            if (!map_point || map_point->isBad() || j >= mCurrentFrame.mvKeysUn.size())
+            if (!map_point || map_point->isBad() || j >= mCurrentFrame.mvKeys.size())
             {
                 continue;
             }
-            const cv::KeyPoint   &keypoint = mCurrentFrame.mvKeysUn[j];
+            const cv::KeyPoint   &keypoint = mCurrentFrame.mvKeys[j].undistorted();
             const Eigen::Vector3f position = map_point->GetWorldPos();
             world_points.emplace_back(position.x(), position.y(), position.z());
             image_points.push_back(keypoint.pt);
@@ -2901,7 +2908,7 @@ bool Tracking::Relocalization()
         for (size_t j = 0; j < vvpMapPointMatches[i].size(); ++j)
         {
             MapPoint *map_point = vvpMapPointMatches[i][j];
-            if (!map_point || map_point->isBad() || j >= mCurrentFrame.mvKeysUn.size())
+            if (!map_point || map_point->isBad() || j >= mCurrentFrame.mvKeys.size())
             {
                 continue;
             }

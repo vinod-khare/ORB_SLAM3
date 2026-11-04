@@ -172,7 +172,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
             if (leftIndex != -1 && pKF->mvuRight[get<0>(mit->second)] < 0)
             {
-                const cv::KeyPoint &kpUn = pKF->mvKeysUn[leftIndex];
+                const cv::KeyPoint &kpUn = pKF->mvKeys[leftIndex].undistorted();
 
                 Eigen::Matrix<double, 2, 1> obs;
                 obs << kpUn.pt.x, kpUn.pt.y;
@@ -200,7 +200,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
             }
             else if (leftIndex != -1 && pKF->mvuRight[leftIndex] >= 0) // Stereo observation
             {
-                const cv::KeyPoint &kpUn = pKF->mvKeysUn[leftIndex];
+                const cv::KeyPoint &kpUn = pKF->mvKeys[leftIndex].undistorted();
 
                 Eigen::Matrix<double, 3, 1> obs;
                 const float                 kp_ur = pKF->mvuRight[get<0>(mit->second)];
@@ -404,8 +404,8 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     }
 }
 
-void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const long unsigned int nLoopId, bool *pbStopFlag, bool bInit, float priorG, float priorA, Eigen::VectorXd *vSingVal,
-                               bool *bHess)
+void Optimizer::FullInertialBA(
+    Map *pMap, int its, const bool bFixLocal, const long unsigned int nLoopId, bool *pbStopFlag, bool bInit, float priorG, float priorA, Eigen::VectorXd *vSingVal, bool *bHess)
 {
     long unsigned int        maxKFid = pMap->GetMaxKFid();
     const vector<KeyFrame *> vpKFs   = pMap->GetAllKeyFrames();
@@ -660,7 +660,7 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
 
                 if (leftIndex != -1 && pKFi->mvuRight[get<0>(mit->second)] < 0) // Monocular observation
                 {
-                    kpUn = pKFi->mvKeysUn[leftIndex];
+                    kpUn = pKFi->mvKeys[leftIndex].undistorted();
                     Eigen::Matrix<double, 2, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y;
 
@@ -690,7 +690,7 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
                 }
                 else if (leftIndex != -1 && pKFi->mvuRight[leftIndex] >= 0) // stereo observation
                 {
-                    kpUn                              = pKFi->mvKeysUn[leftIndex];
+                    kpUn                              = pKFi->mvKeys[leftIndex].undistorted();
                     const float                 kp_ur = pKFi->mvuRight[leftIndex];
                     Eigen::Matrix<double, 3, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y, kp_ur;
@@ -921,7 +921,7 @@ int Optimizer::PoseOptimization(Frame *pFrame, const camera_vector &cameras)
                         pFrame->mvbOutlier[i] = false;
 
                         Eigen::Matrix<double, 2, 1> obs;
-                        const cv::KeyPoint         &kpUn = pFrame->mvKeysUn[i];
+                        const cv::KeyPoint         &kpUn = pFrame->mvKeys[i].undistorted();
                         obs << kpUn.pt.x, kpUn.pt.y;
 
                         ORB_SLAM3::EdgeSE3ProjectXYZOnlyPose *e = new ORB_SLAM3::EdgeSE3ProjectXYZOnlyPose(*cameras[0]);
@@ -947,7 +947,7 @@ int Optimizer::PoseOptimization(Frame *pFrame, const camera_vector &cameras)
                         pFrame->mvbOutlier[i] = false;
 
                         Eigen::Matrix<double, 3, 1> obs;
-                        const cv::KeyPoint         &kpUn  = pFrame->mvKeysUn[i];
+                        const cv::KeyPoint         &kpUn  = pFrame->mvKeys[i].undistorted();
                         const float                &kp_ur = pFrame->mvuRight[i];
                         obs << kpUn.pt.x, kpUn.pt.y, kp_ur;
 
@@ -1384,7 +1384,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
                 // Monocular observation
                 if (leftIndex != -1 && pKFi->mvuRight[get<0>(mit->second)] < 0)
                 {
-                    const cv::KeyPoint         &kpUn = pKFi->mvKeysUn[leftIndex];
+                    const cv::KeyPoint         &kpUn = pKFi->mvKeys[leftIndex].undistorted();
                     Eigen::Matrix<double, 2, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y;
 
@@ -1409,7 +1409,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
                 }
                 else if (leftIndex != -1 && pKFi->mvuRight[get<0>(mit->second)] >= 0) // Stereo observation
                 {
-                    const cv::KeyPoint         &kpUn = pKFi->mvKeysUn[leftIndex];
+                    const cv::KeyPoint         &kpUn = pKFi->mvKeys[leftIndex].undistorted();
                     Eigen::Matrix<double, 3, 1> obs;
                     const float                 kp_ur = pKFi->mvuRight[get<0>(mit->second)];
                     obs << kpUn.pt.x, kpUn.pt.y, kp_ur;
@@ -1584,8 +1584,13 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
     pMap->IncreaseChangeIndex();
 }
 
-void Optimizer::OptimizeEssentialGraph(Map *pMap, KeyFrame *pLoopKF, KeyFrame *pCurKF, const LoopClosing::KeyFrameAndPose &NonCorrectedSim3, const LoopClosing::KeyFrameAndPose &CorrectedSim3,
-                                       const map<KeyFrame *, set<KeyFrame *>> &LoopConnections, const bool &bFixScale)
+void Optimizer::OptimizeEssentialGraph(Map                                    *pMap,
+                                       KeyFrame                               *pLoopKF,
+                                       KeyFrame                               *pCurKF,
+                                       const LoopClosing::KeyFrameAndPose     &NonCorrectedSim3,
+                                       const LoopClosing::KeyFrameAndPose     &CorrectedSim3,
+                                       const map<KeyFrame *, set<KeyFrame *>> &LoopConnections,
+                                       const bool                             &bFixScale)
 {
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
@@ -1892,8 +1897,8 @@ void Optimizer::OptimizeEssentialGraph(Map *pMap, KeyFrame *pLoopKF, KeyFrame *p
     pMap->IncreaseChangeIndex();
 }
 
-void Optimizer::OptimizeEssentialGraph(KeyFrame *pCurKF, vector<KeyFrame *> &vpFixedKFs, vector<KeyFrame *> &vpFixedCorrectedKFs, vector<KeyFrame *> &vpNonFixedKFs,
-                                       vector<MapPoint *> &vpNonCorrectedMPs)
+void Optimizer::OptimizeEssentialGraph(
+    KeyFrame *pCurKF, vector<KeyFrame *> &vpFixedKFs, vector<KeyFrame *> &vpFixedCorrectedKFs, vector<KeyFrame *> &vpNonFixedKFs, vector<MapPoint *> &vpNonCorrectedMPs)
 {
     spdlog::trace("Opt_Essential: There are {} KFs fixed in the merged map", vpFixedKFs.size());
     spdlog::trace("Opt_Essential: There are " + to_string(vpFixedCorrectedKFs.size()) + " KFs fixed in the old map");
@@ -2234,8 +2239,8 @@ void Optimizer::OptimizeEssentialGraph(KeyFrame *pCurKF, vector<KeyFrame *> &vpF
     }
 }
 
-int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches1, g2o::Sim3 &g2oS12, const float th2, const bool bFixScale, Eigen::Matrix<double, 7, 7> &mAcumHessian,
-                            const bool bAllPoints)
+int Optimizer::OptimizeSim3(
+    KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches1, g2o::Sim3 &g2oS12, const float th2, const bool bFixScale, Eigen::Matrix<double, 7, 7> &mAcumHessian, const bool bAllPoints)
 {
     g2o::SparseOptimizer                 optimizer;
     g2o::BlockSolverX::LinearSolverType *linearSolver;
@@ -2364,7 +2369,7 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
 
         // Set edge x1 = S12*X2
         Eigen::Matrix<double, 2, 1> obs1;
-        const cv::KeyPoint         &kpUn1 = pKF1->mvKeysUn[i];
+        const cv::KeyPoint         &kpUn1 = pKF1->mvKeys[i].undistorted();
         obs1 << kpUn1.pt.x, kpUn1.pt.y;
 
         ORB_SLAM3::EdgeSim3ProjectXYZ *e12 = new ORB_SLAM3::EdgeSim3ProjectXYZ();
@@ -2386,7 +2391,7 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
         bool                        inKF2;
         if (i2 >= 0)
         {
-            kpUn2 = pKF2->mvKeysUn[i2];
+            kpUn2 = pKF2->mvKeys[i2].undistorted();
             obs2 << kpUn2.pt.x, kpUn2.pt.y;
             inKF2 = true;
 
@@ -2889,7 +2894,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int 
                 {
                     mVisEdges[pKFi->mnId]++;
 
-                    kpUn = pKFi->mvKeysUn[leftIndex];
+                    kpUn = pKFi->mvKeys[leftIndex].undistorted();
                     Eigen::Matrix<double, 2, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y;
 
@@ -2917,7 +2922,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int 
                 // Stereo-observation
                 else if (leftIndex != -1) // Stereo observation
                 {
-                    kpUn = pKFi->mvKeysUn[leftIndex];
+                    kpUn = pKFi->mvKeys[leftIndex].undistorted();
                     mVisEdges[pKFi->mnId]++;
 
                     const float                 kp_ur = pKFi->mvuRight[leftIndex];
@@ -3201,8 +3206,8 @@ Eigen::MatrixXd Optimizer::Marginalize(const Eigen::MatrixXd &H, const int &star
     return res;
 }
 
-void Optimizer::InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &scale, Eigen::Vector3d &bg, Eigen::Vector3d &ba, bool bMono, Eigen::MatrixXd &covInertial, bool bFixedVel,
-                                     bool bGauss, float priorG, float priorA)
+void Optimizer::InertialOptimization(
+    Map *pMap, Eigen::Matrix3d &Rwg, double &scale, Eigen::Vector3d &bg, Eigen::Vector3d &ba, bool bMono, Eigen::MatrixXd &covInertial, bool bFixedVel, bool bGauss, float priorG, float priorA)
 {
     spdlog::trace("inertial optimization");
     int                      its     = 200;
@@ -3860,7 +3865,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
 
             nEdges++;
 
-            const cv::KeyPoint &kpUn = pKF->mvKeysUn[get<0>(mit->second)];
+            const cv::KeyPoint &kpUn = pKF->mvKeys[get<0>(mit->second)].undistorted();
 
             if (pKF->mvuRight[get<0>(mit->second)] < 0) // Monocular
             {
@@ -4573,7 +4578,7 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
 
             if (!pKFi->isBad())
             {
-                const cv::KeyPoint &kpUn = pKFi->mvKeysUn[get<0>(mit->second)];
+                const cv::KeyPoint &kpUn = pKFi->mvKeys[get<0>(mit->second)].undistorted();
 
                 if (pKFi->mvuRight[get<0>(mit->second)] < 0) // Monocular observation
                 {
@@ -4824,7 +4829,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, const camera_
                     }
                     else
                     {
-                        kpUn = pFrame->mvKeysUn[i];
+                        kpUn = pFrame->mvKeys[i].undistorted();
                     }
 
                     nInitialMonoCorrespondences++;
@@ -4859,7 +4864,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, const camera_
                     nInitialStereoCorrespondences++;
                     pFrame->mvbOutlier[i] = false;
 
-                    kpUn                              = pFrame->mvKeysUn[i];
+                    kpUn                              = pFrame->mvKeys[i].undistorted();
                     const float                 kp_ur = pFrame->mvuRight[i];
                     Eigen::Matrix<double, 3, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y, kp_ur;
@@ -5226,7 +5231,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, const camera_vec
                     }
                     else
                     {
-                        kpUn = pFrame->mvKeysUn[i];
+                        kpUn = pFrame->mvKeys[i].undistorted();
                     }
 
                     nInitialMonoCorrespondences++;
@@ -5261,7 +5266,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, const camera_vec
                     nInitialStereoCorrespondences++;
                     pFrame->mvbOutlier[i] = false;
 
-                    kpUn                              = pFrame->mvKeysUn[i];
+                    kpUn                              = pFrame->mvKeys[i].undistorted();
                     const float                 kp_ur = pFrame->mvuRight[i];
                     Eigen::Matrix<double, 3, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y, kp_ur;
@@ -5591,8 +5596,12 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, const camera_vec
     return nInitialCorrespondences - nBad;
 }
 
-void Optimizer::OptimizeEssentialGraph4DoF(Map *pMap, KeyFrame *pLoopKF, KeyFrame *pCurKF, const LoopClosing::KeyFrameAndPose &NonCorrectedSim3,
-                                           const LoopClosing::KeyFrameAndPose &CorrectedSim3, const map<KeyFrame *, set<KeyFrame *>> &LoopConnections)
+void Optimizer::OptimizeEssentialGraph4DoF(Map                                    *pMap,
+                                           KeyFrame                               *pLoopKF,
+                                           KeyFrame                               *pCurKF,
+                                           const LoopClosing::KeyFrameAndPose     &NonCorrectedSim3,
+                                           const LoopClosing::KeyFrameAndPose     &CorrectedSim3,
+                                           const map<KeyFrame *, set<KeyFrame *>> &LoopConnections)
 {
 
     // Setup optimizer

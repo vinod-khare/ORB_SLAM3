@@ -114,8 +114,8 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpTracker = std::make_unique<Tracking>(this, mpVocabulary.get(), mpAtlas.get(), mpKeyFrameDatabase.get(), mSensor, settings_.get(), _cameras, strSequence);
 
     // Initialize the Local Mapping thread and launch
-    mpLocalMapper               = std::make_unique<LocalMapping>(_statistics, this, mpAtlas.get(), mSensor == MONOCULAR || mSensor == IMU_MONOCULAR,
-                                                                 mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD, strSequence);
+    mpLocalMapper = std::make_unique<LocalMapping>(
+        _statistics, this, mpAtlas.get(), mSensor == MONOCULAR || mSensor == IMU_MONOCULAR, mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD, strSequence);
     mpLocalMapper->mInitFr      = initFr;
     mpLocalMapper->mThFarPoints = settings_->thFarPoints();
     if (mpLocalMapper->mThFarPoints != 0)
@@ -300,7 +300,7 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState      = mpTracker->mState;
     mTrackedMapPoints   = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
+    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeys;
 
     return Tcw;
 }
@@ -378,7 +378,7 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState      = mpTracker->mState;
     mTrackedMapPoints   = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
+    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeys;
     return Tcw;
 }
 
@@ -505,7 +505,7 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState      = mpTracker->mState;
     mTrackedMapPoints   = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
+    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeys;
 
     return Tcw;
 }
@@ -1419,7 +1419,12 @@ vector<MapPoint *> System::GetTrackedMapPoints()
 vector<keypoint> System::GetTrackedKeyPointsUn()
 {
     unique_lock<mutex> lock(mMutexState);
-    return mTrackedKeyPointsUn;
+    auto               keypoints = mTrackedKeyPointsUn;
+    for (auto &key : keypoints)
+    {
+        key.pt = key.pt_undistorted;
+    }
+    return keypoints;
 }
 
 double System::GetTimeFromIMUInit()

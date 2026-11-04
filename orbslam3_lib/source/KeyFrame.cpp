@@ -51,9 +51,9 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_ve
       mfGridElementHeightInv(F.mfGridElementHeightInv), mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0), mnNumberOfOpt(0), mnLoopQuery(0),
       mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), mnPlaceRecognitionQuery(0), mnPlaceRecognitionWords(0), mPlaceRecognitionScore(0), mbCurrentPlaceRecognition(false), mnBAGlobalForKF(0),
       mnMergeCorrectedForKF(0), mnBALocalForMerge(0), fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy), mbf(F.mbf), mb(F.mb), mThDepth(F.mThDepth),
-      mDistCoef(F.mDistCoef), N(F.N), mvKeys(keypoints_with_color(F, F.mvKeys, 0)), mvKeysUn(keypoints_with_color(F, F.mvKeysUn, 0)), mvuRight(F.mvuRight), mvDepth(F.mvDepth),
-      mBowVec(F.mBowVec), mFeatVec(F.mFeatVec), mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor), mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors),
-      mvLevelSigma2(F.mvLevelSigma2), mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX), mnMaxY(F.mnMaxY), mPrevKF(nullptr), mNextKF(nullptr),
+      mDistCoef(F.mDistCoef), N(F.N), mvKeys(keypoints_with_color(F, F.mvKeys, 0)), mvuRight(F.mvuRight), mvDepth(F.mvDepth), mBowVec(F.mBowVec), mFeatVec(F.mFeatVec),
+      mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor), mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
+      mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX), mnMaxY(F.mnMaxY), mPrevKF(nullptr), mNextKF(nullptr),
       mpImuPreintegrated(F.mpImuPreintegrated), mImuCalib(F.mImuCalib), mNameFile(F.mNameFile), mnDataset(F.mnDataset), mbHasVelocity(false), mTlr(F.GetRelativePoseTlr()),
       mTrl(F.GetRelativePoseTrl()), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), place_vocabulary_ptr(F.place_vocabulary_ptr), mbFirstConnection(true), mpParent(nullptr),
       mbNotErase(false), mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb / 2), mpMap(pMap), mK_(F.mK_), cameras(cameras), mvLeftToRightMatch(F.mvLeftToRightMatch),
@@ -794,9 +794,9 @@ vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const
             const vector<size_t> vCell = (!bRight) ? mGrid[ix][iy] : mGridRight[ix][iy];
             for (size_t j = 0, jend = vCell.size(); j < jend; j++)
             {
-                const cv::KeyPoint &kpUn  = (NLeft == -1) ? mvKeysUn[vCell[j]] : (!bRight) ? mvKeys[vCell[j]] : mvKeysRight[vCell[j]];
-                const float         distx = kpUn.pt.x - x;
-                const float         disty = kpUn.pt.y - y;
+                const auto &kpUn  = (NLeft == -1 || !bRight) ? mvKeys[vCell[j]] : mvKeysRight[vCell[j]];
+                const float distx = kpUn.pt_undistorted.x - x;
+                const float disty = kpUn.pt_undistorted.y - y;
 
                 if (fabs(distx) < r && fabs(disty) < r)
                 {

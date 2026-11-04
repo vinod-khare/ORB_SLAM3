@@ -54,8 +54,8 @@ Frame::Frame(const Frame &frame)
     : mpcpi(frame.mpcpi), mTcw(frame.mTcw), mbHasPose(false), mTlr(frame.mTlr), mTrl(frame.mTrl), mRlr(frame.mRlr), mtlr(frame.mtlr), mbHasVelocity(false),
       place_vocabulary_ptr(frame.place_vocabulary_ptr), mTimeStamp(frame.mTimeStamp), optical_flow_pyramid(frame.optical_flow_pyramid), mK(frame.mK.clone()),
       mK_(Converter::toMatrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()), mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys),
-      mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn), mvpMapPoints(frame.mvpMapPoints), mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec),
-      mFeatVec(frame.mFeatVec), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias), mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated),
+      mvKeysRight(frame.mvKeysRight), mvpMapPoints(frame.mvpMapPoints), mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec),
+      mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias), mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated),
       mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame), mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame), mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF),
       mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors),
       mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2), mNameFile(frame.mNameFile), mnDataset(frame.mnDataset),
@@ -201,7 +201,10 @@ void Frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoin
     // Fisheye observations remain in native camera coordinates.
     if (Nleft != -1 || N == 0)
     {
-        mvKeysUn = mvKeys;
+        for (auto &key : mvKeys)
+        {
+            key.pt_undistorted = key.pt;
+        }
     }
     else
     {
@@ -250,7 +253,6 @@ void Frame::initialize_features(const cv::Mat &left, const camera_vector &camera
     }
     if (N == 0)
     {
-        mvKeysUn.clear();
         return;
     }
     if (mbInitialComputations)
@@ -281,7 +283,14 @@ void Frame::initialize_features(const cv::Mat &left, const camera_vector &camera
     stereo_matching_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - stereo_started).count();
     if (is_fisheye_stereo(cameras))
     {
-        mvKeysUn = mvKeys;
+        for (auto &key : mvKeys)
+        {
+            key.pt_undistorted = key.pt;
+        }
+        for (auto &key : mvKeysRight)
+        {
+            key.pt_undistorted = key.pt;
+        }
     }
     else
     {
@@ -331,8 +340,15 @@ bool Frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inlier
     return inliers >= minimum_inliers && inliers >= 0.6 * N && flow_occupied_cells >= 6;
 }
 
-Frame::Frame(double timestamp, place_vocabulary *vocabulary, const cv::Mat &calibration, const cv::Mat &distortion, float baseline_fx, float depth_threshold, Frame *previous,
-             const IMU::Calib &imu_calibration, const Sophus::SE3f &left_to_right)
+Frame::Frame(double              timestamp,
+             place_vocabulary   *vocabulary,
+             const cv::Mat      &calibration,
+             const cv::Mat      &distortion,
+             float               baseline_fx,
+             float               depth_threshold,
+             Frame              *previous,
+             const IMU::Calib   &imu_calibration,
+             const Sophus::SE3f &left_to_right)
     : mpcpi(nullptr), mbHasPose(false), mTlr(left_to_right), mTrl(left_to_right.inverse()), mRlr(left_to_right.rotationMatrix()), mtlr(left_to_right.translation()), mbHasVelocity(false),
       place_vocabulary_ptr(vocabulary), mTimeStamp(timestamp), mK(calibration.clone()), mK_(Converter::toMatrix3f(calibration)), mDistCoef(distortion.clone()), mbf(baseline_fx), mb(0),
       mThDepth(depth_threshold), N(0), mnCloseMPs(0), mImuCalib(imu_calibration), mpImuPreintegrated(nullptr), mpLastKeyFrame(nullptr), mpPrevFrame(previous), mpImuPreintegratedFrame(nullptr),
@@ -369,10 +385,10 @@ void Frame::AssignFeaturesToGrid()
 
     for (int i = 0; i < N; i++)
     {
-        const cv::KeyPoint &kp = (Nleft == -1) ? mvKeysUn[i] : (i < Nleft) ? mvKeys[i] : mvKeysRight[i - Nleft];
+        const auto &kp = (Nleft == -1 || i < Nleft) ? mvKeys[i] : mvKeysRight[i - Nleft];
 
         int nGridPosX, nGridPosY;
-        if (PosInGrid(kp, nGridPosX, nGridPosY))
+        if (PosInGrid(kp.undistorted(), nGridPosX, nGridPosY))
         {
             if (Nleft == -1 || i < Nleft)
             {
@@ -655,7 +671,7 @@ vector<size_t> Frame::GetFeaturesInArea(const float &x, const float &y, const fl
 
             for (size_t j = 0, jend = vCell.size(); j < jend; j++)
             {
-                const cv::KeyPoint &kpUn = (Nleft == -1) ? mvKeysUn[vCell[j]] : (!bRight) ? mvKeys[vCell[j]] : mvKeysRight[vCell[j]];
+                const auto &kpUn = (Nleft == -1 || !bRight) ? mvKeys[vCell[j]] : mvKeysRight[vCell[j]];
                 if (bCheckLevels)
                 {
                     if (kpUn.octave < minLevel)
@@ -671,8 +687,8 @@ vector<size_t> Frame::GetFeaturesInArea(const float &x, const float &y, const fl
                     }
                 }
 
-                const float distx = kpUn.pt.x - x;
-                const float disty = kpUn.pt.y - y;
+                const float distx = kpUn.pt_undistorted.x - x;
+                const float disty = kpUn.pt_undistorted.y - y;
 
                 if (fabs(distx) < factorX && fabs(disty) < factorY)
                 {
@@ -714,7 +730,10 @@ void Frame::UndistortKeyPoints()
 {
     if (mDistCoef.at<float>(0) == 0.0)
     {
-        mvKeysUn = mvKeys;
+        for (auto &key : mvKeys)
+        {
+            key.pt_undistorted = key.pt;
+        }
         return;
     }
 
@@ -732,12 +751,10 @@ void Frame::UndistortKeyPoints()
     cv::undistortPoints(mat, mat, mK, mDistCoef, cv::Mat(), mK);
     mat = mat.reshape(1);
 
-    // Fill undistorted keypoint vector
-    mvKeysUn = mvKeys;
     for (int i = 0; i < N; i++)
     {
-        mvKeysUn[i].pt.x = mat.at<float>(i, 0);
-        mvKeysUn[i].pt.y = mat.at<float>(i, 1);
+        mvKeys[i].pt_undistorted.x = mat.at<float>(i, 0);
+        mvKeys[i].pt_undistorted.y = mat.at<float>(i, 1);
     }
 }
 
@@ -971,8 +988,7 @@ void Frame::ComputeStereoFromRGBD(const cv::Mat &imDepth)
 
     for (int i = 0; i < N; i++)
     {
-        const cv::KeyPoint &kp  = mvKeys[i];
-        const cv::KeyPoint &kpU = mvKeysUn[i];
+        const auto &kp = mvKeys[i];
 
         const float &v = kp.pt.y;
         const float &u = kp.pt.x;
@@ -982,7 +998,7 @@ void Frame::ComputeStereoFromRGBD(const cv::Mat &imDepth)
         if (d > 0)
         {
             mvDepth[i]  = d;
-            mvuRight[i] = kpU.pt.x - mbf / d;
+            mvuRight[i] = kp.pt_undistorted.x - mbf / d;
         }
     }
 }
@@ -992,8 +1008,8 @@ bool Frame::UnprojectStereo(const int &i, Eigen::Vector3f &x3D)
     const float z = mvDepth[i];
     if (z > 0)
     {
-        const float     u = mvKeysUn[i].pt.x;
-        const float     v = mvKeysUn[i].pt.y;
+        const float     u = mvKeys[i].pt_undistorted.x;
+        const float     v = mvKeys[i].pt_undistorted.y;
         const float     x = (u - cx) * z * invfx;
         const float     y = (v - cy) * z * invfy;
         Eigen::Vector3f x3Dc(x, y, z);

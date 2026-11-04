@@ -221,7 +221,6 @@ class KeyFrame
 
     // KeyPoints, stereo coordinate and descriptors (all associated by an index)
     const std::vector<keypoint> mvKeys;
-    const std::vector<keypoint> mvKeysUn;
     const std::vector<float>    mvuRight; // negative value for monocular points
     const std::vector<float>    mvDepth;  // negative value for monocular points
     const cv::Mat &descriptor(std::size_t index) const { return NLeft >= 0 && index >= static_cast<std::size_t>(NLeft) ? mvKeysRight[index - NLeft].descriptor : mvKeys[index].descriptor; }
