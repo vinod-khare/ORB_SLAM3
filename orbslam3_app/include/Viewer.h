@@ -20,6 +20,7 @@
 
 #include "viewer_control.h"
 #include "viewer_settings.h"
+#include "viewer_statistics.h"
 
 #include <atomic>
 
@@ -44,9 +45,16 @@ class Viewer
     bool paused() const;
     void process_commands();
 
+    /** Set immutable input metadata before starting the viewer thread. */
+    void set_sequence(std::string description, std::size_t frames);
+    void publish_statistics(const viewer_statistics::sample &frame);
+
     bool both{false};
 
   private:
+    viewer_statistics      _statistics;
+    std::string            _sequence_description;
+    std::size_t            _sequence_frames{};
     viewer_control        &_controls;
     FrameDrawer           &_frame_drawer;
     MapDrawer             &_map_drawer;

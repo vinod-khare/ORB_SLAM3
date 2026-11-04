@@ -20,12 +20,15 @@
 
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
+#include "Tracking.h"
 
 #include <unistd.h>
 
 #include <algorithm>
 #include <array>
+#include <cfloat>
 #include <exception>
+#include <utility>
 
 #include <sys/resource.h>
 #include <sys/syscall.h>
@@ -73,6 +76,132 @@ bool tool_button(const char *icon, const char *tooltip)
     }
     return clicked;
 }
+
+const char *tracking_state_name(int state)
+{
+    switch (state)
+    {
+    case Tracking::SYSTEM_NOT_READY:
+        return "System not ready";
+    case Tracking::NO_IMAGES_YET:
+        return "Waiting for images";
+    case Tracking::NOT_INITIALIZED:
+        return "Initializing";
+    case Tracking::OK:
+        return "Tracking";
+    case Tracking::RECENTLY_LOST:
+        return "Recently lost";
+    case Tracking::LOST:
+        return "Lost";
+    case Tracking::OK_KLT:
+        return "KLT tracking";
+    default:
+        return "Unknown";
+    }
+}
+
+void show_statistics(const viewer_statistics::snapshot &statistics)
+{
+    const auto &latest     = statistics.latest;
+    const auto &processing = latest.processing;
+    const auto &frame      = processing.frame;
+    ImGui::Text("Tracking: %s (%d)", tracking_state_name(frame.tracking_state), frame.tracking_state);
+    ImGui::Text("SLAM frame ID: %llu | Map: %llu | Change: %d", static_cast<unsigned long long>(frame.frame_id), static_cast<unsigned long long>(frame.map_id), frame.map_change_index);
+    ImGui::TextWrapped("Timestamp (Unix UTC): %s", viewer_statistics::format_timestamp(frame.timestamp).c_str());
+    ImGui::Text("Source seconds: %.9f", frame.timestamp);
+    ImGui::Text("Sequence offset: %s", viewer_statistics::format_duration(statistics.sequence_elapsed_seconds).c_str());
+    ImGui::Text("Processing elapsed: %s", viewer_statistics::format_duration(processing.elapsed_seconds).c_str());
+    ImGui::Text("Throughput: %.1f FPS (includes waits/pauses)", processing.throughput_fps);
+
+    ImGui::SeparatorText("Camera pose in current map");
+    if (latest.camera_to_world)
+    {
+        const auto position = latest.camera_to_world->translation();
+        const auto angles   = viewer_statistics::orientation_degrees(*latest.camera_to_world);
+        ImGui::Text("Position XYZ: %.3f, %.3f, %.3f", position.x(), position.y(), position.z());
+        ImGui::Text("Roll / pitch / yaw (deg): %.2f, %.2f, %.2f", angles.x(), angles.y(), angles.z());
+        ImGui::TextWrapped("Camera-to-world; map units (unscaled monocular is not metric). ZYX Euler convention.");
+    }
+    else
+    {
+        ImGui::TextUnformatted("Pose unavailable (not tracking)");
+    }
+
+    ImGui::SeparatorText("Current frame");
+    ImGui::Text("Detected: %zu | Matched map points: %zu", frame.detected_keypoints, frame.matched_keypoints);
+    ImGui::Text("Observations left / right: %zu / %zu", frame.left_keypoints, frame.right_keypoints);
+    ImGui::Text("Flow candidates / tracks / inliers: %d / %d / %d", frame.flow_candidates, frame.flow_tracks, frame.flow_inliers);
+    ImGui::Text("Flow occupied cells: %d | Flow only: %s | Extracted: %s", frame.flow_occupied_cells, frame.flow_only ? "yes" : "no", frame.features_extracted ? "yes" : "no");
+    ImGui::Text("Preprocessing: %.3f ms | Frontend: %.3f ms", frame.preprocessing_ms, frame.frontend_ms);
+    ImGui::Text("Extraction: %.3f ms | Stereo: %.3f ms | Flow: %.3f ms", frame.extraction_ms, frame.stereo_matching_ms, frame.optical_flow_ms);
+    ImGui::Text("Input wait: %.3f ms | Viewer publication: %.3f ms", latest.input_wait_ms, latest.viewer_publication_ms);
+
+    ImGui::SeparatorText("Per-frame history");
+    ImGui::Text("Last %zu processed frames, oldest to newest", statistics.count);
+    const auto plot = [&](const char *label, auto value)
+    {
+        std::array<float, viewer_statistics::history_capacity> values{};
+        const auto                                             start = (statistics.next + viewer_statistics::history_capacity - statistics.count) % viewer_statistics::history_capacity;
+        for (std::size_t index = 0; index < statistics.count; ++index)
+        {
+            values[index] = static_cast<float>(value(statistics.history[(start + index) % viewer_statistics::history_capacity]));
+        }
+        ImGui::TextUnformatted(label);
+        ImGui::PushID(label);
+        ImGui::PlotLines("##history", values.data(), static_cast<int>(statistics.count), 0, nullptr, 0.f, FLT_MAX, ImVec2(-1, 65));
+        ImGui::PopID();
+    };
+    if (ImGui::BeginTabBar("Statistics plots"))
+    {
+        if (ImGui::BeginTabItem("Timings (ms)"))
+        {
+            plot("Frontend", [](const auto &sample) { return sample.frontend_ms; });
+            plot("Preprocessing", [](const auto &sample) { return sample.preprocessing_ms; });
+            plot("Feature extraction", [](const auto &sample) { return sample.extraction_ms; });
+            plot("Stereo matching", [](const auto &sample) { return sample.stereo_matching_ms; });
+            plot("Optical flow", [](const auto &sample) { return sample.optical_flow_ms; });
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Feature counts"))
+        {
+            plot("Detected keypoints", [](const auto &sample) { return sample.detected_keypoints; });
+            plot("Matched map points", [](const auto &sample) { return sample.matched_keypoints; });
+            plot("Flow tracks", [](const auto &sample) { return sample.flow_tracks; });
+            plot("Flow inliers", [](const auto &sample) { return sample.flow_inliers; });
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+
+    if (ImGui::CollapsingHeader("Backend completed work"))
+    {
+        ImGui::TextWrapped("Independent workers; timings overlap and are not attributable to the current frame.");
+        if (ImGui::BeginTable("Backend timings", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+        {
+            ImGui::TableSetupColumn("Stage");
+            ImGui::TableSetupColumn("Jobs");
+            ImGui::TableSetupColumn("Last (ms)");
+            ImGui::TableSetupColumn("Total (ms)");
+            ImGui::TableHeadersRow();
+            const auto row = [](const char *label, const processing_statistics::backend_sample &sample)
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(label);
+                ImGui::TableNextColumn();
+                ImGui::Text("%llu", static_cast<unsigned long long>(sample.jobs));
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f", sample.last_ms);
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f", sample.total_ms);
+            };
+            row("Local mapping", processing.local_mapping);
+            row("Loop closing", processing.loop_closing);
+            row("Global BA", processing.global_bundle_adjustment);
+            ImGui::EndTable();
+        }
+    }
+}
 } // namespace
 
 Viewer::Viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings)
@@ -107,8 +236,9 @@ void Viewer::Run()
         params.iniFilename                              = "orbslam3/viewer.ini";
         params.iniFilename_useAppWindowTitle            = false;
         params.dockingParams.dockingSplits              = {
-            {"MainDockSpace", "Controls", ImGuiDir_Left, 0.2f},
-            {"MainDockSpace",   "Camera", ImGuiDir_Down, 0.4f}
+            {"MainDockSpace",   "Controls",  ImGuiDir_Left,  0.2f},
+            {"MainDockSpace", "Statistics", ImGuiDir_Right, 0.36f},
+            {"MainDockSpace",     "Camera",  ImGuiDir_Down,  0.4f}
         };
 
         std::array<bool, 7>       layers{true, true, true, true, false, _settings.ground_truth_visible, _settings.camera_trajectory_visible};
@@ -136,8 +266,31 @@ void Viewer::Run()
             _stopped = _stop_requested.load();
         };
         params.callbacks.ShowStatus = [&] { ImGui::Text("Tracking %.1f FPS  |  UI %.1f FPS", _frame_drawer.get_tracking_fps(), ImGui::GetIO().Framerate); };
+        params.dockingParams.dockableWindows.emplace_back("Statistics",
+                                                          "Statistics",
+                                                          [&]
+                                                          {
+                                                              if (ImGui::CollapsingHeader("Dataset / sequence", ImGuiTreeNodeFlags_DefaultOpen))
+                                                              {
+                                                                  ImGui::TextWrapped("%s", _sequence_description.c_str());
+                                                              }
+                                                              const auto statistics = _statistics.get_snapshot();
+                                                              ImGui::Text("Sequence frame: %zu / %zu", statistics.latest.sequence_frame, _sequence_frames);
+                                                              if (_sequence_frames > 0)
+                                                              {
+                                                                  ImGui::ProgressBar(static_cast<float>(statistics.latest.sequence_frame) / static_cast<float>(_sequence_frames),
+                                                                                     ImVec2(-1, 0));
+                                                              }
+                                                              if (statistics.count == 0)
+                                                              {
+                                                                  ImGui::TextUnformatted("Waiting for the first processed frame");
+                                                                  return;
+                                                              }
+                                                              show_statistics(statistics);
+                                                          });
         params.dockingParams.dockableWindows.emplace_back(
-            "Controls", "Controls",
+            "Controls",
+            "Controls",
             [&]
             {
                 ImGui::SeparatorText("Tracking");
@@ -149,7 +302,8 @@ void Viewer::Run()
                     _paused      = !paused;
                 }
                 int dbow_selection = _dbow_version.load() - 2;
-                if (ImGui::Combo("DBoW version", &dbow_selection,
+                if (ImGui::Combo("DBoW version",
+                                 &dbow_selection,
                                  "2\0"
                                  "3\0"))
                 {
@@ -249,7 +403,8 @@ void Viewer::Run()
                 }
             });
         params.dockingParams.dockableWindows.emplace_back(
-            "Map", "MainDockSpace",
+            "Map",
+            "MainDockSpace",
             [&]
             {
                 if (_stopped)
@@ -279,7 +434,9 @@ void Viewer::Run()
                     if (dragging || io.MouseWheel != 0)
                     {
                         follow = false;
-                        _map_drawer.navigate(dragging ? io.MouseDelta.x : 0, dragging ? io.MouseDelta.y : 0, io.MouseWheel,
+                        _map_drawer.navigate(dragging ? io.MouseDelta.x : 0,
+                                             dragging ? io.MouseDelta.y : 0,
+                                             io.MouseWheel,
                                              io.KeyShift || ImGui::IsMouseDown(ImGuiMouseButton_Middle) || ImGui::IsMouseDown(ImGuiMouseButton_Right));
                     }
                 }
@@ -361,6 +518,14 @@ void Viewer::process_commands()
         _controls.reset_active_map();
     }
 }
+
+void Viewer::set_sequence(std::string description, std::size_t frames)
+{
+    _sequence_description = std::move(description);
+    _sequence_frames      = frames;
+}
+
+void Viewer::publish_statistics(const viewer_statistics::sample &frame) { _statistics.record(frame); }
 
 void Viewer::RequestFinish() { _finish_requested = true; }
 void Viewer::RequestStop() { _stop_requested = true; }

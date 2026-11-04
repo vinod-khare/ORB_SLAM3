@@ -98,6 +98,36 @@ Stereo input uses an additional persistent right-camera worker, overlapping left
 
 When optical flow is enabled, the prefetch worker also builds the left-image PyrLK pyramid, including derivatives, after CLAHE. Tracking reuses it in both flow directions and on the next frame. If SLAM must resize or rectify the input internally, pyramid construction remains lazy inside tracking so it uses the transformed image.
 
+## GUI statistics
+
+The dockable **Statistics** pane displays the resolved dataset/sequence image
+paths, IMU path, settings file, sensor mode and frame-selection options. These
+reflect the effective CLI/YAML configuration, not just the YAML defaults.
+Sequence progress counts the selected frames after skip/stride/take filtering.
+Use **Restore pane layout** in Controls if a saved layout hides the new pane.
+
+Each processed frame publishes tracking state, frame/map IDs, feature and
+optical-flow counts, preprocessing/frontend/substage timings, input wait and
+viewer-publication time. The timing and feature-count tabs plot the last 300
+processed frames, oldest to newest, independently of the UI refresh rate.
+Hover a plot to inspect values. Pausing does not append duplicate samples.
+Backend last/total timings and job counts describe independently completed work;
+they overlap frontend work and are not timings for the displayed frame.
+
+Position and roll/pitch/yaw describe the **camera-to-world** pose in the current
+map. Angles are degrees using `R = Rz(yaw) * Ry(pitch) * Rx(roll)`; Euler angles
+are ambiguous at pitch +/-90 degrees. Map resets/relocalization can change the
+coordinate frame. Positions use map units: unscaled monocular SLAM is not metric.
+When tracking is unavailable, the pane does not reuse an old pose.
+
+Source timestamps are shown as raw seconds and as calendar time explicitly
+interpreted as Unix UTC. Datasets with a non-Unix time origin should use the
+sequence offset instead. Sequence offset and processing elapsed time use
+`HH:MM:SS.mmm` (hours may exceed 24); the offset starts at the first selected
+frame. Processing elapsed time and aggregate throughput include playback waits
+and pauses up to the latest processed frame. Statistics remain at that frame
+while paused. Headless runs retain the existing CSV output without GUI history.
+
 ## Optical-flow tracking
 
 Set `tracking.use_optical_flow: 1` to use a flow-first frontend in monocular/stereo SLAM, including inertial modes. Setting it to `0` retains descriptor-based tracking. The command-line option `--tracking.use_optical_flow` enables flow; use `--tracking.use_optical_flow=false` to disable it. RGB-D and localization-only mode retain descriptor-based tracking.
@@ -156,9 +186,10 @@ the final shutdown totals. CSV output is independent of logging and viewer setti
 the latest frame ID, dataset timestamp, counts and timings, playback totals/FPS,
 and the three backend samples. Collection has bounded storage and no logging or
 UI dependency. `System` owns the collector directly; workers borrow it and are
-joined on shutdown or destruction. A future ImGui panel can poll this API and
-append samples to its own plot buffers, using the frame ID/job counts to detect new samples. Workers
-never render or hold the statistics mutex while a consumer logs or plots.
+joined on shutdown or destruction. Playback publishes each completed snapshot
+and its valid camera pose to the viewer's bounded history; the Statistics pane
+copies that history without holding a lock while rendering. Workers never render
+or hold the statistics mutex while a consumer logs or plots.
 
 ## Viewer keypoints
 
@@ -166,7 +197,7 @@ The camera panes in the **ORB-SLAM3** window display tracked features using Open
 
 The viewer preserves the selected detector's native size and orientation, separately from the ORB patch sizes and orientations used for descriptors and matching. Sizes are converted from pyramid-level to input-image coordinates. Detectors that do not report orientation (such as FAST, AGAST, and GFTT) display circles without orientation lines. OpenCV does not assign a separate symbol to each detector type. Flow-only frames move the last detected markers to their tracked positions; their size and orientation remain from the last detection until features are refreshed.
 
-Hello ImGui owns one native window with resizable, dockable Controls, Map, and camera panes (separate left/right panes in stereo). VTK renders the 3D map off-screen; both that image and OpenCV overlays appear as ImGui textures. Drag the map to orbit, use Shift-drag or the middle/right mouse button to pan, and scroll to zoom. The controls retain follow-camera, camera/top views, layer visibility, localization, stepping, reset, and stop/export. Pane layouts and window geometry persist between runs; the layout button restores the default arrangement.
+Hello ImGui owns one native window with resizable, dockable Controls, Statistics, Map, and camera panes (separate left/right panes in stereo). VTK renders the 3D map off-screen; both that image and OpenCV overlays appear as ImGui textures. Drag the map to orbit, use Shift-drag or the middle/right mouse button to pan, and scroll to zoom. The controls retain follow-camera, camera/top views, layer visibility, localization, stepping, reset, and stop/export. Pane layouts and window geometry persist between runs; the layout button restores the default arrangement.
 
 The UI runs on a separate, lower-priority thread capped at 30 FPS. Camera image snapshots are demand-driven: the SLAM thread uses `try_lock` and drops an image update rather than waiting for the UI. Camera poses are queued through a short mutex-protected handoff so the full trajectory retains every tracked frame; the UI only swaps that queue while locked, never rendering under the lock. Local-BA color publication remains non-blocking. All image annotation, VTK rendering, and texture uploads happen on the UI thread. Map access retains the core's existing short data-access locks; rendering never holds those locks. Reset explicitly pauses map reads to protect object lifetimes. Closing the window detaches visualization and lets playback continue; Stop ends playback and uses the normal trajectory-export path.
 

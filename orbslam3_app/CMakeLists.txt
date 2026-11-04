@@ -23,7 +23,8 @@ add_library(orbslam3_ui STATIC
     source/ground_truth_trajectory.cpp
     source/MapDrawer.cpp
     source/Viewer.cpp
-    source/viewer_settings.cpp)
+    source/viewer_settings.cpp
+    source/viewer_statistics.cpp)
 target_compile_options(orbslam3_ui PRIVATE -Wall)
 target_include_directories(orbslam3_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(orbslam3_ui PUBLIC ORB_SLAM3 VTK::CommonCore PRIVATE rapidcsv::rapidcsv yaml-cpp::yaml-cpp hello-imgui::hello_imgui VTK::CommonDataModel VTK::RenderingCore VTK::RenderingOpenGL2 spdlog::spdlog)

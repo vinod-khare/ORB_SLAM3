@@ -179,6 +179,16 @@ int main(int argc, char **argv)
             map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(*SLAM.GetAtlas(), options.viewer);
             viewer             = std::make_unique<ORB_SLAM3::Viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, options.viewer);
             viewer->both       = stereo;
+            viewer->set_sequence(fmt::format("Settings: {}\nMode: {}\nDataset / sequence (left images): {}\nRight images: {}\nIMU: {}\nFrame selection: skip {}, stride {}, take {} (0 = all)",
+                                             settings_path,
+                                             slam_type,
+                                             options.input.left_image_path,
+                                             stereo ? options.input.right_image_path : "not used",
+                                             inertial ? options.input.imu_path : "not used",
+                                             options.input.frames_skip,
+                                             options.input.frames_stride,
+                                             options.input.frames_take),
+                                 reader.size());
 
             SLAM.GetTracker()->SetResetHooks(
                 [&viewer, &map_drawer]
@@ -280,6 +290,17 @@ int main(int argc, char **argv)
                 SLAM.record_frame_statistics(frame.preprocessing_ms, frontend_ms);
                 const auto statistics = SLAM.statistics().get_snapshot();
 
+                if (viewer)
+                {
+                    const auto &current_frame = SLAM.GetTracker()->mCurrentFrame;
+                    viewer->publish_statistics(
+                        {.processing      = statistics,
+                         .camera_to_world = current_frame.isSet() && SLAM.GetTracker()->mState == ORB_SLAM3::Tracking::OK ? std::optional{current_frame.GetPose().inverse()} : std::nullopt,
+                         .sequence_frame  = static_cast<std::size_t>(ni + 1),
+                         .input_wait_ms   = input_wait_ms,
+                         .viewer_publication_ms = viewer_publication_ms});
+                }
+
                 statistics_csv << statistics.frame.frame_id << ',' << statistics.frame.timestamp << ',' << statistics.frame.detected_keypoints << ',' << statistics.frame.matched_keypoints
                                << ',' << statistics.frame.preprocessing_ms << ',' << statistics.frame.frontend_ms << ',' << statistics.frames << ',' << statistics.elapsed_seconds << ','
                                << statistics.throughput_fps << ',' << statistics.preprocessing_total_ms << ',' << statistics.frontend_total_ms << ',' << statistics.local_mapping.jobs << ','
@@ -293,9 +314,19 @@ int main(int argc, char **argv)
 
                 spdlog::info("Frame {}/{}: detected={} matched={} preprocessing={:.3f} ms frontend={:.3f} ms throughput={:.1f} FPS | backend last completed: local={:.3f} ms ({} jobs) "
                              "loop={:.3f} ms ({} jobs) GBA={:.3f} ms ({} jobs)",
-                             ni + 1, nImages, statistics.frame.detected_keypoints, statistics.frame.matched_keypoints, statistics.frame.preprocessing_ms, statistics.frame.frontend_ms,
-                             statistics.throughput_fps, statistics.local_mapping.last_ms, statistics.local_mapping.jobs, statistics.loop_closing.last_ms, statistics.loop_closing.jobs,
-                             statistics.global_bundle_adjustment.last_ms, statistics.global_bundle_adjustment.jobs);
+                             ni + 1,
+                             nImages,
+                             statistics.frame.detected_keypoints,
+                             statistics.frame.matched_keypoints,
+                             statistics.frame.preprocessing_ms,
+                             statistics.frame.frontend_ms,
+                             statistics.throughput_fps,
+                             statistics.local_mapping.last_ms,
+                             statistics.local_mapping.jobs,
+                             statistics.loop_closing.last_ms,
+                             statistics.loop_closing.jobs,
+                             statistics.global_bundle_adjustment.last_ms,
+                             statistics.global_bundle_adjustment.jobs);
             }
 
             statistics_csv.close();
@@ -317,10 +348,16 @@ int main(int argc, char **argv)
         const auto   statistics       = SLAM.statistics().get_snapshot();
         const double processed_frames = static_cast<double>(statistics.frames);
 
-        spdlog::info("Processing summary: {} frames, mean preprocessing={:.3f} ms, mean frontend={:.3f} ms", statistics.frames,
-                     processed_frames > 0.0 ? statistics.preprocessing_total_ms / processed_frames : 0.0, processed_frames > 0.0 ? statistics.frontend_total_ms / processed_frames : 0.0);
-        spdlog::info("Backend completed work: local={} jobs/{:.3f} ms, loop={} jobs/{:.3f} ms, GBA={} jobs/{:.3f} ms (independent workers; times overlap)", statistics.local_mapping.jobs,
-                     statistics.local_mapping.total_ms, statistics.loop_closing.jobs, statistics.loop_closing.total_ms, statistics.global_bundle_adjustment.jobs,
+        spdlog::info("Processing summary: {} frames, mean preprocessing={:.3f} ms, mean frontend={:.3f} ms",
+                     statistics.frames,
+                     processed_frames > 0.0 ? statistics.preprocessing_total_ms / processed_frames : 0.0,
+                     processed_frames > 0.0 ? statistics.frontend_total_ms / processed_frames : 0.0);
+        spdlog::info("Backend completed work: local={} jobs/{:.3f} ms, loop={} jobs/{:.3f} ms, GBA={} jobs/{:.3f} ms (independent workers; times overlap)",
+                     statistics.local_mapping.jobs,
+                     statistics.local_mapping.total_ms,
+                     statistics.loop_closing.jobs,
+                     statistics.loop_closing.total_ms,
+                     statistics.global_bundle_adjustment.jobs,
                      statistics.global_bundle_adjustment.total_ms);
 
         // Save camera trajectory
