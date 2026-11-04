@@ -300,8 +300,8 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 | `--output NAME`                                            | Set the trajectory basename. Without this option, trajectory files are `CameraTrajectory.txt` and `KeyFrameTrajectory.txt`; with it, files are `f_NAME.txt` and `kf_NAME.txt`. |
 | `--save-ply`                                               | Export map points with sampled RGB colors to `pointcloud.ply` in the output folder.                                                                                           |
 | `--save-colmap`                                            | Export a COLMAP-compatible sparse model into the output folder.                                                                                                                |
-| `--keypoint_detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`, `star`, `harris_laplace`, `msd`, `tbmr`, `surf`); overrides `keypoint_detector.type` in YAML. |
-| `--keypoint_descriptor.type`                               | Independent descriptor (`orb`, `sift`, `brisk`, `brief`, `freak`, `latch`, `beblid`, `teblid`, `daisy`, `vgg`, `boostdesc`, `surf`); overrides `keypoint_descriptor.type` in YAML. SURF requires OpenCV nonfree support. |
+| `--keypoint.detector.type`                                 | Keypoint detector (`fast`, `agast`, `gftt`, `orb`, `brisk`, `sift`, `akaze`, `star`, `harris_laplace`, `msd`, `tbmr`, `surf`); overrides `keypoint.detector.type` in YAML. |
+| `--keypoint.descriptor.type`                               | Independent descriptor (`orb`, `sift`, `brisk`, `brief`, `freak`, `latch`, `beblid`, `teblid`, `daisy`, `vgg`, `boostdesc`, `surf`); overrides `keypoint.descriptor.type` in YAML. SURF requires OpenCV nonfree support. |
 | `--tracking.matcher`                                       | OpenCV matcher (`brute_force`, `flann`); overrides `tracking.matcher` in YAML. Hamming/LSH for binary data, L2/KD-tree for floating-point data. |
 | `--tracking.use_optical_flow [true/false]`                  | Enable or disable flow-first tracking; overrides YAML `tracking.use_optical_flow` (default: false). |
 | `--dbow_version`                                           | Place-recognition backend (`2` or `3`); overrides YAML `dbow_version`. Default: `2`. |
@@ -533,7 +533,7 @@ especially with software OpenGL rendering. Another unbounded display queue
 would retain stale frames rather than solve that contention.
 
 Pyramids are built once **per image and layout**, not once globally: each camera
-has a feature pyramid at `keypoint_extractor.scale_factor` (normally 1.2), while
+has a feature pyramid at `keypoint.extractor.scale_factor` (normally 1.2), while
 left-image LK uses a separate 2x pyramid with interleaved derivatives and different
 border requirements. Prefetch builds the LK pyramid, playback transfers it into
 the frame, and forward/backward LK and the next frame reuse that cache. Lazy
@@ -630,7 +630,7 @@ Run the fast synthetic integration checks without processing a dataset:
 
 ## Keypoint Detector Benchmark
 
-[`orbslam3_tests/benchmark/detector_benchmark.py`](../orbslam3_tests/benchmark/detector_benchmark.py) runs `orbslam3_app` headless once per detector (selected with `--keypoint_detector.type`, or `keypoint_detector: { type: ... }` in the settings YAML), scores each trajectory against mocap ground truth using the regression test's evaluation, and prints a Markdown table. Descriptor and matcher choices come from the settings YAML.
+[`orbslam3_tests/benchmark/detector_benchmark.py`](../orbslam3_tests/benchmark/detector_benchmark.py) runs `orbslam3_app` headless once per detector (selected with `--keypoint.detector.type`, or `keypoint.detector.type` in the settings YAML), scores each trajectory against mocap ground truth using the regression test's evaluation, and prints a Markdown table. Descriptor and matcher choices come from the settings YAML.
 
 ```sh
 .venv/bin/python orbslam3_tests/benchmark/detector_benchmark.py \

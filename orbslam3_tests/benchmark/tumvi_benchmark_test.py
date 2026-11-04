@@ -21,7 +21,7 @@ class TumviBenchmarkTest(unittest.TestCase):
             datasets = root / "datasets"
             output = root / "results"
             template = root / "template.yaml"
-            template.write_text("%YAML:1.0\nkeypoint_detector: {type: FAST}\n")
+            template.write_text("%YAML:1.0\nkeypoint: {detector: {type: FAST}}\n")
             for name in ("dataset-room1", "dataset-room2", "dataset-broken"):
                 sequence = datasets / name
                 sequence.mkdir(parents=True)
@@ -276,7 +276,7 @@ class TumviBenchmarkTest(unittest.TestCase):
             datasets = root / "datasets"
             (datasets / "dataset-room").mkdir(parents=True)
             template = root / "settings.yaml"
-            template.write_text("keypoint_detector: {type: FAST}\n")
+            template.write_text("keypoint: {detector: {type: FAST}}\n")
             arguments = [
                 "--datasets-root",
                 str(datasets),

@@ -50,12 +50,13 @@ struct imu_settings
         imu_file: calibration/imu.yaml
 Camera.fps: 20
 Camera.RGB: 1
-keypoint_extractor:
-  n_features: 100
-  scale_factor: 1.2
-  n_levels: 4
-  initial_threshold: 20
-  minimum_threshold: 7
+keypoint:
+  extractor:
+    n_features: 100
+    scale_factor: 1.2
+    n_levels: 4
+    initial_threshold: 20
+    minimum_threshold: 7
 )");
         imu    = YAML::Load(R"(gyroscope_noise_density: 0.00016
 accelerometer_noise_density: 0.0028
@@ -234,33 +235,49 @@ TEST_CASE("Contrib feature settings support YAML and command-line overrides", "[
     using namespace ORB_SLAM3;
     imu_settings      files;
     feature_overrides overrides;
+    files.write();
+    Settings settings(files.path.string(), System::MONOCULAR);
+    REQUIRE(settings.nFeatures() == 100);
+    REQUIRE(settings.scaleFactor() == 1.2f);
+    REQUIRE(settings.nLevels() == 4);
+    REQUIRE(settings.initThFAST() == 20);
+    REQUIRE(settings.minThFAST() == 7);
     SECTION("Detectors")
     {
-        using detector                            = keypoint_detector_type;
-        const auto [name, type]                   = GENERATE(std::pair{"STAR", detector::star}, std::pair{"HARRIS_LAPLACE", detector::harris_laplace}, std::pair{"MSD", detector::msd},
-                                                             std::pair{"TBMR", detector::tbmr}, std::pair{"SURF", detector::surf});
-        files.config["keypoint_detector"]["type"] = name;
+        using detector                               = keypoint_detector_type;
+        const auto [name, type]                      = GENERATE(std::pair{"STAR", detector::star},
+                                           std::pair{"HARRIS_LAPLACE", detector::harris_laplace},
+                                           std::pair{"MSD", detector::msd},
+                                           std::pair{"TBMR", detector::tbmr},
+                                           std::pair{"SURF", detector::surf});
+        files.config["keypoint"]["detector"]["type"] = name;
         files.write();
         REQUIRE(Settings(files.path.string(), System::MONOCULAR).keypoint_detector() == type);
         overrides.detector = "FAST";
         REQUIRE(Settings(files.path.string(), System::MONOCULAR, overrides).keypoint_detector() == detector::fast);
-        files.config["keypoint_detector"]["type"] = "fast";
+        files.config["keypoint"]["detector"]["type"] = "fast";
         files.write();
         overrides.detector = name;
         REQUIRE(Settings(files.path.string(), System::MONOCULAR, overrides).keypoint_detector() == type);
     }
     SECTION("Descriptors")
     {
-        using descriptor                            = keypoint_descriptor_type;
-        const auto [name, type]                     = GENERATE(std::pair{"BRIEF", descriptor::brief}, std::pair{"FREAK", descriptor::freak}, std::pair{"LATCH", descriptor::latch},
-                                                               std::pair{"BEBLID", descriptor::beblid}, std::pair{"TEBLID", descriptor::teblid}, std::pair{"DAISY", descriptor::daisy},
-                                                               std::pair{"VGG", descriptor::vgg}, std::pair{"BOOSTDESC", descriptor::boostdesc}, std::pair{"SURF", descriptor::surf});
-        files.config["keypoint_descriptor"]["type"] = name;
+        using descriptor                               = keypoint_descriptor_type;
+        const auto [name, type]                        = GENERATE(std::pair{"BRIEF", descriptor::brief},
+                                           std::pair{"FREAK", descriptor::freak},
+                                           std::pair{"LATCH", descriptor::latch},
+                                           std::pair{"BEBLID", descriptor::beblid},
+                                           std::pair{"TEBLID", descriptor::teblid},
+                                           std::pair{"DAISY", descriptor::daisy},
+                                           std::pair{"VGG", descriptor::vgg},
+                                           std::pair{"BOOSTDESC", descriptor::boostdesc},
+                                           std::pair{"SURF", descriptor::surf});
+        files.config["keypoint"]["descriptor"]["type"] = name;
         files.write();
         REQUIRE(Settings(files.path.string(), System::MONOCULAR).keypoint_descriptor() == type);
         overrides.descriptor = "ORB";
         REQUIRE(Settings(files.path.string(), System::MONOCULAR, overrides).keypoint_descriptor() == descriptor::orb);
-        files.config["keypoint_descriptor"]["type"] = "orb";
+        files.config["keypoint"]["descriptor"]["type"] = "orb";
         files.write();
         overrides.descriptor = name;
         REQUIRE(Settings(files.path.string(), System::MONOCULAR, overrides).keypoint_descriptor() == type);

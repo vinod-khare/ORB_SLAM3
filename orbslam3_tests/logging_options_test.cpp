@@ -68,6 +68,34 @@ TEST_CASE("Application options resolve YAML settings together", "[settings]")
     REQUIRE(settings.viewer.logging_pattern == "[%l] %v");
 }
 
+TEST_CASE("Keypoint CLI overrides use the nested YAML hierarchy", "[settings][features]")
+{
+    const logging_settings file;
+    const auto             settings = file.parse("keypoint:\n"
+                                                 "  extractor:\n"
+                                                 "    n_features: 100\n"
+                                                 "    scale_factor: 1.2\n"
+                                                 "    n_levels: 4\n"
+                                                 "    initial_threshold: 20\n"
+                                                 "    minimum_threshold: 7\n"
+                                                 "  detector: {type: FAST}\n"
+                                                 "  descriptor: {type: ORB}\n");
+    REQUIRE(settings.overrides.detector.empty());
+    REQUIRE(settings.overrides.descriptor.empty());
+    const auto overridden = file.parse("keypoint:\n"
+                                       "  extractor:\n"
+                                       "    n_features: 100\n"
+                                       "    scale_factor: 1.2\n"
+                                       "    n_levels: 4\n"
+                                       "    initial_threshold: 20\n"
+                                       "    minimum_threshold: 7\n"
+                                       "  detector: {type: FAST}\n"
+                                       "  descriptor: {type: ORB}\n",
+                                       {"--keypoint.detector.type", "SIFT", "--keypoint.descriptor.type", "BEBLID"});
+    REQUIRE(overridden.overrides.detector == "SIFT");
+    REQUIRE(overridden.overrides.descriptor == "BEBLID");
+}
+
 TEST_CASE("Scope timing writes elapsed duration on all exit paths", "[statistics]")
 {
     using clock = std::chrono::steady_clock;
@@ -368,8 +396,16 @@ TEST_CASE("Application controls support YAML and explicit command-line overrides
     REQUIRE(settings.input.frames_stride == 3);
     REQUIRE(settings.input.frames_take == 20);
 
-    const auto cli = file.parse(yaml, {"--slam-type=mono", "--no-viewer=false", "--save-colmap=false", "--save-ply=false", "--output=cli.txt", "--output-folder=cli", "--frames-skip=0",
-                                       "--frames-stride=1", "--frames-take=0"});
+    const auto cli = file.parse(yaml,
+                                {"--slam-type=mono",
+                                 "--no-viewer=false",
+                                 "--save-colmap=false",
+                                 "--save-ply=false",
+                                 "--output=cli.txt",
+                                 "--output-folder=cli",
+                                 "--frames-skip=0",
+                                 "--frames-stride=1",
+                                 "--frames-take=0"});
     REQUIRE(cli.slam_type == "mono");
     REQUIRE(cli.use_viewer);
     REQUIRE_FALSE(cli.save_colmap);

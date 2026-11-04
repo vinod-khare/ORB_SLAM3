@@ -543,10 +543,15 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
     {
         throw std::runtime_error("dbow_version must be 2 or 3");
     }
-    const auto extractor = root["keypoint_extractor"];
+    const auto keypoint = root["keypoint"];
+    if (!keypoint || !keypoint.IsMap())
+    {
+        throw std::runtime_error("keypoint must be a map containing extractor, detector, and descriptor settings");
+    }
+    const auto extractor = keypoint["extractor"];
     if (!extractor || !extractor.IsMap())
     {
-        throw std::runtime_error("keypoint_extractor must be a map containing n_features, scale_factor, n_levels, initial_threshold, and minimum_threshold");
+        throw std::runtime_error("keypoint.extractor must be a map containing n_features, scale_factor, n_levels, initial_threshold, and minimum_threshold");
     }
     nFeatures_   = extractor["n_features"].as<int>();
     scaleFactor_ = extractor["scale_factor"].as<float>();
@@ -555,25 +560,25 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
     minThFAST_   = extractor["minimum_threshold"].as<int>();
     if (nFeatures_ <= 0 || nLevels_ <= 0 || nLevels_ > 32 || !std::isfinite(scaleFactor_) || scaleFactor_ <= 1 || initThFAST_ < 0 || minThFAST_ < 0 || minThFAST_ > initThFAST_)
     {
-        throw std::runtime_error("Invalid keypoint_extractor values: require positive features, 1..32 levels, finite scale_factor > 1, and 0 <= minimum_threshold <= initial_threshold");
+        throw std::runtime_error("Invalid keypoint.extractor values: require positive features, 1..32 levels, finite scale_factor > 1, and 0 <= minimum_threshold <= initial_threshold");
     }
     const auto read_selection = [&]<typename ENUM_T_>(const std::string &section, const std::string &override_value, ENUM_T_ default_value)
     {
-        const auto node = root[section];
+        const auto node = keypoint[section];
         if (node && !node.IsMap())
         {
-            throw std::runtime_error(section + " must be a map");
+            throw std::runtime_error("keypoint." + section + " must be a map");
         }
         const auto value  = !override_value.empty() ? override_value : node && node["type"] ? node["type"].as<std::string>() : std::string(magic_enum::enum_name(default_value));
         const auto parsed = magic_enum::enum_cast<ENUM_T_>(value, magic_enum::case_insensitive);
         if (!parsed)
         {
-            throw std::runtime_error("Unknown " + section + ".type: " + value);
+            throw std::runtime_error("Unknown keypoint." + section + ".type: " + value);
         }
         return *parsed;
     };
-    _keypoint_detector           = read_selection("keypoint_detector", overrides.detector, keypoint_detector_type::fast);
-    _keypoint_descriptor         = read_selection("keypoint_descriptor", overrides.descriptor, keypoint_descriptor_type::orb);
+    _keypoint_detector           = read_selection("detector", overrides.detector, keypoint_detector_type::fast);
+    _keypoint_descriptor         = read_selection("descriptor", overrides.descriptor, keypoint_descriptor_type::orb);
     const auto tracking_settings = root["tracking"];
     if (tracking_settings && !tracking_settings.IsMap())
     {
@@ -595,7 +600,9 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
         throw std::runtime_error("Unknown tracking.matcher: " + matcher_name);
     }
     _descriptor_matcher = *matcher;
-    spdlog::info("Feature pipeline: detector={}, descriptor={}, matcher={}", magic_enum::enum_name(_keypoint_detector), magic_enum::enum_name(_keypoint_descriptor),
+    spdlog::info("Feature pipeline: detector={}, descriptor={}, matcher={}",
+                 magic_enum::enum_name(_keypoint_detector),
+                 magic_enum::enum_name(_keypoint_descriptor),
                  magic_enum::enum_name(_descriptor_matcher));
 
     const cv::FileNode tracking_node = fSettings["tracking"];

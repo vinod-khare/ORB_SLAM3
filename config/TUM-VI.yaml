@@ -35,21 +35,19 @@ Camera.RGB: 1
 # Place-recognition backend: 2 (DBoW2) or 3 (DBoW3); CLI --dbow_version overrides this.
 dbow_version: 3
 
-TODO: combine the following into a single "keypoint" section
-keypoint_extractor:
-  n_features: 1024
-  scale_factor: 1.2
-  n_levels: 8
-  initial_threshold: 20
-  minimum_threshold: 7
-
-# FAST, AGAST, GFTT, ORB, BRISK, SIFT, AKAZE
-keypoint_detector:
-  type: "FAST"
-
-# ORB, SIFT, BRISK; independent of the detector
-keypoint_descriptor:
-  type: "ORB"
+keypoint:
+  extractor:
+    n_features: 1024
+    scale_factor: 1.2
+    n_levels: 8
+    initial_threshold: 20
+    minimum_threshold: 7
+  # FAST, AGAST, GFTT, ORB, BRISK, SIFT, AKAZE
+  detector:
+    type: "FAST"
+  # ORB, SIFT, BRISK; independent of the detector
+  descriptor:
+    type: "ORB"
 
 # Flow-first tracking with descriptor recovery/keyframes (0: off, 1: on)
 tracking:

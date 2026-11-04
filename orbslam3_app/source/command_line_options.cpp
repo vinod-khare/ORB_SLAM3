@@ -85,26 +85,26 @@ command_line_options::command_line_options(int argc, char **argv)
     description.add_options()("help,h", "Show this help message")("vocab,v", po::value<std::string>()->required(), "Path to compressed binary ORB vocabulary (.dbow3)")(
         "settings,s", po::value<std::string>()->required(), "Path to settings YAML file")("data.root", po::value<std::string>(), "Dataset root folder")(
         "data.left", po::value<std::string>(), "Left image folder, absolute or relative to data.root")(
-        "data.right", po::value<std::string>(), "Right image folder, absolute or relative to data.root")("data.imu", po::value<std::string>(),
-                                                                                                         "IMU CSV file, absolute or relative to data.root")(
-        "output,o", po::value<std::string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")("output-folder", po::value<std::string>(),
-                                                                                                                "Folder to write trajectory files into (created if needed)")(
-        "save-colmap", po::value<bool>()->implicit_value(true)->default_value(save_colmap),
-        "Save COLMAP-compatible sparse model output")("save-ply", po::value<bool>()->implicit_value(true)->default_value(save_ply), "Save map points as PLY point cloud")(
-        "no-viewer", po::value<bool>()->implicit_value(true)->default_value(!use_viewer),
-        "Run headless without the ImGui viewer")("slam-type", po::value<std::string>()->default_value(slam_type), "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
+        "data.right", po::value<std::string>(), "Right image folder, absolute or relative to data.root")(
+        "data.imu", po::value<std::string>(), "IMU CSV file, absolute or relative to data.root")(
+        "output,o", po::value<std::string>(), "Output filename for trajectory (default: CameraTrajectory.txt)")(
+        "output-folder", po::value<std::string>(), "Folder to write trajectory files into (created if needed)")(
+        "save-colmap", po::value<bool>()->implicit_value(true)->default_value(save_colmap), "Save COLMAP-compatible sparse model output")(
+        "save-ply", po::value<bool>()->implicit_value(true)->default_value(save_ply), "Save map points as PLY point cloud")(
+        "no-viewer", po::value<bool>()->implicit_value(true)->default_value(!use_viewer), "Run headless without the ImGui viewer")(
+        "slam-type", po::value<std::string>()->default_value(slam_type), "SLAM sensor type: mono, mono-inertial, stereo or stereo-inertial")(
         "frames-skip", po::value<int>()->default_value(input.frames_skip), "Number of frames to skip at the beginning")(
-        "frames-stride", po::value<int>()->default_value(input.frames_stride), "Take every Nth frame (stride)")("frames-take", po::value<int>()->default_value(input.frames_take),
-                                                                                                                "Maximum number of frames to process (0 = all)")(
-        "keypoint_detector.type", po::value<std::string>(), "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze, star, harris_laplace, msd, tbmr, surf)")(
-        "keypoint_descriptor.type", po::value<std::string>(), "Keypoint descriptor (orb, sift, brisk, brief, freak, latch, beblid, teblid, daisy, vgg, boostdesc, surf)")(
-        "tracking.matcher", po::value<std::string>(),
-        "Descriptor matcher (brute_force, flann)")("tracking.use_optical_flow", po::value<bool>()->implicit_value(true),
-                                                   "Enable or disable flow-first tracking")("dbow_version", po::value<int>(), "Place recognition backend: 2 or 3 (overrides YAML; default: 2)")(
+        "frames-stride", po::value<int>()->default_value(input.frames_stride), "Take every Nth frame (stride)")(
+        "frames-take", po::value<int>()->default_value(input.frames_take), "Maximum number of frames to process (0 = all)")(
+        "keypoint.detector.type", po::value<std::string>(), "Keypoint detector (fast, agast, gftt, orb, brisk, sift, akaze, star, harris_laplace, msd, tbmr, surf)")(
+        "keypoint.descriptor.type", po::value<std::string>(), "Keypoint descriptor (orb, sift, brisk, brief, freak, latch, beblid, teblid, daisy, vgg, boostdesc, surf)")(
+        "tracking.matcher", po::value<std::string>(), "Descriptor matcher (brute_force, flann)")(
+        "tracking.use_optical_flow", po::value<bool>()->implicit_value(true), "Enable or disable flow-first tracking")(
+        "dbow_version", po::value<int>(), "Place recognition backend: 2 or 3 (overrides YAML; default: 2)")(
         "logging.pattern", po::value<std::string>(), "spdlog output pattern; overrides logging.pattern in YAML (default: %+, spdlog default)")(
         "logging.level", po::value<std::string>(), "spdlog level: trace, debug, info, warning, error, critical, off (overrides YAML; default: info)")(
-        "ground_truth.path", po::value<std::string>(), "Ground-truth trajectory file (TUM text or EuRoC/TUM-VI CSV)")("ground_truth.visible", po::value<bool>()->implicit_value(true),
-                                                                                                                      "Initially display ground truth (true/false; default: false)")(
+        "ground_truth.path", po::value<std::string>(), "Ground-truth trajectory file (TUM text or EuRoC/TUM-VI CSV)")(
+        "ground_truth.visible", po::value<bool>()->implicit_value(true), "Initially display ground truth (true/false; default: false)")(
         "camera_trajectory.visible", po::value<bool>()->implicit_value(true), "Initially display the full camera trajectory (true/false; default: true)")(
         "autostart", po::value<bool>()->implicit_value(true), "Start SLAM immediately (true/false; overrides YAML; default: true)");
 
@@ -232,13 +232,13 @@ command_line_options::command_line_options(int argc, char **argv)
     {
         ORB_SLAM3::read_viewer_settings(viewer, settings, settings_path);
     }
-    if (values.count("keypoint_detector.type"))
+    if (values.count("keypoint.detector.type"))
     {
-        overrides.detector = values["keypoint_detector.type"].as<std::string>();
+        overrides.detector = values["keypoint.detector.type"].as<std::string>();
     }
-    if (values.count("keypoint_descriptor.type"))
+    if (values.count("keypoint.descriptor.type"))
     {
-        overrides.descriptor = values["keypoint_descriptor.type"].as<std::string>();
+        overrides.descriptor = values["keypoint.descriptor.type"].as<std::string>();
     }
     if (values.count("tracking.matcher"))
     {

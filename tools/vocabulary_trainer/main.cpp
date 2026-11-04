@@ -45,10 +45,10 @@ int main(int argc, char **argv)
         unsigned int            seed{};
         po::options_description options("Train a compressed binary DBoW vocabulary from an image directory (recursive, lexically sorted)");
         options.add_options()("help,h", "Show options")("sequence", po::value(&sequence)->required(), "Image directory, e.g. dso/cam0/images")(
-            "output", po::value(&output)->required(), "New .dbow3 file; never overwritten")("descriptor", po::value(&descriptor_name)->default_value("orb"),
-                                                                                            "Descriptor type; same names as keypoint_descriptor.type")(
-            "detector", po::value(&detector_name)->default_value("fast"), "Detector type; same names as keypoint_detector.type")("branching", po::value(&branching)->default_value(10),
-                                                                                                                                 "Tree branching factor (2..20)")(
+            "output", po::value(&output)->required(), "New .dbow3 file; never overwritten")(
+            "descriptor", po::value(&descriptor_name)->default_value("orb"), "Descriptor type; same names as keypoint.descriptor.type")(
+            "detector", po::value(&detector_name)->default_value("fast"), "Detector type; same names as keypoint.detector.type")(
+            "branching", po::value(&branching)->default_value(10), "Tree branching factor (2..20)")(
             "levels", po::value(&levels)->default_value(5), "Tree depth (1..10); maximum words = branching^levels")("stride", po::value(&stride)->default_value(10), "Sample every Nth image")(
             "max-frames", po::value(&max_frames)->default_value(500), "Maximum sampled images (bounds training memory)")(
             "features", po::value(&features)->default_value(1000), "Maximum descriptors per sampled image")("seed", po::value(&seed)->default_value(42), "OpenCV random seed");

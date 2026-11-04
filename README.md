@@ -79,16 +79,17 @@ Detection, description, and matching are independently selectable. Descriptors a
 Each `keypoint` stores original image coordinates in `pt` and geometry coordinates in `pt_undistorted`, without a separate undistorted keypoint vector in frames or keyframes. Rectified and native fisheye observations use the original coordinates for both fields. `GetTrackedKeyPointsUn()` continues to return undistorted coordinates in `pt`.
 
 ```yaml
-keypoint_extractor:
-  n_features: 1024
-  scale_factor: 1.2
-  n_levels: 8
-  initial_threshold: 20
-  minimum_threshold: 7
-keypoint_detector:
-  type: FAST
-keypoint_descriptor:
-  type: SIFT
+keypoint:
+  extractor:
+    n_features: 1024
+    scale_factor: 1.2
+    n_levels: 8
+    initial_threshold: 20
+    minimum_threshold: 7
+  detector:
+    type: FAST
+  descriptor:
+    type: SIFT
 tracking:
   matcher: brute_force
 ```
@@ -108,8 +109,8 @@ Command-line selections override YAML:
 
 ```sh
 .build/Release/orbslam3_app/orbslam3_app vocab/ORBvoc.dbow3 config/TUM-VI.yaml \
-  --slam-type stereo --keypoint_detector.type star \
-  --keypoint_descriptor.type beblid --tracking.matcher flann
+  --slam-type stereo --keypoint.detector.type star \
+  --keypoint.descriptor.type beblid --tracking.matcher flann
 ```
 
 For the available DBoW backends, supported vocabulary format, and runtime switching, see [DBoW place recognition in the app guide](orbslam3_app/README.md#dbow-place-recognition).
