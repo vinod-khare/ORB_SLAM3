@@ -456,19 +456,22 @@ void LocalMapping::CreateNewMapPoints()
             const int &idx1 = vMatchedIndices[ikp].first;
             const int &idx2 = vMatchedIndices[ikp].second;
 
-            const cv::KeyPoint &kp1 = ((mpCurrentKeyFrame->NLeft == -1)    ? mpCurrentKeyFrame->mvKeys[idx1]
-                                       : (idx1 < mpCurrentKeyFrame->NLeft) ? mpCurrentKeyFrame->mvKeys[idx1]
-                                                                           : mpCurrentKeyFrame->mvKeysRight[idx1 - mpCurrentKeyFrame->NLeft])
+            const cv::KeyPoint &kp1 = ((!is_fisheye_stereo(mpCurrentKeyFrame->cameras))          ? mpCurrentKeyFrame->mvKeys[idx1]
+                                       : (std::cmp_less(idx1, mpCurrentKeyFrame->mvKeys.size())) ? mpCurrentKeyFrame->mvKeys[idx1]
+                                                                                                 : mpCurrentKeyFrame->mvKeysRight[idx1 - mpCurrentKeyFrame->mvKeys.size()])
                                           .undistorted();
             const float kp1_ur   = mpCurrentKeyFrame->mvuRight[idx1];
             bool        bStereo1 = (!is_fisheye_stereo(mpCurrentKeyFrame->cameras) && kp1_ur >= 0);
-            const bool  bRight1  = (mpCurrentKeyFrame->NLeft == -1 || idx1 < mpCurrentKeyFrame->NLeft) ? false : true;
+            const bool  bRight1  = is_fisheye_stereo(mpCurrentKeyFrame->cameras) && std::cmp_greater_equal(idx1, mpCurrentKeyFrame->mvKeys.size());
 
-            const cv::KeyPoint &kp2 = ((pKF2->NLeft == -1) ? pKF2->mvKeys[idx2] : (idx2 < pKF2->NLeft) ? pKF2->mvKeys[idx2] : pKF2->mvKeysRight[idx2 - pKF2->NLeft]).undistorted();
+            const cv::KeyPoint &kp2 = ((!is_fisheye_stereo(pKF2->cameras))        ? pKF2->mvKeys[idx2]
+                                       : std::cmp_less(idx2, pKF2->mvKeys.size()) ? pKF2->mvKeys[idx2]
+                                                                                  : pKF2->mvKeysRight[idx2 - pKF2->mvKeys.size()])
+                                          .undistorted();
 
             const float kp2_ur   = pKF2->mvuRight[idx2];
             bool        bStereo2 = (!is_fisheye_stereo(pKF2->cameras) && kp2_ur >= 0);
-            const bool  bRight2  = (pKF2->NLeft == -1 || idx2 < pKF2->NLeft) ? false : true;
+            const bool  bRight2  = is_fisheye_stereo(pKF2->cameras) && std::cmp_greater_equal(idx2, pKF2->mvKeys.size());
 
             if (is_fisheye_stereo(mpCurrentKeyFrame->cameras) && is_fisheye_stereo(pKF2->cameras))
             {
@@ -782,7 +785,7 @@ void LocalMapping::SearchInNeighbors()
         KeyFrame *pKFi = *vit;
 
         matcher.Fuse(pKFi, vpMapPointMatches);
-        if (pKFi->NLeft != -1)
+        if (is_fisheye_stereo(pKFi->cameras))
         {
             matcher.Fuse(pKFi, vpMapPointMatches, true);
         }
@@ -820,7 +823,7 @@ void LocalMapping::SearchInNeighbors()
     }
 
     matcher.Fuse(mpCurrentKeyFrame, vpFuseCandidates);
-    if (mpCurrentKeyFrame->NLeft != -1)
+    if (is_fisheye_stereo(mpCurrentKeyFrame->cameras))
     {
         matcher.Fuse(mpCurrentKeyFrame, vpFuseCandidates, true);
     }
@@ -998,7 +1001,9 @@ void LocalMapping::KeyFrameCulling()
                     nMPs++;
                     if (pMP->Observations() > thObs)
                     {
-                        const int &scaleLevel = (pKF->NLeft == -1) ? pKF->mvKeys[i].octave : (gsl::narrow_cast<int>(i) < pKF->NLeft) ? pKF->mvKeys[i].octave : pKF->mvKeysRight[i].octave;
+                        const int                             &scaleLevel   = (!is_fisheye_stereo(pKF->cameras))     ? pKF->mvKeys[i].octave
+                                                                              : std::cmp_less(i, pKF->mvKeys.size()) ? pKF->mvKeys[i].octave
+                                                                                                                     : pKF->mvKeysRight[i - pKF->mvKeys.size()].octave;
                         const map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
                         int                                    nObs         = 0;
                         for (map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
@@ -1011,7 +1016,7 @@ void LocalMapping::KeyFrameCulling()
                             tuple<int, int> indexes   = mit->second;
                             int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
                             int             scaleLeveli = -1;
-                            if (pKFi->NLeft == -1)
+                            if (!is_fisheye_stereo(pKFi->cameras))
                             {
                                 scaleLeveli = pKFi->mvKeys[leftIndex].octave;
                             }
@@ -1023,7 +1028,7 @@ void LocalMapping::KeyFrameCulling()
                                 }
                                 if (rightIndex != -1)
                                 {
-                                    int rightLevel = pKFi->mvKeysRight[rightIndex - pKFi->NLeft].octave;
+                                    int rightLevel = pKFi->mvKeysRight[rightIndex - pKFi->mvKeys.size()].octave;
                                     scaleLeveli    = (scaleLeveli == -1 || scaleLeveli > rightLevel) ? rightLevel : scaleLeveli;
                                 }
                             }

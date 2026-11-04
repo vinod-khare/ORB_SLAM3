@@ -223,7 +223,10 @@ class KeyFrame
     const std::vector<keypoint> mvKeys;
     const std::vector<float>    mvuRight; // negative value for monocular points
     const std::vector<float>    mvDepth;  // negative value for monocular points
-    const cv::Mat &descriptor(std::size_t index) const { return NLeft >= 0 && index >= static_cast<std::size_t>(NLeft) ? mvKeysRight[index - NLeft].descriptor : mvKeys[index].descriptor; }
+    const cv::Mat              &descriptor(std::size_t index) const
+    {
+        return is_fisheye_stereo(cameras) && index >= mvKeys.size() ? mvKeysRight[index - mvKeys.size()].descriptor : mvKeys[index].descriptor;
+    }
 
     // BoW
     DBoW2::BowVector     mBowVec;
@@ -337,8 +340,6 @@ class KeyFrame
     // KeyPoints in the right image (for stereo fisheye, coordinates are needed)
     const std::vector<keypoint> mvKeysRight;
 
-    const int NLeft, NRight;
-
     std::vector<std::vector<std::vector<size_t>>> mGridRight;
 
     Sophus::SE3<float> GetRightPose();
@@ -350,8 +351,8 @@ class KeyFrame
 
     void PrintPointDistribution()
     {
-        int left = 0, right = 0;
-        int Nlim = (NLeft != -1) ? NLeft : N;
+        int       left = 0, right = 0;
+        const int Nlim = is_fisheye_stereo(cameras) ? static_cast<int>(mvKeys.size()) : N;
         for (int i = 0; i < N; i++)
         {
             if (mvpMapPoints[i])

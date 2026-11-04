@@ -241,7 +241,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
                 if (rightIndex != -1 && std::cmp_less(rightIndex, pKF->mvKeysRight.size()))
                 {
-                    rightIndex -= pKF->NLeft;
+                    rightIndex -= static_cast<int>(pKF->mvKeys.size());
 
                     Eigen::Matrix<double, 2, 1> obs;
                     cv::KeyPoint                kp = pKF->mvKeysRight[rightIndex];
@@ -726,7 +726,7 @@ void Optimizer::FullInertialBA(
 
                     if (rightIndex != -1 && std::cmp_less(rightIndex, pKFi->mvKeysRight.size()))
                     {
-                        rightIndex -= pKFi->NLeft;
+                        rightIndex -= static_cast<int>(pKFi->mvKeys.size());
 
                         Eigen::Matrix<double, 2, 1> obs;
                         kpUn = pKFi->mvKeysRight[rightIndex];
@@ -983,7 +983,7 @@ int Optimizer::PoseOptimization(Frame *pFrame, const camera_vector &cameras)
 
                     cv::KeyPoint kpUn;
 
-                    if (i < pFrame->Nleft)
+                    if (std::cmp_less(i, pFrame->mvKeys.size()))
                     { // Left camera observation
                         kpUn = pFrame->mvKeys[i];
 
@@ -1011,7 +1011,7 @@ int Optimizer::PoseOptimization(Frame *pFrame, const camera_vector &cameras)
                     }
                     else
                     {
-                        kpUn = pFrame->mvKeysRight[i - pFrame->Nleft];
+                        kpUn = pFrame->mvKeysRight[i - pFrame->mvKeys.size()];
 
                         Eigen::Matrix<double, 2, 1> obs;
                         obs << kpUn.pt.x, kpUn.pt.y;
@@ -1447,7 +1447,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap
 
                     if (rightIndex != -1)
                     {
-                        rightIndex -= pKFi->NLeft;
+                        rightIndex -= static_cast<int>(pKFi->mvKeys.size());
 
                         Eigen::Matrix<double, 2, 1> obs;
                         cv::KeyPoint                kp = pKFi->mvKeysRight[rightIndex];
@@ -2958,7 +2958,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int 
 
                     if (rightIndex != -1)
                     {
-                        rightIndex -= pKFi->NLeft;
+                        rightIndex -= static_cast<int>(pKFi->mvKeys.size());
                         mVisEdges[pKFi->mnId]++;
 
                         Eigen::Matrix<double, 2, 1> obs;
@@ -4795,8 +4795,8 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, const camera_
 
     // Set MapPoint vertices
     const int  N      = pFrame->N;
-    const int  Nleft  = pFrame->Nleft;
-    const bool bRight = (Nleft != -1);
+    const int  Nleft  = static_cast<int>(pFrame->mvKeys.size());
+    const bool bRight = pFrame->is_fisheye_stereo;
 
     vector<EdgeMonoOnlyPose *>   vpEdgesMono;
     vector<EdgeStereoOnlyPose *> vpEdgesStereo;
@@ -5198,8 +5198,8 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, const camera_vec
 
     // Set MapPoint vertices
     const int  N      = pFrame->N;
-    const int  Nleft  = pFrame->Nleft;
-    const bool bRight = (Nleft != -1);
+    const int  Nleft  = static_cast<int>(pFrame->mvKeys.size());
+    const bool bRight = pFrame->is_fisheye_stereo;
 
     vector<EdgeMonoOnlyPose *>   vpEdgesMono;
     vector<EdgeStereoOnlyPose *> vpEdgesStereo;

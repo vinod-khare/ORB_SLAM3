@@ -180,7 +180,6 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
 TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]")
 {
     ORB_SLAM3::Frame frame;
-    frame.Nleft                                 = -1;
     frame.mvKeys                                = {cv::KeyPoint(1.f, 1.f, 1.f), cv::KeyPoint(-1.f, 0.f, 1.f), cv::KeyPoint(2.9f, 2.9f, 1.f)};
     frame.mvKeys.front().pt_undistorted         = cv::Point2f(0.f, 0.f);
     const int channels                          = GENERATE(1, 3, 4);
@@ -195,7 +194,7 @@ TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]
     frame.color_is_rgb                     = true;
     const std::array<unsigned char, 3> rgb = channels == 1 ? expected : std::array<unsigned char, 3>{10, 20, 30};
     REQUIRE(frame.keypoint_color(0) == rgb);
-    frame.Nleft             = 3;
+    frame.is_fisheye_stereo = true;
     frame.mvKeysRight       = {cv::KeyPoint(0.f, 0.f, 1.f)};
     frame.color_image_right = cv::Mat(1, 1, CV_8UC1, cv::Scalar(70));
     const std::array<unsigned char, 3> gray{70, 70, 70};

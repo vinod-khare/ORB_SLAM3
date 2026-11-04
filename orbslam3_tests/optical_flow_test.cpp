@@ -241,11 +241,11 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mvpMapPoints.front() == &point);
     REQUIRE(current.mvuRight.front() == -1);
     REQUIRE(current.mvDepth.front() == -1);
-    REQUIRE(current.Nleft == (camera_kind == 2 ? 1 : -1));
+    REQUIRE(current.is_fisheye_stereo == (camera_kind == 2));
     REQUIRE(current.mvKeysRight.empty());
     if (camera_kind == 2)
     {
-        REQUIRE(current.Nright == 0);
+        REQUIRE(current.mvKeysRight.empty());
         REQUIRE(current.mvLeftToRightMatch == std::vector<int>{-1});
     }
 
@@ -275,12 +275,12 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.optical_flow_pyramid.front().data == pyramid_data);
     REQUIRE(current.N == previous.N);
     auto current_descriptors = descriptor_matrix(current.mvKeys);
-    if (current.Nleft >= 0)
+    if (current.is_fisheye_stereo)
     {
         current_descriptors.push_back(descriptor_matrix(current.mvKeysRight));
     }
     auto previous_descriptors = descriptor_matrix(previous.mvKeys);
-    if (previous.Nleft >= 0)
+    if (previous.is_fisheye_stereo)
     {
         previous_descriptors.push_back(descriptor_matrix(previous.mvKeysRight));
     }
@@ -315,11 +315,13 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.GetFeaturesInArea(128, 128, 256).empty());
     if (camera_kind == 2)
     {
-        REQUIRE(current.Nleft == 0);
-        REQUIRE(current.Nright == 0);
+        REQUIRE(current.is_fisheye_stereo);
+        REQUIRE(current.mvKeys.empty());
+        REQUIRE(current.mvKeysRight.empty());
         current.set_tracked_features({tracked}, {&point});
-        REQUIRE(current.Nleft == 1);
-        REQUIRE(current.Nright == 0);
+        REQUIRE(current.is_fisheye_stereo);
+        REQUIRE(current.mvKeys.size() == 1);
+        REQUIRE(current.mvKeysRight.empty());
         REQUIRE(current.mvKeys.front().pt_undistorted == tracked.pt);
         REQUIRE(current.mvLeftToRightMatch == std::vector<int>{-1});
     }
@@ -385,11 +387,10 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
         const auto left_index  = static_cast<size_t>(valid - current.mvDepth.begin());
         const auto right_index = current.mvLeftToRightMatch[left_index];
         current.mvKeys.push_back(current.mvKeys[left_index]);
-        ++current.Nleft;
         ++current.N;
         current.ComputeStereoFishEyeMatches(cameras);
         REQUIRE(current.mvLeftToRightMatch.back() == right_index);
-        REQUIRE(current.mvRightToLeftMatch[right_index] == current.Nleft - 1);
+        REQUIRE(current.mvRightToLeftMatch[right_index] == static_cast<int>(current.mvKeys.size()) - 1);
     }
 }
 
@@ -409,7 +410,7 @@ TEST_CASE("RGB-D frames undistort tracked features using the primary camera")
     ORB_SLAM3::Tracking::extract_features(frame, extractor, image, cameras);
     frame.ComputeStereoFromRGBD(depth);
     REQUIRE(frame.N > 0);
-    REQUIRE(frame.Nleft == -1);
+    REQUIRE_FALSE(frame.is_fisheye_stereo);
     REQUIRE(std::all_of(frame.mvDepth.begin(), frame.mvDepth.end(), [](float value) { return value == 2.0f; }));
     REQUIRE(std::all_of(frame.mvuRight.begin(), frame.mvuRight.end(), [](float value) { return value >= 0; }));
 
@@ -419,7 +420,7 @@ TEST_CASE("RGB-D frames undistort tracked features using the primary camera")
     std::vector<cv::Point2f> expected;
     cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected, calibration, distortion, cv::noArray(), calibration);
     REQUIRE(cv::norm(frame.mvKeys.front().pt_undistorted - expected.front()) < 0.001);
-    REQUIRE(frame.Nleft == -1);
+    REQUIRE_FALSE(frame.is_fisheye_stereo);
 }
 
 TEST_CASE("Flow quality requires geometric inliers and spatial coverage")

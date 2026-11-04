@@ -79,7 +79,7 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, Frame *pFrame, const i
     SetWorldPos(Pos);
 
     Eigen::Vector3f Ow;
-    if (pFrame->Nleft == -1 || idxF < pFrame->Nleft)
+    if (!pFrame->is_fisheye_stereo || std::cmp_less(idxF, pFrame->mvKeys.size()))
     {
         Ow = pFrame->GetCameraCenter();
     }
@@ -94,9 +94,9 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, Frame *pFrame, const i
     mNormalVector = mWorldPos - Ow;
     mNormalVector = mNormalVector / mNormalVector.norm();
 
-    Eigen::Vector3f PC               = mWorldPos - Ow;
-    const float     dist             = PC.norm();
-    const int       level            = (pFrame->Nleft == -1) ? pFrame->mvKeys[idxF].octave : (idxF < pFrame->Nleft) ? pFrame->mvKeys[idxF].octave : pFrame->mvKeysRight[idxF].octave;
+    Eigen::Vector3f PC    = mWorldPos - Ow;
+    const float     dist  = PC.norm();
+    const int       level = (!pFrame->is_fisheye_stereo || std::cmp_less(idxF, pFrame->mvKeys.size())) ? pFrame->mvKeys[idxF].octave : pFrame->mvKeysRight[idxF - pFrame->mvKeys.size()].octave;
     const float     levelScaleFactor = pFrame->mvScaleFactors[level];
     const int       nLevels          = pFrame->mnScaleLevels;
 
@@ -105,7 +105,7 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, Frame *pFrame, const i
 
     pFrame->descriptor(idxF).copyTo(mDescriptor);
     _color     = pFrame->keypoint_color(idxF);
-    _has_color = !(pFrame->Nleft >= 0 && idxF >= pFrame->Nleft ? pFrame->color_image_right : pFrame->color_image).empty();
+    _has_color = !(pFrame->is_fisheye_stereo && std::cmp_greater_equal(idxF, pFrame->mvKeys.size()) ? pFrame->color_image_right : pFrame->color_image).empty();
 
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
@@ -150,8 +150,8 @@ void MapPoint::AddObservation(KeyFrame *pKF, int idx)
 
     if (!_has_color && idx >= 0 && static_cast<std::size_t>(idx) < static_cast<std::size_t>(pKF->N))
     {
-        const bool  right = pKF->NLeft >= 0 && idx >= pKF->NLeft;
-        const auto &key   = right ? pKF->mvKeysRight[idx - pKF->NLeft] : pKF->mvKeys[idx];
+        const bool  right = is_fisheye_stereo(pKF->cameras) && std::cmp_greater_equal(idx, pKF->mvKeys.size());
+        const auto &key   = right ? pKF->mvKeysRight[idx - pKF->mvKeys.size()] : pKF->mvKeys[idx];
         _color            = key.color;
         _has_color        = key.has_color;
     }
@@ -165,7 +165,7 @@ void MapPoint::AddObservation(KeyFrame *pKF, int idx)
         indexes = tuple<int, int>(-1, -1);
     }
 
-    if (pKF->NLeft != -1 && idx >= pKF->NLeft)
+    if (is_fisheye_stereo(pKF->cameras) && std::cmp_greater_equal(idx, pKF->mvKeys.size()))
     {
         get<1>(indexes) = idx;
     }
@@ -530,7 +530,7 @@ void MapPoint::UpdateNormalAndDepth()
     tuple<int, int> indexes   = observations[pRefKF];
     int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
     int             level;
-    if (pRefKF->NLeft == -1)
+    if (!is_fisheye_stereo(pRefKF->cameras))
     {
         level = pRefKF->mvKeys[leftIndex].octave;
     }
@@ -540,7 +540,7 @@ void MapPoint::UpdateNormalAndDepth()
     }
     else
     {
-        level = pRefKF->mvKeysRight[rightIndex - pRefKF->NLeft].octave;
+        level = pRefKF->mvKeysRight[rightIndex - pRefKF->mvKeys.size()].octave;
     }
 
     const float levelScaleFactor = pRefKF->mvScaleFactors[level];

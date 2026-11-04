@@ -142,7 +142,6 @@ class Frame
     void setIntegrated();
 
     bool isSet() const;
-
     // Computes rotation, translation and camera center matrices from the camera pose.
     void UpdatePoseMatrices();
 
@@ -227,6 +226,7 @@ class Frame
     double                stereo_matching_ms{};
     double                optical_flow_ms{};
     std::vector<keypoint> mvKeys, mvKeysRight;
+    bool                  is_fisheye_stereo{false};
 
     // Corresponding stereo coordinate and depth for each keypoint.
     std::vector<MapPoint *> mvpMapPoints;
@@ -238,7 +238,7 @@ class Frame
     DBoW2::BowVector     mBowVec;
     DBoW2::FeatureVector mFeatVec;
 
-    const cv::Mat &descriptor(std::size_t index) const { return Nleft >= 0 && index >= static_cast<std::size_t>(Nleft) ? mvKeysRight[index - Nleft].descriptor : mvKeys[index].descriptor; }
+    const cv::Mat &descriptor(std::size_t index) const { return is_fisheye_stereo && index >= mvKeys.size() ? mvKeysRight[index - mvKeys.size()].descriptor : mvKeys[index].descriptor; }
 
     // MapPoints associated to keypoints, NULL pointer if no association.
     // Flag to identify outlier associations.
@@ -316,9 +316,6 @@ class Frame
     std::shared_ptr<std::mutex> mpMutexImu{std::make_shared<std::mutex>()};
 
   public:
-    // Number of KeyPoints extracted in the left and right images
-    int Nleft{-1};
-    int Nright{-1};
     // Number of Non Lapping Keypoints
     int monoLeft, monoRight;
 
@@ -345,8 +342,8 @@ class Frame
 
     void PrintPointDistribution()
     {
-        int left = 0, right = 0;
-        int Nlim = (Nleft != -1) ? Nleft : N;
+        int       left = 0, right = 0;
+        const int Nlim = is_fisheye_stereo ? static_cast<int>(mvKeys.size()) : N;
         for (int i = 0; i < N; i++)
         {
             if (mvpMapPoints[i] && !mvbOutlier[i])

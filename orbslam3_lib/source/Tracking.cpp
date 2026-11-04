@@ -1173,7 +1173,7 @@ void Tracking::StereoInitialization()
         }
         else
         {
-            for (int i = 0; i < mCurrentFrame.Nleft; i++)
+            for (int i = 0; i < static_cast<int>(mCurrentFrame.mvKeys.size()); i++)
             {
                 int rightIndex = mCurrentFrame.mvLeftToRightMatch[i];
                 if (rightIndex != -1)
@@ -1183,17 +1183,17 @@ void Tracking::StereoInitialization()
                     MapPoint *pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
 
                     pNewMP->AddObservation(pKFini, i);
-                    pNewMP->AddObservation(pKFini, rightIndex + mCurrentFrame.Nleft);
+                    pNewMP->AddObservation(pKFini, rightIndex + static_cast<int>(mCurrentFrame.mvKeys.size()));
 
                     pKFini->AddMapPoint(pNewMP, i);
-                    pKFini->AddMapPoint(pNewMP, rightIndex + mCurrentFrame.Nleft);
+                    pKFini->AddMapPoint(pNewMP, rightIndex + static_cast<int>(mCurrentFrame.mvKeys.size()));
 
                     pNewMP->ComputeDistinctiveDescriptors();
                     pNewMP->UpdateNormalAndDepth();
                     mpAtlas->AddMapPoint(pNewMP);
 
-                    mCurrentFrame.mvpMapPoints[i]                                = pNewMP;
-                    mCurrentFrame.mvpMapPoints[rightIndex + mCurrentFrame.Nleft] = pNewMP;
+                    mCurrentFrame.mvpMapPoints[i]                                                          = pNewMP;
+                    mCurrentFrame.mvpMapPoints[rightIndex + static_cast<int>(mCurrentFrame.mvKeys.size())] = pNewMP;
                 }
             }
         }
@@ -1533,7 +1533,7 @@ bool Tracking::TrackReferenceKeyFrame()
 
                 mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint *>(NULL);
                 mCurrentFrame.mvbOutlier[i]   = false;
-                if (i < mCurrentFrame.Nleft)
+                if (mCurrentFrame.is_fisheye_stereo && std::cmp_less(i, mCurrentFrame.mvKeys.size()))
                 {
                     pMP->mbTrackInView = false;
                 }
@@ -1577,7 +1577,7 @@ void Tracking::UpdateLastFrame()
     // Create "visual odometry" MapPoints
     // We sort points according to their measured depth by the stereo/RGB-D sensor
     vector<pair<float, int>> vDepthIdx;
-    const int                Nfeat = mLastFrame.Nleft == -1 ? mLastFrame.N : mLastFrame.Nleft;
+    const int                Nfeat = mLastFrame.is_fisheye_stereo ? static_cast<int>(mLastFrame.mvKeys.size()) : mLastFrame.N;
     vDepthIdx.reserve(Nfeat);
     for (int i = 0; i < Nfeat; i++)
     {
@@ -1619,7 +1619,7 @@ void Tracking::UpdateLastFrame()
         {
             Eigen::Vector3f x3D;
 
-            if (mLastFrame.Nleft == -1)
+            if (!mLastFrame.is_fisheye_stereo)
             {
                 mLastFrame.UnprojectStereo(i, x3D);
             }
@@ -1760,7 +1760,7 @@ bool Tracking::TrackWithMotionModel()
 
                 mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint *>(NULL);
                 mCurrentFrame.mvbOutlier[i]   = false;
-                if (i < mCurrentFrame.Nleft)
+                if (mCurrentFrame.is_fisheye_stereo && std::cmp_less(i, mCurrentFrame.mvKeys.size()))
                 {
                     pMP->mbTrackInView = false;
                 }
@@ -1888,14 +1888,12 @@ int Tracking::track_with_optical_flow()
         return 0;
     }
 
-    const std::size_t previous_left_count = mLastFrame.mvKeys.size();
-    const std::size_t current_left_count  = mCurrentFrame.mvKeys.size();
+    const std::size_t previous_keypoint_count = mLastFrame.mvKeys.size() + (mLastFrame.is_fisheye_stereo ? mLastFrame.mvKeysRight.size() : 0);
+    const std::size_t current_keypoint_count  = mCurrentFrame.mvKeys.size() + (mCurrentFrame.is_fisheye_stereo ? mCurrentFrame.mvKeysRight.size() : 0);
 
-    if ((mLastFrame.Nleft >= 0 && previous_left_count != static_cast<std::size_t>(mLastFrame.Nleft)) ||
-        (mCurrentFrame.Nleft >= 0 && current_left_count != static_cast<std::size_t>(mCurrentFrame.Nleft)) ||
-        (mLastFrame.Nleft < 0 && previous_left_count != static_cast<std::size_t>(mLastFrame.N)) ||
-        (mCurrentFrame.Nleft < 0 && current_left_count != static_cast<std::size_t>(mCurrentFrame.N)) || mLastFrame.N != static_cast<int>(mLastFrame.mvpMapPoints.size()) ||
-        mLastFrame.N != static_cast<int>(mLastFrame.mvbOutlier.size()) || mCurrentFrame.N != static_cast<int>(mCurrentFrame.mvpMapPoints.size()))
+    if (previous_keypoint_count != static_cast<std::size_t>(mLastFrame.N) || current_keypoint_count != static_cast<std::size_t>(mCurrentFrame.N) ||
+        mLastFrame.N != static_cast<int>(mLastFrame.mvpMapPoints.size()) || mLastFrame.N != static_cast<int>(mLastFrame.mvbOutlier.size()) ||
+        mCurrentFrame.N != static_cast<int>(mCurrentFrame.mvpMapPoints.size()))
     {
         return 0;
     }
@@ -2223,7 +2221,7 @@ bool Tracking::NeedNewKeyFrame()
 
     if (mSensor != System::MONOCULAR && mSensor != System::IMU_MONOCULAR)
     {
-        int N = (mCurrentFrame.Nleft == -1) ? mCurrentFrame.N : mCurrentFrame.Nleft;
+        int N = mCurrentFrame.is_fisheye_stereo ? static_cast<int>(mCurrentFrame.mvKeys.size()) : mCurrentFrame.N;
         for (int i = 0; i < N; i++)
         {
             if (mCurrentFrame.mvDepth[i] > 0 && mCurrentFrame.mvDepth[i] < mThDepth)
@@ -2427,7 +2425,7 @@ void Tracking::CreateNewKeyFrame()
         }
 
         vector<pair<float, int>> vDepthIdx;
-        int                      N = (mCurrentFrame.Nleft != -1) ? mCurrentFrame.Nleft : mCurrentFrame.N;
+        int                      N = mCurrentFrame.is_fisheye_stereo ? static_cast<int>(mCurrentFrame.mvKeys.size()) : mCurrentFrame.N;
         vDepthIdx.reserve(mCurrentFrame.N);
         for (int i = 0; i < N; i++)
         {
@@ -2464,7 +2462,7 @@ void Tracking::CreateNewKeyFrame()
                 {
                     Eigen::Vector3f x3D;
 
-                    if (mCurrentFrame.Nleft == -1)
+                    if (!mCurrentFrame.is_fisheye_stereo)
                     {
                         mCurrentFrame.UnprojectStereo(i, x3D);
                     }
@@ -2478,11 +2476,11 @@ void Tracking::CreateNewKeyFrame()
 
                     // Check if it is a stereo observation in order to not
                     // duplicate mappoints
-                    if (mCurrentFrame.Nleft != -1 && mCurrentFrame.mvLeftToRightMatch[i] >= 0)
+                    if (mCurrentFrame.is_fisheye_stereo && mCurrentFrame.mvLeftToRightMatch[i] >= 0)
                     {
-                        mCurrentFrame.mvpMapPoints[mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]] = pNewMP;
-                        pNewMP->AddObservation(pKF, mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);
-                        pKF->AddMapPoint(pNewMP, mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);
+                        mCurrentFrame.mvpMapPoints[static_cast<int>(mCurrentFrame.mvKeys.size()) + mCurrentFrame.mvLeftToRightMatch[i]] = pNewMP;
+                        pNewMP->AddObservation(pKF, static_cast<int>(mCurrentFrame.mvKeys.size()) + mCurrentFrame.mvLeftToRightMatch[i]);
+                        pKF->AddMapPoint(pNewMP, static_cast<int>(mCurrentFrame.mvKeys.size()) + mCurrentFrame.mvLeftToRightMatch[i]);
                     }
 
                     pKF->AddMapPoint(pNewMP, i);

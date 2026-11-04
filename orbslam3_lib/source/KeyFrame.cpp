@@ -37,7 +37,7 @@ std::vector<keypoint> keypoints_with_color(Frame &frame, const std::vector<keypo
     {
         const int frame_index         = index_offset + static_cast<int>(index);
         colored_keys[index].color     = frame.keypoint_color(frame_index);
-        const auto &image             = frame.Nleft >= 0 && frame_index >= frame.Nleft ? frame.color_image_right : frame.color_image;
+        const auto &image             = frame.is_fisheye_stereo && frame_index >= static_cast<int>(frame.mvKeys.size()) ? frame.color_image_right : frame.color_image;
         colored_keys[index].has_color = !image.empty();
     }
     return colored_keys;
@@ -57,25 +57,25 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_ve
       mpImuPreintegrated(F.mpImuPreintegrated), mImuCalib(F.mImuCalib), mNameFile(F.mNameFile), mnDataset(F.mnDataset), mbHasVelocity(false), mTlr(F.GetRelativePoseTlr()),
       mTrl(F.GetRelativePoseTrl()), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), place_vocabulary_ptr(F.place_vocabulary_ptr), mbFirstConnection(true), mpParent(nullptr),
       mbNotErase(false), mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb / 2), mpMap(pMap), mK_(F.mK_), cameras(cameras), mvLeftToRightMatch(F.mvLeftToRightMatch),
-      mvRightToLeftMatch(F.mvRightToLeftMatch), mvKeysRight(keypoints_with_color(F, F.mvKeysRight, F.Nleft)), NLeft(F.Nleft), NRight(F.Nright)
+      mvRightToLeftMatch(F.mvRightToLeftMatch), mvKeysRight(keypoints_with_color(F, F.mvKeysRight, static_cast<int>(F.mvKeys.size())))
 {
     mnId = nNextId++;
     mGrid.resize(mnGridCols);
-    if (F.Nleft != -1)
+    if (is_fisheye_stereo(cameras))
     {
         mGridRight.resize(mnGridCols);
     }
     for (int i = 0; i < mnGridCols; i++)
     {
         mGrid[i].resize(mnGridRows);
-        if (F.Nleft != -1)
+        if (is_fisheye_stereo(cameras))
         {
             mGridRight[i].resize(mnGridRows);
         }
         for (int j = 0; j < mnGridRows; j++)
         {
             mGrid[i][j] = F.mGrid[i][j];
-            if (F.Nleft != -1)
+            if (is_fisheye_stereo(cameras))
             {
                 mGridRight[i][j] = F.mGridRight[i][j];
             }
@@ -794,7 +794,7 @@ vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const
             const vector<size_t> vCell = (!bRight) ? mGrid[ix][iy] : mGridRight[ix][iy];
             for (size_t j = 0, jend = vCell.size(); j < jend; j++)
             {
-                const auto &kpUn  = (NLeft == -1 || !bRight) ? mvKeys[vCell[j]] : mvKeysRight[vCell[j]];
+                const auto &kpUn  = (!is_fisheye_stereo(cameras) || !bRight) ? mvKeys[vCell[j]] : mvKeysRight[vCell[j]];
                 const float distx = kpUn.pt_undistorted.x - x;
                 const float disty = kpUn.pt_undistorted.y - y;
 
