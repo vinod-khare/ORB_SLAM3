@@ -9,6 +9,8 @@ InsertBraces: true
 
 # ── Column width ─────────────────────────────────────────────────────────────
 ColumnLimit: 192
+BinPackArguments: false
+BinPackParameters: false
 
 # ── Include sorting & grouping ───────────────────────────────────────────────
 SortIncludes:

@@ -70,6 +70,8 @@ Run `./format.sh` to format C++ sources, headers, and inline/template files usin
 
 ## Feature Pipeline
 
+Monocular initialization uses OpenCV RANSAC homography/fundamental fitting, motion decomposition, perspective/epipolar transforms, and triangulation. The existing symmetric model scores, motion-ambiguity checks, reprojection limits, and minimum support/parallax requirements remain in place. The score-selected model is tried first; if its reconstruction fails, the other valid model is tried with the same acceptance checks. This handles planar scenes whose fundamental fit does not uniquely determine motion. Returned points retain reference-keypoint indexing and unit-baseline scale. OpenCV's sampling, normalization, and homography hypotheses differ from the original implementation, so initialization decisions and trajectories need not be identical.
+
 Detection, description, and matching are independently selectable. Descriptors are computed by OpenCV.
 
 `Tracking` owns the extractors and supplies keypoints, descriptors, and scale metadata to `Frame` for all sensor modes, including deferred optical-flow recovery. Frame construction initializes calibration and state only. Stereo extraction runs concurrently, and its image pyramids are passed explicitly for stereo depth computation; frames retain no extractor references.

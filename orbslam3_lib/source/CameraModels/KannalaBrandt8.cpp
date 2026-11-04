@@ -18,6 +18,8 @@
 
 #include "KannalaBrandt8.h"
 
+#include <opencv2/calib3d.hpp>
+
 namespace ORB_SLAM3
 {
 
