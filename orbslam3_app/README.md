@@ -87,10 +87,11 @@ with the application options would couple library consumers to UI/CLI concerns.
 
 There are still deliberate limits: the core settings loader retains mixed
 OpenCV/yaml-cpp parsing and its legacy flat camera/viewer key names. Calibration
-and extractor numeric parameters remain YAML-only, while detector, descriptor,
-matcher, optical flow and DBoW selections have CLI overrides. Full schema/CLI
-parity for those remaining library parameters requires a separate compatibility
-change; this refactor does not silently rename their keys or change SLAM math.
+and feature-count, scale, level, and threshold parameters remain YAML-only, while
+detector and descriptor selections, matcher, optical flow and DBoW have CLI
+overrides. Full schema/CLI parity for those remaining library parameters
+requires a separate compatibility change; this refactor does not silently
+rename their keys or change SLAM math.
 
 Playback is unpaced. A persistent worker reads, resizes, and applies grayscale/CLAHE preprocessing ahead of tracking, with at most three prepared frames queued. Tracking remains sequential, preserving image order, timestamps, and IMU associations; input failures are reported on the main thread.
 
@@ -564,7 +565,7 @@ especially with software OpenGL rendering. Another unbounded display queue
 would retain stale frames rather than solve that contention.
 
 Pyramids are built once **per image and layout**, not once globally: each camera
-has a feature pyramid at `keypoint.extractor.scale_factor` (normally 1.2), while
+has a feature pyramid at `keypoint.detector.scale_factor` (normally 1.2), while
 left-image LK uses a separate 2x pyramid with interleaved derivatives and different
 border requirements. Prefetch builds the LK pyramid, playback transfers it into
 the frame, and forward/backward LK and the next frame reuse that cache. Lazy

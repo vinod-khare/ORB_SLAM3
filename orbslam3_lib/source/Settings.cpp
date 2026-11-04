@@ -546,21 +546,21 @@ void Settings::read_features(cv::FileStorage &fSettings, const std::string &conf
     const auto keypoint = root["keypoint"];
     if (!keypoint || !keypoint.IsMap())
     {
-        throw std::runtime_error("keypoint must be a map containing extractor, detector, and descriptor settings");
+        throw std::runtime_error("keypoint must be a map containing detector and descriptor settings");
     }
-    const auto extractor = keypoint["extractor"];
-    if (!extractor || !extractor.IsMap())
+    const auto detector = keypoint["detector"];
+    if (!detector || !detector.IsMap())
     {
-        throw std::runtime_error("keypoint.extractor must be a map containing n_features, scale_factor, n_levels, initial_threshold, and minimum_threshold");
+        throw std::runtime_error("keypoint.detector must be a map containing type, n_features, scale_factor, n_levels, initial_threshold, and minimum_threshold");
     }
-    nFeatures_   = extractor["n_features"].as<int>();
-    scaleFactor_ = extractor["scale_factor"].as<float>();
-    nLevels_     = extractor["n_levels"].as<int>();
-    initThFAST_  = extractor["initial_threshold"].as<int>();
-    minThFAST_   = extractor["minimum_threshold"].as<int>();
+    nFeatures_   = detector["n_features"].as<int>();
+    scaleFactor_ = detector["scale_factor"].as<float>();
+    nLevels_     = detector["n_levels"].as<int>();
+    initThFAST_  = detector["initial_threshold"].as<int>();
+    minThFAST_   = detector["minimum_threshold"].as<int>();
     if (nFeatures_ <= 0 || nLevels_ <= 0 || nLevels_ > 32 || !std::isfinite(scaleFactor_) || scaleFactor_ <= 1 || initThFAST_ < 0 || minThFAST_ < 0 || minThFAST_ > initThFAST_)
     {
-        throw std::runtime_error("Invalid keypoint.extractor values: require positive features, 1..32 levels, finite scale_factor > 1, and 0 <= minimum_threshold <= initial_threshold");
+        throw std::runtime_error("Invalid keypoint.detector values: require positive features, 1..32 levels, finite scale_factor > 1, and 0 <= minimum_threshold <= initial_threshold");
     }
     const auto read_selection = [&]<typename ENUM_T_>(const std::string &section, const std::string &override_value, ENUM_T_ default_value)
     {

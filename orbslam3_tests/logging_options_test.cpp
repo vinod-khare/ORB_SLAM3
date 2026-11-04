@@ -72,24 +72,24 @@ TEST_CASE("Keypoint CLI overrides use the nested YAML hierarchy", "[settings][fe
 {
     const logging_settings file;
     const auto             settings = file.parse("keypoint:\n"
-                                                 "  extractor:\n"
+                                                 "  detector:\n"
+                                                 "    type: FAST\n"
                                                  "    n_features: 100\n"
                                                  "    scale_factor: 1.2\n"
                                                  "    n_levels: 4\n"
                                                  "    initial_threshold: 20\n"
                                                  "    minimum_threshold: 7\n"
-                                                 "  detector: {type: FAST}\n"
                                                  "  descriptor: {type: ORB}\n");
     REQUIRE(settings.overrides.detector.empty());
     REQUIRE(settings.overrides.descriptor.empty());
     const auto overridden = file.parse("keypoint:\n"
-                                       "  extractor:\n"
+                                       "  detector:\n"
+                                       "    type: FAST\n"
                                        "    n_features: 100\n"
                                        "    scale_factor: 1.2\n"
                                        "    n_levels: 4\n"
                                        "    initial_threshold: 20\n"
                                        "    minimum_threshold: 7\n"
-                                       "  detector: {type: FAST}\n"
                                        "  descriptor: {type: ORB}\n",
                                        {"--keypoint.detector.type", "SIFT", "--keypoint.descriptor.type", "BEBLID"});
     REQUIRE(overridden.overrides.detector == "SIFT");

@@ -80,14 +80,13 @@ Each `keypoint` stores original image coordinates in `pt` and geometry coordinat
 
 ```yaml
 keypoint:
-  extractor:
+  detector:
+    type: FAST
     n_features: 1024
     scale_factor: 1.2
     n_levels: 8
     initial_threshold: 20
     minimum_threshold: 7
-  detector:
-    type: FAST
   descriptor:
     type: SIFT
 tracking:

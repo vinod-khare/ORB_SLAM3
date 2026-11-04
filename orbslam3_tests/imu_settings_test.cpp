@@ -51,7 +51,8 @@ struct imu_settings
 Camera.fps: 20
 Camera.RGB: 1
 keypoint:
-  extractor:
+  detector:
+    type: FAST
     n_features: 100
     scale_factor: 1.2
     n_levels: 4
