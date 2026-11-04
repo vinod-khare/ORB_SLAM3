@@ -163,7 +163,7 @@ void System::record_frame_statistics(double preprocessing_ms, double frontend_ms
     const auto                         &frame = mpTracker->mCurrentFrame;
     processing_statistics::frame_sample sample{.frame_id           = frame.mnId,
                                                .timestamp          = frame.mTimeStamp,
-                                               .detected_keypoints = frame.mvKeys.size() + frame.mvKeysRight.size(),
+                                               .detected_keypoints = frame.flow_only ? 0 : frame.mvKeys.size() + frame.mvKeysRight.size(),
                                                .preprocessing_ms   = preprocessing_ms,
                                                .frontend_ms        = frontend_ms};
     sample.extraction_ms       = frame.extraction_ms;

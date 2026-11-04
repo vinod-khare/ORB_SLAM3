@@ -52,15 +52,16 @@ Frame::Frame()
 // Copy Constructor
 Frame::Frame(const Frame &frame)
     : mpcpi(frame.mpcpi), mTcw(frame.mTcw), mbHasPose(false), mTlr(frame.mTlr), mTrl(frame.mTrl), mRlr(frame.mRlr), mtlr(frame.mtlr), mbHasVelocity(false),
-      place_vocabulary_ptr(frame.place_vocabulary_ptr), mTimeStamp(frame.mTimeStamp), optical_flow_pyramid(frame.optical_flow_pyramid), mK(frame.mK.clone()),
-      mK_(Converter::toMatrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()), mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys),
-      mvKeysRight(frame.mvKeysRight), is_fisheye_stereo(frame.is_fisheye_stereo), mvpMapPoints(frame.mvpMapPoints), mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec),
-      mFeatVec(frame.mFeatVec), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias), mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated),
-      mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame), mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame), mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF),
-      mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors),
-      mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2), mNameFile(frame.mNameFile), mnDataset(frame.mnDataset),
-      mbIsSet(frame.mbIsSet), mbImuPreintegrated(frame.mbImuPreintegrated), mpMutexImu(frame.mpMutexImu), monoLeft(frame.monoLeft), monoRight(frame.monoRight),
-      mvLeftToRightMatch(frame.mvLeftToRightMatch), mvRightToLeftMatch(frame.mvRightToLeftMatch), mvStereo3Dpoints(frame.mvStereo3Dpoints)
+      place_vocabulary_ptr(frame.place_vocabulary_ptr), mTimeStamp(frame.mTimeStamp), optical_flow_pyramid(frame.optical_flow_pyramid),
+      right_optical_flow_pyramid(frame.right_optical_flow_pyramid), mK(frame.mK.clone()), mK_(Converter::toMatrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()), mbf(frame.mbf),
+      mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys), mvKeysRight(frame.mvKeysRight), is_fisheye_stereo(frame.is_fisheye_stereo), mvpMapPoints(frame.mvpMapPoints),
+      mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias),
+      mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated), mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame),
+      mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame), mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor),
+      mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2),
+      mvInvLevelSigma2(frame.mvInvLevelSigma2), mNameFile(frame.mNameFile), mnDataset(frame.mnDataset), mbIsSet(frame.mbIsSet), mbImuPreintegrated(frame.mbImuPreintegrated),
+      mpMutexImu(frame.mpMutexImu), monoLeft(frame.monoLeft), monoRight(frame.monoRight), mvLeftToRightMatch(frame.mvLeftToRightMatch), mvRightToLeftMatch(frame.mvRightToLeftMatch),
+      mvStereo3Dpoints(frame.mvStereo3Dpoints)
 {
     color_image         = frame.color_image;
     color_image_right   = frame.color_image_right;
@@ -128,14 +129,15 @@ std::array<unsigned char, 3> Frame::keypoint_color(int index) const
     return {255, 255, 255};
 }
 
-const std::vector<cv::Mat> &Frame::get_optical_flow_pyramid(const cv::Mat &image)
+const std::vector<cv::Mat> &Frame::get_optical_flow_pyramid(const cv::Mat &image, bool right)
 {
-    if (optical_flow_pyramid.empty())
+    auto &pyramid = right ? right_optical_flow_pyramid : optical_flow_pyramid;
+    if (pyramid.empty())
     {
-        optical_flow_pyramid = build_optical_flow_pyramid(image);
+        pyramid = build_optical_flow_pyramid(image);
     }
 
-    return optical_flow_pyramid;
+    return pyramid;
 }
 
 std::vector<cv::Mat> Frame::build_optical_flow_pyramid(const cv::Mat &image)
@@ -165,46 +167,49 @@ Frame::Frame(Frame &previous, double timestamp) : Frame(static_cast<const Frame 
     optical_flow_ms         = 0;
 
     optical_flow_pyramid.clear();
+    right_optical_flow_pyramid.clear();
     imgLeft.release();
     imgRight.release();
 
     set_tracked_features({}, {});
 }
 
-void Frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points)
+void Frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points, std::vector<keypoint> right_keys, std::vector<MapPoint *> right_points)
 {
     CV_Assert(keys.size() == points.size());
-    flow_only = true;
-    mvKeys    = std::move(keys);
-    for (auto &key : mvKeys)
+    CV_Assert(right_keys.size() == right_points.size());
+    CV_Assert(is_fisheye_stereo || right_keys.empty());
+    flow_only   = true;
+    mvKeys      = std::move(keys);
+    mvKeysRight = std::move(right_keys);
+    for (auto *view : {&mvKeys, &mvKeysRight})
     {
-        key.descriptor.release();
-        key.place_descriptor.release();
+        for (auto &key : *view)
+        {
+            key.descriptor.release();
+            key.place_descriptor.release();
+            if (is_fisheye_stereo)
+            {
+                key.pt_undistorted = key.pt;
+            }
+        }
     }
     mvpMapPoints = std::move(points);
-    N            = static_cast<int>(mvKeys.size());
+    mvpMapPoints.insert(mvpMapPoints.end(), right_points.begin(), right_points.end());
+    N        = static_cast<int>(mvpMapPoints.size());
     monoLeft = monoRight = -1;
-    mvKeysRight.clear();
     mBowVec.clear();
     mFeatVec.clear();
     mvbOutlier.assign(N, false);
-    mvuRight.assign(N, -1.0f);
-    mvDepth.assign(N, -1.0f);
+    mvuRight.assign(mvKeys.size(), -1.0f);
+    mvDepth.assign(mvKeys.size(), -1.0f);
     mnCloseMPs = 0;
-    mvLeftToRightMatch.assign(is_fisheye_stereo ? N : 0, -1);
-    mvRightToLeftMatch.clear();
+    mvLeftToRightMatch.assign(is_fisheye_stereo ? mvKeys.size() : 0, -1);
+    mvRightToLeftMatch.assign(mvKeysRight.size(), -1);
     mvStereo3Dpoints.clear();
     mmProjectPoints.clear();
     mmMatchedInImage.clear();
-    // Fisheye observations remain in native camera coordinates.
-    if (is_fisheye_stereo || N == 0)
-    {
-        for (auto &key : mvKeys)
-        {
-            key.pt_undistorted = key.pt;
-        }
-    }
-    else
+    if (!is_fisheye_stereo && N > 0)
     {
         UndistortKeyPoints();
     }
@@ -309,14 +314,14 @@ bool Frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inlier
     std::array<bool, 16> occupied{};
     int                  inliers = 0;
 
-    for (std::size_t index = 0; index < mvKeys.size(); ++index)
+    for (std::size_t index = 0; index < mvpMapPoints.size(); ++index)
     {
         if (!mvpMapPoints[index] || mvbOutlier[index])
         {
             continue;
         }
 
-        const auto &point = mvKeys[index].pt;
+        const auto &point = index < mvKeys.size() ? mvKeys[index].pt : mvKeysRight[index - mvKeys.size()].pt;
 
         if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.x < 0 || point.y < 0 || point.x >= image_size.width || point.y >= image_size.height)
         {

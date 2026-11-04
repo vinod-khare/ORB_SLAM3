@@ -66,7 +66,7 @@ class Frame
     /** Initialize geometry and feature indexing from keypoints supplied by Tracking. */
     void initialize_features(
         const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {}, const std::vector<cv::Mat> &left_pyramid = {}, const std::vector<cv::Mat> &right_pyramid = {});
-    void set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points);
+    void set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points, std::vector<keypoint> right_keys = {}, std::vector<MapPoint *> right_points = {});
     bool reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers = 50);
     bool flow_only{false};
     int  flow_candidates{};
@@ -85,7 +85,7 @@ class Frame
           const IMU::Calib   &imu_calibration = {},
           const Sophus::SE3f &left_to_right   = {});
 
-    const std::vector<cv::Mat> &get_optical_flow_pyramid(const cv::Mat &image);
+    const std::vector<cv::Mat> &get_optical_flow_pyramid(const cv::Mat &image, bool right = false);
     static std::vector<cv::Mat> build_optical_flow_pyramid(const cv::Mat &image);
 
     // Compute Bag of Words representation.
@@ -196,6 +196,7 @@ class Frame
     double mTimeStamp;
 
     std::vector<cv::Mat> optical_flow_pyramid;
+    std::vector<cv::Mat> right_optical_flow_pyramid;
 
     // Calibration matrix and OpenCV distortion parameters.
     cv::Mat         mK;

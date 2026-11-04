@@ -1,6 +1,7 @@
 #include "Frame.h"
 #include "KannalaBrandt8.h"
 #include "MapPoint.h"
+#include "Optimizer.h"
 #include "Pinhole.h"
 #include "Tracking.h"
 #include "keypoint_extractor.h"
@@ -110,6 +111,12 @@ TEST_CASE("Optical flow reuses frame pyramids and matches raw image tracking")
     REQUIRE(previous_frame.get_optical_flow_pyramid(previous_image).front().data == previous_pyramid.front().data);
     REQUIRE(previous_pyramid.front().data != previous_image.data);
     REQUIRE(cv::norm(previous_pyramid.front(), previous_image, cv::NORM_INF) == 0);
+    const auto &right_pyramid = previous_frame.get_optical_flow_pyramid(current_image, true);
+    REQUIRE(cv::norm(right_pyramid.front(), current_image, cv::NORM_INF) == 0);
+    REQUIRE(right_pyramid.front().data != previous_pyramid.front().data);
+    previous_frame.mK = cv::Mat::eye(3, 3, CV_32F);
+    const ORB_SLAM3::Frame copied(previous_frame);
+    REQUIRE(copied.right_optical_flow_pyramid.front().data == right_pyramid.front().data);
 
     const std::vector<cv::Point2f> previous_points{
         {32, 32},
@@ -201,6 +208,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(copied.mvKeysRight.size() == previous.mvKeysRight.size());
     REQUIRE_FALSE(previous.mvKeys.front().descriptor.empty());
     previous.get_optical_flow_pyramid(image);
+    previous.get_optical_flow_pyramid(image, true);
     previous.flow_candidates = 200;
     const auto       next_id = ORB_SLAM3::Frame::nNextId;
     ORB_SLAM3::Frame current(previous, 1.05);
@@ -211,6 +219,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mvKeys.empty());
     REQUIRE(current.mvKeysRight.empty());
     REQUIRE(current.optical_flow_pyramid.empty());
+    REQUIRE(current.right_optical_flow_pyramid.empty());
     REQUIRE(current.flow_candidates == 0);
     REQUIRE(current.mpPrevFrame == &previous);
     REQUIRE_FALSE(current.HasPose());
@@ -475,4 +484,68 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
     frame.mvpMapPoints.assign(100, &point);
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
     REQUIRE_FALSE(frame.reliable_flow_inliers({0, 128}));
+}
+
+TEST_CASE("Fisheye flow preserves both camera observations for pose optimization")
+{
+    const bool               right_only = GENERATE(false, true);
+    ORB_SLAM3::camera_vector cameras;
+    for (int view = 0; view < 2; ++view)
+    {
+        auto camera           = std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
+        camera->mvLappingArea = {0, 256};
+        cameras.push_back(std::move(camera));
+    }
+    cv::Mat image(256, 256, CV_8UC1);
+    cv::RNG random(27);
+    random.fill(image, cv::RNG::UNIFORM, 0, 256);
+    ORB_SLAM3::keypoint_extractor left_extractor(400, 1.2f, 4, 20, 7);
+    ORB_SLAM3::keypoint_extractor right_extractor(400, 1.2f, 4, 20, 7);
+    const Sophus::SE3f            relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0.02f, 0));
+    ORB_SLAM3::Frame              frame(1.0, nullptr, cameras[0]->toK(), cv::Mat::zeros(4, 1, CV_32F), 20, 40, nullptr, {}, relative_pose);
+    ORB_SLAM3::Frame::mbInitialComputations = true;
+    ORB_SLAM3::Tracking::extract_features(frame, left_extractor, image, cameras, image, &right_extractor);
+
+    std::vector<std::unique_ptr<ORB_SLAM3::MapPoint>> points;
+    std::vector<ORB_SLAM3::keypoint>                  left_keys;
+    std::vector<ORB_SLAM3::keypoint>                  right_keys;
+    std::vector<ORB_SLAM3::MapPoint *>                left_points;
+    std::vector<ORB_SLAM3::MapPoint *>                right_points;
+    for (int index = 0; index < 100; ++index)
+    {
+        const Eigen::Vector3f position((index % 10 - 4.5f) * 0.3f, (index / 10 - 4.5f) * 0.3f, 3.0f + (index % 3) * 0.2f);
+        auto                  point = std::make_unique<ORB_SLAM3::MapPoint>();
+        point->SetWorldPos(position);
+        const auto left  = cameras[0]->project(position);
+        const auto right = cameras[1]->project(frame.GetRelativePoseTrl() * position);
+        if (!right_only)
+        {
+            left_keys.emplace_back(left.x(), left.y(), 7.f);
+            left_points.push_back(point.get());
+        }
+        right_keys.emplace_back(right.x(), right.y(), 7.f);
+        right_points.push_back(point.get());
+        points.push_back(std::move(point));
+    }
+    frame.set_tracked_features(left_keys, left_points, right_keys, right_points);
+    REQUIRE(frame.N == (right_only ? 100 : 200));
+    REQUIRE(frame.mvKeysRight.size() == 100);
+    REQUIRE(frame.mvpMapPoints[frame.mvKeys.size()] == right_points.front());
+    REQUIRE(frame.mvbOutlier.size() == static_cast<std::size_t>(frame.N));
+    REQUIRE(frame.mvLeftToRightMatch.size() == left_keys.size());
+    REQUIRE(frame.mvRightToLeftMatch == std::vector<int>(100, -1));
+    REQUIRE(std::all_of(frame.mvDepth.begin(), frame.mvDepth.end(), [](float depth) { return depth == -1; }));
+    REQUIRE(frame.GetFeaturesInArea(128, 128, 128, -1, -1, true).size() == 100);
+    REQUIRE(frame.reliable_flow_inliers({256, 256}, 100));
+    REQUIRE(frame.flow_inliers == frame.N);
+    REQUIRE(frame.mvKeysRight.front().descriptor.empty());
+    REQUIRE(frame.mvKeysRight.front().pt_undistorted == frame.mvKeysRight.front().pt);
+
+    frame.SetPose(Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.02f, -0.01f, 0.03f)));
+    REQUIRE(ORB_SLAM3::Optimizer::PoseOptimization(&frame, cameras) == frame.N);
+    REQUIRE(frame.GetPose().translation().norm() < 0.001f);
+    REQUIRE(frame.GetPose().so3().log().norm() < 0.001f);
+    REQUIRE(frame.reliable_flow_inliers({256, 256}, 100));
+    std::fill(frame.mvbOutlier.begin(), frame.mvbOutlier.end(), true);
+    REQUIRE_FALSE(frame.reliable_flow_inliers({256, 256}));
 }

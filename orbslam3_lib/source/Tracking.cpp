@@ -282,11 +282,13 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
     if (_use_optical_flow && mLastFrame.mnId == mCurrentFrame.mnId && !mImGray.empty())
     {
         _previous_gray          = mImGray.clone();
+        previous_right_gray_    = mImRight.clone();
         _previous_gray_frame_id = mCurrentFrame.mnId;
     }
     else
     {
         _previous_gray.release();
+        previous_right_gray_.release();
     }
 
     return mCurrentFrame.GetPose();
@@ -1681,24 +1683,16 @@ bool Tracking::TrackWithMotionModel()
             reliable_flow             = mCurrentFrame.reliable_flow_inliers(mImGray.size(), minimum_inliers);
         }
 
-        if (reliable_flow && !stereo)
+        if (reliable_flow)
         {
             spdlog::debug("Frame {}: flow-only tracking, {} observations", mCurrentFrame.mnId, flow_matches);
             return true;
         }
 
-        if (!reliable_flow)
-        {
-            spdlog::debug("Frame {}: optical flow weak; extracting features for descriptor recovery", mCurrentFrame.mnId);
-            ++flow_recoveries_;
-        }
-
+        spdlog::debug("Frame {}: optical flow weak; extracting features for descriptor recovery", mCurrentFrame.mnId);
+        ++flow_recoveries_;
         extract_current_features();
-
-        if (!reliable_flow)
-        {
-            mCurrentFrame.SetPose(predicted_pose);
-        }
+        mCurrentFrame.SetPose(predicted_pose);
     }
 
     fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
@@ -1887,6 +1881,10 @@ int Tracking::track_with_optical_flow()
     {
         return 0;
     }
+    if (mLastFrame.is_fisheye_stereo && (previous_right_gray_.empty() || mImRight.empty() || previous_right_gray_.size() != mImRight.size() || mImRight.type() != CV_8UC1))
+    {
+        return 0;
+    }
 
     const std::size_t previous_keypoint_count = mLastFrame.mvKeys.size() + (mLastFrame.is_fisheye_stereo ? mLastFrame.mvKeysRight.size() : 0);
     const std::size_t current_keypoint_count  = mCurrentFrame.mvKeys.size() + (mCurrentFrame.is_fisheye_stereo ? mCurrentFrame.mvKeysRight.size() : 0);
@@ -1898,115 +1896,125 @@ int Tracking::track_with_optical_flow()
         return 0;
     }
 
-    std::vector<cv::Point2f>       previous_points;
-    std::vector<cv::Point2f>       current_points;
-    std::vector<keypoint>          previous_keys;
-    std::vector<MapPoint *>        map_points;
-    std::array<int, 16>            cell_counts{};
-    std::unordered_set<MapPoint *> selected_points;
-    previous_points.reserve(mLastFrame.mvKeys.size());
-    map_points.reserve(mLastFrame.mvKeys.size());
-
-    for (std::size_t index = 0; index < mLastFrame.mvKeys.size(); ++index)
+    std::array<std::vector<keypoint>, 2>   tracked_keys;
+    std::array<std::vector<MapPoint *>, 2> tracked_points;
+    const int                              view_count = mLastFrame.is_fisheye_stereo ? 2 : 1;
+    for (int view = 0; view < view_count; ++view)
     {
-        MapPoint *map_point = mLastFrame.mvpMapPoints[index];
+        const bool                     right          = view == 1;
+        const auto                    &previous_image = right ? previous_right_gray_ : _previous_gray;
+        const auto                    &current_image  = right ? mImRight : mImGray;
+        const auto                    &keys           = right ? mLastFrame.mvKeysRight : mLastFrame.mvKeys;
+        const auto                     offset         = right ? mLastFrame.mvKeys.size() : 0;
+        const auto                     camera_pose    = right ? mCurrentFrame.GetRelativePoseTrl() * mCurrentFrame.GetPose() : mCurrentFrame.GetPose();
+        std::vector<cv::Point2f>       previous_points;
+        std::vector<cv::Point2f>       current_points;
+        std::vector<keypoint>          previous_keys;
+        std::vector<MapPoint *>        map_points;
+        std::array<int, 16>            cell_counts{};
+        std::unordered_set<MapPoint *> selected_points;
+        previous_points.reserve(keys.size());
+        map_points.reserve(keys.size());
 
-        if (!map_point || mLastFrame.mvbOutlier[index] || map_point->isBad() || map_point->Observations() == 0)
+        for (std::size_t index = 0; index < keys.size(); ++index)
         {
-            continue;
-        }
+            MapPoint *map_point = mLastFrame.mvpMapPoints[offset + index];
 
-        const auto &key = mLastFrame.mvKeys[index];
-        if (!std::isfinite(key.pt.x) || !std::isfinite(key.pt.y) || key.pt.x < 0 || key.pt.y < 0 || key.pt.x >= mImGray.cols || key.pt.y >= mImGray.rows)
-        {
-            continue;
-        }
-        const int x          = static_cast<int>(key.pt.x * 4 / mImGray.cols);
-        const int y          = static_cast<int>(key.pt.y * 4 / mImGray.rows);
-        auto     &cell_count = cell_counts[static_cast<std::size_t>(y * 4 + x)];
-        if (cell_count >= 64 || !selected_points.insert(map_point).second)
-        {
-            continue;
-        }
-        ++cell_count;
-        previous_points.push_back(key.pt);
-        previous_keys.push_back(key);
-        map_points.push_back(map_point);
-        cv::Point2f prediction = key.pt;
-        // Camera-model projections are in LK coordinates except for distorted pinhole input.
-        if (is_fisheye_stereo(cameras) || mDistCoef.at<float>(0) == 0.0f)
-        {
-            const Eigen::Vector3f position = mCurrentFrame.GetPose() * map_point->GetWorldPos();
-            if (position.z() > 0)
+            if (!map_point || mLastFrame.mvbOutlier[offset + index] || map_point->isBad() || map_point->Observations() == 0)
             {
-                const Eigen::Vector2f projected = cameras[0]->project(position);
-                if (projected.allFinite() && projected.x() >= 0 && projected.y() >= 0 && projected.x() < mImGray.cols && projected.y() < mImGray.rows)
+                continue;
+            }
+
+            const auto &key = keys[index];
+            if (!std::isfinite(key.pt.x) || !std::isfinite(key.pt.y) || key.pt.x < 0 || key.pt.y < 0 || key.pt.x >= previous_image.cols || key.pt.y >= previous_image.rows)
+            {
+                continue;
+            }
+            const int x          = static_cast<int>(key.pt.x * 4 / previous_image.cols);
+            const int y          = static_cast<int>(key.pt.y * 4 / previous_image.rows);
+            auto     &cell_count = cell_counts[static_cast<std::size_t>(y * 4 + x)];
+            if (cell_count >= 64 || !selected_points.insert(map_point).second)
+            {
+                continue;
+            }
+            ++cell_count;
+            previous_points.push_back(key.pt);
+            previous_keys.push_back(key);
+            map_points.push_back(map_point);
+            cv::Point2f prediction = key.pt;
+            // Camera-model projections are in LK coordinates except for distorted pinhole input.
+            if (is_fisheye_stereo(cameras) || mDistCoef.at<float>(0) == 0.0f)
+            {
+                const Eigen::Vector3f position = camera_pose * map_point->GetWorldPos();
+                if (position.z() > 0)
                 {
-                    prediction = cv::Point2f(projected.x(), projected.y());
+                    const Eigen::Vector2f projected = cameras[view]->project(position);
+                    if (projected.allFinite() && projected.x() >= 0 && projected.y() >= 0 && projected.x() < current_image.cols && projected.y() < current_image.rows)
+                    {
+                        prediction = cv::Point2f(projected.x(), projected.y());
+                    }
                 }
             }
+            current_points.push_back(prediction);
         }
-        current_points.push_back(prediction);
+
+        if (previous_points.empty())
+        {
+            continue;
+        }
+        flow_reference_matches_ += static_cast<int>(previous_points.size());
+
+        std::vector<unsigned char> forward_status;
+        std::vector<float>         forward_error;
+        const cv::Size             window_size(21, 21);
+        const cv::TermCriteria     criteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
+        const auto                 flow_started     = std::chrono::steady_clock::now();
+        const auto                &previous_pyramid = mLastFrame.get_optical_flow_pyramid(previous_image, right);
+        const auto                &current_pyramid  = mCurrentFrame.get_optical_flow_pyramid(current_image, right);
+        cv::calcOpticalFlowPyrLK(previous_pyramid, current_pyramid, previous_points, current_points, forward_status, forward_error, window_size, 3, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
+
+        std::vector<cv::Point2f>   backward_points;
+        std::vector<unsigned char> backward_status;
+        std::vector<float>         backward_error;
+        cv::calcOpticalFlowPyrLK(current_pyramid, previous_pyramid, current_points, backward_points, backward_status, backward_error, window_size, 3, criteria);
+        mCurrentFrame.optical_flow_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - flow_started).count();
+
+        tracked_keys[view].reserve(previous_points.size());
+        tracked_points[view].reserve(previous_points.size());
+
+        for (std::size_t index = 0; index < previous_points.size(); ++index)
+        {
+            if (!forward_status[index] || !backward_status[index] || !std::isfinite(forward_error[index]))
+            {
+                continue;
+            }
+
+            const float delta_x           = previous_points[index].x - backward_points[index].x;
+            const float delta_y           = previous_points[index].y - backward_points[index].y;
+            const float consistency_error = std::sqrt(delta_x * delta_x + delta_y * delta_y);
+
+            if (!std::isfinite(consistency_error) || consistency_error > 1.5f || forward_error[index] > 50.0f)
+            {
+                continue;
+            }
+
+            const cv::Point2f &point = current_points[index];
+
+            if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.x < 0.0f || point.x >= current_image.cols || point.y < 0.0f || point.y >= current_image.rows)
+            {
+                continue;
+            }
+
+            auto key       = previous_keys[index];
+            key.pt         = point;
+            key.display.pt = point;
+            tracked_keys[view].push_back(key);
+            tracked_points[view].push_back(map_points[index]);
+        }
     }
 
-    if (previous_points.empty())
-    {
-        return 0;
-    }
-    flow_reference_matches_       = static_cast<int>(previous_points.size());
     mCurrentFrame.flow_candidates = flow_reference_matches_;
-
-    std::vector<unsigned char> forward_status;
-    std::vector<float>         forward_error;
-    const cv::Size             window_size(21, 21);
-    const cv::TermCriteria     criteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
-    const auto                 flow_started     = std::chrono::steady_clock::now();
-    const auto                &previous_pyramid = mLastFrame.get_optical_flow_pyramid(_previous_gray);
-    const auto                &current_pyramid  = mCurrentFrame.get_optical_flow_pyramid(mImGray);
-    cv::calcOpticalFlowPyrLK(previous_pyramid, current_pyramid, previous_points, current_points, forward_status, forward_error, window_size, 3, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
-
-    std::vector<cv::Point2f>   backward_points;
-    std::vector<unsigned char> backward_status;
-    std::vector<float>         backward_error;
-    cv::calcOpticalFlowPyrLK(current_pyramid, previous_pyramid, current_points, backward_points, backward_status, backward_error, window_size, 3, criteria);
-    mCurrentFrame.optical_flow_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - flow_started).count();
-
-    std::vector<keypoint>   tracked_keys;
-    std::vector<MapPoint *> tracked_points;
-    tracked_keys.reserve(previous_points.size());
-    tracked_points.reserve(previous_points.size());
-
-    for (std::size_t index = 0; index < previous_points.size(); ++index)
-    {
-        if (!forward_status[index] || !backward_status[index] || !std::isfinite(forward_error[index]))
-        {
-            continue;
-        }
-
-        const float delta_x           = previous_points[index].x - backward_points[index].x;
-        const float delta_y           = previous_points[index].y - backward_points[index].y;
-        const float consistency_error = std::sqrt(delta_x * delta_x + delta_y * delta_y);
-
-        if (!std::isfinite(consistency_error) || consistency_error > 1.5f || forward_error[index] > 50.0f)
-        {
-            continue;
-        }
-
-        const cv::Point2f &point = current_points[index];
-
-        if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.x < 0.0f || point.x >= mImGray.cols || point.y < 0.0f || point.y >= mImGray.rows)
-        {
-            continue;
-        }
-
-        auto key       = previous_keys[index];
-        key.pt         = point;
-        key.display.pt = point;
-        tracked_keys.push_back(key);
-        tracked_points.push_back(map_points[index]);
-    }
-
-    mCurrentFrame.set_tracked_features(std::move(tracked_keys), std::move(tracked_points));
+    mCurrentFrame.set_tracked_features(std::move(tracked_keys[0]), std::move(tracked_points[0]), std::move(tracked_keys[1]), std::move(tracked_points[1]));
     mCurrentFrame.flow_tracks = mCurrentFrame.N;
     return mCurrentFrame.N >= 0.6 * flow_reference_matches_ ? mCurrentFrame.N : 0;
 }
@@ -2206,7 +2214,7 @@ bool Tracking::NeedNewKeyFrame()
         nMinObs = 2;
     }
     int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);
-    // Flow tracks a bounded left-camera subset, not all ORB observations in both cameras.
+    // Flow tracks a bounded subset, not the full extracted feature population.
     if (mCurrentFrame.flow_only)
     {
         nRefMatches = std::min(nRefMatches, flow_reference_matches_);
@@ -3041,6 +3049,7 @@ void Tracking::Reset(bool bLocMap)
     mnLastRelocFrameId = 0;
     mLastFrame         = Frame();
     _previous_gray.release();
+    previous_right_gray_.release();
     mpReferenceKF  = static_cast<KeyFrame *>(NULL);
     mpLastKeyFrame = static_cast<KeyFrame *>(NULL);
     mvIniMatches.clear();
@@ -3130,6 +3139,7 @@ void Tracking::ResetActiveMap(bool bLocMap)
     mCurrentFrame = Frame();
     mLastFrame    = Frame();
     _previous_gray.release();
+    previous_right_gray_.release();
     mpReferenceKF  = static_cast<KeyFrame *>(NULL);
     mpLastKeyFrame = static_cast<KeyFrame *>(NULL);
     mvIniMatches.clear();
@@ -3222,6 +3232,7 @@ void Tracking::NewDataset()
 {
     mnNumDataset++;
     _previous_gray.release();
+    previous_right_gray_.release();
 }
 
 int Tracking::GetNumberDataset() { return mnNumDataset; }
