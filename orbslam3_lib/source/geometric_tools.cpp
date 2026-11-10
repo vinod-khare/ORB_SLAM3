@@ -16,7 +16,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "GeometricTools.h"
+#include "geometric_tools.h"
 
 #include "CameraModels/GeometricCamera.h"
 #include "KeyFrame.h"
@@ -29,8 +29,13 @@
 namespace ORB_SLAM3
 {
 
-bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_points, const std::vector<cv::Point2f> &image_points, const std::vector<float> &max_errors, GeometricCamera &camera,
-                                      int min_inliers, Eigen::Matrix4f &Tcw, std::vector<bool> &inliers)
+bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_points,
+                                       const std::vector<cv::Point2f> &image_points,
+                                       const std::vector<float>       &max_errors,
+                                       GeometricCamera                &camera,
+                                       int                             min_inliers,
+                                       Eigen::Matrix4f                &camera_from_world,
+                                       std::vector<bool>              &inliers)
 {
     inliers.assign(world_points.size(), false);
     if (world_points.size() < static_cast<size_t>(min_inliers) || image_points.size() != world_points.size() || max_errors.size() != world_points.size())
@@ -67,13 +72,23 @@ bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poin
 #if CV_VERSION_MAJOR > 4 || (CV_VERSION_MAJOR == 4 && CV_VERSION_MINOR >= 12)
         if (is_fisheye)
         {
-            solved = cv::fisheye::solvePnPRansac(world_points, image_points, camera_matrix, distortion_coefficients, rotation_vector, translation_vector, false, 300,
-                                                 static_cast<float>(reprojection_threshold), 0.99, ransac_inliers, cv::SOLVEPNP_EPNP);
+            solved = cv::fisheye::solvePnPRansac(world_points,
+                                                 image_points,
+                                                 camera_matrix,
+                                                 distortion_coefficients,
+                                                 rotation_vector,
+                                                 translation_vector,
+                                                 false,
+                                                 300,
+                                                 static_cast<float>(reprojection_threshold),
+                                                 0.99,
+                                                 ransac_inliers,
+                                                 cv::SOLVEPNP_EPNP);
         }
         else
         {
-            solved = cv::solvePnPRansac(world_points, image_points, camera_matrix, cv::noArray(), rotation_vector, translation_vector, false, 300, reprojection_threshold, 0.99, ransac_inliers,
-                                        cv::SOLVEPNP_EPNP);
+            solved = cv::solvePnPRansac(
+                world_points, image_points, camera_matrix, cv::noArray(), rotation_vector, translation_vector, false, 300, reprojection_threshold, 0.99, ransac_inliers, cv::SOLVEPNP_EPNP);
         }
 #else
         std::vector<cv::Point2f> pnp_image_points     = image_points;
@@ -103,8 +118,8 @@ bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poin
             ransac_threshold     = std::max(0.01, 2.0 * reprojection_threshold / focal_length);
         }
 
-        solved = cv::solvePnPRansac(world_points, pnp_image_points, ransac_camera_matrix, cv::noArray(), rotation_vector, translation_vector, false, 300, ransac_threshold, 0.99,
-                                    ransac_inliers, cv::SOLVEPNP_EPNP);
+        solved = cv::solvePnPRansac(
+            world_points, pnp_image_points, ransac_camera_matrix, cv::noArray(), rotation_vector, translation_vector, false, 300, ransac_threshold, 0.99, ransac_inliers, cv::SOLVEPNP_EPNP);
 #endif
         if (!solved || ransac_inliers.size() < static_cast<size_t>(min_inliers))
         {
@@ -221,7 +236,7 @@ bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poin
             return false;
         }
 
-        Tcw = candidate_pose;
+        camera_from_world = candidate_pose;
 
         return true;
     }
@@ -231,46 +246,47 @@ bool GeometricTools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poin
     }
 }
 
-Eigen::Matrix3f GeometricTools::ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2)
+Eigen::Matrix3f geometric_tools::compute_f12(KeyFrame *&key_frame1, KeyFrame *&key_frame2)
 {
-    Sophus::SE3<float>                    Tc1w = pKF1->GetPose();
-    Sophus::Matrix3<float>                Rc1w = Tc1w.rotationMatrix();
-    Sophus::SE3<float>::TranslationMember tc1w = Tc1w.translation();
+    Sophus::SE3<float>                    camera1_from_world      = key_frame1->GetPose();
+    Sophus::Matrix3<float>                rotation1_from_world    = camera1_from_world.rotationMatrix();
+    Sophus::SE3<float>::TranslationMember translation1_from_world = camera1_from_world.translation();
 
-    Sophus::SE3<float>                    Tc2w = pKF2->GetPose();
-    Sophus::Matrix3<float>                Rc2w = Tc2w.rotationMatrix();
-    Sophus::SE3<float>::TranslationMember tc2w = Tc2w.translation();
+    Sophus::SE3<float>                    camera2_from_world      = key_frame2->GetPose();
+    Sophus::Matrix3<float>                rotation2_from_world    = camera2_from_world.rotationMatrix();
+    Sophus::SE3<float>::TranslationMember translation2_from_world = camera2_from_world.translation();
 
-    Sophus::Matrix3<float> Rc1c2 = Rc1w * Rc2w.transpose();
-    Eigen::Vector3f        tc1c2 = -Rc1c2 * tc2w + tc1w;
+    Sophus::Matrix3<float> rotation1_from_camera2    = rotation1_from_world * rotation2_from_world.transpose();
+    Eigen::Vector3f        translation1_from_camera2 = -rotation1_from_camera2 * translation2_from_world + translation1_from_world;
 
-    Eigen::Matrix3f tc1c2x = Sophus::SO3f::hat(tc1c2);
+    Eigen::Matrix3f translation_skew = Sophus::SO3f::hat(translation1_from_camera2);
 
-    const Eigen::Matrix3f K1 = pKF1->cameras[0]->toK_();
-    const Eigen::Matrix3f K2 = pKF2->cameras[0]->toK_();
+    const Eigen::Matrix3f calibration1 = key_frame1->cameras[0]->toK_();
+    const Eigen::Matrix3f calibration2 = key_frame2->cameras[0]->toK_();
 
-    return K1.transpose().inverse() * tc1c2x * Rc1c2 * K2.inverse();
+    return calibration1.transpose().inverse() * translation_skew * rotation1_from_camera2 * calibration2.inverse();
 }
 
-bool GeometricTools::Triangulate(Eigen::Vector3f &x_c1, Eigen::Vector3f &x_c2, Eigen::Matrix<float, 3, 4> &Tc1w, Eigen::Matrix<float, 3, 4> &Tc2w, Eigen::Vector3f &x3D)
+bool geometric_tools::triangulate(
+    Eigen::Vector3f &x_c1, Eigen::Vector3f &x_c2, Eigen::Matrix<float, 3, 4> &camera1_from_world, Eigen::Matrix<float, 3, 4> &camera2_from_world, Eigen::Vector3f &point3d)
 {
-    Eigen::Matrix4f A;
-    A.block<1, 4>(0, 0) = x_c1(0) * Tc1w.block<1, 4>(2, 0) - Tc1w.block<1, 4>(0, 0);
-    A.block<1, 4>(1, 0) = x_c1(1) * Tc1w.block<1, 4>(2, 0) - Tc1w.block<1, 4>(1, 0);
-    A.block<1, 4>(2, 0) = x_c2(0) * Tc2w.block<1, 4>(2, 0) - Tc2w.block<1, 4>(0, 0);
-    A.block<1, 4>(3, 0) = x_c2(1) * Tc2w.block<1, 4>(2, 0) - Tc2w.block<1, 4>(1, 0);
+    Eigen::Matrix4f system;
+    system.block<1, 4>(0, 0) = x_c1(0) * camera1_from_world.block<1, 4>(2, 0) - camera1_from_world.block<1, 4>(0, 0);
+    system.block<1, 4>(1, 0) = x_c1(1) * camera1_from_world.block<1, 4>(2, 0) - camera1_from_world.block<1, 4>(1, 0);
+    system.block<1, 4>(2, 0) = x_c2(0) * camera2_from_world.block<1, 4>(2, 0) - camera2_from_world.block<1, 4>(0, 0);
+    system.block<1, 4>(3, 0) = x_c2(1) * camera2_from_world.block<1, 4>(2, 0) - camera2_from_world.block<1, 4>(1, 0);
 
-    Eigen::JacobiSVD<Eigen::Matrix4f> svd(A, Eigen::ComputeFullV);
+    Eigen::JacobiSVD<Eigen::Matrix4f> svd(system, Eigen::ComputeFullV);
 
-    Eigen::Vector4f x3Dh = svd.matrixV().col(3);
+    Eigen::Vector4f homogeneous_point = svd.matrixV().col(3);
 
-    if (x3Dh(3) == 0)
+    if (homogeneous_point(3) == 0)
     {
         return false;
     }
 
     // Euclidean coordinates
-    x3D = x3Dh.head(3) / x3Dh(3);
+    point3d = homogeneous_point.head(3) / homogeneous_point(3);
 
     return true;
 }

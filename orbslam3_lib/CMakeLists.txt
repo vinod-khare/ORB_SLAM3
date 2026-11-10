@@ -49,7 +49,7 @@ add_library(ORB_SLAM3 SHARED
         source/CameraModels/Pinhole.cpp
         source/CameraModels/KannalaBrandt8.cpp
         source/OptimizableTypes.cpp
-        source/GeometricTools.cpp
+        source/geometric_tools.cpp
         source/two_view_reconstruction.cpp
         source/Settings.cpp
         source/DUtils/Random.cpp

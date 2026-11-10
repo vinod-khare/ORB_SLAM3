@@ -19,8 +19,8 @@
 #ifndef CAMERAMODELS_GEOMETRICCAMERA_H
 #define CAMERAMODELS_GEOMETRICCAMERA_H
 
-#include "GeometricTools.h"
 #include "converter.h"
+#include "geometric_tools.h"
 
 #include <memory>
 #include <span>

@@ -18,11 +18,11 @@
 
 #include "LocalMapping.h"
 
-#include "GeometricTools.h"
 #include "LoopClosing.h"
 #include "Optimizer.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
+#include "geometric_tools.h"
 
 #include <mutex>
 
@@ -564,7 +564,7 @@ void LocalMapping::CreateNewMapPoints()
             bool bPointStereo = false;
             if (cosParallaxRays < cosParallaxStereo && cosParallaxRays > 0 && (bStereo1 || bStereo2 || (cosParallaxRays < 0.9996 && mbInertial) || (cosParallaxRays < 0.9998 && !mbInertial)))
             {
-                goodProj = GeometricTools::Triangulate(xn1, xn2, eigTcw1, eigTcw2, x3D);
+                goodProj = geometric_tools::triangulate(xn1, xn2, eigTcw1, eigTcw2, x3D);
                 if (!goodProj)
                 {
                     continue;

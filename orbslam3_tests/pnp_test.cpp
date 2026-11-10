@@ -1,9 +1,9 @@
 #include "Frame.h"
 #include "G2oTypes.h"
-#include "GeometricTools.h"
 #include "KannalaBrandt8.h"
 #include "OptimizableTypes.h"
 #include "Pinhole.h"
+#include "geometric_tools.h"
 
 #include <algorithm>
 #include <array>
@@ -62,7 +62,7 @@ template <typename Camera> void check_pnp_with_outliers(Camera &camera)
 
     Eigen::Matrix4f   estimated_pose;
     std::vector<bool> inliers;
-    REQUIRE(ORB_SLAM3::GeometricTools::solve_pnp_ransac(world_points, image_points, max_errors, camera, 20, estimated_pose, inliers));
+    REQUIRE(ORB_SLAM3::geometric_tools::solve_pnp_ransac(world_points, image_points, max_errors, camera, 20, estimated_pose, inliers));
     REQUIRE(std::count(inliers.begin(), inliers.end(), true) == 30);
     REQUIRE((estimated_pose.block<3, 3>(0, 0) - rotation).norm() < 1e-3f);
     REQUIRE((estimated_pose.block<3, 1>(0, 3) - translation).norm() < 1e-3f);
@@ -79,6 +79,30 @@ TEST_CASE("OpenCV PnP relocalization handles Kannala-Brandt outliers")
 {
     ORB_SLAM3::KannalaBrandt8 camera({500.0f, 510.0f, 320.0f, 240.0f, 0.01f, -0.001f, 0.0001f, -0.00001f});
     check_pnp_with_outliers(camera);
+}
+
+TEST_CASE("Geometric tools preserve triangulation and matrix comparison tolerances", "[geometry]")
+{
+    Eigen::Matrix<float, 3, 4> camera1 = Eigen::Matrix<float, 3, 4>::Zero();
+    camera1.block<3, 3>(0, 0).setIdentity();
+    auto camera2  = camera1;
+    camera2(0, 3) = -1.f;
+    Eigen::Vector3f ray1(0.f, 0.f, 1.f);
+    Eigen::Vector3f ray2(-0.2f, 0.f, 1.f);
+    Eigen::Vector3f point;
+    REQUIRE(ORB_SLAM3::geometric_tools::triangulate(ray1, ray2, camera1, camera2, point));
+    REQUIRE(point.isApprox(Eigen::Vector3f(0.f, 0.f, 5.f), 1e-5f));
+
+    const Eigen::Matrix3f identity    = Eigen::Matrix3f::Identity();
+    const cv::Mat         cv_identity = cv::Mat::eye(3, 3, CV_32F);
+    REQUIRE(ORB_SLAM3::geometric_tools::check_matrices(cv_identity, identity));
+    REQUIRE(ORB_SLAM3::geometric_tools::check_matrices(identity, identity));
+    auto perturbed   = identity;
+    perturbed(0, 0) += 0.0005f;
+    REQUIRE(ORB_SLAM3::geometric_tools::check_matrices(identity, perturbed));
+    perturbed(0, 0) += 0.001f;
+    REQUIRE_FALSE(ORB_SLAM3::geometric_tools::check_matrices(identity, perturbed));
+    REQUIRE_FALSE(ORB_SLAM3::geometric_tools::check_matrices(cv_identity, perturbed));
 }
 
 TEST_CASE("Optimizer edges bind their camera reference at construction", "[camera_rig]")

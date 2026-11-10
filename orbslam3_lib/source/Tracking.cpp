@@ -19,12 +19,12 @@
 #include "Tracking.h"
 
 #include "G2oTypes.h"
-#include "GeometricTools.h"
 #include "KannalaBrandt8.h"
 #include "Optimizer.h"
 #include "Pinhole.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
+#include "geometric_tools.h"
 
 #include <algorithm>
 #include <array>
@@ -2907,7 +2907,7 @@ bool Tracking::Relocalization()
         vector<bool>    pnp_inliers;
         Eigen::Matrix4f Tcw_matrix;
         const int       min_inliers = std::max(10, static_cast<int>(world_points.size() * 0.5));
-        if (!GeometricTools::solve_pnp_ransac(world_points, image_points, max_errors, *cameras[0], min_inliers, Tcw_matrix, pnp_inliers))
+        if (!geometric_tools::solve_pnp_ransac(world_points, image_points, max_errors, *cameras[0], min_inliers, Tcw_matrix, pnp_inliers))
         {
             continue;
         }
