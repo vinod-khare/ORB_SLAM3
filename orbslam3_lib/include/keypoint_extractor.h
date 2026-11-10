@@ -32,7 +32,12 @@ namespace ORB_SLAM3
 class keypoint_extractor
 {
   public:
-    keypoint_extractor(int nfeatures, float scaleFactor, int nlevels, int iniThFAST, int minThFAST, keypoint_detector_type detector_type = keypoint_detector_type::fast,
+    keypoint_extractor(int                      nfeatures,
+                       float                    scaleFactor,
+                       int                      nlevels,
+                       int                      iniThFAST,
+                       int                      minThFAST,
+                       keypoint_detector_type   detector_type   = keypoint_detector_type::fast,
                        keypoint_descriptor_type descriptor_type = keypoint_descriptor_type::orb);
 
     ~keypoint_extractor() = default;
@@ -54,14 +59,16 @@ class keypoint_extractor
     std::vector<float> inline get_inverse_scale_sigma_squares() { return mvInvLevelSigma2; }
 
     keypoint_detector_type get_detector_type() const { return _detector_type; }
+    int                    get_descriptor_type() const { return _descriptor->descriptorType(); }
+    int                    get_descriptor_size() const { return _descriptor->descriptorSize(); }
 
     std::vector<cv::Mat> mvImagePyramid;
 
   protected:
-    void                      compute_pyramid(cv::Mat image);
-    void                      compute_keypoints(std::vector<std::vector<cv::KeyPoint>> &allKeypoints, std::vector<std::vector<cv::KeyPoint>> &display_keypoints);
-    std::vector<cv::KeyPoint> distribute_keypoints(const std::vector<cv::KeyPoint> &vToDistributeKeys, const int &minX, const int &maxX, const int &minY, const int &maxY, const int &nFeatures,
-                                                   const int &level);
+    void compute_pyramid(cv::Mat image);
+    void compute_keypoints(std::vector<std::vector<cv::KeyPoint>> &allKeypoints, std::vector<std::vector<cv::KeyPoint>> &display_keypoints);
+    std::vector<cv::KeyPoint>
+    distribute_keypoints(const std::vector<cv::KeyPoint> &vToDistributeKeys, const int &minX, const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
 
     int    nfeatures;
     double scaleFactor;
@@ -86,7 +93,6 @@ class keypoint_extractor
     cv::Ptr<cv::Feature2D>   _detector;
     keypoint_descriptor_type _descriptor_type;
     cv::Ptr<cv::Feature2D>   _descriptor;
-    cv::Ptr<cv::Feature2D>   _place_descriptor;
 };
 
 } // namespace ORB_SLAM3

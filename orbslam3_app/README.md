@@ -322,7 +322,7 @@ Paths in `data.root`, `data.left`, `data.right`, and `data.imu` are resolved rel
 
 | Option                                                     | Description                                                                                                                                                                    |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--vocab`, `--settings`                                    | Required ORB vocabulary and settings YAML paths. These may also be supplied as the first two positional arguments.                                                             |
+| `--vocab`, `--settings`                                    | Required compressed DBoW3 vocabulary and settings YAML paths; the vocabulary must match the selected descriptor. These may also be supplied as the first two positional arguments. |
 | `--slam-type`                                              | `mono` (default), `mono-inertial`, `stereo`, or `stereo-inertial`.                                                                                                             |
 | `--data.root`, `--data.left`, `--data.right`, `--data.imu` | Dataset root and sensor data paths; command-line values override corresponding YAML values.                                                                                    |
 | `--frames-skip N`                                          | Skip the first N image frames.                                                                                                                                                 |
@@ -361,11 +361,14 @@ dbow_version: 3
 ```
 
 Only integer values `2` and `3` are accepted; the command line overrides YAML.
-Both backends use the same compressed DBoW3 binary vocabulary (`vocab/ORBvoc.dbow3`)
-and the separate ORB place-recognition descriptors, regardless of the tracking
-descriptor selected. DBoW2 imports the binary tree without changing node IDs,
-word IDs, child order, descriptors, or double-precision weights. Text and YAML
-vocabularies are rejected by both backends, regardless of filename extension.
+Both backends use the same compressed DBoW3 binary vocabulary format
+(`vocab/ORBvoc.dbow3`) and the selected tracking descriptor for place recognition.
+The vocabulary must be trained for the selected descriptor type and settings;
+the shipped ORB vocabulary therefore requires the default ORB descriptor.
+Binary (`CV_8U`) and floating-point (`CV_32F`) descriptor vocabularies are
+supported. DBoW2 imports the binary tree without changing node IDs, word IDs,
+child order, descriptors, or double-precision weights. Text and YAML vocabularies
+are rejected by both backends, regardless of filename extension.
 
 The shipped vocabulary was losslessly converted from the original ORB text file:
 971,814 words and 1,082,072 non-root nodes, reduced from 145,250,924 to 50,559,373
@@ -385,13 +388,10 @@ backend. GUI changes apply only to the current run; they do not rewrite YAML.
 Vocabularies belong to a descriptor algorithm and its settings, not to the storage
 format or detector alone. SIFT's 128 floating-point values require a different
 trained tree and distance metric from ORB's 32-byte binary descriptors. Even
-equal-sized descriptors such as ORB and BRIEF are not interchangeable.
-However, **SIFT tracking does not require a SIFT vocabulary in this app**: place
-recognition always uses the separate ORB channel. Both runtime backends therefore
-require a 32-byte ORB vocabulary. Non-ORB training outputs are for external use or
-a future descriptor-specific place-recognition pipeline; they do not enable that
-pipeline automatically. A file's shape alone cannot identify its algorithm, so
-keep descriptor names and training settings with generated files.
+equal-sized descriptors such as ORB and BRIEF are not interchangeable. Train a
+matching vocabulary for whichever descriptor is selected for tracking and place
+recognition. A file's shape alone cannot identify its algorithm, so keep descriptor
+names and training settings with generated files.
 
 Build the `vocabulary_trainer` CMake target, then run the dependency-free script:
 
@@ -454,7 +454,7 @@ See the [spdlog pattern flags](https://github.com/gabime/spdlog/wiki/Custom-form
 - Frame skipping, fixed-stride sampling, and frame-count limits for shorter runs.
 - Dockable ImGui/VTK SLAM visualization and camera/keyframe trajectory exports.
 - Optional map-point PLY and COLMAP-compatible sparse-model exports.
-- Independently configurable OpenCV detectors and descriptors, including contrib xfeatures2d algorithms, and matchers (brute force, FLANN). The existing vocabulary uses a separate ORB place-recognition descriptor channel; see the root README's Feature Pipeline section for supported types and build requirements.
+- Independently configurable OpenCV detectors and descriptors, including contrib xfeatures2d algorithms, and matchers (brute force, FLANN). Place recognition uses the selected descriptor; see the root README's Feature Pipeline section for supported types and build requirements.
 - Optional flow-first tracking with descriptor recovery through `tracking.use_optical_flow` in YAML or `--tracking.use_optical_flow` on the command line.
 - Median and mean tracking-time summary after each run.
 

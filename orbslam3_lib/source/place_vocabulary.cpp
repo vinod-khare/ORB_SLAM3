@@ -39,7 +39,7 @@ void place_vocabulary::set_version(int dbow_version)
     }
 
     const std::unique_lock lock(_mutex);
-    
+
     if (_version == dbow_version)
     {
         return;
@@ -59,7 +59,7 @@ void place_vocabulary::set_version(int dbow_version)
     }
 
     _version = dbow_version;
-    
+
     spdlog::info("Place recognition: DBoW{}", _version);
 }
 
@@ -75,9 +75,33 @@ unsigned int place_vocabulary::size() const
     return _version == 2 ? _dbow2->size() : _dbow3->size();
 }
 
+int place_vocabulary::descriptor_type() const
+{
+    const std::shared_lock lock(_mutex);
+    return _version == 2 ? _dbow2->descriptor_type() : _dbow3->descriptor_type();
+}
+
+int place_vocabulary::descriptor_size() const
+{
+    const std::shared_lock lock(_mutex);
+    return _version == 2 ? _dbow2->descriptor_size() : _dbow3->descriptor_size();
+}
+
 void place_vocabulary::transform(const std::vector<cv::Mat> &features, DBoW2::BowVector &bow, DBoW2::FeatureVector &nodes, int levels_up) const
 {
     const std::shared_lock lock(_mutex);
+    const int              expected_type = _version == 2 ? _dbow2->descriptor_type() : _dbow3->descriptor_type();
+    const int              expected_size = _version == 2 ? _dbow2->descriptor_size() : _dbow3->descriptor_size();
+    bow.clear();
+    nodes.clear();
+    for (const auto &feature : features)
+    {
+        if (feature.rows != 1 || feature.type() != expected_type || feature.cols != expected_size)
+        {
+            throw std::invalid_argument("Feature descriptor does not match the loaded vocabulary type and size");
+        }
+    }
+
     if (_version == 2)
     {
         _dbow2->transform(features, bow, nodes, levels_up);

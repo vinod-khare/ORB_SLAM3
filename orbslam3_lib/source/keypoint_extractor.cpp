@@ -104,15 +104,14 @@ static float intensity_centroid_angle(const Mat &image, Point2f pt, const vector
     return fastAtan2((float)m_01, (float)m_10);
 }
 
-keypoint_extractor::keypoint_extractor(int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST, keypoint_detector_type detector_type,
-                                       keypoint_descriptor_type descriptor_type)
+keypoint_extractor::keypoint_extractor(
+    int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST, keypoint_detector_type detector_type, keypoint_descriptor_type descriptor_type)
     : nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST), minThFAST(_minThFAST), _detector_type(detector_type), _descriptor_type(descriptor_type)
 {
-    _place_descriptor = cv::ORB::create(nfeatures, 1.2f, 1, 0);
     switch (_descriptor_type)
     {
     case keypoint_descriptor_type::orb:
-        _descriptor = _place_descriptor;
+        _descriptor = cv::ORB::create(nfeatures, 1.2f, 1, 0);
         break;
     case keypoint_descriptor_type::sift:
         _descriptor = cv::SIFT::create();
@@ -347,8 +346,8 @@ static bool compareNodes(pair<int, keypoint_distribution_node *> &e1, pair<int, 
     }
 }
 
-vector<cv::KeyPoint> keypoint_extractor::distribute_keypoints(const vector<cv::KeyPoint> &vToDistributeKeys, const int &minX, const int &maxX, const int &minY, const int &maxY, const int &N,
-                                                              const int &level)
+vector<cv::KeyPoint>
+keypoint_extractor::distribute_keypoints(const vector<cv::KeyPoint> &vToDistributeKeys, const int &minX, const int &maxX, const int &minY, const int &maxY, const int &N, const int &level)
 {
     // Compute how many initial nodes
     const int nIni = std::max(1, cvRound(static_cast<float>(maxX - minX) / (maxY - minY)));
@@ -756,7 +755,6 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<k
     vector<cv::KeyPoint> output_keys;
     vector<cv::KeyPoint> output_display;
     Mat                  descriptors;
-    Mat                  place_descriptors;
     for (int level = 0; level < nlevels; ++level)
     {
         auto local_keys = allKeypoints[level];
@@ -780,38 +778,17 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<k
                 cv::normalize(descriptor, descriptor, 512.0, 0.0, cv::NORM_L2);
             }
         }
-        auto place_keys = local_keys;
-        Mat  level_place_descriptors;
-        if (_descriptor_type == keypoint_descriptor_type::orb)
+        for (std::size_t descriptor_index = 0; descriptor_index < local_keys.size(); ++descriptor_index)
         {
-            level_place_descriptors = level_descriptors;
-        }
-        else
-        {
-            for (auto &key : place_keys)
-            {
-                key.size = PATCH_SIZE;
-            }
-            _place_descriptor->compute(mvImagePyramid[level], place_keys, level_place_descriptors);
-        }
-        std::size_t descriptor_index = 0;
-        for (std::size_t place_index = 0; place_index < place_keys.size(); ++place_index)
-        {
-            const int original_index = place_keys[place_index].class_id;
-            while (descriptor_index < local_keys.size() && local_keys[descriptor_index].class_id != original_index)
-            {
-                ++descriptor_index;
-            }
-            CV_Assert(descriptor_index < local_keys.size());
-            auto key          = allKeypoints[level][original_index];
-            auto display_key  = display_keypoints[level][original_index];
-            key.pt           *= mvScaleFactor[level];
-            display_key.pt   *= mvScaleFactor[level];
-            display_key.size *= mvScaleFactor[level];
+            const int original_index  = local_keys[descriptor_index].class_id;
+            auto      key             = allKeypoints[level][original_index];
+            auto      display_key     = display_keypoints[level][original_index];
+            key.pt                   *= mvScaleFactor[level];
+            display_key.pt           *= mvScaleFactor[level];
+            display_key.size         *= mvScaleFactor[level];
             output_keys.push_back(key);
             output_display.push_back(display_key);
             descriptors.push_back(level_descriptors.row(static_cast<int>(descriptor_index)));
-            place_descriptors.push_back(level_place_descriptors.row(static_cast<int>(place_index)));
         }
     }
     const auto count = output_keys.size();
@@ -826,11 +803,10 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<k
     int stereo_index       = static_cast<int>(count) - 1;
     for (std::size_t index = 0; index < count; ++index)
     {
-        const auto &key                     = output_keys[index];
-        const int   target                  = key.pt.x >= vLappingArea[0] && key.pt.x <= vLappingArea[1] ? stereo_index-- : mono_index++;
-        _keypoints[target]                  = keypoint(key, output_display[index]);
-        _keypoints[target].descriptor       = descriptors.row(static_cast<int>(index));
-        _keypoints[target].place_descriptor = place_descriptors.row(static_cast<int>(index));
+        const auto &key               = output_keys[index];
+        const int   target            = key.pt.x >= vLappingArea[0] && key.pt.x <= vLappingArea[1] ? stereo_index-- : mono_index++;
+        _keypoints[target]            = keypoint(key, output_display[index]);
+        _keypoints[target].descriptor = descriptors.row(static_cast<int>(index));
         descriptors.row(static_cast<int>(index)).copyTo(output_descriptors.row(target));
     }
     return mono_index;

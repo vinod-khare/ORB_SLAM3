@@ -16,7 +16,7 @@
 #include <catch2/matchers/catch_matchers.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
-void write_binary_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type = CV_8U, int descriptor_size = 32);
+void write_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type = CV_8U, int descriptor_size = 32);
 
 namespace
 {
@@ -25,17 +25,24 @@ struct vocabulary_file
     std::filesystem::path path = std::filesystem::temp_directory_path() / ("orbslam3_vocabulary_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".dbow3");
     std::vector<cv::Mat>  features;
 
-    vocabulary_file(int scoring = 0, int weighting = 0)
+    vocabulary_file(int scoring = 0, int weighting = 0, int descriptor_type = CV_8U, int descriptor_size = 32)
     {
-        write_binary_vocabulary_fixture(path.string(), scoring, weighting);
+        write_vocabulary_fixture(path.string(), scoring, weighting, descriptor_type, descriptor_size);
         for (int id = 1; id < 127; ++id)
         {
             const bool leaf = id >= 63;
-            cv::Mat    descriptor(1, 32, CV_8U);
-            for (int column = 0; column < 32; ++column)
+            cv::Mat    descriptor(1, descriptor_size, descriptor_type);
+            for (int column = 0; column < descriptor_size; ++column)
             {
-                const int value                         = (id * 37 + column * 13) % 256;
-                descriptor.at<unsigned char>(0, column) = static_cast<unsigned char>(value);
+                const int value = (id * 37 + column * 13) % 256;
+                if (descriptor_type == CV_8U)
+                {
+                    descriptor.at<unsigned char>(0, column) = static_cast<unsigned char>(value);
+                }
+                else
+                {
+                    descriptor.at<float>(0, column) = static_cast<float>(value) / 255.0f;
+                }
             }
             if (leaf)
             {
@@ -65,13 +72,42 @@ TEST_CASE("Missing and empty binary vocabularies are rejected", "[dbow-binary]")
     REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), backend));
 }
 
-TEST_CASE("Place recognition rejects incompatible descriptor vocabularies", "[dbow-binary]")
+TEST_CASE("Place recognition accepts the supported binary and floating-point descriptor formats", "[dbow]")
 {
-    const vocabulary_file file;
-    const int             backend = GENERATE(2, 3);
-    const auto            format  = GENERATE(std::pair{CV_32F, 128}, std::pair{CV_8U, 64});
-    write_binary_vocabulary_fixture(file.path.string(), 0, 0, format.first, format.second);
-    REQUIRE_THROWS_WITH(ORB_SLAM3::place_vocabulary(file.path.string(), backend), Catch::Matchers::ContainsSubstring("binary ORB vocabulary"));
+    const int                   backend = GENERATE(2, 3);
+    const auto                  format  = GENERATE(std::pair{CV_8U, 32}, std::pair{CV_8U, 64}, std::pair{CV_32F, 64}, std::pair{CV_32F, 128}, std::pair{CV_32F, 200}, std::pair{CV_32F, 120});
+    const vocabulary_file       file(0, 0, format.first, format.second);
+    ORB_SLAM3::place_vocabulary vocabulary(file.path.string(), backend);
+    REQUIRE(vocabulary.descriptor_type() == format.first);
+    REQUIRE(vocabulary.descriptor_size() == format.second);
+    DBoW2::BowVector     bow;
+    DBoW2::FeatureVector nodes;
+    vocabulary.transform(file.features, bow, nodes, 4);
+    REQUIRE_FALSE(bow.empty());
+    REQUIRE_FALSE(nodes.empty());
+    const auto score = vocabulary.score(bow, bow);
+    vocabulary.set_version(5 - backend);
+    DBoW2::BowVector     switched_bow;
+    DBoW2::FeatureVector switched_nodes;
+    vocabulary.transform(file.features, switched_bow, switched_nodes, 4);
+    REQUIRE(switched_bow == bow);
+    REQUIRE(switched_nodes == nodes);
+    REQUIRE(vocabulary.score(bow, switched_bow) == Catch::Approx(score));
+}
+
+TEST_CASE("Place recognition rejects features that do not match the vocabulary format", "[dbow]")
+{
+    const vocabulary_file       file(0, 0, CV_32F, 128);
+    const int                   backend = GENERATE(2, 3);
+    ORB_SLAM3::place_vocabulary vocabulary(file.path.string(), backend);
+    DBoW2::BowVector            bow;
+    DBoW2::FeatureVector        nodes;
+    bow[1] = 0.5;
+    nodes[1].push_back(0);
+    const std::vector<cv::Mat> incompatible{cv::Mat::zeros(1, 32, CV_8U)};
+    REQUIRE_THROWS_WITH(vocabulary.transform(incompatible, bow, nodes, 4), Catch::Matchers::ContainsSubstring("does not match"));
+    REQUIRE(bow.empty());
+    REQUIRE(nodes.empty());
 }
 
 TEST_CASE("DBoW backends preserve word IDs, feature nodes, scores and runtime switching", "[dbow]")

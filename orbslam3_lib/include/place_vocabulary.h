@@ -27,6 +27,8 @@ class place_vocabulary
     ~place_vocabulary();
 
     unsigned int size() const;
+    int          descriptor_type() const;
+    int          descriptor_size() const;
     void         transform(const std::vector<cv::Mat> &features, DBoW2::BowVector &bow, DBoW2::FeatureVector &nodes, int levels_up) const;
     double       score(const DBoW2::BowVector &left, const DBoW2::BowVector &right) const;
     int          version() const;

@@ -29,9 +29,10 @@ dbow3_vocabulary::dbow3_vocabulary(const std::string &filename) : _vocabulary(st
         throw std::runtime_error("Cannot open binary vocabulary: " + filename);
     }
     _vocabulary->fromStream(stream);
-    if (!stream || _vocabulary->empty() || _vocabulary->getDescritorType() != CV_8U || _vocabulary->getDescritorSize() != 32)
+    const int descriptor_type = _vocabulary->getDescritorType();
+    if (!stream || _vocabulary->empty() || (descriptor_type != CV_8U && descriptor_type != CV_32F) || _vocabulary->getDescritorSize() <= 0)
     {
-        throw std::runtime_error("Place recognition requires a nonempty binary ORB vocabulary (CV_8U, 32 bytes): " + filename);
+        throw std::runtime_error("Place recognition requires a nonempty vocabulary with CV_8U or CV_32F descriptors: " + filename);
     }
 }
 
@@ -42,6 +43,10 @@ std::array<int, 4> dbow3_vocabulary::parameters() const { return _vocabulary->pa
 void dbow3_vocabulary::visit_nodes(const node_visitor &visitor) const { _vocabulary->visit_nodes(visitor); }
 
 unsigned int dbow3_vocabulary::size() const { return _vocabulary->size(); }
+
+int dbow3_vocabulary::descriptor_type() const { return _vocabulary->getDescritorType(); }
+
+int dbow3_vocabulary::descriptor_size() const { return _vocabulary->getDescritorSize(); }
 
 void dbow3_vocabulary::transform(const std::vector<cv::Mat> &features, std::map<unsigned int, double> &bow, std::map<unsigned int, std::vector<unsigned int>> &nodes, int levels_up) const
 {

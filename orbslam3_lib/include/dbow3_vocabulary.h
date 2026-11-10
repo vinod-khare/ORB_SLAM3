@@ -22,6 +22,8 @@ class dbow3_vocabulary
     explicit dbow3_vocabulary(const std::string &filename);
     ~dbow3_vocabulary();
     unsigned int       size() const;
+    int                descriptor_type() const;
+    int                descriptor_size() const;
     void               transform(const std::vector<cv::Mat> &features, std::map<unsigned int, double> &bow, std::map<unsigned int, std::vector<unsigned int>> &nodes, int levels_up) const;
     double             score(const std::map<unsigned int, double> &left, const std::map<unsigned int, double> &right) const;
     std::array<int, 4> parameters() const;

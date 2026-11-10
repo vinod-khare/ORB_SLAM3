@@ -143,6 +143,11 @@ void Tracking::load_parameters(Settings *settings)
     spdlog::info("Sparse optical flow: {}", _use_optical_flow ? "enabled" : "disabled");
 
     left_keypoint_extractor = std::make_unique<keypoint_extractor>(nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, detector, descriptor);
+    if (place_vocabulary_ptr && (place_vocabulary_ptr->descriptor_type() != left_keypoint_extractor->get_descriptor_type() ||
+                                 place_vocabulary_ptr->descriptor_size() != left_keypoint_extractor->get_descriptor_size()))
+    {
+        throw std::runtime_error("The place-recognition vocabulary descriptor format does not match keypoint.descriptor.type");
+    }
 
     if (mSensor == System::STEREO || mSensor == System::IMU_STEREO)
     {

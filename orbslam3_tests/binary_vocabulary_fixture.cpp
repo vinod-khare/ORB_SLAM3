@@ -2,7 +2,7 @@
 
 #include <DBow3/Vocabulary.h>
 
-void write_binary_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type, int descriptor_size)
+void write_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type, int descriptor_size)
 {
     class fixture_vocabulary : public DBoW3::Vocabulary
     {

@@ -187,7 +187,6 @@ void Frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoin
         for (auto &key : *view)
         {
             key.descriptor.release();
-            key.place_descriptor.release();
             if (is_fisheye_stereo)
             {
                 key.pt_undistorted = key.pt;
@@ -721,8 +720,8 @@ void Frame::ComputeBoW()
 {
     if (mBowVec.empty())
     {
-        auto       vCurrentDesc      = place_descriptor_vector(mvKeys);
-        const auto right_descriptors = place_descriptor_vector(mvKeysRight);
+        auto       vCurrentDesc      = descriptor_vector(mvKeys);
+        const auto right_descriptors = descriptor_vector(mvKeysRight);
         vCurrentDesc.insert(vCurrentDesc.end(), right_descriptors.begin(), right_descriptors.end());
         place_vocabulary_ptr->transform(vCurrentDesc, mBowVec, mFeatVec, 4);
     }

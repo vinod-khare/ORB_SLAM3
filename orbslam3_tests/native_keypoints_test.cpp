@@ -408,17 +408,12 @@ TEST_CASE("OpenCV descriptors are selectable independently of the detector", "[n
             REQUIRE(cv::norm(keys[index].descriptor, cv::NORM_L2) == Catch::Approx(512.0));
             REQUIRE(descriptor_matcher::descriptor_distance(keys[index].descriptor, -keys[index].descriptor) == Catch::Approx(256.0));
         }
-        REQUIRE(keys[index].place_descriptor.type() == CV_8U);
-        REQUIRE(keys[index].place_descriptor.cols == 32);
     }
     std::vector<keypoint> repeated_keys;
     cv::Mat               repeated_descriptors;
     extractor(image, cv::noArray(), repeated_keys, repeated_descriptors, overlap);
     REQUIRE(cv::norm(descriptors, repeated_descriptors, cv::NORM_INF) == 0);
-    for (std::size_t index = 0; index < keys.size(); ++index)
-    {
-        REQUIRE(cv::norm(keys[index].place_descriptor, repeated_keys[index].place_descriptor, cv::NORM_INF) == 0);
-    }
+    REQUIRE(cv::norm(descriptor_matrix(repeated_keys), descriptors, cv::NORM_INF) == 0);
     extractor(cv::Mat(), cv::noArray(), keys, descriptors, overlap);
     REQUIRE(keys.empty());
     REQUIRE(descriptors.empty());

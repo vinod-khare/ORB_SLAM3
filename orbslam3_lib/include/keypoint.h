@@ -37,7 +37,6 @@ class keypoint : public cv::KeyPoint
     cv::Point2f                  pt_undistorted;
     cv::KeyPoint                 display;
     cv::Mat                      descriptor;
-    cv::Mat                      place_descriptor;
     std::array<unsigned char, 3> color{255, 255, 255};
     bool                         has_color{false};
 };
@@ -68,16 +67,16 @@ inline cv::Mat descriptor_matrix(const std::vector<keypoint> &keypoints, std::si
     return descriptors;
 }
 
-inline std::vector<cv::Mat> place_descriptor_vector(const std::vector<keypoint> &keypoints)
+inline std::vector<cv::Mat> descriptor_vector(const std::vector<keypoint> &keypoints)
 {
     std::vector<cv::Mat> descriptors;
     descriptors.reserve(keypoints.size());
 
     for (const auto &item : keypoints)
     {
-        if (!item.place_descriptor.empty())
+        if (!item.descriptor.empty())
         {
-            descriptors.push_back(item.place_descriptor);
+            descriptors.push_back(item.descriptor);
         }
     }
 

@@ -12,7 +12,7 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include <yaml-cpp/yaml.h>
 
-void write_binary_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type, int descriptor_size);
+void write_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type, int descriptor_size);
 
 namespace
 {
@@ -128,7 +128,7 @@ TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shut
     std::ofstream(files.directory / "calibration/camchain.yaml") << calibration;
     files.write();
     const auto vocabulary_path = files.directory / "vocabulary.dbow3";
-    write_binary_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
+    write_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
 
     const bool        explicit_shutdown = GENERATE(false, true);
     ORB_SLAM3::System system(vocabulary_path.string(), files.path.string(), sensor);
@@ -190,6 +190,17 @@ TEST_CASE("Library settings select and validate DBoW independently of the app", 
     REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR), "dbow_version must be 2 or 3");
     overrides.dbow_version = 0;
     REQUIRE_THROWS_WITH(ORB_SLAM3::Settings(files.path.string(), ORB_SLAM3::System::MONOCULAR, overrides), "dbow_version must be 2 or 3");
+}
+
+TEST_CASE("Tracking rejects a vocabulary that does not match the selected descriptor", "[settings][dbow]")
+{
+    imu_settings files;
+    files.config["keypoint"]["descriptor"]["type"] = "SIFT";
+    files.write();
+    const auto vocabulary_path = files.directory / "orb-vocabulary.dbow3";
+    write_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
+    REQUIRE_THROWS_WITH(ORB_SLAM3::System(vocabulary_path.string(), files.path.string(), ORB_SLAM3::System::MONOCULAR),
+                        Catch::Matchers::ContainsSubstring("does not match keypoint.descriptor.type"));
 }
 
 TEST_CASE("Optical-flow setting supports nested YAML and CLI precedence", "[settings][tracking]")

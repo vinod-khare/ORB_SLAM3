@@ -100,16 +100,16 @@ tracking:
 - Matchers: `brute_force` (default) or `flann`. Binary descriptors use Hamming distance and FLANN LSH; floating-point descriptors use L2 distance and FLANN KD-trees. SLAM projection, pyramid-level, epipolar, ratio, and map-point checks remain in place around OpenCV candidate ranking.
 - Exhaustive ranking inside geometric/vocabulary candidate sets uses OpenCV brute force even in FLANN mode so all candidates remain available for geometric filtering. Unconstrained nearest-neighbor searches use the selected backend.
 - Detectors run across the feature pyramid with per-level spatial distribution. FAST/AGAST use the configured corner thresholds; ORB/BRISK use `initial_threshold`. Scale-space detectors use one internal scale/octave where possible; other parameters use OpenCV defaults. BEBLID/TEBLID and VGG/BoostDesc sampling factors match the extractor's normalized 31-pixel keypoint size.
-- Place recognition uses a separate, row-aligned ORB descriptor channel for the existing vocabulary. Tracking, stereo, triangulation, and map-point descriptors use the selected descriptor.
+- Place recognition uses the selected descriptor, with no separate descriptor channel. Both DBoW2 and DBoW3 accept binary (`CV_8U`) and floating-point (`CV_32F`) vocabularies; the vocabulary must be trained for the selected descriptor type and settings.
 - Internal acceptance thresholds use 32-byte Hamming-equivalent units: binary Hamming distances are multiplied by `32 / descriptor_bytes`; floating-point L2 distances are divided by four. New floating-point descriptors are normalized to L2 magnitude 512. Descriptor choices can require accuracy tuning and do not guarantee equivalent trajectories.
-- Saved atlases retain both descriptor channels. Older ORB atlases can be loaded; an atlas cannot be reused with a different tracking-descriptor format. New atlases require this version of the code.
+- Saved atlases retain only the selected descriptor channel. Older ORB atlases can be loaded; an atlas cannot be reused with a different tracking-descriptor format. New atlases require this version of the code.
 
 Command-line selections override YAML:
 
 ```sh
 .build/Release/orbslam3_app/orbslam3_app vocab/ORBvoc.dbow3 config/TUM-VI.yaml \
   --slam-type stereo --keypoint.detector.type star \
-  --keypoint.descriptor.type beblid --tracking.matcher flann
+  --keypoint.descriptor.type orb --tracking.matcher flann
 ```
 
-For the available DBoW backends, supported vocabulary format, and runtime switching, see [DBoW place recognition in the app guide](orbslam3_app/README.md#dbow-place-recognition).
+When selecting a non-ORB descriptor, use a vocabulary trained for that same descriptor. For the available DBoW backends, supported vocabulary format, and runtime switching, see [DBoW place recognition in the app guide](orbslam3_app/README.md#dbow-place-recognition).

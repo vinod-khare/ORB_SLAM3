@@ -22,10 +22,10 @@ BIN=".build/${BUILD_TYPE}/orbslam3_app/orbslam3_app"
 
 echo "Running orbslam3 on corridor1 dataset..."
 $BIN \
-  vocab/ORBvoc.dbow3 \
+  vocab/TUMVI_SIFT.dbow3 \
   config/TUM-VI.yaml \
   --slam-type stereo \
-  --output-folder .data/tumvi/dataset-corridor1_512_16/orbslam3 \
+  --output-folder .data/tumvi/dataset-corridor2_512_16/orbslam3 \
   --frames-take 0 \
   --output trajectory \
   --save-ply

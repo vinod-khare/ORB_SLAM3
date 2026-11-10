@@ -46,7 +46,7 @@ keypoint:
     minimum_threshold: 7
   # ORB, SIFT, BRISK; independent of the keypoint detector
   descriptor:
-    type: "ORB"
+    type: "SIFT"
 
 # Flow-first tracking with descriptor recovery/keyframes (0: off, 1: on)
 tracking:

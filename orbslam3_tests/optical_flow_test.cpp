@@ -65,7 +65,6 @@ TEST_CASE("Frame feature data survives extractor reuse and destruction")
     ORB_SLAM3::Frame frame(1.0, nullptr, cameras[0]->toK(), distortion, 20, 40);
     ORB_SLAM3::Frame::mbInitialComputations = true;
     cv::Mat descriptors;
-    cv::Mat place_descriptors;
     {
         ORB_SLAM3::keypoint_extractor extractor(400, 1.2f, 4, 20, 7, ORB_SLAM3::keypoint_detector_type::fast, descriptor_type);
         ORB_SLAM3::Tracking::extract_features(frame, extractor, image, cameras);
@@ -77,15 +76,11 @@ TEST_CASE("Frame feature data survives extractor reuse and destruction")
         REQUIRE(frame.mvLevelSigma2 == extractor.get_scale_sigma_squares());
         REQUIRE(frame.mvInvLevelSigma2 == extractor.get_inverse_scale_sigma_squares());
         descriptors = descriptor_matrix(frame.mvKeys).clone();
-        cv::vconcat(place_descriptor_vector(frame.mvKeys), place_descriptors);
         ORB_SLAM3::Frame other(2.0, nullptr, cameras[0]->toK(), distortion, 20, 40);
         ORB_SLAM3::Tracking::extract_features(other, extractor, cv::Mat::zeros(image.size(), image.type()), cameras);
         REQUIRE(other.N == 0);
     }
     REQUIRE(cv::norm(descriptor_matrix(frame.mvKeys), descriptors, cv::NORM_INF) == 0);
-    cv::Mat retained_place_descriptors;
-    cv::vconcat(place_descriptor_vector(frame.mvKeys), retained_place_descriptors);
-    REQUIRE(cv::norm(retained_place_descriptors, place_descriptors, cv::NORM_INF) == 0);
     const ORB_SLAM3::Frame copied(frame);
     REQUIRE(copied.N == frame.N);
     REQUIRE(cv::norm(descriptor_matrix(copied.mvKeys), descriptors, cv::NORM_INF) == 0);
@@ -229,9 +224,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     cv::KeyPoint        tracked(73.25f, 81.75f, 31.0f);
     const cv::KeyPoint  native_tracked(tracked.pt, 7.f, -1.f);
     ORB_SLAM3::keypoint tracked_feature(tracked, native_tracked);
-    tracked_feature.pt_undistorted   = cv::Point2f(-10, -20);
-    tracked_feature.descriptor       = cv::Mat::ones(1, 32, CV_8U);
-    tracked_feature.place_descriptor = cv::Mat::ones(1, 32, CV_8U);
+    tracked_feature.pt_undistorted = cv::Point2f(-10, -20);
+    tracked_feature.descriptor     = cv::Mat::ones(1, 32, CV_8U);
     current.set_tracked_features({tracked_feature}, {&point});
     current.flow_candidates = 100;
     current.flow_tracks     = 1;
@@ -242,7 +236,6 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE(current.mvKeys.front().display.angle == -1.f);
     REQUIRE(current.mvKeys.front().size == 31.f);
     REQUIRE(current.mvKeys.front().descriptor.empty());
-    REQUIRE(current.mvKeys.front().place_descriptor.empty());
     REQUIRE(current.mvKeysRight.empty());
     std::vector<cv::Point2f> expected_undistorted;
     cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected_undistorted, calibration, distortion, cv::noArray(), calibration);

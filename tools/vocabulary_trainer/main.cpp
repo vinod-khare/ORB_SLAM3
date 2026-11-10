@@ -121,10 +121,6 @@ int main(int argc, char **argv)
             throw std::runtime_error("Need at least two feature-bearing images and branching descriptors");
         }
         spdlog::info("Training {} vocabulary: {} images, {} descriptors, {}x{} tree", descriptor_name, training.size(), descriptor_count, branching, levels);
-        if (*descriptor != ORB_SLAM3::keypoint_descriptor_type::orb)
-        {
-            spdlog::warn("The SLAM app uses an ORB place-recognition channel and cannot load this {} vocabulary", descriptor_name);
-        }
         DBoW3::Vocabulary vocabulary(branching, levels, DBoW3::TF_IDF, DBoW3::L1_NORM);
         vocabulary.create(training);
         if (vocabulary.empty())
