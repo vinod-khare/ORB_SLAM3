@@ -20,9 +20,9 @@
 
 #include "G2oTypes.h"
 #include "Optimizer.h"
-#include "Sim3Solver.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
+#include "sim3_solver.h"
 
 #include <mutex>
 #include <sstream>
@@ -603,8 +603,8 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
                 bFixedScale = false;
             }
 
-            Sim3Solver solver = Sim3Solver(mpCurrentKF, pMostBoWMatchesKF, vpMatchedPoints, bFixedScale, vpKeyFrameMatchedMP);
-            solver.SetRansacParameters(0.99, nBoWInliers, 300); // at least 15 inliers
+            sim3_solver solver = sim3_solver(mpCurrentKF, pMostBoWMatchesKF, vpMatchedPoints, bFixedScale, vpKeyFrameMatchedMP);
+            solver.set_ransac_parameters(0.99, nBoWInliers, 300); // at least 15 inliers
 
             bool            bNoMore = false;
             vector<bool>    vbInliers;
@@ -646,7 +646,7 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
                     }
                 }
 
-                g2o::Sim3     gScm(solver.GetEstimatedRotation().cast<double>(), solver.GetEstimatedTranslation().cast<double>(), (double)solver.GetEstimatedScale());
+                g2o::Sim3     gScm(solver.get_estimated_rotation().cast<double>(), solver.get_estimated_translation().cast<double>(), (double)solver.get_estimated_scale());
                 g2o::Sim3     gSmw(pMostBoWMatchesKF->GetRotation().cast<double>(), pMostBoWMatchesKF->GetTranslation().cast<double>(), 1.0);
                 g2o::Sim3     gScw = gScm * gSmw; // Similarity matrix of current from the world position
                 Sophus::Sim3f mScw = converter::to_sophus(gScw);

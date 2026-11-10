@@ -43,7 +43,7 @@ add_library(ORB_SLAM3 SHARED
         source/Optimizer.cpp
         source/Frame.cpp
         source/KeyFrameDatabase.cpp
-        source/Sim3Solver.cpp
+        source/sim3_solver.cpp
         source/ImuTypes.cpp
         source/G2oTypes.cpp
         source/CameraModels/Pinhole.cpp
