@@ -1,9 +1,9 @@
-#include "MapPoint.h"
 #include "Pinhole.h"
 #include "Tracking.h"
 #include "descriptor_matcher.h"
 #include "frame.h"
 #include "keypoint_extractor.h"
+#include "map_point.h"
 
 #include <algorithm>
 #include <memory>
@@ -240,12 +240,12 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     REQUIRE(colored_keyframe.mvKeys[0].color == frame.keypoint_color(0));
     const std::array<unsigned char, 3> second_color{10, 40, 220};
     REQUIRE(colored_keyframe.mvKeys[1].color == second_color);
-    ORB_SLAM3::MapPoint                point;
+    ORB_SLAM3::map_point               point;
     const std::array<unsigned char, 3> white{255, 255, 255};
     REQUIRE(point.color() == white);
-    point.AddObservation(&colored_keyframe, 0);
+    point.add_observation(&colored_keyframe, 0);
     REQUIRE(point.color() == colored_keyframe.mvKeys[0].color);
-    point.AddObservation(&colored_keyframe, 1);
+    point.add_observation(&colored_keyframe, 1);
     REQUIRE(point.color() == colored_keyframe.mvKeys[0].color);
 }
 

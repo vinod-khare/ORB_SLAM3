@@ -75,7 +75,7 @@ void map::add_key_frame(KeyFrame *pKF)
     }
 }
 
-void map::add_map_point(MapPoint *pMP)
+void map::add_map_point(map_point *pMP)
 {
     unique_lock<mutex> lock(map_mutex);
     map_points.insert(pMP);
@@ -93,13 +93,13 @@ bool map::is_imu_initialized()
     return imu_initialized;
 }
 
-void map::erase_map_point(MapPoint *pMP)
+void map::erase_map_point(map_point *pMP)
 {
     unique_lock<mutex> lock(map_mutex);
     map_points.erase(pMP);
 
     // TODO: This only erase the pointer.
-    // Delete the MapPoint
+    // Delete the map_point
 }
 
 void map::erase_key_frame(KeyFrame *pKF)
@@ -121,10 +121,10 @@ void map::erase_key_frame(KeyFrame *pKF)
     }
 
     // TODO: This only erase the pointer.
-    // Delete the MapPoint
+    // Delete the map_point
 }
 
-void map::set_reference_map_points(const vector<MapPoint *> &vpMPs)
+void map::set_reference_map_points(const vector<map_point *> &vpMPs)
 {
     unique_lock<mutex> lock(map_mutex);
     reference_map_points = vpMPs;
@@ -148,10 +148,10 @@ vector<KeyFrame *> map::get_all_key_frames()
     return vector<KeyFrame *>(key_frames.begin(), key_frames.end());
 }
 
-vector<MapPoint *> map::get_all_map_points()
+vector<map_point *> map::get_all_map_points()
 {
     unique_lock<mutex> lock(map_mutex);
-    return vector<MapPoint *>(map_points.begin(), map_points.end());
+    return vector<map_point *>(map_points.begin(), map_points.end());
 }
 
 long unsigned int map::map_point_count()
@@ -166,7 +166,7 @@ long unsigned int map::key_frame_count()
     return key_frames.size();
 }
 
-vector<MapPoint *> map::get_reference_map_points()
+vector<map_point *> map::get_reference_map_points()
 {
     unique_lock<mutex> lock(map_mutex);
     return reference_map_points;
@@ -248,11 +248,11 @@ void map::apply_scaled_rotation(const Sophus::SE3f &T, const float s, const bool
             pKF->SetVelocity(Ryw * Vw * s);
         }
     }
-    for (set<MapPoint *>::iterator sit = map_points.begin(); sit != map_points.end(); sit++)
+    for (set<map_point *>::iterator sit = map_points.begin(); sit != map_points.end(); sit++)
     {
-        MapPoint *pMP = *sit;
-        pMP->SetWorldPos(s * Ryw * pMP->GetWorldPos() + tyw);
-        pMP->UpdateNormalAndDepth();
+        map_point *pMP = *sit;
+        pMP->set_world_position(s * Ryw * pMP->get_world_position() + tyw);
+        pMP->update_normal_and_depth();
     }
     map_change_index++;
 }

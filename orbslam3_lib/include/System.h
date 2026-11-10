@@ -43,7 +43,7 @@ using std::vector;
 
 class key_frame_database;
 class map;
-class MapPoint;
+class map_point;
 class place_vocabulary;
 class Tracking;
 class LocalMapping;
@@ -162,9 +162,9 @@ class System
 
     // Information from most recent processed frame
     // You can call this right after TrackMonocular (or stereo or RGBD)
-    int                     GetTrackingState();
-    std::vector<MapPoint *> GetTrackedMapPoints();
-    std::vector<keypoint>   GetTrackedKeyPointsUn();
+    int                      GetTrackingState();
+    std::vector<map_point *> GetTrackedMapPoints();
+    std::vector<keypoint>    GetTrackedKeyPointsUn();
 
     // For debugging
     double GetTimeFromIMUInit();
@@ -239,10 +239,10 @@ class System
     bool mbShutDown;
 
     // Tracking state
-    int                     mTrackingState;
-    std::vector<MapPoint *> mTrackedMapPoints;
-    std::vector<keypoint>   mTrackedKeyPointsUn;
-    std::mutex              mMutexState;
+    int                      mTrackingState;
+    std::vector<map_point *> mTrackedMapPoints;
+    std::vector<keypoint>    mTrackedKeyPointsUn;
+    std::mutex               mMutexState;
 
     // One filename per tracked frame pose entry (same cardinality as
     // mpTracker->mlRelativeFramePoses when exported).

@@ -169,7 +169,7 @@ class Tracking
     double t0IMU; // time-stamp of IMU initialization
     bool   mFastInit = false;
 
-    vector<MapPoint *> GetLocalMapMPS();
+    vector<map_point *> GetLocalMapMPS();
 
     bool mbWriteStats;
 
@@ -256,9 +256,9 @@ class Tracking
     bool mbSetInit;
 
     // Local Map
-    KeyFrame               *mpReferenceKF;
-    std::vector<KeyFrame *> mvpLocalKeyFrames;
-    std::vector<MapPoint *> mvpLocalMapPoints;
+    KeyFrame                *mpReferenceKF;
+    std::vector<KeyFrame *>  mvpLocalKeyFrames;
+    std::vector<map_point *> mvpLocalMapPoints;
 
     // System
     System               *mpSystem;
@@ -329,7 +329,7 @@ class Tracking
     // Color order (true RGB, false BGR, ignored if grayscale)
     bool mbRGB;
 
-    list<MapPoint *> mlpTemporalPoints;
+    list<map_point *> mlpTemporalPoints;
 
     int mnNumDataset;
 

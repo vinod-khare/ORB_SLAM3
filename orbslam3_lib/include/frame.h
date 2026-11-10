@@ -44,7 +44,7 @@ namespace ORB_SLAM3
 #define FRAME_GRID_ROWS 48
 #define FRAME_GRID_COLS 64
 
-class MapPoint;
+class map_point;
 class KeyFrame;
 class ConstraintPoseImu;
 class GeometricCamera;
@@ -67,7 +67,7 @@ class frame
     /** Initialize geometry and feature indexing from keypoints supplied by Tracking. */
     void initialize_features(
         const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {}, const std::vector<cv::Mat> &left_pyramid = {}, const std::vector<cv::Mat> &right_pyramid = {});
-    void set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points, std::vector<keypoint> right_keys = {}, std::vector<MapPoint *> right_points = {});
+    void set_tracked_features(std::vector<keypoint> keys, std::vector<map_point *> points, std::vector<keypoint> right_keys = {}, std::vector<map_point *> right_points = {});
     bool reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers = 50);
     bool flow_only{false};
     int  flow_candidates{};
@@ -114,11 +114,11 @@ class frame
 
     void set_new_bias(const IMU::Bias &b);
 
-    // Check if a MapPoint is in the frustum of the camera
-    // and fill variables of the MapPoint to be used by the tracking
-    bool is_in_frustum(MapPoint *pMP, float viewingCosLimit, const camera_vector &cameras);
+    // Check if a map_point is in the frustum of the camera
+    // and fill variables of the map_point to be used by the tracking
+    bool is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_vector &cameras);
 
-    bool project_point_distort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v);
+    bool project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v);
 
     Eigen::Vector3f in_reference_coordinates(Eigen::Vector3f pCw);
 
@@ -231,7 +231,7 @@ class frame
     bool                  is_fisheye_stereo{false};
 
     // Corresponding stereo coordinate and depth for each keypoint.
-    std::vector<MapPoint *> map_points;
+    std::vector<map_point *> map_points;
     // "Monocular" keypoints have a negative value.
     std::vector<float> right_coordinates;
     std::vector<float> depths;
@@ -339,7 +339,7 @@ class frame
     // Stereo fisheye
     void compute_stereo_fisheye_matches(const camera_vector &cameras);
 
-    bool is_in_frustum_checks(MapPoint *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight = false);
+    bool is_in_frustum_checks(map_point *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight = false);
 
     Eigen::Vector3f unproject_stereo_fisheye(const int &i);
 

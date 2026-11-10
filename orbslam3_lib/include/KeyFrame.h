@@ -21,10 +21,10 @@
 
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
-#include "MapPoint.h"
 #include "frame.h"
 #include "key_frame_database.h"
 #include "keypoint_extractor.h"
+#include "map_point.h"
 #include "place_vocabulary.h"
 
 #include <map>
@@ -39,7 +39,7 @@ namespace ORB_SLAM3
 {
 
 class map;
-class MapPoint;
+class map_point;
 class frame;
 class key_frame_database;
 
@@ -100,16 +100,16 @@ class KeyFrame
     void            AddMergeEdge(KeyFrame *pKF);
     set<KeyFrame *> GetMergeEdges();
 
-    // MapPoint observation functions
-    int                     GetNumberMPs();
-    void                    AddMapPoint(MapPoint *pMP, const size_t &idx);
-    void                    EraseMapPointMatch(const int &idx);
-    void                    EraseMapPointMatch(MapPoint *pMP);
-    void                    ReplaceMapPointMatch(const int &idx, MapPoint *pMP);
-    std::set<MapPoint *>    GetMapPoints();
-    std::vector<MapPoint *> GetMapPointMatches();
-    int                     TrackedMapPoints(const int &minObs);
-    MapPoint               *GetMapPoint(const size_t &idx);
+    // map_point observation functions
+    int                      GetNumberMPs();
+    void                     AddMapPoint(map_point *pMP, const size_t &idx);
+    void                     EraseMapPointMatch(const int &idx);
+    void                     EraseMapPointMatch(map_point *pMP);
+    void                     ReplaceMapPointMatch(const int &idx, map_point *pMP);
+    std::set<map_point *>    GetMapPoints();
+    std::vector<map_point *> GetMapPointMatches();
+    int                      TrackedMapPoints(const int &minObs);
+    map_point               *GetMapPoint(const size_t &idx);
 
     // KeyPoint functions
     std::vector<size_t> GetFeaturesInArea(const float &x, const float &y, const float &r, const bool bRight = false) const;
@@ -143,8 +143,8 @@ class KeyFrame
 
     IMU::Bias GetImuBias();
 
-    bool ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v);
-    bool ProjectPointUnDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v);
+    bool ProjectPointDistort(map_point *pMP, cv::Point2f &kp, float &u, float &v);
+    bool ProjectPointUnDistort(map_point *pMP, cv::Point2f &kp, float &u, float &v);
 
     void SetKeyFrameDatabase(key_frame_database *pKFDB);
 
@@ -288,7 +288,7 @@ class KeyFrame
     IMU::Bias mImuBias;
 
     // MapPoints associated to keypoints
-    std::vector<MapPoint *> mvpMapPoints;
+    std::vector<map_point *> mvpMapPoints;
     // For save relation without pointer, this is necessary for save/load function
 
     // BoW

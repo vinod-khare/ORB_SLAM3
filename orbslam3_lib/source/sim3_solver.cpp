@@ -34,7 +34,7 @@
 namespace ORB_SLAM3
 {
 
-sim3_solver::sim3_solver(KeyFrame *first_key_frame, KeyFrame *second_key_frame, const vector<MapPoint *> &matched_map_points, const bool fixed_scale, vector<KeyFrame *> matched_key_frames)
+sim3_solver::sim3_solver(KeyFrame *first_key_frame, KeyFrame *second_key_frame, const vector<map_point *> &matched_map_points, const bool fixed_scale, vector<KeyFrame *> matched_key_frames)
     : iterations(0), best_inlier_count(0), fix_scale(fixed_scale), cameras(first_key_frame->cameras)
 {
     bool bDifferentKFs = false;
@@ -47,7 +47,7 @@ sim3_solver::sim3_solver(KeyFrame *first_key_frame, KeyFrame *second_key_frame, 
     key_frame_1 = first_key_frame;
     key_frame_2 = second_key_frame;
 
-    vector<MapPoint *> vpKeyFrameMP1 = first_key_frame->GetMapPointMatches();
+    vector<map_point *> vpKeyFrameMP1 = first_key_frame->GetMapPointMatches();
 
     initial_match_count = matched_map_points.size();
 
@@ -72,15 +72,15 @@ sim3_solver::sim3_solver(KeyFrame *first_key_frame, KeyFrame *second_key_frame, 
     {
         if (matched_map_points[i1])
         {
-            MapPoint *pMP1 = vpKeyFrameMP1[i1];
-            MapPoint *pMP2 = matched_map_points[i1];
+            map_point *pMP1 = vpKeyFrameMP1[i1];
+            map_point *pMP2 = matched_map_points[i1];
 
             if (!pMP1)
             {
                 continue;
             }
 
-            if (pMP1->isBad() || pMP2->isBad())
+            if (pMP1->is_bad() || pMP2->is_bad())
             {
                 continue;
             }
@@ -90,8 +90,8 @@ sim3_solver::sim3_solver(KeyFrame *first_key_frame, KeyFrame *second_key_frame, 
                 pKFm = matched_key_frames[i1];
             }
 
-            int indexKF1 = get<0>(pMP1->GetIndexInKeyFrame(first_key_frame));
-            int indexKF2 = get<0>(pMP2->GetIndexInKeyFrame(pKFm));
+            int indexKF1 = get<0>(pMP1->get_index_in_key_frame(first_key_frame));
+            int indexKF2 = get<0>(pMP2->get_index_in_key_frame(pKFm));
 
             if (indexKF1 < 0 || indexKF2 < 0)
             {
@@ -111,10 +111,10 @@ sim3_solver::sim3_solver(KeyFrame *first_key_frame, KeyFrame *second_key_frame, 
             map_points_2.push_back(pMP2);
             matched_indices_1.push_back(i1);
 
-            Eigen::Vector3f X3D1w = pMP1->GetWorldPos();
+            Eigen::Vector3f X3D1w = pMP1->get_world_position();
             camera_points_1.push_back(Rcw1 * X3D1w + tcw1);
 
-            Eigen::Vector3f X3D2w = pMP2->GetWorldPos();
+            Eigen::Vector3f X3D2w = pMP2->get_world_position();
             camera_points_2.push_back(Rcw2 * X3D2w + tcw2);
 
             all_indices.push_back(idx);

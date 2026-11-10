@@ -96,13 +96,13 @@ void atlas::add_key_frame(KeyFrame *key_frame)
     map->add_key_frame(key_frame);
 }
 
-void atlas::add_map_point(MapPoint *map_point)
+void atlas::add_map_point(map_point *map_point)
 {
-    map *map = map_point->GetMap();
+    map *map = map_point->get_map();
     map->add_map_point(map_point);
 }
 
-void atlas::set_reference_map_points(const std::vector<MapPoint *> &map_points)
+void atlas::set_reference_map_points(const std::vector<map_point *> &map_points)
 {
     std::lock_guard<std::mutex> lock(_mutex);
     _current_map->set_reference_map_points(map_points);
@@ -138,13 +138,13 @@ std::vector<KeyFrame *> atlas::get_all_key_frames()
     return _current_map->get_all_key_frames();
 }
 
-std::vector<MapPoint *> atlas::get_all_map_points()
+std::vector<map_point *> atlas::get_all_map_points()
 {
     std::lock_guard<std::mutex> lock(_mutex);
     return _current_map->get_all_map_points();
 }
 
-std::vector<MapPoint *> atlas::get_reference_map_points()
+std::vector<map_point *> atlas::get_reference_map_points()
 {
     std::lock_guard<std::mutex> lock(_mutex);
     return _current_map->get_reference_map_points();

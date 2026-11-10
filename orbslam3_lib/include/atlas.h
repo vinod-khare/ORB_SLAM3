@@ -19,8 +19,8 @@
 #pragma once
 
 #include "KeyFrame.h"
-#include "MapPoint.h"
 #include "map.h"
+#include "map_point.h"
 
 #include <map>
 #include <mutex>
@@ -45,18 +45,18 @@ class atlas
     unsigned long int get_last_init_kf_id();
 
     void add_key_frame(KeyFrame *key_frame);
-    void add_map_point(MapPoint *map_point);
+    void add_map_point(map_point *map_point);
 
-    void set_reference_map_points(const std::vector<MapPoint *> &map_points);
+    void set_reference_map_points(const std::vector<map_point *> &map_points);
     void inform_new_big_change();
     int  get_last_big_change_index();
 
     long unsigned int map_points_in_map();
     long unsigned     key_frames_in_map();
 
-    std::vector<KeyFrame *> get_all_key_frames();
-    std::vector<MapPoint *> get_all_map_points();
-    std::vector<MapPoint *> get_reference_map_points();
+    std::vector<KeyFrame *>  get_all_key_frames();
+    std::vector<map_point *> get_all_map_points();
+    std::vector<map_point *> get_reference_map_points();
 
     std::vector<map *> get_all_maps();
 

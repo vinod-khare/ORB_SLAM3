@@ -1,10 +1,10 @@
 #include "KannalaBrandt8.h"
-#include "MapPoint.h"
 #include "Optimizer.h"
 #include "Pinhole.h"
 #include "Tracking.h"
 #include "frame.h"
 #include "keypoint_extractor.h"
+#include "map_point.h"
 
 #include <algorithm>
 #include <limits>
@@ -220,10 +220,10 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     REQUIRE_FALSE(current.has_pose());
     REQUIRE_FALSE(current.imu_is_preintegrated());
 
-    ORB_SLAM3::MapPoint point;
-    cv::KeyPoint        tracked(73.25f, 81.75f, 31.0f);
-    const cv::KeyPoint  native_tracked(tracked.pt, 7.f, -1.f);
-    ORB_SLAM3::keypoint tracked_feature(tracked, native_tracked);
+    ORB_SLAM3::map_point point;
+    cv::KeyPoint         tracked(73.25f, 81.75f, 31.0f);
+    const cv::KeyPoint   native_tracked(tracked.pt, 7.f, -1.f);
+    ORB_SLAM3::keypoint  tracked_feature(tracked, native_tracked);
     tracked_feature.pt_undistorted = cv::Point2f(-10, -20);
     tracked_feature.descriptor     = cv::Mat::ones(1, 32, CV_8U);
     current.set_tracked_features({tracked_feature}, {&point});
@@ -416,8 +416,8 @@ TEST_CASE("RGB-D frames undistort tracked features using the primary camera")
     REQUIRE(std::all_of(frame.depths.begin(), frame.depths.end(), [](float value) { return value == 2.0f; }));
     REQUIRE(std::all_of(frame.right_coordinates.begin(), frame.right_coordinates.end(), [](float value) { return value >= 0; }));
 
-    ORB_SLAM3::MapPoint point;
-    const cv::KeyPoint  tracked(73.25f, 81.75f, 31.0f);
+    ORB_SLAM3::map_point point;
+    const cv::KeyPoint   tracked(73.25f, 81.75f, 31.0f);
     frame.set_tracked_features({tracked}, {&point});
     std::vector<cv::Point2f> expected;
     cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected, calibration, distortion, cv::noArray(), calibration);
@@ -429,13 +429,13 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
 {
     ORB_SLAM3::frame frame;
     frame.distortion_coefficients = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::MapPoint              point;
+    ORB_SLAM3::map_point             point;
     std::vector<ORB_SLAM3::keypoint> keys;
     for (int i = 0; i < 100; ++i)
     {
         keys.emplace_back(static_cast<float>(16 + (i % 4) * 32), static_cast<float>(16 + ((i / 4) % 4) * 32), 31.0f);
     }
-    frame.set_tracked_features(keys, std::vector<ORB_SLAM3::MapPoint *>(100, &point));
+    frame.set_tracked_features(keys, std::vector<ORB_SLAM3::map_point *>(100, &point));
     REQUIRE(frame.reliable_flow_inliers({128, 128}));
     REQUIRE(frame.flow_inliers == 100);
     REQUIRE(frame.flow_occupied_cells == 16);
@@ -445,18 +445,18 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
     REQUIRE(frame.reliable_flow_inliers({128, 128})); // exactly 60%
     frame.outliers[40] = true;
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(100, ORB_SLAM3::keypoint(16, 16, 31)), std::vector<ORB_SLAM3::MapPoint *>(100, &point));
+    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(100, ORB_SLAM3::keypoint(16, 16, 31)), std::vector<ORB_SLAM3::map_point *>(100, &point));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 49), std::vector<ORB_SLAM3::MapPoint *>(49, &point));
+    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 49), std::vector<ORB_SLAM3::map_point *>(49, &point));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 50), std::vector<ORB_SLAM3::MapPoint *>(50, &point));
+    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 50), std::vector<ORB_SLAM3::map_point *>(50, &point));
     REQUIRE(frame.reliable_flow_inliers({128, 128}));
     std::vector<ORB_SLAM3::keypoint> six_cells;
     for (int i = 0; i < 60; ++i)
     {
         six_cells.emplace_back(static_cast<float>(16 + (i % 3) * 32), static_cast<float>(16 + ((i / 3) % 2) * 32), 31.0f);
     }
-    frame.set_tracked_features(six_cells, std::vector<ORB_SLAM3::MapPoint *>(60, &point));
+    frame.set_tracked_features(six_cells, std::vector<ORB_SLAM3::map_point *>(60, &point));
     REQUIRE(frame.reliable_flow_inliers({128, 128}));
     for (auto &key : six_cells)
     {
@@ -465,9 +465,9 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
             key.pt = cv::Point2f(16, 16);
         }
     }
-    frame.set_tracked_features(six_cells, std::vector<ORB_SLAM3::MapPoint *>(60, &point));
+    frame.set_tracked_features(six_cells, std::vector<ORB_SLAM3::map_point *>(60, &point));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(keys, std::vector<ORB_SLAM3::MapPoint *>(100, nullptr));
+    frame.set_tracked_features(keys, std::vector<ORB_SLAM3::map_point *>(100, nullptr));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
     for (auto &key : keys)
     {
@@ -499,16 +499,16 @@ TEST_CASE("Fisheye flow preserves both camera observations for pose optimization
     ORB_SLAM3::frame::initial_computations = true;
     ORB_SLAM3::Tracking::extract_features(frame, left_extractor, image, cameras, image, &right_extractor);
 
-    std::vector<std::unique_ptr<ORB_SLAM3::MapPoint>> points;
-    std::vector<ORB_SLAM3::keypoint>                  left_keys;
-    std::vector<ORB_SLAM3::keypoint>                  right_keys;
-    std::vector<ORB_SLAM3::MapPoint *>                left_points;
-    std::vector<ORB_SLAM3::MapPoint *>                right_points;
+    std::vector<std::unique_ptr<ORB_SLAM3::map_point>> points;
+    std::vector<ORB_SLAM3::keypoint>                   left_keys;
+    std::vector<ORB_SLAM3::keypoint>                   right_keys;
+    std::vector<ORB_SLAM3::map_point *>                left_points;
+    std::vector<ORB_SLAM3::map_point *>                right_points;
     for (int index = 0; index < 100; ++index)
     {
         const Eigen::Vector3f position((index % 10 - 4.5f) * 0.3f, (index / 10 - 4.5f) * 0.3f, 3.0f + (index % 3) * 0.2f);
-        auto                  point = std::make_unique<ORB_SLAM3::MapPoint>();
-        point->SetWorldPos(position);
+        auto                  point = std::make_unique<ORB_SLAM3::map_point>();
+        point->set_world_position(position);
         const auto left  = cameras[0]->project(position);
         const auto right = cameras[1]->project(frame.get_relative_pose_trl() * position);
         if (!right_only)

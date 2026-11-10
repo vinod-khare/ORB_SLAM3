@@ -20,7 +20,7 @@
 #define MAP_H
 
 #include "KeyFrame.h"
-#include "MapPoint.h"
+#include "map_point.h"
 
 #include <mutex>
 #include <set>
@@ -28,7 +28,7 @@
 namespace ORB_SLAM3
 {
 
-class MapPoint;
+class map_point;
 class KeyFrame;
 class key_frame_database;
 
@@ -41,16 +41,16 @@ class map
     ~map();
 
     void add_key_frame(KeyFrame *pKF);
-    void add_map_point(MapPoint *pMP);
-    void erase_map_point(MapPoint *pMP);
+    void add_map_point(map_point *pMP);
+    void erase_map_point(map_point *pMP);
     void erase_key_frame(KeyFrame *pKF);
-    void set_reference_map_points(const std::vector<MapPoint *> &vpMPs);
+    void set_reference_map_points(const std::vector<map_point *> &vpMPs);
     void inform_new_big_change();
     int  get_last_big_change_index();
 
-    std::vector<KeyFrame *> get_all_key_frames();
-    std::vector<MapPoint *> get_all_map_points();
-    std::vector<MapPoint *> get_reference_map_points();
+    std::vector<KeyFrame *>  get_all_key_frames();
+    std::vector<map_point *> get_all_map_points();
+    std::vector<map_point *> get_reference_map_points();
 
     long unsigned int map_point_count();
     long unsigned     key_frame_count();
@@ -121,13 +121,13 @@ class map
   protected:
     long unsigned int id;
 
-    std::set<MapPoint *> map_points;
-    std::set<KeyFrame *> key_frames;
+    std::set<map_point *> map_points;
+    std::set<KeyFrame *>  key_frames;
 
     KeyFrame *initial_key_frame;
     KeyFrame *lowest_id_key_frame;
 
-    std::vector<MapPoint *> reference_map_points;
+    std::vector<map_point *> reference_map_points;
 
     bool imu_initialized;
 

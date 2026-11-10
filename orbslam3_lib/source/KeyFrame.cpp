@@ -321,7 +321,7 @@ int KeyFrame::GetNumberMPs()
     return numberMPs;
 }
 
-void KeyFrame::AddMapPoint(MapPoint *pMP, const size_t &idx)
+void KeyFrame::AddMapPoint(map_point *pMP, const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     mvpMapPoints[idx] = pMP;
@@ -330,37 +330,37 @@ void KeyFrame::AddMapPoint(MapPoint *pMP, const size_t &idx)
 void KeyFrame::EraseMapPointMatch(const int &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    mvpMapPoints[idx] = static_cast<MapPoint *>(NULL);
+    mvpMapPoints[idx] = static_cast<map_point *>(NULL);
 }
 
-void KeyFrame::EraseMapPointMatch(MapPoint *pMP)
+void KeyFrame::EraseMapPointMatch(map_point *pMP)
 {
-    const auto indexes   = pMP->GetIndexInKeyFrame(this);
+    const auto indexes   = pMP->get_index_in_key_frame(this);
     const int  leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
     if (leftIndex != -1)
     {
-        mvpMapPoints[leftIndex] = static_cast<MapPoint *>(NULL);
+        mvpMapPoints[leftIndex] = static_cast<map_point *>(NULL);
     }
     if (rightIndex != -1)
     {
-        mvpMapPoints[rightIndex] = static_cast<MapPoint *>(NULL);
+        mvpMapPoints[rightIndex] = static_cast<map_point *>(NULL);
     }
 }
 
-void KeyFrame::ReplaceMapPointMatch(const int &idx, MapPoint *pMP) { mvpMapPoints[idx] = pMP; }
+void KeyFrame::ReplaceMapPointMatch(const int &idx, map_point *pMP) { mvpMapPoints[idx] = pMP; }
 
-set<MapPoint *> KeyFrame::GetMapPoints()
+set<map_point *> KeyFrame::GetMapPoints()
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    set<MapPoint *>    s;
+    set<map_point *>   s;
     for (size_t i = 0, iend = mvpMapPoints.size(); i < iend; i++)
     {
         if (!mvpMapPoints[i])
         {
             continue;
         }
-        MapPoint *pMP = mvpMapPoints[i];
-        if (!pMP->isBad())
+        map_point *pMP = mvpMapPoints[i];
+        if (!pMP->is_bad())
         {
             s.insert(pMP);
         }
@@ -376,15 +376,15 @@ int KeyFrame::TrackedMapPoints(const int &minObs)
     const bool bCheckObs = minObs > 0;
     for (int i = 0; i < N; i++)
     {
-        MapPoint *pMP = mvpMapPoints[i];
+        map_point *pMP = mvpMapPoints[i];
         // TODO: reduce nesting
         if (pMP)
         {
-            if (!pMP->isBad())
+            if (!pMP->is_bad())
             {
                 if (bCheckObs)
                 {
-                    if (mvpMapPoints[i]->Observations() >= minObs)
+                    if (mvpMapPoints[i]->get_observation_count() >= minObs)
                     {
                         nPoints++;
                     }
@@ -400,13 +400,13 @@ int KeyFrame::TrackedMapPoints(const int &minObs)
     return nPoints;
 }
 
-vector<MapPoint *> KeyFrame::GetMapPointMatches()
+vector<map_point *> KeyFrame::GetMapPointMatches()
 {
     unique_lock<mutex> lock(mMutexFeatures);
     return mvpMapPoints;
 }
 
-MapPoint *KeyFrame::GetMapPoint(const size_t &idx)
+map_point *KeyFrame::GetMapPoint(const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     return mvpMapPoints[idx];
@@ -416,7 +416,7 @@ void KeyFrame::UpdateConnections(bool upParent)
 {
     std::map<KeyFrame *, int> KFcounter;
 
-    vector<MapPoint *> vpMP;
+    vector<map_point *> vpMP;
 
     {
         unique_lock<mutex> lockMPs(mMutexFeatures);
@@ -425,21 +425,21 @@ void KeyFrame::UpdateConnections(bool upParent)
 
     // For all map points in keyframe check in which other keyframes are they seen
     // Increase counter for those keyframes
-    for (vector<MapPoint *>::iterator vit = vpMP.begin(), vend = vpMP.end(); vit != vend; vit++)
+    for (vector<map_point *>::iterator vit = vpMP.begin(), vend = vpMP.end(); vit != vend; vit++)
     {
-        MapPoint *pMP = *vit;
+        map_point *pMP = *vit;
 
         if (!pMP)
         {
             continue;
         }
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
 
-        std::map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
+        std::map<KeyFrame *, tuple<int, int>> observations = pMP->get_observations();
 
         for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
         {
@@ -641,7 +641,7 @@ void KeyFrame::SetBadFlag()
     {
         if (mvpMapPoints[i])
         {
-            mvpMapPoints[i]->EraseObservation(this);
+            mvpMapPoints[i]->erase_observation(this);
         }
     }
 
@@ -839,9 +839,9 @@ float KeyFrame::ComputeSceneMedianDepth(const int q)
         return -1.0;
     }
 
-    vector<MapPoint *> vpMapPoints;
-    Eigen::Matrix3f    Rcw;
-    Eigen::Vector3f    tcw;
+    vector<map_point *> vpMapPoints;
+    Eigen::Matrix3f     Rcw;
+    Eigen::Vector3f     tcw;
     {
         unique_lock<mutex> lock(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPose);
@@ -858,8 +858,8 @@ float KeyFrame::ComputeSceneMedianDepth(const int q)
     {
         if (mvpMapPoints[i])
         {
-            MapPoint       *pMP  = mvpMapPoints[i];
-            Eigen::Vector3f x3Dw = pMP->GetWorldPos();
+            map_point      *pMP  = mvpMapPoints[i];
+            Eigen::Vector3f x3Dw = pMP->get_world_position();
             float           z    = Rcw2.dot(x3Dw) + zcw;
             vDepths.push_back(z);
         }
@@ -910,11 +910,11 @@ void KeyFrame::UpdateMap(map *pMap)
     mpMap = pMap;
 }
 
-bool KeyFrame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v)
+bool KeyFrame::ProjectPointDistort(map_point *pMP, cv::Point2f &kp, float &u, float &v)
 {
 
     // 3D in absolute coordinates
-    Eigen::Vector3f P = pMP->GetWorldPos();
+    Eigen::Vector3f P = pMP->get_world_position();
 
     // 3D in camera coordinates
     Eigen::Vector3f Pc  = mRcw * P + mTcw.translation();
@@ -975,11 +975,11 @@ bool KeyFrame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, flo
     return true;
 }
 
-bool KeyFrame::ProjectPointUnDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v)
+bool KeyFrame::ProjectPointUnDistort(map_point *pMP, cv::Point2f &kp, float &u, float &v)
 {
 
     // 3D in absolute coordinates
-    Eigen::Vector3f P = pMP->GetWorldPos();
+    Eigen::Vector3f P = pMP->get_world_position();
 
     // 3D in camera coordinates
     Eigen::Vector3f Pc  = mRcw * P + mTcw.translation();

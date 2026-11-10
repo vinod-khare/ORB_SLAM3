@@ -22,9 +22,9 @@
 #include "G2oTypes.h"
 #include "GeometricCamera.h"
 #include "KeyFrame.h"
-#include "MapPoint.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
+#include "map_point.h"
 
 #include <array>
 #include <chrono>
@@ -177,7 +177,7 @@ frame::frame(frame &previous, double timestamp) : frame(static_cast<const frame 
     set_tracked_features({}, {});
 }
 
-void frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points, std::vector<keypoint> right_keys, std::vector<MapPoint *> right_points)
+void frame::set_tracked_features(std::vector<keypoint> keys, std::vector<map_point *> points, std::vector<keypoint> right_keys, std::vector<map_point *> right_points)
 {
     CV_Assert(keys.size() == points.size());
     CV_Assert(right_keys.size() == right_points.size());
@@ -474,16 +474,16 @@ Eigen::Matrix3f frame::get_relative_pose_tlr_rotation() { return _left_to_right.
 
 Eigen::Vector3f frame::get_relative_pose_tlr_translation() { return _left_to_right.translation(); }
 
-bool frame::is_in_frustum(MapPoint *pMP, float viewingCosLimit, const camera_vector &cameras)
+bool frame::is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_vector &cameras)
 {
     if (!is_fisheye_stereo)
     {
-        pMP->mbTrackInView = false;
-        pMP->mTrackProjX   = -1;
-        pMP->mTrackProjY   = -1;
+        pMP->track_in_view      = false;
+        pMP->track_projection_x = -1;
+        pMP->track_projection_y = -1;
 
         // 3D in absolute coordinates
-        Eigen::Matrix<float, 3, 1> P = pMP->GetWorldPos();
+        Eigen::Matrix<float, 3, 1> P = pMP->get_world_position();
 
         // 3D in camera coordinates
         const Eigen::Matrix<float, 3, 1> Pc      = _world_to_camera_rotation * P + _world_to_camera_translation;
@@ -508,12 +508,12 @@ bool frame::is_in_frustum(MapPoint *pMP, float viewingCosLimit, const camera_vec
             return false;
         }
 
-        pMP->mTrackProjX = uv(0);
-        pMP->mTrackProjY = uv(1);
+        pMP->track_projection_x = uv(0);
+        pMP->track_projection_y = uv(1);
 
-        // Check distance is in the scale invariance region of the MapPoint
-        const float           maxDistance = pMP->GetMaxDistanceInvariance();
-        const float           minDistance = pMP->GetMinDistanceInvariance();
+        // Check distance is in the scale invariance region of the map_point
+        const float           maxDistance = pMP->get_max_distance_invariance();
+        const float           minDistance = pMP->get_min_distance_invariance();
         const Eigen::Vector3f PO          = P - _camera_origin;
         const float           dist        = PO.norm();
 
@@ -523,7 +523,7 @@ bool frame::is_in_frustum(MapPoint *pMP, float viewingCosLimit, const camera_vec
         }
 
         // Check viewing angle
-        Eigen::Vector3f Pn = pMP->GetNormal();
+        Eigen::Vector3f Pn = pMP->get_normal();
 
         const float viewCos = PO.dot(Pn) / dist;
 
@@ -533,40 +533,40 @@ bool frame::is_in_frustum(MapPoint *pMP, float viewingCosLimit, const camera_vec
         }
 
         // Predict scale in the image
-        const int nPredictedLevel = pMP->PredictScale(dist, this);
+        const int nPredictedLevel = pMP->predict_scale(dist, this);
 
         // Data used by the tracking
-        pMP->mbTrackInView = true;
-        pMP->mTrackProjX   = uv(0);
-        pMP->mTrackProjXR  = uv(0) - baseline_fx * invz;
+        pMP->track_in_view            = true;
+        pMP->track_projection_x       = uv(0);
+        pMP->track_projection_x_right = uv(0) - baseline_fx * invz;
 
-        pMP->mTrackDepth = Pc_dist;
+        pMP->track_depth = Pc_dist;
 
-        pMP->mTrackProjY       = uv(1);
-        pMP->mnTrackScaleLevel = nPredictedLevel;
-        pMP->mTrackViewCos     = viewCos;
+        pMP->track_projection_y = uv(1);
+        pMP->track_scale_level  = nPredictedLevel;
+        pMP->track_view_cos     = viewCos;
 
         return true;
     }
     else
     {
-        pMP->mbTrackInView      = false;
-        pMP->mbTrackInViewR     = false;
-        pMP->mnTrackScaleLevel  = -1;
-        pMP->mnTrackScaleLevelR = -1;
+        pMP->track_in_view           = false;
+        pMP->track_in_view_right     = false;
+        pMP->track_scale_level       = -1;
+        pMP->track_scale_level_right = -1;
 
-        pMP->mbTrackInView  = is_in_frustum_checks(pMP, viewingCosLimit, *cameras[0]);
-        pMP->mbTrackInViewR = is_in_frustum_checks(pMP, viewingCosLimit, *cameras[1], true);
+        pMP->track_in_view       = is_in_frustum_checks(pMP, viewingCosLimit, *cameras[0]);
+        pMP->track_in_view_right = is_in_frustum_checks(pMP, viewingCosLimit, *cameras[1], true);
 
-        return pMP->mbTrackInView || pMP->mbTrackInViewR;
+        return pMP->track_in_view || pMP->track_in_view_right;
     }
 }
 
-bool frame::project_point_distort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v)
+bool frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v)
 {
 
     // 3D in absolute coordinates
-    Eigen::Vector3f P = pMP->GetWorldPos();
+    Eigen::Vector3f P = pMP->get_world_position();
 
     // 3D in camera coordinates
     const Eigen::Vector3f Pc  = _world_to_camera_rotation * P + _world_to_camera_translation;
@@ -1100,10 +1100,10 @@ void frame::compute_stereo_fisheye_matches(const camera_vector &cameras)
     }
 }
 
-bool frame::is_in_frustum_checks(MapPoint *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight)
+bool frame::is_in_frustum_checks(map_point *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight)
 {
     // 3D in absolute coordinates
-    Eigen::Vector3f P = pMP->GetWorldPos();
+    Eigen::Vector3f P = pMP->get_world_position();
 
     Eigen::Matrix3f mR;
     Eigen::Vector3f mt, twc;
@@ -1146,9 +1146,9 @@ bool frame::is_in_frustum_checks(MapPoint *pMP, float viewingCosLimit, Geometric
         return false;
     }
 
-    // Check distance is in the scale invariance region of the MapPoint
-    const float           maxDistance = pMP->GetMaxDistanceInvariance();
-    const float           minDistance = pMP->GetMinDistanceInvariance();
+    // Check distance is in the scale invariance region of the map_point
+    const float           maxDistance = pMP->get_max_distance_invariance();
+    const float           minDistance = pMP->get_min_distance_invariance();
     const Eigen::Vector3f PO          = P - twc;
     const float           dist        = PO.norm();
 
@@ -1158,7 +1158,7 @@ bool frame::is_in_frustum_checks(MapPoint *pMP, float viewingCosLimit, Geometric
     }
 
     // Check viewing angle
-    Eigen::Vector3f Pn = pMP->GetNormal();
+    Eigen::Vector3f Pn = pMP->get_normal();
 
     const float viewCos = PO.dot(Pn) / dist;
 
@@ -1168,23 +1168,23 @@ bool frame::is_in_frustum_checks(MapPoint *pMP, float viewingCosLimit, Geometric
     }
 
     // Predict scale in the image
-    const int nPredictedLevel = pMP->PredictScale(dist, this);
+    const int nPredictedLevel = pMP->predict_scale(dist, this);
 
     if (bRight)
     {
-        pMP->mTrackProjXR       = uv(0);
-        pMP->mTrackProjYR       = uv(1);
-        pMP->mnTrackScaleLevelR = nPredictedLevel;
-        pMP->mTrackViewCosR     = viewCos;
-        pMP->mTrackDepthR       = Pc_dist;
+        pMP->track_projection_x_right = uv(0);
+        pMP->track_projection_y_right = uv(1);
+        pMP->track_scale_level_right  = nPredictedLevel;
+        pMP->track_view_cos_right     = viewCos;
+        pMP->track_depth_right        = Pc_dist;
     }
     else
     {
-        pMP->mTrackProjX       = uv(0);
-        pMP->mTrackProjY       = uv(1);
-        pMP->mnTrackScaleLevel = nPredictedLevel;
-        pMP->mTrackViewCos     = viewCos;
-        pMP->mTrackDepth       = Pc_dist;
+        pMP->track_projection_x = uv(0);
+        pMP->track_projection_y = uv(1);
+        pMP->track_scale_level  = nPredictedLevel;
+        pMP->track_view_cos     = viewCos;
+        pMP->track_depth        = Pc_dist;
     }
 
     return true;

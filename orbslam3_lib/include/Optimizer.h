@@ -22,9 +22,9 @@
 #include "G2oCompat.h"
 #include "KeyFrame.h"
 #include "LoopClosing.h"
-#include "MapPoint.h"
 #include "frame.h"
 #include "map.h"
+#include "map_point.h"
 
 #include <math.h>
 
@@ -49,7 +49,7 @@ class Optimizer
 {
   public:
     void static BundleAdjustment(
-        const std::vector<KeyFrame *> &vpKF, const std::vector<MapPoint *> &vpMP, int nIterations = 5, bool *pbStopFlag = NULL, const unsigned long nLoopKF = 0, const bool bRobust = true);
+        const std::vector<KeyFrame *> &vpKF, const std::vector<map_point *> &vpMP, int nIterations = 5, bool *pbStopFlag = NULL, const unsigned long nLoopKF = 0, const bool bRobust = true);
     void static GlobalBundleAdjustemnt(map *pMap, int nIterations = 5, bool *pbStopFlag = NULL, const unsigned long nLoopKF = 0, const bool bRobust = true);
     void static FullInertialBA(map                *pMap,
                                int                 its,
@@ -77,7 +77,7 @@ class Optimizer
                                        const std::map<KeyFrame *, set<KeyFrame *>> &LoopConnections,
                                        const bool                                  &bFixScale);
     void static OptimizeEssentialGraph(
-        KeyFrame *pCurKF, vector<KeyFrame *> &vpFixedKFs, vector<KeyFrame *> &vpFixedCorrectedKFs, vector<KeyFrame *> &vpNonFixedKFs, vector<MapPoint *> &vpNonCorrectedMPs);
+        KeyFrame *pCurKF, vector<KeyFrame *> &vpFixedKFs, vector<KeyFrame *> &vpFixedCorrectedKFs, vector<KeyFrame *> &vpNonFixedKFs, vector<map_point *> &vpNonCorrectedMPs);
 
     // For inertial loopclosing
     void static OptimizeEssentialGraph4DoF(map                                         *pMap,
@@ -90,7 +90,7 @@ class Optimizer
     // if bFixScale is true, optimize SE3 (stereo,rgbd), Sim3 otherwise (mono) (NEW)
     static int OptimizeSim3(KeyFrame                    *pKF1,
                             KeyFrame                    *pKF2,
-                            std::vector<MapPoint *>     &vpMatches1,
+                            std::vector<map_point *>    &vpMatches1,
                             g2o::Sim3                   &g2oS12,
                             const float                  th2,
                             const bool                   bFixScale,

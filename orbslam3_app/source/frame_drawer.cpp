@@ -18,9 +18,9 @@
 
 #include "frame_drawer.h"
 
-#include "MapPoint.h"
 #include "Tracking.h"
 #include "atlas.h"
+#include "map_point.h"
 
 #include <iomanip>
 #include <mutex>
@@ -137,13 +137,13 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
                 key.pt   /= image_scale;
                 key.size /= image_scale;
 
-                // This is a match to a MapPoint in the map
-                if (map_point->Observations() > 0)
+                // This is a match to a map_point in the map
+                if (map_point->get_observation_count() > 0)
                 {
                     map_keys.push_back(key);
                     _tracked_count++;
                 }
-                else // This is match to a "visual odometry" MapPoint created in the last frame
+                else // This is match to a "visual odometry" map_point created in the last frame
                 {
                     vo_keys.push_back(key);
                     _tracked_odometry_count++;
@@ -241,13 +241,13 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
                 key.pt   /= image_scale;
                 key.size /= image_scale;
 
-                // This is a match to a MapPoint in the map
-                if (map_point->Observations() > 0)
+                // This is a match to a map_point in the map
+                if (map_point->get_observation_count() > 0)
                 {
                     map_keys.push_back(key);
                     _tracked_count++;
                 }
-                else // This is match to a "visual odometry" MapPoint created in the last frame
+                else // This is match to a "visual odometry" map_point created in the last frame
                 {
                     vo_keys.push_back(key);
                     _tracked_odometry_count++;

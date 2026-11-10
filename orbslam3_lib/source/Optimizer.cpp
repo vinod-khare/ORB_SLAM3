@@ -49,16 +49,16 @@ template <typename BlockSolverType> BlockSolverType *MakeBlockSolver(typename Bl
 
 template <typename AlgorithmType> AlgorithmType *MakeOptimizationAlgorithm(g2o::Solver *solver) { return new AlgorithmType(std::unique_ptr<g2o::Solver>(solver)); }
 
-bool sortByVal(const pair<MapPoint *, int> &a, const pair<MapPoint *, int> &b) { return (a.second < b.second); }
+bool sortByVal(const pair<map_point *, int> &a, const pair<map_point *, int> &b) { return (a.second < b.second); }
 
 void Optimizer::GlobalBundleAdjustemnt(map *pMap, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
 {
-    vector<KeyFrame *> vpKFs = pMap->get_all_key_frames();
-    vector<MapPoint *> vpMP  = pMap->get_all_map_points();
+    vector<KeyFrame *>  vpKFs = pMap->get_all_key_frames();
+    vector<map_point *> vpMP  = pMap->get_all_map_points();
     BundleAdjustment(vpKFs, vpMP, nIterations, pbStopFlag, nLoopKF, bRobust);
 }
 
-void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<MapPoint *> &vpMP, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
+void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<map_point *> &vpMP, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
 {
     vector<bool> vbNotIncludedMP;
     vbNotIncludedMP.resize(vpMP.size());
@@ -97,10 +97,10 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     vector<KeyFrame *> vpEdgeKFBody;
     vpEdgeKFBody.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeMono;
+    vector<map_point *> vpMapPointEdgeMono;
     vpMapPointEdgeMono.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeBody;
+    vector<map_point *> vpMapPointEdgeBody;
     vpMapPointEdgeBody.reserve(nExpectedSize);
 
     vector<g2o::EdgeStereoSE3ProjectXYZ *> vpEdgesStereo;
@@ -109,7 +109,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     vector<KeyFrame *> vpEdgeKFStereo;
     vpEdgeKFStereo.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeStereo;
+    vector<map_point *> vpMapPointEdgeStereo;
     vpMapPointEdgeStereo.reserve(nExpectedSize);
 
     // Set KeyFrame vertices
@@ -136,22 +136,22 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     const float thHuber2D = sqrt(5.99);
     const float thHuber3D = sqrt(7.815);
 
-    // Set MapPoint vertices
+    // Set map_point vertices
     for (size_t i = 0; std::cmp_less(i, vpMP.size()); i++)
     {
-        MapPoint *pMP = vpMP[i];
-        if (pMP->isBad())
+        map_point *pMP = vpMP[i];
+        if (pMP->is_bad())
         {
             continue;
         }
         g2o::VertexSBAPointXYZ *vPoint = new g2o::VertexSBAPointXYZ();
-        vPoint->setEstimate(pMP->GetWorldPos().cast<double>());
-        const int id = pMP->mnId + maxKFid + 1;
+        vPoint->setEstimate(pMP->get_world_position().cast<double>());
+        const int id = pMP->id + maxKFid + 1;
         vPoint->setId(id);
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
 
-        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
+        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->get_observations();
 
         int nEdges = 0;
         // SET EDGES
@@ -314,14 +314,14 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
             double          dist        = vector_dist.norm();
             if (dist > 1)
             {
-                int                numMonoBadPoints = 0, numMonoOptPoints = 0;
-                int                numStereoBadPoints = 0, numStereoOptPoints = 0;
-                vector<MapPoint *> vpMonoMPsOpt, vpStereoMPsOpt;
+                int                 numMonoBadPoints = 0, numMonoOptPoints = 0;
+                int                 numStereoBadPoints = 0, numStereoOptPoints = 0;
+                vector<map_point *> vpMonoMPsOpt, vpStereoMPsOpt;
 
                 for (size_t i2 = 0, iend = vpEdgesMono.size(); i2 < iend; i2++)
                 {
                     ORB_SLAM3::EdgeSE3ProjectXYZ *e       = vpEdgesMono[i2];
-                    MapPoint                     *pMP     = vpMapPointEdgeMono[i2];
+                    map_point                    *pMP     = vpMapPointEdgeMono[i2];
                     KeyFrame                     *pKFedge = vpEdgeKFMono[i2];
 
                     if (pKF != pKFedge)
@@ -329,7 +329,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
                         continue;
                     }
 
-                    if (pMP->isBad())
+                    if (pMP->is_bad())
                     {
                         continue;
                     }
@@ -348,7 +348,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
                 for (size_t i2 = 0, iend = vpEdgesStereo.size(); i2 < iend; i2++)
                 {
                     g2o::EdgeStereoSE3ProjectXYZ *e       = vpEdgesStereo[i2];
-                    MapPoint                     *pMP     = vpMapPointEdgeStereo[i2];
+                    map_point                    *pMP     = vpMapPointEdgeStereo[i2];
                     KeyFrame                     *pKFedge = vpEdgeKFMono[i2];
 
                     if (pKF != pKFedge)
@@ -356,7 +356,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
                         continue;
                     }
 
-                    if (pMP->isBad())
+                    if (pMP->is_bad())
                     {
                         continue;
                     }
@@ -383,23 +383,23 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
             continue;
         }
 
-        MapPoint *pMP = vpMP[i];
+        map_point *pMP = vpMP[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
-        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->mnId + maxKFid + 1));
+        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->id + maxKFid + 1));
 
         if (nLoopKF == pMap->get_origin_key_frame()->mnId)
         {
-            pMP->SetWorldPos(vPoint->estimate().cast<float>());
-            pMP->UpdateNormalAndDepth();
+            pMP->set_world_position(vPoint->estimate().cast<float>());
+            pMP->update_normal_and_depth();
         }
         else
         {
-            pMP->mPosGBA         = vPoint->estimate().cast<float>();
-            pMP->mnBAGlobalForKF = nLoopKF;
+            pMP->global_ba_position     = vPoint->estimate().cast<float>();
+            pMP->global_ba_key_frame_id = nLoopKF;
         }
     }
 }
@@ -407,9 +407,9 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 void Optimizer::FullInertialBA(
     map *pMap, int its, const bool bFixLocal, const long unsigned int nLoopId, bool *pbStopFlag, bool bInit, float priorG, float priorA, Eigen::VectorXd *vSingVal, bool *bHess)
 {
-    long unsigned int        maxKFid = pMap->get_max_key_frame_id();
-    const vector<KeyFrame *> vpKFs   = pMap->get_all_key_frames();
-    const vector<MapPoint *> vpMPs   = pMap->get_all_map_points();
+    long unsigned int         maxKFid = pMap->get_max_key_frame_id();
+    const vector<KeyFrame *>  vpKFs   = pMap->get_all_key_frames();
+    const vector<map_point *> vpMPs   = pMap->get_all_map_points();
 
     // Setup optimizer
     g2o::SparseOptimizer                 optimizer;
@@ -631,15 +631,15 @@ void Optimizer::FullInertialBA(
 
     for (size_t i = 0; std::cmp_less(i, vpMPs.size()); i++)
     {
-        MapPoint               *pMP    = vpMPs[i];
+        map_point              *pMP    = vpMPs[i];
         g2o::VertexSBAPointXYZ *vPoint = new g2o::VertexSBAPointXYZ();
-        vPoint->setEstimate(pMP->GetWorldPos().cast<double>());
-        unsigned long id = pMP->mnId + iniMPid + 1;
+        vPoint->setEstimate(pMP->get_world_position().cast<double>());
+        unsigned long id = pMP->id + iniMPid + 1;
         vPoint->setId(id);
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
 
-        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
+        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->get_observations();
 
         bool bAllFixed = true;
 
@@ -844,18 +844,18 @@ void Optimizer::FullInertialBA(
             continue;
         }
 
-        MapPoint               *pMP    = vpMPs[i];
-        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->mnId + iniMPid + 1));
+        map_point              *pMP    = vpMPs[i];
+        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->id + iniMPid + 1));
 
         if (nLoopId == 0)
         {
-            pMP->SetWorldPos(vPoint->estimate().cast<float>());
-            pMP->UpdateNormalAndDepth();
+            pMP->set_world_position(vPoint->estimate().cast<float>());
+            pMP->update_normal_and_depth();
         }
         else
         {
-            pMP->mPosGBA         = vPoint->estimate().cast<float>();
-            pMP->mnBAGlobalForKF = nLoopId;
+            pMP->global_ba_position     = vPoint->estimate().cast<float>();
+            pMP->global_ba_key_frame_id = nLoopId;
         }
     }
 
@@ -884,7 +884,7 @@ int Optimizer::PoseOptimization(frame *pFrame, const camera_vector &cameras)
     vSE3->setFixed(false);
     optimizer.addVertex(vSE3);
 
-    // Set MapPoint vertices
+    // Set map_point vertices
     const int N = pFrame->feature_count;
 
     vector<ORB_SLAM3::EdgeSE3ProjectXYZOnlyPose *>       vpEdgesMono;
@@ -904,11 +904,11 @@ int Optimizer::PoseOptimization(frame *pFrame, const camera_vector &cameras)
     const float deltaStereo = sqrt(7.815);
 
     {
-        unique_lock<mutex> lock(MapPoint::mGlobalMutex);
+        unique_lock<mutex> lock(map_point::global_mutex);
 
         for (int i = 0; std::cmp_less(i, N); i++)
         {
-            MapPoint *pMP = pFrame->map_points[i];
+            map_point *pMP = pFrame->map_points[i];
             if (pMP)
             {
                 // Conventional SLAM
@@ -934,7 +934,7 @@ int Optimizer::PoseOptimization(frame *pFrame, const camera_vector &cameras)
                         g2o::RobustKernelHuber *rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
                         rk->setDelta(deltaMono);
-                        e->Xw = pMP->GetWorldPos().cast<double>();
+                        e->Xw = pMP->get_world_position().cast<double>();
 
                         optimizer.addEdge(e);
 
@@ -968,7 +968,7 @@ int Optimizer::PoseOptimization(frame *pFrame, const camera_vector &cameras)
                         e->cx = pFrame->cx;
                         e->cy = pFrame->cy;
                         e->bf = pFrame->baseline_fx;
-                        e->Xw = pMP->GetWorldPos().cast<double>();
+                        e->Xw = pMP->get_world_position().cast<double>();
 
                         optimizer.addEdge(e);
 
@@ -1002,7 +1002,7 @@ int Optimizer::PoseOptimization(frame *pFrame, const camera_vector &cameras)
                         g2o::RobustKernelHuber *rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
                         rk->setDelta(deltaMono);
-                        e->Xw = pMP->GetWorldPos().cast<double>();
+                        e->Xw = pMP->get_world_position().cast<double>();
 
                         optimizer.addEdge(e);
 
@@ -1028,7 +1028,7 @@ int Optimizer::PoseOptimization(frame *pFrame, const camera_vector &cameras)
                         g2o::RobustKernelHuber *rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
                         rk->setDelta(deltaMono);
-                        e->Xw = pMP->GetWorldPos().cast<double>();
+                        e->Xw = pMP->get_world_position().cast<double>();
 
                         e->mTrl = g2o::SE3Quat(pFrame->get_relative_pose_trl().unit_quaternion().cast<double>(), pFrame->get_relative_pose_trl().translation().cast<double>());
 
@@ -1193,8 +1193,8 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
 
     // Local MapPoints seen in Local KeyFrames
     num_fixedKF = 0;
-    list<MapPoint *> lLocalMapPoints;
-    set<MapPoint *>  sNumObsMP;
+    list<map_point *> lLocalMapPoints;
+    set<map_point *>  sNumObsMP;
     for (list<KeyFrame *>::iterator lit = lLocalKeyFrames.begin(), lend = lLocalKeyFrames.end(); lit != lend; lit++)
     {
         KeyFrame *pKFi = *lit;
@@ -1202,19 +1202,19 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
         {
             num_fixedKF = 1;
         }
-        vector<MapPoint *> vpMPs = pKFi->GetMapPointMatches();
-        for (vector<MapPoint *>::iterator vit = vpMPs.begin(), vend = vpMPs.end(); vit != vend; vit++)
+        vector<map_point *> vpMPs = pKFi->GetMapPointMatches();
+        for (vector<map_point *>::iterator vit = vpMPs.begin(), vend = vpMPs.end(); vit != vend; vit++)
         {
-            MapPoint *pMP = *vit;
+            map_point *pMP = *vit;
             if (pMP)
             {
-                if (!pMP->isBad() && pMP->GetMap() == pCurrentMap)
+                if (!pMP->is_bad() && pMP->get_map() == pCurrentMap)
                 {
 
-                    if (pMP->mnBALocalForKF != pKF->mnId)
+                    if (pMP->local_ba_key_frame_id != pKF->mnId)
                     {
                         lLocalMapPoints.push_back(pMP);
-                        pMP->mnBALocalForKF = pKF->mnId;
+                        pMP->local_ba_key_frame_id = pKF->mnId;
                     }
                 }
             }
@@ -1223,9 +1223,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
 
     // Fixed Keyframes. Keyframes that see Local MapPoints but that are not Local Keyframes
     list<KeyFrame *> lFixedCameras;
-    for (list<MapPoint *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
+    for (list<map_point *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
     {
-        std::map<KeyFrame *, tuple<int, int>> observations = (*lit)->GetObservations();
+        std::map<KeyFrame *, tuple<int, int>> observations = (*lit)->get_observations();
         for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
         {
             KeyFrame *pKFi = mit->first;
@@ -1322,7 +1322,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
         }
     }
 
-    // Set MapPoint vertices
+    // Set map_point vertices
     const int nExpectedSize = (lLocalKeyFrames.size() + lFixedCameras.size()) * lLocalMapPoints.size();
 
     vector<ORB_SLAM3::EdgeSE3ProjectXYZ *> vpEdgesMono;
@@ -1337,10 +1337,10 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
     vector<KeyFrame *> vpEdgeKFBody;
     vpEdgeKFBody.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeMono;
+    vector<map_point *> vpMapPointEdgeMono;
     vpMapPointEdgeMono.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeBody;
+    vector<map_point *> vpMapPointEdgeBody;
     vpMapPointEdgeBody.reserve(nExpectedSize);
 
     vector<g2o::EdgeStereoSE3ProjectXYZ *> vpEdgesStereo;
@@ -1349,7 +1349,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
     vector<KeyFrame *> vpEdgeKFStereo;
     vpEdgeKFStereo.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeStereo;
+    vector<map_point *> vpMapPointEdgeStereo;
     vpMapPointEdgeStereo.reserve(nExpectedSize);
 
     const float thHuberMono   = sqrt(5.991);
@@ -1359,18 +1359,18 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
 
     int nEdges = 0;
 
-    for (list<MapPoint *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
+    for (list<map_point *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
     {
-        MapPoint               *pMP    = *lit;
+        map_point              *pMP    = *lit;
         g2o::VertexSBAPointXYZ *vPoint = new g2o::VertexSBAPointXYZ();
-        vPoint->setEstimate(pMP->GetWorldPos().cast<double>());
-        int id = pMP->mnId + maxKFid + 1;
+        vPoint->setEstimate(pMP->get_world_position().cast<double>());
+        int id = pMP->id + maxKFid + 1;
         vPoint->setId(id);
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
         nPoints++;
 
-        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
+        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->get_observations();
 
         // Set edges
         for (std::map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
@@ -1492,16 +1492,16 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
     optimizer.initializeOptimization();
     optimizer.optimize(10);
 
-    vector<pair<KeyFrame *, MapPoint *>> vToErase;
+    vector<pair<KeyFrame *, map_point *>> vToErase;
     vToErase.reserve(vpEdgesMono.size() + vpEdgesBody.size() + vpEdgesStereo.size());
 
     // Check inlier observations
     for (size_t i = 0, iend = vpEdgesMono.size(); i < iend; i++)
     {
         ORB_SLAM3::EdgeSE3ProjectXYZ *e   = vpEdgesMono[i];
-        MapPoint                     *pMP = vpMapPointEdgeMono[i];
+        map_point                    *pMP = vpMapPointEdgeMono[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
@@ -1516,9 +1516,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
     for (size_t i = 0, iend = vpEdgesBody.size(); i < iend; i++)
     {
         ORB_SLAM3::EdgeSE3ProjectXYZToBody *e   = vpEdgesBody[i];
-        MapPoint                           *pMP = vpMapPointEdgeBody[i];
+        map_point                          *pMP = vpMapPointEdgeBody[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
@@ -1533,9 +1533,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
     for (size_t i = 0, iend = vpEdgesStereo.size(); i < iend; i++)
     {
         g2o::EdgeStereoSE3ProjectXYZ *e   = vpEdgesStereo[i];
-        MapPoint                     *pMP = vpMapPointEdgeStereo[i];
+        map_point                    *pMP = vpMapPointEdgeStereo[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
@@ -1554,10 +1554,10 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
     {
         for (size_t i = 0; std::cmp_less(i, vToErase.size()); i++)
         {
-            KeyFrame *pKFi = vToErase[i].first;
-            MapPoint *pMPi = vToErase[i].second;
+            KeyFrame  *pKFi = vToErase[i].first;
+            map_point *pMPi = vToErase[i].second;
             pKFi->EraseMapPointMatch(pMPi);
-            pMPi->EraseObservation(pKFi);
+            pMPi->erase_observation(pKFi);
         }
     }
 
@@ -1573,12 +1573,12 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap
     }
 
     // Points
-    for (list<MapPoint *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
+    for (list<map_point *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
     {
-        MapPoint               *pMP    = *lit;
-        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->mnId + maxKFid + 1));
-        pMP->SetWorldPos(vPoint->estimate().cast<float>());
-        pMP->UpdateNormalAndDepth();
+        map_point              *pMP    = *lit;
+        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->id + maxKFid + 1));
+        pMP->set_world_position(vPoint->estimate().cast<float>());
+        pMP->update_normal_and_depth();
     }
 
     pMap->increase_change_index();
@@ -1602,8 +1602,8 @@ void Optimizer::OptimizeEssentialGraph(map                                      
     solver->setUserLambdaInit(1e-16);
     optimizer.setAlgorithm(solver);
 
-    const vector<KeyFrame *> vpKFs = pMap->get_all_key_frames();
-    const vector<MapPoint *> vpMPs = pMap->get_all_map_points();
+    const vector<KeyFrame *>  vpKFs = pMap->get_all_key_frames();
+    const vector<map_point *> vpMPs = pMap->get_all_map_points();
 
     const unsigned int nMaxKFid = pMap->get_max_key_frame_id();
 
@@ -1865,32 +1865,32 @@ void Optimizer::OptimizeEssentialGraph(map                                      
     // Correct points. Transform to "non-optimized" reference keyframe pose and transform back with optimized pose
     for (size_t i = 0, iend = vpMPs.size(); i < iend; i++)
     {
-        MapPoint *pMP = vpMPs[i];
+        map_point *pMP = vpMPs[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
 
         int nIDr;
-        if (pMP->mnCorrectedByKF == pCurKF->mnId)
+        if (pMP->corrected_by_key_frame_id == pCurKF->mnId)
         {
-            nIDr = pMP->mnCorrectedReference;
+            nIDr = pMP->corrected_reference_key_frame_id;
         }
         else
         {
-            KeyFrame *pRefKF = pMP->GetReferenceKeyFrame();
+            KeyFrame *pRefKF = pMP->get_reference_key_frame();
             nIDr             = pRefKF->mnId;
         }
 
         g2o::Sim3 Srw          = vScw[nIDr];
         g2o::Sim3 correctedSwr = vCorrectedSwc[nIDr];
 
-        Eigen::Matrix<double, 3, 1> eigP3Dw          = pMP->GetWorldPos().cast<double>();
+        Eigen::Matrix<double, 3, 1> eigP3Dw          = pMP->get_world_position().cast<double>();
         Eigen::Matrix<double, 3, 1> eigCorrectedP3Dw = correctedSwr.map(Srw.map(eigP3Dw));
-        pMP->SetWorldPos(eigCorrectedP3Dw.cast<float>());
+        pMP->set_world_position(eigCorrectedP3Dw.cast<float>());
 
-        pMP->UpdateNormalAndDepth();
+        pMP->update_normal_and_depth();
     }
 
     // TODO Check this changeindex
@@ -1898,7 +1898,7 @@ void Optimizer::OptimizeEssentialGraph(map                                      
 }
 
 void Optimizer::OptimizeEssentialGraph(
-    KeyFrame *pCurKF, vector<KeyFrame *> &vpFixedKFs, vector<KeyFrame *> &vpFixedCorrectedKFs, vector<KeyFrame *> &vpNonFixedKFs, vector<MapPoint *> &vpNonCorrectedMPs)
+    KeyFrame *pCurKF, vector<KeyFrame *> &vpFixedKFs, vector<KeyFrame *> &vpFixedCorrectedKFs, vector<KeyFrame *> &vpNonFixedKFs, vector<map_point *> &vpNonCorrectedMPs)
 {
     spdlog::trace("Opt_Essential: There are {} KFs fixed in the merged map", vpFixedKFs.size());
     spdlog::trace("Opt_Essential: There are " + to_string(vpFixedCorrectedKFs.size()) + " KFs fixed in the old map");
@@ -2202,24 +2202,24 @@ void Optimizer::OptimizeEssentialGraph(
     }
 
     // Correct points. Transform to "non-optimized" reference keyframe pose and transform back with optimized pose
-    for (MapPoint *pMPi : vpNonCorrectedMPs)
+    for (map_point *pMPi : vpNonCorrectedMPs)
     {
-        if (pMPi->isBad())
+        if (pMPi->is_bad())
         {
             continue;
         }
 
-        KeyFrame *pRefKF = pMPi->GetReferenceKeyFrame();
+        KeyFrame *pRefKF = pMPi->get_reference_key_frame();
         while (pRefKF->isBad())
         {
             if (!pRefKF)
             {
-                spdlog::trace("MP " + to_string(pMPi->mnId) + " without a valid reference KF");
+                spdlog::trace("MP " + to_string(pMPi->id) + " without a valid reference KF");
                 break;
             }
 
-            pMPi->EraseObservation(pRefKF);
-            pRefKF = pMPi->GetReferenceKeyFrame();
+            pMPi->erase_observation(pRefKF);
+            pRefKF = pMPi->get_reference_key_frame();
         }
 
         if (vpBadPose[pRefKF->mnId])
@@ -2227,10 +2227,10 @@ void Optimizer::OptimizeEssentialGraph(
             Sophus::SE3f TNonCorrectedwr = pRefKF->mTwcBefMerge;
             Sophus::SE3f Twr             = pRefKF->GetPoseInverse();
 
-            Eigen::Vector3f eigCorrectedP3Dw = Twr * TNonCorrectedwr.inverse() * pMPi->GetWorldPos();
-            pMPi->SetWorldPos(eigCorrectedP3Dw);
+            Eigen::Vector3f eigCorrectedP3Dw = Twr * TNonCorrectedwr.inverse() * pMPi->get_world_position();
+            pMPi->set_world_position(eigCorrectedP3Dw);
 
-            pMPi->UpdateNormalAndDepth();
+            pMPi->update_normal_and_depth();
         }
         else
         {
@@ -2240,7 +2240,7 @@ void Optimizer::OptimizeEssentialGraph(
 }
 
 int Optimizer::OptimizeSim3(
-    KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches1, g2o::Sim3 &g2oS12, const float th2, const bool bFixScale, Eigen::Matrix<double, 7, 7> &mAcumHessian, const bool bAllPoints)
+    KeyFrame *pKF1, KeyFrame *pKF2, vector<map_point *> &vpMatches1, g2o::Sim3 &g2oS12, const float th2, const bool bFixScale, Eigen::Matrix<double, 7, 7> &mAcumHessian, const bool bAllPoints)
 {
     g2o::SparseOptimizer                 optimizer;
     g2o::BlockSolverX::LinearSolverType *linearSolver;
@@ -2266,9 +2266,9 @@ int Optimizer::OptimizeSim3(
     vSim3->setFixed(false);
     optimizer.addVertex(vSim3);
 
-    // Set MapPoint vertices
+    // Set map_point vertices
     const int                                      N            = vpMatches1.size();
-    const vector<MapPoint *>                       vpMapPoints1 = pKF1->GetMapPointMatches();
+    const vector<map_point *>                      vpMapPoints1 = pKF1->GetMapPointMatches();
     vector<ORB_SLAM3::EdgeSim3ProjectXYZ *>        vpEdges12;
     vector<ORB_SLAM3::EdgeInverseSim3ProjectXYZ *> vpEdges21;
     vector<size_t>                                 vnIndexEdge;
@@ -2296,23 +2296,23 @@ int Optimizer::OptimizeSim3(
             continue;
         }
 
-        MapPoint *pMP1 = vpMapPoints1[i];
-        MapPoint *pMP2 = vpMatches1[i];
+        map_point *pMP1 = vpMapPoints1[i];
+        map_point *pMP2 = vpMatches1[i];
 
         const int id1 = 2 * i + 1;
         const int id2 = 2 * (i + 1);
 
-        const int i2 = get<0>(pMP2->GetIndexInKeyFrame(pKF2));
+        const int i2 = get<0>(pMP2->get_index_in_key_frame(pKF2));
 
         Eigen::Vector3f P3D1c;
         Eigen::Vector3f P3D2c;
 
         if (pMP1 && pMP2)
         {
-            if (!pMP1->isBad() && !pMP2->isBad())
+            if (!pMP1->is_bad() && !pMP2->is_bad())
             {
                 g2o::VertexSBAPointXYZ *vPoint1 = new g2o::VertexSBAPointXYZ();
-                Eigen::Vector3f         P3D1w   = pMP1->GetWorldPos();
+                Eigen::Vector3f         P3D1w   = pMP1->get_world_position();
                 P3D1c                           = R1w * P3D1w + t1w;
                 vPoint1->setEstimate(P3D1c.cast<double>());
                 vPoint1->setId(id1);
@@ -2320,7 +2320,7 @@ int Optimizer::OptimizeSim3(
                 optimizer.addVertex(vPoint1);
 
                 g2o::VertexSBAPointXYZ *vPoint2 = new g2o::VertexSBAPointXYZ();
-                Eigen::Vector3f         P3D2w   = pMP2->GetWorldPos();
+                Eigen::Vector3f         P3D2w   = pMP2->get_world_position();
                 P3D2c                           = R2w * P3D2w + t2w;
                 vPoint2->setEstimate(P3D2c.cast<double>());
                 vPoint2->setId(id2);
@@ -2338,10 +2338,10 @@ int Optimizer::OptimizeSim3(
             nMatchWithoutMP++;
 
             // TODO The 3D position in KF1 doesn't exist
-            if (!pMP2->isBad())
+            if (!pMP2->is_bad())
             {
                 g2o::VertexSBAPointXYZ *vPoint2 = new g2o::VertexSBAPointXYZ();
-                Eigen::Vector3f         P3D2w   = pMP2->GetWorldPos();
+                Eigen::Vector3f         P3D2w   = pMP2->get_world_position();
                 P3D2c                           = R2w * P3D2w + t2w;
                 vPoint2->setEstimate(P3D2c.cast<double>());
                 vPoint2->setId(id2);
@@ -2404,7 +2404,7 @@ int Optimizer::OptimizeSim3(
             float y    = P3D2c(1) * invz;
 
             obs2 << x, y;
-            kpUn2 = cv::KeyPoint(cv::Point2f(x, y), pMP2->mnTrackScaleLevel);
+            kpUn2 = cv::KeyPoint(cv::Point2f(x, y), pMP2->track_scale_level);
 
             inKF2 = false;
             nOutKF2++;
@@ -2449,7 +2449,7 @@ int Optimizer::OptimizeSim3(
         if (e12->chi2() > th2 || e21->chi2() > th2)
         {
             size_t idx      = vnIndexEdge[i];
-            vpMatches1[idx] = static_cast<MapPoint *>(NULL);
+            vpMatches1[idx] = static_cast<map_point *>(NULL);
             optimizer.removeEdge(e12);
             optimizer.removeEdge(e21);
             vpEdges12[i] = static_cast<ORB_SLAM3::EdgeSim3ProjectXYZ *>(NULL);
@@ -2504,7 +2504,7 @@ int Optimizer::OptimizeSim3(
         if (e12->chi2() > th2 || e21->chi2() > th2)
         {
             size_t idx      = vnIndexEdge[i];
-            vpMatches1[idx] = static_cast<MapPoint *>(NULL);
+            vpMatches1[idx] = static_cast<map_point *>(NULL);
         }
         else
         {
@@ -2556,21 +2556,21 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
     int N = vpOptimizableKFs.size();
 
     // Optimizable points seen by temporal optimizable keyframes
-    list<MapPoint *> lLocalMapPoints;
+    list<map_point *> lLocalMapPoints;
     for (int i = 0; std::cmp_less(i, N); i++)
     {
-        vector<MapPoint *> vpMPs = vpOptimizableKFs[i]->GetMapPointMatches();
-        for (vector<MapPoint *>::iterator vit = vpMPs.begin(), vend = vpMPs.end(); vit != vend; vit++)
+        vector<map_point *> vpMPs = vpOptimizableKFs[i]->GetMapPointMatches();
+        for (vector<map_point *>::iterator vit = vpMPs.begin(), vend = vpMPs.end(); vit != vend; vit++)
         {
-            MapPoint *pMP = *vit;
+            map_point *pMP = *vit;
             if (pMP)
             {
-                if (!pMP->isBad())
+                if (!pMP->is_bad())
                 {
-                    if (pMP->mnBALocalForKF != pKF->mnId)
+                    if (pMP->local_ba_key_frame_id != pKF->mnId)
                     {
                         lLocalMapPoints.push_back(pMP);
-                        pMP->mnBALocalForKF = pKF->mnId;
+                        pMP->local_ba_key_frame_id = pKF->mnId;
                     }
                 }
             }
@@ -2611,18 +2611,18 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
         {
             lpOptVisKFs.push_back(pKFi);
 
-            vector<MapPoint *> vpMPs = pKFi->GetMapPointMatches();
-            for (vector<MapPoint *>::iterator vit = vpMPs.begin(), vend = vpMPs.end(); vit != vend; vit++)
+            vector<map_point *> vpMPs = pKFi->GetMapPointMatches();
+            for (vector<map_point *>::iterator vit = vpMPs.begin(), vend = vpMPs.end(); vit != vend; vit++)
             {
-                MapPoint *pMP = *vit;
+                map_point *pMP = *vit;
                 if (pMP)
                 {
-                    if (!pMP->isBad())
+                    if (!pMP->is_bad())
                     {
-                        if (pMP->mnBALocalForKF != pKF->mnId)
+                        if (pMP->local_ba_key_frame_id != pKF->mnId)
                         {
                             lLocalMapPoints.push_back(pMP);
-                            pMP->mnBALocalForKF = pKF->mnId;
+                            pMP->local_ba_key_frame_id = pKF->mnId;
                         }
                     }
                 }
@@ -2633,9 +2633,9 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
     // Fixed KFs which are not covisible optimizable
     const int maxFixKF = 200;
 
-    for (list<MapPoint *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
+    for (list<map_point *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
     {
-        std::map<KeyFrame *, tuple<int, int>> observations = (*lit)->GetObservations();
+        std::map<KeyFrame *, tuple<int, int>> observations = (*lit)->get_observations();
         for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
         {
             KeyFrame *pKFi = mit->first;
@@ -2820,7 +2820,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
         }
     }
 
-    // Set MapPoint vertices
+    // Set map_point vertices
     const int nExpectedSize = (N + lFixedKeyFrames.size()) * lLocalMapPoints.size();
 
     // Mono
@@ -2830,7 +2830,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
     vector<KeyFrame *> vpEdgeKFMono;
     vpEdgeKFMono.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeMono;
+    vector<map_point *> vpMapPointEdgeMono;
     vpMapPointEdgeMono.reserve(nExpectedSize);
 
     // Stereo
@@ -2840,7 +2840,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
     vector<KeyFrame *> vpEdgeKFStereo;
     vpEdgeKFStereo.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeStereo;
+    vector<map_point *> vpMapPointEdgeStereo;
     vpMapPointEdgeStereo.reserve(nExpectedSize);
 
     const float thHuberMono   = sqrt(5.991);
@@ -2861,17 +2861,17 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
         mVisEdges[(*lit)->mnId] = 0;
     }
 
-    for (list<MapPoint *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
+    for (list<map_point *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
     {
-        MapPoint               *pMP    = *lit;
+        map_point              *pMP    = *lit;
         g2o::VertexSBAPointXYZ *vPoint = new g2o::VertexSBAPointXYZ();
-        vPoint->setEstimate(pMP->GetWorldPos().cast<double>());
+        vPoint->setEstimate(pMP->get_world_position().cast<double>());
 
-        unsigned long id = pMP->mnId + iniMPid + 1;
+        unsigned long id = pMP->id + iniMPid + 1;
         vPoint->setId(id);
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
-        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
+        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->get_observations();
 
         // Create visual constraints
         for (std::map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
@@ -3006,18 +3006,18 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
         optimizer.setForceStopFlag(pbStopFlag);
     }
 
-    vector<pair<KeyFrame *, MapPoint *>> vToErase;
+    vector<pair<KeyFrame *, map_point *>> vToErase;
     vToErase.reserve(vpEdgesMono.size() + vpEdgesStereo.size());
 
     // Check inlier observations
     // Mono
     for (size_t i = 0, iend = vpEdgesMono.size(); i < iend; i++)
     {
-        EdgeMono *e      = vpEdgesMono[i];
-        MapPoint *pMP    = vpMapPointEdgeMono[i];
-        bool      bClose = pMP->mTrackDepth < 10.f;
+        EdgeMono  *e      = vpEdgesMono[i];
+        map_point *pMP    = vpMapPointEdgeMono[i];
+        bool       bClose = pMP->track_depth < 10.f;
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
@@ -3033,9 +3033,9 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
     for (size_t i = 0, iend = vpEdgesStereo.size(); i < iend; i++)
     {
         EdgeStereo *e   = vpEdgesStereo[i];
-        MapPoint   *pMP = vpMapPointEdgeStereo[i];
+        map_point  *pMP = vpMapPointEdgeStereo[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
@@ -3061,10 +3061,10 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
     {
         for (size_t i = 0; std::cmp_less(i, vToErase.size()); i++)
         {
-            KeyFrame *pKFi = vToErase[i].first;
-            MapPoint *pMPi = vToErase[i].second;
+            KeyFrame  *pKFi = vToErase[i].first;
+            map_point *pMPi = vToErase[i].second;
             pKFi->EraseMapPointMatch(pMPi);
-            pMPi->EraseObservation(pKFi);
+            pMPi->erase_observation(pKFi);
         }
     }
 
@@ -3108,12 +3108,12 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int 
     }
 
     // Points
-    for (list<MapPoint *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
+    for (list<map_point *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
     {
-        MapPoint               *pMP    = *lit;
-        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->mnId + iniMPid + 1));
-        pMP->SetWorldPos(vPoint->estimate().cast<float>());
-        pMP->UpdateNormalAndDepth();
+        map_point              *pMP    = *lit;
+        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->id + iniMPid + 1));
+        pMP->set_world_position(vPoint->estimate().cast<float>());
+        pMP->update_normal_and_depth();
     }
 
     pMap->increase_change_index();
@@ -3700,7 +3700,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
 {
     [[maybe_unused]] bool bShowImages = false;
 
-    vector<MapPoint *> vpMPs;
+    vector<map_point *> vpMPs;
 
     g2o::SparseOptimizer                    optimizer;
     g2o::BlockSolver_6_3::LinearSolverType *linearSolver;
@@ -3747,18 +3747,18 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
             maxKFid = pKFi->mnId;
         }
 
-        set<MapPoint *> spViewMPs = pKFi->GetMapPoints();
-        for (MapPoint *pMPi : spViewMPs)
+        set<map_point *> spViewMPs = pKFi->GetMapPoints();
+        for (map_point *pMPi : spViewMPs)
         {
             if (pMPi)
             {
-                if (!pMPi->isBad() && pMPi->GetMap() == pCurrentMap)
+                if (!pMPi->is_bad() && pMPi->get_map() == pCurrentMap)
                 {
 
-                    if (pMPi->mnBALocalForMerge != pMainKF->mnId)
+                    if (pMPi->local_ba_merge_key_frame_id != pMainKF->mnId)
                     {
                         vpMPs.push_back(pMPi);
-                        pMPi->mnBALocalForMerge = pMainKF->mnId;
+                        pMPi->local_ba_merge_key_frame_id = pMainKF->mnId;
                         numInsertedPoints++;
                     }
                 }
@@ -3790,17 +3790,17 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
             maxKFid = pKFi->mnId;
         }
 
-        set<MapPoint *> spViewMPs = pKFi->GetMapPoints();
-        for (MapPoint *pMPi : spViewMPs)
+        set<map_point *> spViewMPs = pKFi->GetMapPoints();
+        for (map_point *pMPi : spViewMPs)
         {
             if (pMPi)
             {
-                if (!pMPi->isBad() && pMPi->GetMap() == pCurrentMap)
+                if (!pMPi->is_bad() && pMPi->get_map() == pCurrentMap)
                 {
-                    if (pMPi->mnBALocalForMerge != pMainKF->mnId)
+                    if (pMPi->local_ba_merge_key_frame_id != pMainKF->mnId)
                     {
                         vpMPs.push_back(pMPi);
-                        pMPi->mnBALocalForMerge = pMainKF->mnId;
+                        pMPi->local_ba_merge_key_frame_id = pMainKF->mnId;
                         numInsertedPoints++;
                     }
                 }
@@ -3818,7 +3818,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
     vector<KeyFrame *> vpEdgeKFMono;
     vpEdgeKFMono.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeMono;
+    vector<map_point *> vpMapPointEdgeMono;
     vpMapPointEdgeMono.reserve(nExpectedSize);
 
     vector<g2o::EdgeStereoSE3ProjectXYZ *> vpEdgesStereo;
@@ -3827,32 +3827,32 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
     vector<KeyFrame *> vpEdgeKFStereo;
     vpEdgeKFStereo.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeStereo;
+    vector<map_point *> vpMapPointEdgeStereo;
     vpMapPointEdgeStereo.reserve(nExpectedSize);
 
     const float thHuber2D = sqrt(5.99);
     const float thHuber3D = sqrt(7.815);
 
-    // Set MapPoint vertices
-    std::map<KeyFrame *, int> mpObsKFs;
-    std::map<KeyFrame *, int> mpObsFinalKFs;
-    std::map<MapPoint *, int> mpObsMPs;
+    // Set map_point vertices
+    std::map<KeyFrame *, int>  mpObsKFs;
+    std::map<KeyFrame *, int>  mpObsFinalKFs;
+    std::map<map_point *, int> mpObsMPs;
     for (unsigned int i = 0; std::cmp_less(i, vpMPs.size()); ++i)
     {
-        MapPoint *pMPi = vpMPs[i];
-        if (pMPi->isBad())
+        map_point *pMPi = vpMPs[i];
+        if (pMPi->is_bad())
         {
             continue;
         }
 
         g2o::VertexSBAPointXYZ *vPoint = new g2o::VertexSBAPointXYZ();
-        vPoint->setEstimate(pMPi->GetWorldPos().cast<double>());
-        const int id = pMPi->mnId + maxKFid + 1;
+        vPoint->setEstimate(pMPi->get_world_position().cast<double>());
+        const int id = pMPi->id + maxKFid + 1;
         vPoint->setId(id);
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
 
-        const std::map<KeyFrame *, tuple<int, int>> observations = pMPi->GetObservations();
+        const std::map<KeyFrame *, tuple<int, int>> observations = pMPi->get_observations();
         int                                         nEdges       = 0;
         // SET EDGES
         for (std::map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(); mit != observations.end(); mit++)
@@ -3959,9 +3959,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
         for (size_t i = 0, iend = vpEdgesMono.size(); i < iend; i++)
         {
             ORB_SLAM3::EdgeSE3ProjectXYZ *e   = vpEdgesMono[i];
-            MapPoint                     *pMP = vpMapPointEdgeMono[i];
+            map_point                    *pMP = vpMapPointEdgeMono[i];
 
-            if (pMP->isBad())
+            if (pMP->is_bad())
             {
                 continue;
             }
@@ -3977,9 +3977,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
         for (size_t i = 0, iend = vpEdgesStereo.size(); i < iend; i++)
         {
             g2o::EdgeStereoSE3ProjectXYZ *e   = vpEdgesStereo[i];
-            MapPoint                     *pMP = vpMapPointEdgeStereo[i];
+            map_point                    *pMP = vpMapPointEdgeStereo[i];
 
-            if (pMP->isBad())
+            if (pMP->is_bad())
             {
                 continue;
             }
@@ -3998,19 +3998,19 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
         optimizer.optimize(10);
     }
 
-    vector<pair<KeyFrame *, MapPoint *>> vToErase;
+    vector<pair<KeyFrame *, map_point *>> vToErase;
     vToErase.reserve(vpEdgesMono.size() + vpEdgesStereo.size());
-    set<MapPoint *> spErasedMPs;
-    set<KeyFrame *> spErasedKFs;
+    set<map_point *> spErasedMPs;
+    set<KeyFrame *>  spErasedKFs;
 
     // Check inlier observations
     int badMonoMP = 0, badStereoMP = 0;
     for (size_t i = 0, iend = vpEdgesMono.size(); i < iend; i++)
     {
         ORB_SLAM3::EdgeSE3ProjectXYZ *e   = vpEdgesMono[i];
-        MapPoint                     *pMP = vpMapPointEdgeMono[i];
+        map_point                    *pMP = vpMapPointEdgeMono[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
@@ -4030,9 +4030,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
     for (size_t i = 0, iend = vpEdgesStereo.size(); i < iend; i++)
     {
         g2o::EdgeStereoSE3ProjectXYZ *e   = vpEdgesStereo[i];
-        MapPoint                     *pMP = vpMapPointEdgeStereo[i];
+        map_point                    *pMP = vpMapPointEdgeStereo[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
@@ -4058,21 +4058,21 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
     {
         for (size_t i = 0; std::cmp_less(i, vToErase.size()); i++)
         {
-            KeyFrame *pKFi = vToErase[i].first;
-            MapPoint *pMPi = vToErase[i].second;
+            KeyFrame  *pKFi = vToErase[i].first;
+            map_point *pMPi = vToErase[i].second;
             pKFi->EraseMapPointMatch(pMPi);
-            pMPi->EraseObservation(pKFi);
+            pMPi->erase_observation(pKFi);
         }
     }
     for (unsigned int i = 0; std::cmp_less(i, vpMPs.size()); ++i)
     {
-        MapPoint *pMPi = vpMPs[i];
-        if (pMPi->isBad())
+        map_point *pMPi = vpMPs[i];
+        if (pMPi->is_bad())
         {
             continue;
         }
 
-        const std::map<KeyFrame *, tuple<int, int>> observations = pMPi->GetObservations();
+        const std::map<KeyFrame *, tuple<int, int>> observations = pMPi->get_observations();
         for (std::map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(); mit != observations.end(); mit++)
         {
             KeyFrame *pKF = mit->first;
@@ -4105,15 +4105,15 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
         g2o::SE3Quat          SE3quat = vSE3->estimate();
         Sophus::SE3f          Tiw(SE3quat.rotation().cast<float>(), SE3quat.translation().cast<float>());
 
-        int                numMonoBadPoints = 0, numMonoOptPoints = 0;
-        int                numStereoBadPoints = 0, numStereoOptPoints = 0;
-        vector<MapPoint *> vpMonoMPsOpt, vpStereoMPsOpt;
-        vector<MapPoint *> vpMonoMPsBad, vpStereoMPsBad;
+        int                 numMonoBadPoints = 0, numMonoOptPoints = 0;
+        int                 numStereoBadPoints = 0, numStereoOptPoints = 0;
+        vector<map_point *> vpMonoMPsOpt, vpStereoMPsOpt;
+        vector<map_point *> vpMonoMPsBad, vpStereoMPsBad;
 
         for (size_t i = 0, iend = vpEdgesMono.size(); i < iend; i++)
         {
             ORB_SLAM3::EdgeSE3ProjectXYZ *e       = vpEdgesMono[i];
-            MapPoint                     *pMP     = vpMapPointEdgeMono[i];
+            map_point                    *pMP     = vpMapPointEdgeMono[i];
             KeyFrame                     *pKFedge = vpEdgeKFMono[i];
 
             if (pKFi != pKFedge)
@@ -4121,7 +4121,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
                 continue;
             }
 
-            if (pMP->isBad())
+            if (pMP->is_bad())
             {
                 continue;
             }
@@ -4141,7 +4141,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
         for (size_t i = 0, iend = vpEdgesStereo.size(); i < iend; i++)
         {
             g2o::EdgeStereoSE3ProjectXYZ *e       = vpEdgesStereo[i];
-            MapPoint                     *pMP     = vpMapPointEdgeStereo[i];
+            map_point                    *pMP     = vpMapPointEdgeStereo[i];
             KeyFrame                     *pKFedge = vpEdgeKFMono[i];
 
             if (pKFi != pKFedge)
@@ -4149,7 +4149,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
                 continue;
             }
 
-            if (pMP->isBad())
+            if (pMP->is_bad())
             {
                 continue;
             }
@@ -4170,16 +4170,16 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAd
     }
 
     // Points
-    for (MapPoint *pMPi : vpMPs)
+    for (map_point *pMPi : vpMPs)
     {
-        if (pMPi->isBad())
+        if (pMPi->is_bad())
         {
             continue;
         }
 
-        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMPi->mnId + maxKFid + 1));
-        pMPi->SetWorldPos(vPoint->estimate().cast<float>());
-        pMPi->UpdateNormalAndDepth();
+        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMPi->id + maxKFid + 1));
+        pMPi->set_world_position(vPoint->estimate().cast<float>());
+        pMPi->update_normal_and_depth();
     }
 }
 
@@ -4279,24 +4279,24 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
     int N = vpOptimizableKFs.size();
 
     // Optimizable points seen by optimizable keyframes
-    list<MapPoint *>          lLocalMapPoints;
-    std::map<MapPoint *, int> mLocalObs;
+    list<map_point *>          lLocalMapPoints;
+    std::map<map_point *, int> mLocalObs;
     for (int i = 0; std::cmp_less(i, N); i++)
     {
-        vector<MapPoint *> vpMPs = vpOptimizableKFs[i]->GetMapPointMatches();
-        for (vector<MapPoint *>::iterator vit = vpMPs.begin(), vend = vpMPs.end(); vit != vend; vit++)
+        vector<map_point *> vpMPs = vpOptimizableKFs[i]->GetMapPointMatches();
+        for (vector<map_point *>::iterator vit = vpMPs.begin(), vend = vpMPs.end(); vit != vend; vit++)
         {
             // Using mnBALocalForKF we avoid redundance here, one MP can not be added several times to lLocalMapPoints
-            MapPoint *pMP = *vit;
+            map_point *pMP = *vit;
             if (pMP)
             {
-                if (!pMP->isBad())
+                if (!pMP->is_bad())
                 {
-                    if (pMP->mnBALocalForKF != pCurrKF->mnId)
+                    if (pMP->local_ba_key_frame_id != pCurrKF->mnId)
                     {
                         mLocalObs[pMP] = 1;
                         lLocalMapPoints.push_back(pMP);
-                        pMP->mnBALocalForKF = pCurrKF->mnId;
+                        pMP->local_ba_key_frame_id = pCurrKF->mnId;
                     }
                     else
                     {
@@ -4307,7 +4307,7 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
         }
     }
 
-    std::vector<std::pair<MapPoint *, int>> pairs;
+    std::vector<std::pair<map_point *, int>> pairs;
     pairs.reserve(mLocalObs.size());
     for (auto itr = mLocalObs.begin(); itr != mLocalObs.end(); ++itr)
     {
@@ -4317,9 +4317,9 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
 
     // Fixed Keyframes. Keyframes that see Local MapPoints but that are not Local Keyframes
     int i = 0;
-    for (vector<pair<MapPoint *, int>>::iterator lit = pairs.begin(), lend = pairs.end(); lit != lend; lit++, i++)
+    for (vector<pair<map_point *, int>>::iterator lit = pairs.begin(), lend = pairs.end(); lit != lend; lit++, i++)
     {
-        std::map<KeyFrame *, tuple<int, int>> observations = lit->first->GetObservations();
+        std::map<KeyFrame *, tuple<int, int>> observations = lit->first->get_observations();
         if (i >= maxCovKF)
         {
             break;
@@ -4503,7 +4503,7 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
 
     spdlog::debug("end inserting inertial edges");
 
-    // Set MapPoint vertices
+    // Set map_point vertices
     const int nExpectedSize = (N + Ncov + lFixedKeyFrames.size()) * lLocalMapPoints.size();
 
     // Mono
@@ -4513,7 +4513,7 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
     vector<KeyFrame *> vpEdgeKFMono;
     vpEdgeKFMono.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeMono;
+    vector<map_point *> vpMapPointEdgeMono;
     vpMapPointEdgeMono.reserve(nExpectedSize);
 
     // Stereo
@@ -4523,7 +4523,7 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
     vector<KeyFrame *> vpEdgeKFStereo;
     vpEdgeKFStereo.reserve(nExpectedSize);
 
-    vector<MapPoint *> vpMapPointEdgeStereo;
+    vector<map_point *> vpMapPointEdgeStereo;
     vpMapPointEdgeStereo.reserve(nExpectedSize);
 
     const float thHuberMono   = sqrt(5.991);
@@ -4533,23 +4533,23 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
 
     const unsigned long iniMPid = maxKFid * 5;
 
-    for (list<MapPoint *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
+    for (list<map_point *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
     {
-        MapPoint *pMP = *lit;
+        map_point *pMP = *lit;
         if (!pMP)
         {
             continue;
         }
 
         g2o::VertexSBAPointXYZ *vPoint = new g2o::VertexSBAPointXYZ();
-        vPoint->setEstimate(pMP->GetWorldPos().cast<double>());
+        vPoint->setEstimate(pMP->get_world_position().cast<double>());
 
-        unsigned long id = pMP->mnId + iniMPid + 1;
+        unsigned long id = pMP->id + iniMPid + 1;
         vPoint->setId(id);
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
 
-        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
+        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->get_observations();
 
         // Create visual constraints
         for (std::map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
@@ -4643,17 +4643,17 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
     optimizer.initializeOptimization();
     optimizer.optimize(8);
 
-    vector<pair<KeyFrame *, MapPoint *>> vToErase;
+    vector<pair<KeyFrame *, map_point *>> vToErase;
     vToErase.reserve(vpEdgesMono.size() + vpEdgesStereo.size());
 
     // Check inlier observations
     // Mono
     for (size_t i = 0, iend = vpEdgesMono.size(); i < iend; i++)
     {
-        EdgeMono *e   = vpEdgesMono[i];
-        MapPoint *pMP = vpMapPointEdgeMono[i];
+        EdgeMono  *e   = vpEdgesMono[i];
+        map_point *pMP = vpMapPointEdgeMono[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
@@ -4669,9 +4669,9 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
     for (size_t i = 0, iend = vpEdgesStereo.size(); i < iend; i++)
     {
         EdgeStereo *e   = vpEdgesStereo[i];
-        MapPoint   *pMP = vpMapPointEdgeStereo[i];
+        map_point  *pMP = vpMapPointEdgeStereo[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
@@ -4689,10 +4689,10 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
     {
         for (size_t i = 0; std::cmp_less(i, vToErase.size()); i++)
         {
-            KeyFrame *pKFi = vToErase[i].first;
-            MapPoint *pMPi = vToErase[i].second;
+            KeyFrame  *pKFi = vToErase[i].first;
+            map_point *pMPi = vToErase[i].second;
             pKFi->EraseMapPointMatch(pMPi);
-            pMPi->EraseObservation(pKFi);
+            pMPi->erase_observation(pKFi);
         }
     }
 
@@ -4747,12 +4747,12 @@ void Optimizer::MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbS
     }
 
     // Points
-    for (list<MapPoint *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
+    for (list<map_point *>::iterator lit = lLocalMapPoints.begin(), lend = lLocalMapPoints.end(); lit != lend; lit++)
     {
-        MapPoint               *pMP    = *lit;
-        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->mnId + iniMPid + 1));
-        pMP->SetWorldPos(vPoint->estimate().cast<float>());
-        pMP->UpdateNormalAndDepth();
+        map_point              *pMP    = *lit;
+        g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->id + iniMPid + 1));
+        pMP->set_world_position(vPoint->estimate().cast<float>());
+        pMP->update_normal_and_depth();
     }
 
     pMap->increase_change_index();
@@ -4793,7 +4793,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(frame *pFrame, const camera_
     VA->setFixed(false);
     optimizer.addVertex(VA);
 
-    // Set MapPoint vertices
+    // Set map_point vertices
     const int  N      = pFrame->feature_count;
     const int  Nleft  = static_cast<int>(pFrame->keypoints.size());
     const bool bRight = pFrame->is_fisheye_stereo;
@@ -4811,11 +4811,11 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(frame *pFrame, const camera_
     const float thHuberStereo = sqrt(7.815);
 
     {
-        unique_lock<mutex> lock(MapPoint::mGlobalMutex);
+        unique_lock<mutex> lock(map_point::global_mutex);
 
         for (int i = 0; std::cmp_less(i, N); i++)
         {
-            MapPoint *pMP = pFrame->map_points[i];
+            map_point *pMP = pFrame->map_points[i];
             if (pMP)
             {
                 cv::KeyPoint kpUn;
@@ -4838,7 +4838,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(frame *pFrame, const camera_
                     Eigen::Matrix<double, 2, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y;
 
-                    EdgeMonoOnlyPose *e = new EdgeMonoOnlyPose(pMP->GetWorldPos(), 0);
+                    EdgeMonoOnlyPose *e = new EdgeMonoOnlyPose(pMP->get_world_position(), 0);
 
                     e->setVertex(0, VP);
                     e->setMeasurement(obs);
@@ -4869,7 +4869,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(frame *pFrame, const camera_
                     Eigen::Matrix<double, 3, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y, kp_ur;
 
-                    EdgeStereoOnlyPose *e = new EdgeStereoOnlyPose(pMP->GetWorldPos());
+                    EdgeStereoOnlyPose *e = new EdgeStereoOnlyPose(pMP->get_world_position());
 
                     e->setVertex(0, VP);
                     e->setMeasurement(obs);
@@ -4900,7 +4900,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(frame *pFrame, const camera_
                     Eigen::Matrix<double, 2, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y;
 
-                    EdgeMonoOnlyPose *e = new EdgeMonoOnlyPose(pMP->GetWorldPos(), 1);
+                    EdgeMonoOnlyPose *e = new EdgeMonoOnlyPose(pMP->get_world_position(), 1);
 
                     e->setVertex(0, VP);
                     e->setMeasurement(obs);
@@ -5006,7 +5006,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(frame *pFrame, const camera_
             }
 
             const float chi2   = e->chi2();
-            bool        bClose = pFrame->map_points[idx]->mTrackDepth < 10.f;
+            bool        bClose = pFrame->map_points[idx]->track_depth < 10.f;
 
             if ((chi2 > chi2Mono[it] && !bClose) || (bClose && chi2 > chi2close) || !e->isDepthPositive())
             {
@@ -5196,7 +5196,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vec
     VA->setFixed(false);
     optimizer.addVertex(VA);
 
-    // Set MapPoint vertices
+    // Set map_point vertices
     const int  N      = pFrame->feature_count;
     const int  Nleft  = static_cast<int>(pFrame->keypoints.size());
     const bool bRight = pFrame->is_fisheye_stereo;
@@ -5214,11 +5214,11 @@ int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vec
     const float thHuberStereo = sqrt(7.815);
 
     {
-        unique_lock<mutex> lock(MapPoint::mGlobalMutex);
+        unique_lock<mutex> lock(map_point::global_mutex);
 
         for (int i = 0; std::cmp_less(i, N); i++)
         {
-            MapPoint *pMP = pFrame->map_points[i];
+            map_point *pMP = pFrame->map_points[i];
             if (pMP)
             {
                 cv::KeyPoint kpUn;
@@ -5240,7 +5240,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vec
                     Eigen::Matrix<double, 2, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y;
 
-                    EdgeMonoOnlyPose *e = new EdgeMonoOnlyPose(pMP->GetWorldPos(), 0);
+                    EdgeMonoOnlyPose *e = new EdgeMonoOnlyPose(pMP->get_world_position(), 0);
 
                     e->setVertex(0, VP);
                     e->setMeasurement(obs);
@@ -5271,7 +5271,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vec
                     Eigen::Matrix<double, 3, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y, kp_ur;
 
-                    EdgeStereoOnlyPose *e = new EdgeStereoOnlyPose(pMP->GetWorldPos());
+                    EdgeStereoOnlyPose *e = new EdgeStereoOnlyPose(pMP->get_world_position());
 
                     e->setVertex(0, VP);
                     e->setMeasurement(obs);
@@ -5302,7 +5302,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vec
                     Eigen::Matrix<double, 2, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y;
 
-                    EdgeMonoOnlyPose *e = new EdgeMonoOnlyPose(pMP->GetWorldPos(), 1);
+                    EdgeMonoOnlyPose *e = new EdgeMonoOnlyPose(pMP->get_world_position(), 1);
 
                     e->setVertex(0, VP);
                     e->setMeasurement(obs);
@@ -5418,7 +5418,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vec
             EdgeMonoOnlyPose *e = vpEdgesMono[i];
 
             const size_t idx    = vnIndexEdgeMono[i];
-            bool         bClose = pFrame->map_points[idx]->mTrackDepth < 10.f;
+            bool         bClose = pFrame->map_points[idx]->track_depth < 10.f;
 
             if (pFrame->outliers[idx])
             {
@@ -5614,8 +5614,8 @@ void Optimizer::OptimizeEssentialGraph4DoF(map                                  
 
     optimizer.setAlgorithm(solver);
 
-    const vector<KeyFrame *> vpKFs = pMap->get_all_key_frames();
-    const vector<MapPoint *> vpMPs = pMap->get_all_map_points();
+    const vector<KeyFrame *>  vpKFs = pMap->get_all_key_frames();
+    const vector<map_point *> vpMPs = pMap->get_all_map_points();
 
     const unsigned int nMaxKFid = pMap->get_max_key_frame_id();
 
@@ -5900,26 +5900,26 @@ void Optimizer::OptimizeEssentialGraph4DoF(map                                  
     // Correct points. Transform to "non-optimized" reference keyframe pose and transform back with optimized pose
     for (size_t i = 0, iend = vpMPs.size(); i < iend; i++)
     {
-        MapPoint *pMP = vpMPs[i];
+        map_point *pMP = vpMPs[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
 
         int nIDr;
 
-        KeyFrame *pRefKF = pMP->GetReferenceKeyFrame();
+        KeyFrame *pRefKF = pMP->get_reference_key_frame();
         nIDr             = pRefKF->mnId;
 
         g2o::Sim3 Srw          = vScw[nIDr];
         g2o::Sim3 correctedSwr = vCorrectedSwc[nIDr];
 
-        Eigen::Matrix<double, 3, 1> eigP3Dw          = pMP->GetWorldPos().cast<double>();
+        Eigen::Matrix<double, 3, 1> eigP3Dw          = pMP->get_world_position().cast<double>();
         Eigen::Matrix<double, 3, 1> eigCorrectedP3Dw = correctedSwr.map(Srw.map(eigP3Dw));
-        pMP->SetWorldPos(eigCorrectedP3Dw.cast<float>());
+        pMP->set_world_position(eigCorrectedP3Dw.cast<float>());
 
-        pMP->UpdateNormalAndDepth();
+        pMP->update_normal_and_depth();
     }
     pMap->increase_change_index();
 }

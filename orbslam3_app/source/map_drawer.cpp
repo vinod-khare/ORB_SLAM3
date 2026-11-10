@@ -19,8 +19,8 @@
 #include "map_drawer.h"
 
 #include "KeyFrame.h"
-#include "MapPoint.h"
 #include "atlas.h"
+#include "map_point.h"
 
 #include <vtkActor.h>
 #include <vtkCamera.h>
@@ -274,16 +274,16 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
         }
         if (layers[0])
         {
-            const auto                 references = active_map->get_reference_map_points();
-            const std::set<MapPoint *> reference_set(references.begin(), references.end());
+            const auto                  references = active_map->get_reference_map_points();
+            const std::set<map_point *> reference_set(references.begin(), references.end());
             for (auto *point : active_map->get_all_map_points())
             {
-                if (!point || point->isBad())
+                if (!point || point->is_bad())
                 {
                     continue;
                 }
                 const auto            group    = reference_set.contains(point) ? 1u : 0u;
-                const Eigen::Vector3f position = point->GetWorldPos();
+                const Eigen::Vector3f position = point->get_world_position();
                 const auto            index    = points[group]->InsertNextPoint(position.x(), position.y(), position.z());
                 cells[group]->InsertNextCell(1, &index);
                 const auto color = point->color();

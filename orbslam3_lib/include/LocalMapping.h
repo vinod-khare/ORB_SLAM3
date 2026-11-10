@@ -147,7 +147,7 @@ class LocalMapping
 
     KeyFrame *mpCurrentKeyFrame;
 
-    std::list<MapPoint *> mlpRecentAddedMapPoints;
+    std::list<map_point *> mlpRecentAddedMapPoints;
 
     std::mutex mMutexNewKFs;
 

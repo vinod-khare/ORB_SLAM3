@@ -1225,7 +1225,7 @@ void System::SavePointCloudPLY(const string &filename)
             out_file = out_dir.empty() ? std::filesystem::path(stem + ext) : (out_dir / (stem + ext));
         }
 
-        vector<MapPoint *> vpMPs = pMap->get_all_map_points();
+        vector<map_point *> vpMPs = pMap->get_all_map_points();
         struct ColoredPoint
         {
             Eigen::Vector3f pos;
@@ -1237,14 +1237,14 @@ void System::SavePointCloudPLY(const string &filename)
         vector<ColoredPoint> points;
         points.reserve(vpMPs.size());
 
-        for (MapPoint *pMP : vpMPs)
+        for (map_point *pMP : vpMPs)
         {
-            if (!pMP || pMP->isBad())
+            if (!pMP || pMP->is_bad())
             {
                 continue;
             }
 
-            Eigen::Vector3f P = pMP->GetWorldPos();
+            Eigen::Vector3f P = pMP->get_world_position();
             if (!std::isfinite(P.x()) || !std::isfinite(P.y()) || !std::isfinite(P.z()))
             {
                 continue;
@@ -1410,7 +1410,7 @@ int System::GetTrackingState()
     return mTrackingState;
 }
 
-vector<MapPoint *> System::GetTrackedMapPoints()
+vector<map_point *> System::GetTrackedMapPoints()
 {
     unique_lock<mutex> lock(mMutexState);
     return mTrackedMapPoints;

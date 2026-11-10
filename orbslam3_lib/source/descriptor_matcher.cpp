@@ -141,7 +141,7 @@ std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, co
     return rank_candidates(query, indices, [&train, right](size_t index) -> const cv::Mat & { return right ? train.mvKeysRight[index].descriptor : train.descriptor(index); });
 }
 
-int descriptor_matcher::search_by_projection(frame &F, const vector<MapPoint *> &vpMapPoints, const float th, const bool bFarPoints, const float thFarPoints)
+int descriptor_matcher::search_by_projection(frame &F, const vector<map_point *> &vpMapPoints, const float th, const bool bFarPoints, const float thFarPoints)
 {
     int nmatches = 0, left = 0, right = 0;
 
@@ -149,28 +149,28 @@ int descriptor_matcher::search_by_projection(frame &F, const vector<MapPoint *> 
 
     for (size_t iMP = 0; iMP < vpMapPoints.size(); iMP++)
     {
-        MapPoint *pMP = vpMapPoints[iMP];
-        if (!pMP->mbTrackInView && !pMP->mbTrackInViewR)
+        map_point *pMP = vpMapPoints[iMP];
+        if (!pMP->track_in_view && !pMP->track_in_view_right)
         {
             continue;
         }
 
-        if (bFarPoints && pMP->mTrackDepth > thFarPoints)
+        if (bFarPoints && pMP->track_depth > thFarPoints)
         {
             continue;
         }
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
 
-        if (pMP->mbTrackInView)
+        if (pMP->track_in_view)
         {
-            const int &nPredictedLevel = pMP->mnTrackScaleLevel;
+            const int &nPredictedLevel = pMP->track_scale_level;
 
             // The size of the window will depend on the viewing direction
-            float r = radius_by_viewing_cos(pMP->mTrackViewCos);
+            float r = radius_by_viewing_cos(pMP->track_view_cos);
 
             if (bFactor)
             {
@@ -178,11 +178,11 @@ int descriptor_matcher::search_by_projection(frame &F, const vector<MapPoint *> 
             }
 
             const auto vIndices = rank_candidates(
-                pMP->GetDescriptor(), F, F.get_features_in_area(pMP->mTrackProjX, pMP->mTrackProjY, r * F.scale_factors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel));
+                pMP->get_descriptor(), F, F.get_features_in_area(pMP->track_projection_x, pMP->track_projection_y, r * F.scale_factors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel));
 
             if (!vIndices.empty())
             {
-                const cv::Mat MPdescriptor = pMP->GetDescriptor();
+                const cv::Mat MPdescriptor = pMP->get_descriptor();
 
                 float bestDist   = 256;
                 int   bestLevel  = -1;
@@ -197,7 +197,7 @@ int descriptor_matcher::search_by_projection(frame &F, const vector<MapPoint *> 
 
                     if (F.map_points[idx])
                     {
-                        if (F.map_points[idx]->Observations() > 0)
+                        if (F.map_points[idx]->get_observation_count() > 0)
                         {
                             continue;
                         }
@@ -205,7 +205,7 @@ int descriptor_matcher::search_by_projection(frame &F, const vector<MapPoint *> 
 
                     if (!F.is_fisheye_stereo && F.right_coordinates[idx] > 0)
                     {
-                        const float er = fabs(pMP->mTrackProjXR - F.right_coordinates[idx]);
+                        const float er = fabs(pMP->track_projection_x_right - F.right_coordinates[idx]);
                         if (er > r * F.scale_factors[nPredictedLevel])
                         {
                             continue;
@@ -257,25 +257,25 @@ int descriptor_matcher::search_by_projection(frame &F, const vector<MapPoint *> 
             }
         }
 
-        if (F.is_fisheye_stereo && pMP->mbTrackInViewR)
+        if (F.is_fisheye_stereo && pMP->track_in_view_right)
         {
-            const int &nPredictedLevel = pMP->mnTrackScaleLevelR;
+            const int &nPredictedLevel = pMP->track_scale_level_right;
             if (nPredictedLevel != -1)
             {
-                float r = radius_by_viewing_cos(pMP->mTrackViewCosR);
+                float r = radius_by_viewing_cos(pMP->track_view_cos_right);
 
-                const auto vIndices =
-                    rank_candidates(pMP->GetDescriptor(),
-                                    F,
-                                    F.get_features_in_area(pMP->mTrackProjXR, pMP->mTrackProjYR, r * F.scale_factors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel, true),
-                                    true);
+                const auto vIndices = rank_candidates(
+                    pMP->get_descriptor(),
+                    F,
+                    F.get_features_in_area(pMP->track_projection_x_right, pMP->track_projection_y_right, r * F.scale_factors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel, true),
+                    true);
 
                 if (vIndices.empty())
                 {
                     continue;
                 }
 
-                const cv::Mat MPdescriptor = pMP->GetDescriptor();
+                const cv::Mat MPdescriptor = pMP->get_descriptor();
 
                 float bestDist   = 256;
                 int   bestLevel  = -1;
@@ -290,7 +290,7 @@ int descriptor_matcher::search_by_projection(frame &F, const vector<MapPoint *> 
 
                     if (F.map_points[idx + F.keypoints.size()])
                     {
-                        if (F.map_points[idx + F.keypoints.size()]->Observations() > 0)
+                        if (F.map_points[idx + F.keypoints.size()]->get_observation_count() > 0)
                         {
                             continue;
                         }
@@ -352,11 +352,11 @@ float descriptor_matcher::radius_by_viewing_cos(const float &viewCos)
     }
 }
 
-int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<MapPoint *> &vpMapPointMatches)
+int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<map_point *> &vpMapPointMatches)
 {
-    const vector<MapPoint *> vpMapPointsKF = pKF->GetMapPointMatches();
+    const vector<map_point *> vpMapPointsKF = pKF->GetMapPointMatches();
 
-    vpMapPointMatches = vector<MapPoint *>(F.feature_count, static_cast<MapPoint *>(NULL));
+    vpMapPointMatches = vector<map_point *>(F.feature_count, static_cast<map_point *>(NULL));
 
     const DBoW2::FeatureVector &vFeatVecKF = pKF->mFeatVec;
 
@@ -386,14 +386,14 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<Map
             {
                 const unsigned int realIdxKF = vIndicesKF[iKF];
 
-                MapPoint *pMP = vpMapPointsKF[realIdxKF];
+                map_point *pMP = vpMapPointsKF[realIdxKF];
 
                 if (!pMP)
                 {
                     continue;
                 }
 
-                if (pMP->isBad())
+                if (pMP->is_bad())
                 {
                     continue;
                 }
@@ -570,7 +570,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<Map
             }
             for (size_t j = 0, jend = rotHist[i].size(); j < jend; j++)
             {
-                vpMapPointMatches[rotHist[i][j]] = static_cast<MapPoint *>(NULL);
+                vpMapPointMatches[rotHist[i][j]] = static_cast<map_point *>(NULL);
                 nmatches--;
             }
         }
@@ -579,7 +579,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<Map
     return nmatches;
 }
 
-int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<MapPoint *> &vpPoints, vector<MapPoint *> &vpMatched, int th, float distance_multiplier)
+int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, vector<map_point *> &vpMatched, int th, float distance_multiplier)
 {
     // Get Calibration Parameters for later projection
     [[maybe_unused]] const float &fx = pKF->fx;
@@ -591,24 +591,24 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
     Eigen::Vector3f Ow  = Tcw.inverse().translation();
 
     // Set of MapPoints already found in the KeyFrame
-    set<MapPoint *> spAlreadyFound(vpMatched.begin(), vpMatched.end());
-    spAlreadyFound.erase(static_cast<MapPoint *>(NULL));
+    set<map_point *> spAlreadyFound(vpMatched.begin(), vpMatched.end());
+    spAlreadyFound.erase(static_cast<map_point *>(NULL));
 
     int nmatches = 0;
 
-    // For each Candidate MapPoint Project and Match
+    // For each Candidate map_point Project and Match
     for (int iMP = 0, iendMP = vpPoints.size(); iMP < iendMP; iMP++)
     {
-        MapPoint *pMP = vpPoints[iMP];
+        map_point *pMP = vpPoints[iMP];
 
         // Discard Bad MapPoints and already found
-        if (pMP->isBad() || spAlreadyFound.count(pMP))
+        if (pMP->is_bad() || spAlreadyFound.count(pMP))
         {
             continue;
         }
 
         // Get 3D Coords.
-        Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+        Eigen::Vector3f p3Dw = pMP->get_world_position();
 
         // Transform into Camera Coords.
         Eigen::Vector3f p3Dc = Tcw * p3Dw;
@@ -629,8 +629,8 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
         }
 
         // Depth must be inside the scale invariance region of the point
-        const float     maxDistance = pMP->GetMaxDistanceInvariance();
-        const float     minDistance = pMP->GetMinDistanceInvariance();
+        const float     maxDistance = pMP->get_max_distance_invariance();
+        const float     minDistance = pMP->get_min_distance_invariance();
         Eigen::Vector3f PO          = p3Dw - Ow;
         const float     dist        = PO.norm();
 
@@ -640,19 +640,19 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
         }
 
         // Viewing angle must be less than 60 deg
-        Eigen::Vector3f Pn = pMP->GetNormal();
+        Eigen::Vector3f Pn = pMP->get_normal();
 
         if (PO.dot(Pn) < 0.5 * dist)
         {
             continue;
         }
 
-        int nPredictedLevel = pMP->PredictScale(dist, pKF);
+        int nPredictedLevel = pMP->predict_scale(dist, pKF);
 
         // Search in a radius
         const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
 
         if (vIndices.empty())
         {
@@ -660,7 +660,7 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
         }
 
         // Match to the most similar keypoint in the radius
-        const cv::Mat dMP = pMP->GetDescriptor();
+        const cv::Mat dMP = pMP->get_descriptor();
 
         float bestDist = 256;
         int   bestIdx  = -1;
@@ -700,14 +700,14 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
     return nmatches;
 }
 
-int descriptor_matcher::search_by_projection(KeyFrame                      *pKF,
-                                             Sophus::Sim3<float>           &Scw,
-                                             const std::vector<MapPoint *> &vpPoints,
-                                             const std::vector<KeyFrame *> &vpPointsKFs,
-                                             std::vector<MapPoint *>       &vpMatched,
-                                             std::vector<KeyFrame *>       &vpMatchedKF,
-                                             int                            th,
-                                             float                          distance_multiplier)
+int descriptor_matcher::search_by_projection(KeyFrame                       *pKF,
+                                             Sophus::Sim3<float>            &Scw,
+                                             const std::vector<map_point *> &vpPoints,
+                                             const std::vector<KeyFrame *>  &vpPointsKFs,
+                                             std::vector<map_point *>       &vpMatched,
+                                             std::vector<KeyFrame *>        &vpMatchedKF,
+                                             int                             th,
+                                             float                           distance_multiplier)
 {
     // Get Calibration Parameters for later projection
     const float &fx = pKF->fx;
@@ -719,25 +719,25 @@ int descriptor_matcher::search_by_projection(KeyFrame                      *pKF,
     Eigen::Vector3f Ow  = Tcw.inverse().translation();
 
     // Set of MapPoints already found in the KeyFrame
-    set<MapPoint *> spAlreadyFound(vpMatched.begin(), vpMatched.end());
-    spAlreadyFound.erase(static_cast<MapPoint *>(NULL));
+    set<map_point *> spAlreadyFound(vpMatched.begin(), vpMatched.end());
+    spAlreadyFound.erase(static_cast<map_point *>(NULL));
 
     int nmatches = 0;
 
-    // For each Candidate MapPoint Project and Match
+    // For each Candidate map_point Project and Match
     for (int iMP = 0, iendMP = vpPoints.size(); iMP < iendMP; iMP++)
     {
-        MapPoint *pMP  = vpPoints[iMP];
-        KeyFrame *pKFi = vpPointsKFs[iMP];
+        map_point *pMP  = vpPoints[iMP];
+        KeyFrame  *pKFi = vpPointsKFs[iMP];
 
         // Discard Bad MapPoints and already found
-        if (pMP->isBad() || spAlreadyFound.count(pMP))
+        if (pMP->is_bad() || spAlreadyFound.count(pMP))
         {
             continue;
         }
 
         // Get 3D Coords.
-        Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+        Eigen::Vector3f p3Dw = pMP->get_world_position();
 
         // Transform into Camera Coords.
         Eigen::Vector3f p3Dc = Tcw * p3Dw;
@@ -763,8 +763,8 @@ int descriptor_matcher::search_by_projection(KeyFrame                      *pKF,
         }
 
         // Depth must be inside the scale invariance region of the point
-        const float     maxDistance = pMP->GetMaxDistanceInvariance();
-        const float     minDistance = pMP->GetMinDistanceInvariance();
+        const float     maxDistance = pMP->get_max_distance_invariance();
+        const float     minDistance = pMP->get_min_distance_invariance();
         Eigen::Vector3f PO          = p3Dw - Ow;
         const float     dist        = PO.norm();
 
@@ -774,19 +774,19 @@ int descriptor_matcher::search_by_projection(KeyFrame                      *pKF,
         }
 
         // Viewing angle must be less than 60 deg
-        Eigen::Vector3f Pn = pMP->GetNormal();
+        Eigen::Vector3f Pn = pMP->get_normal();
 
         if (PO.dot(Pn) < 0.5 * dist)
         {
             continue;
         }
 
-        int nPredictedLevel = pMP->PredictScale(dist, pKF);
+        int nPredictedLevel = pMP->predict_scale(dist, pKF);
 
         // Search in a radius
         const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF, pKF->GetFeaturesInArea(u, v, radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->GetFeaturesInArea(u, v, radius));
 
         if (vIndices.empty())
         {
@@ -794,7 +794,7 @@ int descriptor_matcher::search_by_projection(KeyFrame                      *pKF,
         }
 
         // Match to the most similar keypoint in the radius
-        const cv::Mat dMP = pMP->GetDescriptor();
+        const cv::Mat dMP = pMP->get_descriptor();
 
         float bestDist = 256;
         int   bestIdx  = -1;
@@ -968,17 +968,17 @@ int descriptor_matcher::search_for_initialization(frame &F1, frame &F2, vector<c
     return nmatches;
 }
 
-int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches12)
+int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vector<map_point *> &vpMatches12)
 {
     const vector<keypoint>     &vKeysUn1     = pKF1->mvKeys;
     const DBoW2::FeatureVector &vFeatVec1    = pKF1->mFeatVec;
-    const vector<MapPoint *>    vpMapPoints1 = pKF1->GetMapPointMatches();
+    const vector<map_point *>   vpMapPoints1 = pKF1->GetMapPointMatches();
 
     const vector<keypoint>     &vKeysUn2     = pKF2->mvKeys;
     const DBoW2::FeatureVector &vFeatVec2    = pKF2->mFeatVec;
-    const vector<MapPoint *>    vpMapPoints2 = pKF2->GetMapPointMatches();
+    const vector<map_point *>   vpMapPoints2 = pKF2->GetMapPointMatches();
 
-    vpMatches12 = vector<MapPoint *>(vpMapPoints1.size(), static_cast<MapPoint *>(NULL));
+    vpMatches12 = vector<map_point *>(vpMapPoints1.size(), static_cast<map_point *>(NULL));
     vector<bool> vbMatched2(vpMapPoints2.size(), false);
 
     vector<int> rotHist[orientation_histogram_bins];
@@ -1008,12 +1008,12 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vec
                     continue;
                 }
 
-                MapPoint *pMP1 = vpMapPoints1[idx1];
+                map_point *pMP1 = vpMapPoints1[idx1];
                 if (!pMP1)
                 {
                     continue;
                 }
-                if (pMP1->isBad())
+                if (pMP1->is_bad())
                 {
                     continue;
                 }
@@ -1033,14 +1033,14 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vec
                         continue;
                     }
 
-                    MapPoint *pMP2 = vpMapPoints2[idx2];
+                    map_point *pMP2 = vpMapPoints2[idx2];
 
                     if (vbMatched2[idx2] || !pMP2)
                     {
                         continue;
                     }
 
-                    if (pMP2->isBad())
+                    if (pMP2->is_bad())
                     {
                         continue;
                     }
@@ -1117,7 +1117,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vec
             }
             for (size_t j = 0, jend = rotHist[i].size(); j < jend; j++)
             {
-                vpMatches12[rotHist[i][j]] = static_cast<MapPoint *>(NULL);
+                vpMatches12[rotHist[i][j]] = static_cast<map_point *>(NULL);
                 nmatches--;
             }
         }
@@ -1194,9 +1194,9 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
             {
                 const size_t idx1 = f1it->second[i1];
 
-                MapPoint *pMP1 = pKF1->GetMapPoint(idx1);
+                map_point *pMP1 = pKF1->GetMapPoint(idx1);
 
-                // If there is already a MapPoint skip
+                // If there is already a map_point skip
                 if (pMP1)
                 {
                     continue;
@@ -1228,9 +1228,9 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
                 for (auto idx2 : ranked_indices)
                 {
 
-                    MapPoint *pMP2 = pKF2->GetMapPoint(idx2);
+                    map_point *pMP2 = pKF2->GetMapPoint(idx2);
 
-                    // If we have already matched or there is a MapPoint skip
+                    // If we have already matched or there is a map_point skip
                     if (vbMatched2[idx2] || pMP2)
                     {
                         continue;
@@ -1401,7 +1401,7 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
     return nmatches;
 }
 
-int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const float th, const bool bRight)
+int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoints, const float th, const bool bRight)
 {
     auto           &selected_camera = *pKF->cameras[bRight ? 1 : 0];
     Sophus::SE3f    Tcw;
@@ -1432,7 +1432,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
     int count_notMP = 0, count_bad = 0, count_isinKF = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal = 0, count_notidx = 0, count_thcheck = 0;
     for (int i = 0; i < nMPs; i++)
     {
-        MapPoint *pMP = vpMapPoints[i];
+        map_point *pMP = vpMapPoints[i];
 
         if (!pMP)
         {
@@ -1440,18 +1440,18 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
             continue;
         }
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             count_bad++;
             continue;
         }
-        else if (pMP->IsInKeyFrame(pKF))
+        else if (pMP->is_in_key_frame(pKF))
         {
             count_isinKF++;
             continue;
         }
 
-        Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+        Eigen::Vector3f p3Dw = pMP->get_world_position();
         Eigen::Vector3f p3Dc = Tcw * p3Dw;
 
         // Depth must be positive
@@ -1474,8 +1474,8 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
 
         const float ur = uv(0) - bf * invz;
 
-        const float     maxDistance = pMP->GetMaxDistanceInvariance();
-        const float     minDistance = pMP->GetMinDistanceInvariance();
+        const float     maxDistance = pMP->get_max_distance_invariance();
+        const float     minDistance = pMP->get_min_distance_invariance();
         Eigen::Vector3f PO          = p3Dw - Ow;
         const float     dist3D      = PO.norm();
 
@@ -1487,7 +1487,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
         }
 
         // Viewing angle must be less than 60 deg
-        Eigen::Vector3f Pn = pMP->GetNormal();
+        Eigen::Vector3f Pn = pMP->get_normal();
 
         if (PO.dot(Pn) < 0.5 * dist3D)
         {
@@ -1495,12 +1495,12 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
             continue;
         }
 
-        int nPredictedLevel = pMP->PredictScale(dist3D, pKF);
+        int nPredictedLevel = pMP->predict_scale(dist3D, pKF);
 
         // Search in a radius
         const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius, bRight), bRight);
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius, bRight), bRight);
 
         if (vIndices.empty())
         {
@@ -1510,7 +1510,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
 
         // Match to the most similar keypoint in the radius
 
-        const cv::Mat dMP = pMP->GetDescriptor();
+        const cv::Mat dMP = pMP->get_descriptor();
 
         float bestDist = 256;
         int   bestIdx  = -1;
@@ -1572,27 +1572,27 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
             }
         }
 
-        // If there is already a MapPoint replace otherwise add new measurement
+        // If there is already a map_point replace otherwise add new measurement
         if (bestDist <= low_distance_threshold)
         {
-            MapPoint *pMPinKF = pKF->GetMapPoint(bestIdx);
+            map_point *pMPinKF = pKF->GetMapPoint(bestIdx);
             if (pMPinKF)
             {
-                if (!pMPinKF->isBad())
+                if (!pMPinKF->is_bad())
                 {
-                    if (pMPinKF->Observations() > pMP->Observations())
+                    if (pMPinKF->get_observation_count() > pMP->get_observation_count())
                     {
-                        pMP->Replace(pMPinKF);
+                        pMP->replace(pMPinKF);
                     }
                     else
                     {
-                        pMPinKF->Replace(pMP);
+                        pMPinKF->replace(pMP);
                     }
                 }
             }
             else
             {
-                pMP->AddObservation(pKF, bestIdx);
+                pMP->add_observation(pKF, bestIdx);
                 pKF->AddMapPoint(pMP, bestIdx);
             }
             nFused++;
@@ -1606,7 +1606,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoint
     return nFused;
 }
 
-int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<MapPoint *> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint)
+int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint)
 {
     // Get Calibration Parameters for later projection
     [[maybe_unused]] const float &fx = pKF->fx;
@@ -1619,25 +1619,25 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<Map
     Eigen::Vector3f Ow  = Tcw.inverse().translation();
 
     // Set of MapPoints already found in the KeyFrame
-    const set<MapPoint *> spAlreadyFound = pKF->GetMapPoints();
+    const set<map_point *> spAlreadyFound = pKF->GetMapPoints();
 
     int nFused = 0;
 
     const int nPoints = vpPoints.size();
 
-    // For each candidate MapPoint project and match
+    // For each candidate map_point project and match
     for (int iMP = 0; iMP < nPoints; iMP++)
     {
-        MapPoint *pMP = vpPoints[iMP];
+        map_point *pMP = vpPoints[iMP];
 
         // Discard Bad MapPoints and already found
-        if (pMP->isBad() || spAlreadyFound.count(pMP))
+        if (pMP->is_bad() || spAlreadyFound.count(pMP))
         {
             continue;
         }
 
         // Get 3D Coords.
-        Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+        Eigen::Vector3f p3Dw = pMP->get_world_position();
 
         // Transform into Camera Coords.
         Eigen::Vector3f p3Dc = Tcw * p3Dw;
@@ -1658,8 +1658,8 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<Map
         }
 
         // Depth must be inside the scale pyramid of the image
-        const float     maxDistance = pMP->GetMaxDistanceInvariance();
-        const float     minDistance = pMP->GetMinDistanceInvariance();
+        const float     maxDistance = pMP->get_max_distance_invariance();
+        const float     minDistance = pMP->get_min_distance_invariance();
         Eigen::Vector3f PO          = p3Dw - Ow;
         const float     dist3D      = PO.norm();
 
@@ -1669,7 +1669,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<Map
         }
 
         // Viewing angle must be less than 60 deg
-        Eigen::Vector3f Pn = pMP->GetNormal();
+        Eigen::Vector3f Pn = pMP->get_normal();
 
         if (PO.dot(Pn) < 0.5 * dist3D)
         {
@@ -1677,12 +1677,12 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<Map
         }
 
         // Compute predicted scale level
-        const int nPredictedLevel = pMP->PredictScale(dist3D, pKF);
+        const int nPredictedLevel = pMP->predict_scale(dist3D, pKF);
 
         // Search in a radius
         const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
 
         if (vIndices.empty())
         {
@@ -1691,7 +1691,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<Map
 
         // Match to the most similar keypoint in the radius
 
-        const cv::Mat dMP = pMP->GetDescriptor();
+        const cv::Mat dMP = pMP->get_descriptor();
 
         float bestDist = INT_MAX;
         int   bestIdx  = -1;
@@ -1716,20 +1716,20 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<Map
             }
         }
 
-        // If there is already a MapPoint replace otherwise add new measurement
+        // If there is already a map_point replace otherwise add new measurement
         if (bestDist <= low_distance_threshold)
         {
-            MapPoint *pMPinKF = pKF->GetMapPoint(bestIdx);
+            map_point *pMPinKF = pKF->GetMapPoint(bestIdx);
             if (pMPinKF)
             {
-                if (!pMPinKF->isBad())
+                if (!pMPinKF->is_bad())
                 {
                     vpReplacePoint[iMP] = pMPinKF;
                 }
             }
             else
             {
-                pMP->AddObservation(pKF, bestIdx);
+                pMP->add_observation(pKF, bestIdx);
                 pKF->AddMapPoint(pMP, bestIdx);
             }
             nFused++;
@@ -1739,7 +1739,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<Map
     return nFused;
 }
 
-int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<MapPoint *> &vpMatches12, const Sophus::Sim3f &S12, const float th)
+int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<map_point *> &vpMatches12, const Sophus::Sim3f &S12, const float th)
 {
     const float &fx = pKF1->fx;
     const float &fy = pKF1->fy;
@@ -1753,22 +1753,22 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
     // Transformation between cameras
     Sophus::Sim3f S21 = S12.inverse();
 
-    const vector<MapPoint *> vpMapPoints1 = pKF1->GetMapPointMatches();
-    const int                N1           = vpMapPoints1.size();
+    const vector<map_point *> vpMapPoints1 = pKF1->GetMapPointMatches();
+    const int                 N1           = vpMapPoints1.size();
 
-    const vector<MapPoint *> vpMapPoints2 = pKF2->GetMapPointMatches();
-    const int                N2           = vpMapPoints2.size();
+    const vector<map_point *> vpMapPoints2 = pKF2->GetMapPointMatches();
+    const int                 N2           = vpMapPoints2.size();
 
     vector<bool> vbAlreadyMatched1(N1, false);
     vector<bool> vbAlreadyMatched2(N2, false);
 
     for (int i = 0; std::cmp_less(i, N1); i++)
     {
-        MapPoint *pMP = vpMatches12[i];
+        map_point *pMP = vpMatches12[i];
         if (pMP)
         {
             vbAlreadyMatched1[i] = true;
-            int idx2             = get<0>(pMP->GetIndexInKeyFrame(pKF2));
+            int idx2             = get<0>(pMP->get_index_in_key_frame(pKF2));
             if (idx2 >= 0 && idx2 < N2)
             {
                 vbAlreadyMatched2[idx2] = true;
@@ -1782,19 +1782,19 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
     // Transform from KF1 to KF2 and search
     for (int i1 = 0; i1 < N1; i1++)
     {
-        MapPoint *pMP = vpMapPoints1[i1];
+        map_point *pMP = vpMapPoints1[i1];
 
         if (!pMP || vbAlreadyMatched1[i1])
         {
             continue;
         }
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
 
-        Eigen::Vector3f p3Dw  = pMP->GetWorldPos();
+        Eigen::Vector3f p3Dw  = pMP->get_world_position();
         Eigen::Vector3f p3Dc1 = T1w * p3Dw;
         Eigen::Vector3f p3Dc2 = S21 * p3Dc1;
 
@@ -1817,8 +1817,8 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
             continue;
         }
 
-        const float maxDistance = pMP->GetMaxDistanceInvariance();
-        const float minDistance = pMP->GetMinDistanceInvariance();
+        const float maxDistance = pMP->get_max_distance_invariance();
+        const float minDistance = pMP->get_min_distance_invariance();
         const float dist3D      = p3Dc2.norm();
 
         // Depth must be inside the scale invariance region
@@ -1828,12 +1828,12 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         }
 
         // Compute predicted octave
-        const int nPredictedLevel = pMP->PredictScale(dist3D, pKF2);
+        const int nPredictedLevel = pMP->predict_scale(dist3D, pKF2);
 
         // Search in a radius
         const float radius = th * pKF2->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF2, pKF2->GetFeaturesInArea(u, v, radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF2, pKF2->GetFeaturesInArea(u, v, radius));
 
         if (vIndices.empty())
         {
@@ -1841,7 +1841,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         }
 
         // Match to the most similar keypoint in the radius
-        const cv::Mat dMP = pMP->GetDescriptor();
+        const cv::Mat dMP = pMP->get_descriptor();
 
         float bestDist = INT_MAX;
         int   bestIdx  = -1;
@@ -1876,19 +1876,19 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
     // Transform from KF2 to KF2 and search
     for (int i2 = 0; i2 < N2; i2++)
     {
-        MapPoint *pMP = vpMapPoints2[i2];
+        map_point *pMP = vpMapPoints2[i2];
 
         if (!pMP || vbAlreadyMatched2[i2])
         {
             continue;
         }
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
 
-        Eigen::Vector3f p3Dw  = pMP->GetWorldPos();
+        Eigen::Vector3f p3Dw  = pMP->get_world_position();
         Eigen::Vector3f p3Dc2 = T2w * p3Dw;
         Eigen::Vector3f p3Dc1 = S12 * p3Dc2;
 
@@ -1911,8 +1911,8 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
             continue;
         }
 
-        const float maxDistance = pMP->GetMaxDistanceInvariance();
-        const float minDistance = pMP->GetMinDistanceInvariance();
+        const float maxDistance = pMP->get_max_distance_invariance();
+        const float minDistance = pMP->get_min_distance_invariance();
         const float dist3D      = p3Dc1.norm();
 
         // Depth must be inside the scale pyramid of the image
@@ -1922,12 +1922,12 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         }
 
         // Compute predicted octave
-        const int nPredictedLevel = pMP->PredictScale(dist3D, pKF1);
+        const int nPredictedLevel = pMP->predict_scale(dist3D, pKF1);
 
         // Search in a radius of 2.5*sigma(ScaleLevel)
         const float radius = th * pKF1->mvScaleFactors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->GetDescriptor(), *pKF1, pKF1->GetFeaturesInArea(u, v, radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF1, pKF1->GetFeaturesInArea(u, v, radius));
 
         if (vIndices.empty())
         {
@@ -1935,7 +1935,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         }
 
         // Match to the most similar keypoint in the radius
-        const cv::Mat dMP = pMP->GetDescriptor();
+        const cv::Mat dMP = pMP->get_descriptor();
 
         float bestDist = INT_MAX;
         int   bestIdx  = -1;
@@ -2011,13 +2011,13 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
 
     for (int i = 0; i < LastFrame.feature_count; i++)
     {
-        MapPoint *pMP = LastFrame.map_points[i];
+        map_point *pMP = LastFrame.map_points[i];
         if (pMP)
         {
             if (!LastFrame.outliers[i])
             {
                 // Project
-                Eigen::Vector3f x3Dw = pMP->GetWorldPos();
+                Eigen::Vector3f x3Dw = pMP->get_world_position();
                 Eigen::Vector3f x3Dc = Tcw * x3Dw;
 
                 [[maybe_unused]] const float xc    = x3Dc(0);
@@ -2066,7 +2066,7 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
                     continue;
                 }
 
-                const cv::Mat dMP = pMP->GetDescriptor();
+                const cv::Mat dMP = pMP->get_descriptor();
 
                 vIndices2      = rank_candidates(dMP, CurrentFrame, vIndices2);
                 float bestDist = 256;
@@ -2078,7 +2078,7 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
 
                     if (CurrentFrame.map_points[i2])
                     {
-                        if (CurrentFrame.map_points[i2]->Observations() > 0)
+                        if (CurrentFrame.map_points[i2]->get_observation_count() > 0)
                         {
                             continue;
                         }
@@ -2161,7 +2161,7 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
                         vIndices2 = CurrentFrame.get_features_in_area(uv(0), uv(1), radius, nLastOctave - 1, nLastOctave + 1, true);
                     }
 
-                    const cv::Mat dMP = pMP->GetDescriptor();
+                    const cv::Mat dMP = pMP->get_descriptor();
 
                     vIndices2      = rank_candidates(dMP, CurrentFrame, vIndices2, true);
                     float bestDist = 256;
@@ -2172,7 +2172,7 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
                         const size_t i2 = *vit;
                         if (CurrentFrame.map_points[i2 + CurrentFrame.keypoints.size()])
                         {
-                            if (CurrentFrame.map_points[i2 + CurrentFrame.keypoints.size()]->Observations() > 0)
+                            if (CurrentFrame.map_points[i2 + CurrentFrame.keypoints.size()]->get_observation_count() > 0)
                             {
                                 continue;
                             }
@@ -2236,7 +2236,7 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
             {
                 for (size_t j = 0, jend = rotHist[i].size(); j < jend; j++)
                 {
-                    CurrentFrame.map_points[rotHist[i][j]] = static_cast<MapPoint *>(NULL);
+                    CurrentFrame.map_points[rotHist[i][j]] = static_cast<map_point *>(NULL);
                     nmatches--;
                 }
             }
@@ -2247,7 +2247,7 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
 }
 
 int descriptor_matcher::search_by_projection(
-    frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras)
+    frame &CurrentFrame, KeyFrame *pKF, const set<map_point *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras)
 {
     int nmatches = 0;
 
@@ -2262,18 +2262,18 @@ int descriptor_matcher::search_by_projection(
     }
     const float factor = 1.0f / orientation_histogram_bins;
 
-    const vector<MapPoint *> vpMPs = pKF->GetMapPointMatches();
+    const vector<map_point *> vpMPs = pKF->GetMapPointMatches();
 
     for (size_t i = 0, iend = vpMPs.size(); i < iend; i++)
     {
-        MapPoint *pMP = vpMPs[i];
+        map_point *pMP = vpMPs[i];
 
         if (pMP)
         {
-            if (!pMP->isBad() && !sAlreadyFound.count(pMP))
+            if (!pMP->is_bad() && !sAlreadyFound.count(pMP))
             {
                 // Project
-                Eigen::Vector3f x3Dw = pMP->GetWorldPos();
+                Eigen::Vector3f x3Dw = pMP->get_world_position();
                 Eigen::Vector3f x3Dc = Tcw * x3Dw;
 
                 const Eigen::Vector2f uv = cameras[0]->project(x3Dc);
@@ -2291,8 +2291,8 @@ int descriptor_matcher::search_by_projection(
                 Eigen::Vector3f PO     = x3Dw - Ow;
                 float           dist3D = PO.norm();
 
-                const float maxDistance = pMP->GetMaxDistanceInvariance();
-                const float minDistance = pMP->GetMinDistanceInvariance();
+                const float maxDistance = pMP->get_max_distance_invariance();
+                const float minDistance = pMP->get_min_distance_invariance();
 
                 // Depth must be inside the scale pyramid of the image
                 if (dist3D < minDistance || dist3D > maxDistance)
@@ -2300,19 +2300,19 @@ int descriptor_matcher::search_by_projection(
                     continue;
                 }
 
-                int nPredictedLevel = pMP->PredictScale(dist3D, &CurrentFrame);
+                int nPredictedLevel = pMP->predict_scale(dist3D, &CurrentFrame);
 
                 // Search in a window
                 const float radius = th * CurrentFrame.scale_factors[nPredictedLevel];
 
-                const auto vIndices2 = rank_candidates(pMP->GetDescriptor(), CurrentFrame, CurrentFrame.get_features_in_area(uv(0), uv(1), radius, nPredictedLevel - 1, nPredictedLevel + 1));
+                const auto vIndices2 = rank_candidates(pMP->get_descriptor(), CurrentFrame, CurrentFrame.get_features_in_area(uv(0), uv(1), radius, nPredictedLevel - 1, nPredictedLevel + 1));
 
                 if (vIndices2.empty())
                 {
                     continue;
                 }
 
-                const cv::Mat dMP = pMP->GetDescriptor();
+                const cv::Mat dMP = pMP->get_descriptor();
 
                 float bestDist = 256;
                 int   bestIdx2 = -1;

@@ -19,10 +19,10 @@
 #ifndef DESCRIPTOR_MATCHER_H
 #define DESCRIPTOR_MATCHER_H
 
-#include "frame.h"
 #include "KeyFrame.h"
-#include "MapPoint.h"
 #include "descriptor_matcher_type.h"
+#include "frame.h"
+#include "map_point.h"
 #include "sophus/sim3.hpp"
 
 #include <functional>
@@ -53,7 +53,7 @@ class descriptor_matcher
 
     // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
     // Used to track the local map (Tracking)
-    int search_by_projection(frame &F, const std::vector<MapPoint *> &vpMapPoints, const float th = 3, const bool bFarPoints = false, const float thFarPoints = 50.0f);
+    int search_by_projection(frame &F, const std::vector<map_point *> &vpMapPoints, const float th = 3, const bool bFarPoints = false, const float thFarPoints = 50.0f);
 
     // Project MapPoints tracked in last frame into the current frame and search matches.
     // Used to track from previous frame (Tracking)
@@ -61,27 +61,27 @@ class descriptor_matcher
 
     // Project MapPoints seen in KeyFrame into the Frame and search matches.
     // Used in relocalisation (Tracking)
-    int search_by_projection(frame &CurrentFrame, KeyFrame *pKF, const std::set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras);
+    int search_by_projection(frame &CurrentFrame, KeyFrame *pKF, const std::set<map_point *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras);
 
     // Project MapPoints using a Similarity Transformation and search matches.
     // Used in loop detection (Loop Closing)
-    int search_by_projection(KeyFrame *pKF, Sophus::Sim3<float> &Scw, const std::vector<MapPoint *> &vpPoints, std::vector<MapPoint *> &vpMatched, int th, float distance_multiplier = 1.0);
+    int search_by_projection(KeyFrame *pKF, Sophus::Sim3<float> &Scw, const std::vector<map_point *> &vpPoints, std::vector<map_point *> &vpMatched, int th, float distance_multiplier = 1.0);
 
     // Project MapPoints using a Similarity Transformation and search matches.
     // Used in Place Recognition (Loop Closing and Merging)
-    int search_by_projection(KeyFrame                      *pKF,
-                             Sophus::Sim3<float>           &Scw,
-                             const std::vector<MapPoint *> &vpPoints,
-                             const std::vector<KeyFrame *> &vpPointsKFs,
-                             std::vector<MapPoint *>       &vpMatched,
-                             std::vector<KeyFrame *>       &vpMatchedKF,
-                             int                            th,
-                             float                          distance_multiplier = 1.0);
+    int search_by_projection(KeyFrame                       *pKF,
+                             Sophus::Sim3<float>            &Scw,
+                             const std::vector<map_point *> &vpPoints,
+                             const std::vector<KeyFrame *>  &vpPointsKFs,
+                             std::vector<map_point *>       &vpMatched,
+                             std::vector<KeyFrame *>        &vpMatchedKF,
+                             int                             th,
+                             float                           distance_multiplier = 1.0);
 
     // Match selected tracking descriptors constrained by place-recognition vocabulary nodes.
     // Used in Relocalisation and Loop Detection
-    int search_by_vocabulary(KeyFrame *pKF, frame &F, std::vector<MapPoint *> &vpMapPointMatches);
-    int search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<MapPoint *> &vpMatches12);
+    int search_by_vocabulary(KeyFrame *pKF, frame &F, std::vector<map_point *> &vpMapPointMatches);
+    int search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<map_point *> &vpMatches12);
 
     // Matching for the Map Initialization (only used in the monocular case)
     int search_for_initialization(frame &F1, frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize = 10);
@@ -91,13 +91,13 @@ class descriptor_matcher
 
     // Search matches between MapPoints seen in KF1 and KF2 transforming by a Sim3 [s12*R12|t12]
     // In the stereo and RGB-D case, s12=1
-    int search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<MapPoint *> &vpMatches12, const Sophus::Sim3f &S12, const float th);
+    int search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<map_point *> &vpMatches12, const Sophus::Sim3f &S12, const float th);
 
     // Project MapPoints into KeyFrame and search for duplicated MapPoints.
-    int Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const float th = 3.0, const bool bRight = false);
+    int Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoints, const float th = 3.0, const bool bRight = false);
 
     // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
-    int Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const std::vector<MapPoint *> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);
+    int Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const std::vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint);
 
   public:
     static const int low_distance_threshold;

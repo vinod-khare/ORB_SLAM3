@@ -258,20 +258,20 @@ void LocalMapping::ProcessNewKeyFrame()
     mpCurrentKeyFrame->ComputeBoW();
 
     // Associate MapPoints to the new keyframe and update normal and descriptor
-    const vector<MapPoint *> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+    const vector<map_point *> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
 
     for (size_t i = 0; i < vpMapPointMatches.size(); i++)
     {
-        MapPoint *pMP = vpMapPointMatches[i];
+        map_point *pMP = vpMapPointMatches[i];
         if (pMP)
         {
-            if (!pMP->isBad())
+            if (!pMP->is_bad())
             {
-                if (!pMP->IsInKeyFrame(mpCurrentKeyFrame))
+                if (!pMP->is_in_key_frame(mpCurrentKeyFrame))
                 {
-                    pMP->AddObservation(mpCurrentKeyFrame, i);
-                    pMP->UpdateNormalAndDepth();
-                    pMP->ComputeDistinctiveDescriptors();
+                    pMP->add_observation(mpCurrentKeyFrame, i);
+                    pMP->update_normal_and_depth();
+                    pMP->compute_distinctive_descriptors();
                 }
                 else // this can only happen for new stereo points inserted by the Tracking
                 {
@@ -299,8 +299,8 @@ void LocalMapping::EmptyQueue()
 void LocalMapping::MapPointCulling()
 {
     // Check Recent Added MapPoints
-    list<MapPoint *>::iterator lit          = mlpRecentAddedMapPoints.begin();
-    const unsigned long int    nCurrentKFid = mpCurrentKeyFrame->mnId;
+    list<map_point *>::iterator lit          = mlpRecentAddedMapPoints.begin();
+    const unsigned long int     nCurrentKFid = mpCurrentKeyFrame->mnId;
 
     int nThObs;
     if (mbMonocular)
@@ -317,23 +317,23 @@ void LocalMapping::MapPointCulling()
 
     while (lit != mlpRecentAddedMapPoints.end())
     {
-        MapPoint *pMP = *lit;
+        map_point *pMP = *lit;
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
-        else if (pMP->GetFoundRatio() < 0.25f)
+        else if (pMP->get_found_ratio() < 0.25f)
         {
-            pMP->SetBadFlag();
+            pMP->set_bad_flag();
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
-        else if (((int)nCurrentKFid - (int)pMP->mnFirstKFid) >= 2 && pMP->Observations() <= cnThObs)
+        else if (((int)nCurrentKFid - (int)pMP->first_key_frame_id) >= 2 && pMP->get_observation_count() <= cnThObs)
         {
-            pMP->SetBadFlag();
+            pMP->set_bad_flag();
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
-        else if (((int)nCurrentKFid - (int)pMP->mnFirstKFid) >= 3)
+        else if (((int)nCurrentKFid - (int)pMP->first_key_frame_id) >= 3)
         {
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
@@ -696,21 +696,21 @@ void LocalMapping::CreateNewMapPoints()
             }
 
             // Triangulation is succesfull
-            MapPoint *pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->get_current_map());
+            map_point *pMP = new map_point(x3D, mpCurrentKeyFrame, mpAtlas->get_current_map());
             if (bPointStereo)
             {
                 countStereo++;
             }
 
-            pMP->AddObservation(mpCurrentKeyFrame, idx1);
-            pMP->AddObservation(pKF2, idx2);
+            pMP->add_observation(mpCurrentKeyFrame, idx1);
+            pMP->add_observation(pKF2, idx2);
 
             mpCurrentKeyFrame->AddMapPoint(pMP, idx1);
             pKF2->AddMapPoint(pMP, idx2);
 
-            pMP->ComputeDistinctiveDescriptors();
+            pMP->compute_distinctive_descriptors();
 
-            pMP->UpdateNormalAndDepth();
+            pMP->update_normal_and_depth();
 
             mpAtlas->add_map_point(pMP);
             mlpRecentAddedMapPoints.push_back(pMP);
@@ -778,8 +778,8 @@ void LocalMapping::SearchInNeighbors()
     }
 
     // Search matches by projection from current KF in target KFs
-    descriptor_matcher matcher;
-    vector<MapPoint *> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+    descriptor_matcher  matcher;
+    vector<map_point *> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
     for (vector<KeyFrame *>::iterator vit = vpTargetKFs.begin(), vend = vpTargetKFs.end(); vit != vend; vit++)
     {
         KeyFrame *pKFi = *vit;
@@ -797,27 +797,27 @@ void LocalMapping::SearchInNeighbors()
     }
 
     // Search matches by projection from target KFs in current KF
-    vector<MapPoint *> vpFuseCandidates;
+    vector<map_point *> vpFuseCandidates;
     vpFuseCandidates.reserve(vpTargetKFs.size() * vpMapPointMatches.size());
 
     for (vector<KeyFrame *>::iterator vitKF = vpTargetKFs.begin(), vendKF = vpTargetKFs.end(); vitKF != vendKF; vitKF++)
     {
         KeyFrame *pKFi = *vitKF;
 
-        vector<MapPoint *> vpMapPointsKFi = pKFi->GetMapPointMatches();
+        vector<map_point *> vpMapPointsKFi = pKFi->GetMapPointMatches();
 
-        for (vector<MapPoint *>::iterator vitMP = vpMapPointsKFi.begin(), vendMP = vpMapPointsKFi.end(); vitMP != vendMP; vitMP++)
+        for (vector<map_point *>::iterator vitMP = vpMapPointsKFi.begin(), vendMP = vpMapPointsKFi.end(); vitMP != vendMP; vitMP++)
         {
-            MapPoint *pMP = *vitMP;
+            map_point *pMP = *vitMP;
             if (!pMP)
             {
                 continue;
             }
-            if (pMP->isBad() || pMP->mnFuseCandidateForKF == mpCurrentKeyFrame->mnId)
+            if (pMP->is_bad() || pMP->fuse_candidate_key_frame_id == mpCurrentKeyFrame->mnId)
             {
                 continue;
             }
-            pMP->mnFuseCandidateForKF = mpCurrentKeyFrame->mnId;
+            pMP->fuse_candidate_key_frame_id = mpCurrentKeyFrame->mnId;
             vpFuseCandidates.push_back(pMP);
         }
     }
@@ -832,13 +832,13 @@ void LocalMapping::SearchInNeighbors()
     vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
     for (size_t i = 0, iend = vpMapPointMatches.size(); i < iend; i++)
     {
-        MapPoint *pMP = vpMapPointMatches[i];
+        map_point *pMP = vpMapPointMatches[i];
         if (pMP)
         {
-            if (!pMP->isBad())
+            if (!pMP->is_bad())
             {
-                pMP->ComputeDistinctiveDescriptors();
-                pMP->UpdateNormalAndDepth();
+                pMP->compute_distinctive_descriptors();
+                pMP->update_normal_and_depth();
             }
         }
     }
@@ -977,7 +977,7 @@ void LocalMapping::KeyFrameCulling()
         {
             continue;
         }
-        const vector<MapPoint *> vpMapPoints = pKF->GetMapPointMatches();
+        const vector<map_point *> vpMapPoints = pKF->GetMapPointMatches();
 
         int       nObs                   = 3;
         const int thObs                  = nObs;
@@ -985,10 +985,10 @@ void LocalMapping::KeyFrameCulling()
         int       nMPs                   = 0;
         for (size_t i = 0, iend = vpMapPoints.size(); i < iend; i++)
         {
-            MapPoint *pMP = vpMapPoints[i];
+            map_point *pMP = vpMapPoints[i];
             if (pMP)
             {
-                if (!pMP->isBad())
+                if (!pMP->is_bad())
                 {
                     if (!mbMonocular)
                     {
@@ -999,12 +999,12 @@ void LocalMapping::KeyFrameCulling()
                     }
 
                     nMPs++;
-                    if (pMP->Observations() > thObs)
+                    if (pMP->get_observation_count() > thObs)
                     {
                         const int                                  &scaleLevel   = (!is_fisheye_stereo(pKF->cameras))     ? pKF->mvKeys[i].octave
                                                                                    : std::cmp_less(i, pKF->mvKeys.size()) ? pKF->mvKeys[i].octave
                                                                                                                           : pKF->mvKeysRight[i - pKF->mvKeys.size()].octave;
-                        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
+                        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->get_observations();
                         int                                         nObs         = 0;
                         for (std::map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
                         {
@@ -1448,26 +1448,26 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     }
 
     // Correct MapPoints
-    const vector<MapPoint *> vpMPs = mpAtlas->get_current_map()->get_all_map_points();
+    const vector<map_point *> vpMPs = mpAtlas->get_current_map()->get_all_map_points();
 
     for (size_t i = 0; i < vpMPs.size(); i++)
     {
-        MapPoint *pMP = vpMPs[i];
+        map_point *pMP = vpMPs[i];
 
-        if (pMP->isBad())
+        if (pMP->is_bad())
         {
             continue;
         }
 
-        if (pMP->mnBAGlobalForKF == GBAid)
+        if (pMP->global_ba_key_frame_id == GBAid)
         {
             // If optimized by Global BA, just update
-            pMP->SetWorldPos(pMP->mPosGBA);
+            pMP->set_world_position(pMP->global_ba_position);
         }
         else
         {
             // Update according to the correction of its reference keyframe
-            KeyFrame *pRefKF = pMP->GetReferenceKeyFrame();
+            KeyFrame *pRefKF = pMP->get_reference_key_frame();
 
             if (pRefKF->mnBAGlobalForKF != GBAid)
             {
@@ -1475,10 +1475,10 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
             }
 
             // Map to non-corrected camera
-            Eigen::Vector3f Xc = pRefKF->mTcwBefGBA * pMP->GetWorldPos();
+            Eigen::Vector3f Xc = pRefKF->mTcwBefGBA * pMP->get_world_position();
 
             // Backproject using corrected camera
-            pMP->SetWorldPos(pRefKF->GetPoseInverse() * Xc);
+            pMP->set_world_position(pRefKF->GetPoseInverse() * Xc);
         }
     }
 

@@ -33,11 +33,11 @@ class sim3_solver
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    sim3_solver(KeyFrame                      *first_key_frame,
-                KeyFrame                      *second_key_frame,
-                const std::vector<MapPoint *> &matched_map_points,
-                const bool                     fixed_scale        = true,
-                const vector<KeyFrame *>       matched_key_frames = vector<KeyFrame *>());
+    sim3_solver(KeyFrame                       *first_key_frame,
+                KeyFrame                       *second_key_frame,
+                const std::vector<map_point *> &matched_map_points,
+                const bool                      fixed_scale        = true,
+                const vector<KeyFrame *>        matched_key_frames = vector<KeyFrame *>());
 
     void set_ransac_parameters(double probability = 0.99, int minimum_inliers = 6, int maximum_iterations = 300);
 
@@ -68,9 +68,9 @@ class sim3_solver
 
     std::vector<Eigen::Vector3f> camera_points_1;
     std::vector<Eigen::Vector3f> camera_points_2;
-    std::vector<MapPoint *>      map_points_1;
-    std::vector<MapPoint *>      map_points_2;
-    std::vector<MapPoint *>      matched_map_points_12;
+    std::vector<map_point *>     map_points_1;
+    std::vector<map_point *>     map_points_2;
+    std::vector<map_point *>     matched_map_points_12;
     std::vector<size_t>          matched_indices_1;
     std::vector<size_t>          sigma_square_1;
     std::vector<size_t>          sigma_square_2;
