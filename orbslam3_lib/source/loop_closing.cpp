@@ -19,7 +19,7 @@
 #include "loop_closing.h"
 
 #include "G2oTypes.h"
-#include "Optimizer.h"
+#include "optimizer.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
 #include "sim3_solver.h"
@@ -459,7 +459,7 @@ bool loop_closing::detect_and_refine_sim3_from_last_key_frame(
         {
             bFixedScale = false;
         }
-        int numOptMatches = Optimizer::OptimizeSim3(current_key_frame, pMatchedKF, vpMatchedMPs, gScm, 10, bFixedScale, mHessian7x7, true);
+        int numOptMatches = optimizer::optimize_sim3(current_key_frame, pMatchedKF, vpMatchedMPs, gScm, 10, bFixedScale, mHessian7x7, true);
 
         if (numOptMatches > nProjOptMatches)
         {
@@ -671,7 +671,7 @@ bool loop_closing::detect_common_regions_from_bow(std::vector<key_frame *> &vpBo
                         bFixedScale = false;
                     }
 
-                    int numOptMatches = Optimizer::OptimizeSim3(current_key_frame, pKFi, vpMatchedMP, gScm, 10, fix_scale, mHessian7x7, true);
+                    int numOptMatches = optimizer::optimize_sim3(current_key_frame, pKFi, vpMatchedMP, gScm, 10, fix_scale, mHessian7x7, true);
 
                     if (numOptMatches >= nSim3Inliers)
                     {
@@ -1048,11 +1048,11 @@ void loop_closing::correct_loop()
 
     if (pLoopMap->is_inertial() && pLoopMap->is_imu_initialized())
     {
-        Optimizer::OptimizeEssentialGraph4DoF(pLoopMap, loop_matched_key_frame, current_key_frame, NonCorrectedSim3, CorrectedSim3, LoopConnections);
+        optimizer::optimize_essential_graph_4dof(pLoopMap, loop_matched_key_frame, current_key_frame, NonCorrectedSim3, CorrectedSim3, LoopConnections);
     }
     else
     {
-        Optimizer::OptimizeEssentialGraph(pLoopMap, loop_matched_key_frame, current_key_frame, NonCorrectedSim3, CorrectedSim3, LoopConnections, bFixedScale);
+        optimizer::optimize_essential_graph(pLoopMap, loop_matched_key_frame, current_key_frame, NonCorrectedSim3, CorrectedSim3, LoopConnections, bFixedScale);
     }
 
     owner_atlas->inform_new_big_change();
@@ -1439,11 +1439,11 @@ void loop_closing::merge_local()
     std::copy(spMergeConnectedKFs.begin(), spMergeConnectedKFs.end(), std::back_inserter(vpMergeConnectedKFs));
     if (tracker->sensor == system::imu_monocular || tracker->sensor == system::imu_stereo || tracker->sensor == system::imu_rgbd)
     {
-        Optimizer::MergeInertialBA(current_key_frame, merge_matched_key_frame, &bStop, pCurrentMap, vCorrectedSim3);
+        optimizer::merge_inertial_ba(current_key_frame, merge_matched_key_frame, &bStop, pCurrentMap, vCorrectedSim3);
     }
     else
     {
-        Optimizer::LocalBundleAdjustment(current_key_frame, vpLocalCurrentWindowKFs, vpMergeConnectedKFs, &bStop);
+        optimizer::local_bundle_adjustment(current_key_frame, vpLocalCurrentWindowKFs, vpMergeConnectedKFs, &bStop);
     }
 
     // Loop closed. Release Local Mapping.
@@ -1529,7 +1529,7 @@ void loop_closing::merge_local()
         // Optimize graph (and update the loop position for each element form the begining to the end)
         if (tracker->sensor != system::monocular)
         {
-            Optimizer::OptimizeEssentialGraph(current_key_frame, vpMergeConnectedKFs, vpLocalCurrentWindowKFs, vpCurrentMapKFs, vpCurrentMapMPs);
+            optimizer::optimize_essential_graph(current_key_frame, vpMergeConnectedKFs, vpLocalCurrentWindowKFs, vpCurrentMapKFs, vpCurrentMapMPs);
         }
 
         {
@@ -1643,7 +1643,7 @@ void loop_closing::merge_local_2()
         Eigen::Vector3d bg, ba;
         bg << 0., 0., 0.;
         ba << 0., 0., 0.;
-        Optimizer::InertialOptimization(pCurrentMap, bg, ba);
+        optimizer::inertial_optimization(pCurrentMap, bg, ba);
         IMU::Bias          b(ba[0], ba[1], ba[2], bg[0], bg[1], bg[2]);
         unique_lock<mutex> lock(owner_atlas->get_current_map()->map_update_mutex);
         tracker->update_frame_imu(1.0f, b, tracker->get_last_key_frame());
@@ -1778,7 +1778,7 @@ void loop_closing::merge_local_2()
     // Perform BA
     bool       bStopFlag = false;
     key_frame *pCurrKF   = tracker->get_last_key_frame();
-    Optimizer::MergeInertialBA(pCurrKF, merge_matched_key_frame, &bStopFlag, pCurrentMap, CorrectedSim3);
+    optimizer::merge_inertial_ba(pCurrKF, merge_matched_key_frame, &bStopFlag, pCurrentMap, CorrectedSim3);
 
     // Release Local Mapping.
     local_mapper->release();
@@ -1984,11 +1984,11 @@ void loop_closing::run_global_bundle_adjustment(map *pActiveMap, unsigned long n
 
     if (!bImuInit)
     {
-        Optimizer::GlobalBundleAdjustemnt(pActiveMap, 10, &global_bundle_adjustment_stop_requested, nLoopKF, false);
+        optimizer::global_bundle_adjustment(pActiveMap, 10, &global_bundle_adjustment_stop_requested, nLoopKF, false);
     }
     else
     {
-        Optimizer::FullInertialBA(pActiveMap, 7, false, nLoopKF, &global_bundle_adjustment_stop_requested);
+        optimizer::full_inertial_ba(pActiveMap, 7, false, nLoopKF, &global_bundle_adjustment_stop_requested);
     }
 
     int idx = full_bundle_adjustment_index;

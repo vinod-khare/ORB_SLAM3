@@ -20,7 +20,7 @@
 
 #include "G2oTypes.h"
 #include "KannalaBrandt8.h"
-#include "Optimizer.h"
+#include "optimizer.h"
 #include "Pinhole.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
@@ -1371,7 +1371,7 @@ void tracking::create_initial_map_monocular()
 
     // Bundle Adjustment
     spdlog::info("New Map created with {} points", owner_atlas->map_points_in_map());
-    Optimizer::GlobalBundleAdjustemnt(owner_atlas->get_current_map(), 20);
+    optimizer::global_bundle_adjustment(owner_atlas->get_current_map(), 20);
 
     float medianDepth = pKFini->compute_scene_median_depth(2);
     float invMedianDepth;
@@ -1536,7 +1536,7 @@ bool tracking::track_reference_key_frame()
     current_frame.map_points = vpMapPointMatches;
     current_frame.set_pose(last_frame.get_pose());
 
-    Optimizer::PoseOptimization(&current_frame, cameras);
+    optimizer::pose_optimization(&current_frame, cameras);
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -1692,7 +1692,7 @@ bool tracking::track_with_motion_model()
 
         if (flow_matches >= 50)
         {
-            Optimizer::PoseOptimization(&current_frame, cameras);
+            optimizer::pose_optimization(&current_frame, cameras);
 
             const int minimum_inliers = stereo ? std::clamp(flow_reference_matches / 2, 100, 300) : 50;
             reliable_flow             = current_frame.reliable_flow_inliers(gray_image.size(), minimum_inliers);
@@ -1755,7 +1755,7 @@ bool tracking::track_with_motion_model()
     }
 
     // Optimize frame pose with all matches
-    Optimizer::PoseOptimization(&current_frame, cameras);
+    optimizer::pose_optimization(&current_frame, cameras);
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -2062,14 +2062,14 @@ bool tracking::track_local_map()
 
     if (!owner_atlas->is_imu_initialized())
     {
-        Optimizer::PoseOptimization(&current_frame, cameras);
+        optimizer::pose_optimization(&current_frame, cameras);
     }
     else
     {
         if (current_frame.id <= last_relocalization_frame_id + frames_to_reset_imu)
         {
             spdlog::debug("TLM: PoseOptimization ");
-            Optimizer::PoseOptimization(&current_frame, cameras);
+            optimizer::pose_optimization(&current_frame, cameras);
         }
         else
         {
@@ -2079,12 +2079,12 @@ bool tracking::track_local_map()
             if (!map_updated && last_frame.imu_constraint)
             {
                 spdlog::trace("TLM: PoseInertialOptimizationLastFrame ");
-                Optimizer::PoseInertialOptimizationLastFrame(&current_frame, cameras);
+                optimizer::pose_inertial_optimization_last_frame(&current_frame, cameras);
             }
             else
             {
                 spdlog::trace("TLM: PoseInertialOptimizationLastKeyFrame ");
-                Optimizer::PoseInertialOptimizationLastKeyFrame(&current_frame, cameras);
+                optimizer::pose_inertial_optimization_last_key_frame(&current_frame, cameras);
             }
         }
     }
@@ -2390,7 +2390,7 @@ void tracking::create_new_key_frame()
         descriptor_matcher matcher(0.9, true);
         matcher.search_by_projection(current_frame, last_frame, sensor == system::stereo ? 7 : 15, sensor == system::monocular || sensor == system::imu_monocular, cameras);
         search_local_points();
-        const int inliers = Optimizer::PoseOptimization(&current_frame, cameras);
+        const int inliers = optimizer::pose_optimization(&current_frame, cameras);
         if (inliers < 50)
         {
             spdlog::warn("Frame {}: postponing keyframe; only {} descriptor inliers after feature refresh", current_frame.id, inliers);
@@ -2943,7 +2943,7 @@ bool tracking::relocalization()
             ++correspondence_index;
         }
 
-        int nGood = Optimizer::PoseOptimization(&current_frame, cameras);
+        int nGood = optimizer::pose_optimization(&current_frame, cameras);
 
         if (nGood < 10)
         {
@@ -2965,7 +2965,7 @@ bool tracking::relocalization()
 
             if (nadditional + nGood >= 50)
             {
-                nGood = Optimizer::PoseOptimization(&current_frame, cameras);
+                nGood = optimizer::pose_optimization(&current_frame, cameras);
 
                 // If many inliers but still not enough, search by projection again in a narrower window
                 // the camera has been already optimized with many points
@@ -2983,7 +2983,7 @@ bool tracking::relocalization()
 
                     if (nadditional + nGood >= 50)
                     {
-                        nGood = Optimizer::PoseOptimization(&current_frame, cameras);
+                        nGood = optimizer::pose_optimization(&current_frame, cameras);
 
                         for (int io = 0; io < current_frame.feature_count; io++)
                         {

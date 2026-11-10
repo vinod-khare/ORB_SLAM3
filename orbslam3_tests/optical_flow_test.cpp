@@ -1,5 +1,5 @@
 #include "KannalaBrandt8.h"
-#include "Optimizer.h"
+#include "optimizer.h"
 #include "Pinhole.h"
 #include "tracking.h"
 #include "frame.h"
@@ -535,7 +535,7 @@ TEST_CASE("Fisheye flow preserves both camera observations for pose optimization
     REQUIRE(frame.right_keypoints.front().pt_undistorted == frame.right_keypoints.front().pt);
 
     frame.set_pose(Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.02f, -0.01f, 0.03f)));
-    REQUIRE(ORB_SLAM3::Optimizer::PoseOptimization(&frame, cameras) == frame.feature_count);
+    REQUIRE(ORB_SLAM3::optimizer::pose_optimization(&frame, cameras) == frame.feature_count);
     REQUIRE(frame.get_pose().translation().norm() < 0.001f);
     REQUIRE(frame.get_pose().so3().log().norm() < 0.001f);
     REQUIRE(frame.reliable_flow_inliers({256, 256}, 100));

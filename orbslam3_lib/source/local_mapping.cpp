@@ -19,7 +19,7 @@
 #include "local_mapping.h"
 
 #include "loop_closing.h"
-#include "Optimizer.h"
+#include "optimizer.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
 #include "geometric_tools.h"
@@ -115,7 +115,7 @@ void local_mapping::run()
                         }
 
                         bool bLarge = ((tracker->get_matches_inliers() > 75) && monocular) || ((tracker->get_matches_inliers() > 100) && !monocular);
-                        Optimizer::LocalInertialBA(current_key_frame,
+                        optimizer::local_inertial_ba(current_key_frame,
                                                    &bundle_adjustment_aborted,
                                                    current_key_frame->get_map(),
                                                    num_FixedKF_BA,
@@ -128,7 +128,7 @@ void local_mapping::run()
                     }
                     else
                     {
-                        Optimizer::LocalBundleAdjustment(current_key_frame, &bundle_adjustment_aborted, current_key_frame->get_map(), num_FixedKF_BA, num_OptKF_BA, num_MPs_BA, num_edges_BA);
+                        optimizer::local_bundle_adjustment(current_key_frame, &bundle_adjustment_aborted, current_key_frame->get_map(), num_FixedKF_BA, num_OptKF_BA, num_MPs_BA, num_edges_BA);
                         b_doneLBA = true;
                     }
                 }
@@ -1331,7 +1331,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
 
     initialization_time = tracker->last_frame.timestamp - vpKF.front()->timestamp;
 
-    Optimizer::InertialOptimization(owner_atlas->get_current_map(), imu_world_rotation, scale, gyro_bias, accelerometer_bias, monocular, inertial_information, false, false, priorG, priorA);
+    optimizer::inertial_optimization(owner_atlas->get_current_map(), imu_world_rotation, scale, gyro_bias, accelerometer_bias, monocular, inertial_information, false, false, priorG, priorA);
 
     if (scale < 1e-1)
     {
@@ -1373,11 +1373,11 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
     {
         if (priorA != 0.f)
         {
-            Optimizer::FullInertialBA(owner_atlas->get_current_map(), 100, false, current_key_frame->id, NULL, true, priorG, priorA);
+            optimizer::full_inertial_ba(owner_atlas->get_current_map(), 100, false, current_key_frame->id, NULL, true, priorG, priorA);
         }
         else
         {
-            Optimizer::FullInertialBA(owner_atlas->get_current_map(), 100, false, current_key_frame->id, NULL, false);
+            optimizer::full_inertial_ba(owner_atlas->get_current_map(), 100, false, current_key_frame->id, NULL, false);
         }
     }
 
@@ -1535,7 +1535,7 @@ void local_mapping::refine_scale()
     imu_world_rotation = Eigen::Matrix3d::Identity();
     scale              = 1.0;
 
-    Optimizer::InertialOptimization(owner_atlas->get_current_map(), imu_world_rotation, scale);
+    optimizer::inertial_optimization(owner_atlas->get_current_map(), imu_world_rotation, scale);
 
     if (scale < 1e-1) // 1e-1
     {

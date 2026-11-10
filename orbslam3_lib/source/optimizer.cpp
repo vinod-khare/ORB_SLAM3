@@ -16,7 +16,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "Optimizer.h"
+#include "optimizer.h"
 
 #include "G2oCompat.h"
 #include "G2oTypes.h"
@@ -51,14 +51,14 @@ template <typename AlgorithmType> AlgorithmType *MakeOptimizationAlgorithm(g2o::
 
 bool sortByVal(const pair<map_point *, int> &a, const pair<map_point *, int> &b) { return (a.second < b.second); }
 
-void Optimizer::GlobalBundleAdjustemnt(map *pMap, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
+void optimizer::global_bundle_adjustment(map *pMap, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
 {
     vector<key_frame *> vpKFs = pMap->get_all_key_frames();
     vector<map_point *> vpMP  = pMap->get_all_map_points();
-    BundleAdjustment(vpKFs, vpMP, nIterations, pbStopFlag, nLoopKF, bRobust);
+    bundle_adjustment(vpKFs, vpMP, nIterations, pbStopFlag, nLoopKF, bRobust);
 }
 
-void Optimizer::BundleAdjustment(const vector<key_frame *> &vpKFs, const vector<map_point *> &vpMP, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
+void optimizer::bundle_adjustment(const vector<key_frame *> &vpKFs, const vector<map_point *> &vpMP, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
 {
     vector<bool> vbNotIncludedMP;
     vbNotIncludedMP.resize(vpMP.size());
@@ -404,7 +404,7 @@ void Optimizer::BundleAdjustment(const vector<key_frame *> &vpKFs, const vector<
     }
 }
 
-void Optimizer::FullInertialBA(
+void optimizer::full_inertial_ba(
     map *pMap, int its, const bool bFixLocal, const long unsigned int nLoopId, bool *pbStopFlag, bool bInit, float priorG, float priorA, Eigen::VectorXd *vSingVal, bool *bHess)
 {
     long unsigned int         maxKFid = pMap->get_max_key_frame_id();
@@ -862,7 +862,7 @@ void Optimizer::FullInertialBA(
     pMap->increase_change_index();
 }
 
-int Optimizer::PoseOptimization(frame *pFrame, const camera_vector &cameras)
+int optimizer::pose_optimization(frame *pFrame, const camera_vector &cameras)
 {
     g2o::SparseOptimizer                    optimizer;
     g2o::BlockSolver_6_3::LinearSolverType *linearSolver;
@@ -1171,7 +1171,7 @@ int Optimizer::PoseOptimization(frame *pFrame, const camera_vector &cameras)
     return nInitialCorrespondences - nBad;
 }
 
-void Optimizer::LocalBundleAdjustment(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges)
+void optimizer::local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges)
 {
     // Local KeyFrames: First Breath Search from Current Keyframe
     list<key_frame *> lLocalKeyFrames;
@@ -1584,13 +1584,13 @@ void Optimizer::LocalBundleAdjustment(key_frame *pKF, bool *pbStopFlag, map *pMa
     pMap->increase_change_index();
 }
 
-void Optimizer::OptimizeEssentialGraph(map                                           *pMap,
-                                       key_frame                                     *pLoopKF,
-                                       key_frame                                     *pCurKF,
-                                       const loop_closing::key_frame_and_pose            &NonCorrectedSim3,
-                                       const loop_closing::key_frame_and_pose            &CorrectedSim3,
-                                       const std::map<key_frame *, set<key_frame *>> &LoopConnections,
-                                       const bool                                    &bFixScale)
+void optimizer::optimize_essential_graph(map                                           *pMap,
+                                         key_frame                                     *pLoopKF,
+                                         key_frame                                     *pCurKF,
+                                         const loop_closing::key_frame_and_pose        &NonCorrectedSim3,
+                                         const loop_closing::key_frame_and_pose        &CorrectedSim3,
+                                         const std::map<key_frame *, set<key_frame *>> &LoopConnections,
+                                         const bool                                    &bFixScale)
 {
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
@@ -1819,7 +1819,7 @@ void Optimizer::OptimizeEssentialGraph(map                                      
         // Inertial edges if inertial
         if (pKF->has_imu && pKF->previous_key_frame)
         {
-            g2o::Sim3                                    Spw;
+            g2o::Sim3                                        Spw;
             loop_closing::key_frame_and_pose::const_iterator itp = NonCorrectedSim3.find(pKF->previous_key_frame);
             if (itp != NonCorrectedSim3.end())
             {
@@ -1897,7 +1897,7 @@ void Optimizer::OptimizeEssentialGraph(map                                      
     pMap->increase_change_index();
 }
 
-void Optimizer::OptimizeEssentialGraph(
+void optimizer::optimize_essential_graph(
     key_frame *pCurKF, vector<key_frame *> &vpFixedKFs, vector<key_frame *> &vpFixedCorrectedKFs, vector<key_frame *> &vpNonFixedKFs, vector<map_point *> &vpNonCorrectedMPs)
 {
     spdlog::trace("Opt_Essential: There are {} KFs fixed in the merged map", vpFixedKFs.size());
@@ -2239,14 +2239,14 @@ void Optimizer::OptimizeEssentialGraph(
     }
 }
 
-int Optimizer::OptimizeSim3(key_frame                   *pKF1,
-                            key_frame                   *pKF2,
-                            vector<map_point *>         &vpMatches1,
-                            g2o::Sim3                   &g2oS12,
-                            const float                  th2,
-                            const bool                   bFixScale,
-                            Eigen::Matrix<double, 7, 7> &mAcumHessian,
-                            const bool                   bAllPoints)
+int optimizer::optimize_sim3(key_frame                   *pKF1,
+                             key_frame                   *pKF2,
+                             vector<map_point *>         &vpMatches1,
+                             g2o::Sim3                   &g2oS12,
+                             const float                  th2,
+                             const bool                   bFixScale,
+                             Eigen::Matrix<double, 7, 7> &mAcumHessian,
+                             const bool                   bAllPoints)
 {
     g2o::SparseOptimizer                 optimizer;
     g2o::BlockSolverX::LinearSolverType *linearSolver;
@@ -2525,7 +2525,7 @@ int Optimizer::OptimizeSim3(key_frame                   *pKF1,
     return nIn;
 }
 
-void Optimizer::LocalInertialBA(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges, bool bLarge, bool bRecInit)
+void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges, bool bLarge, bool bRecInit)
 {
     map *pCurrentMap = pKF->get_map();
 
@@ -3125,7 +3125,7 @@ void Optimizer::LocalInertialBA(key_frame *pKF, bool *pbStopFlag, map *pMap, int
     pMap->increase_change_index();
 }
 
-Eigen::MatrixXd Optimizer::Marginalize(const Eigen::MatrixXd &H, const int &start, const int &end)
+Eigen::MatrixXd optimizer::marginalize(const Eigen::MatrixXd &H, const int &start, const int &end)
 {
     // Goal
     // a  | ab | ac       a*  | 0 | ac*
@@ -3212,7 +3212,7 @@ Eigen::MatrixXd Optimizer::Marginalize(const Eigen::MatrixXd &H, const int &star
     return res;
 }
 
-void Optimizer::InertialOptimization(
+void optimizer::inertial_optimization(
     map *pMap, Eigen::Matrix3d &Rwg, double &scale, Eigen::Vector3d &bg, Eigen::Vector3d &ba, bool bMono, Eigen::MatrixXd &covInertial, bool bFixedVel, bool bGauss, float priorG, float priorA)
 {
     spdlog::trace("inertial optimization");
@@ -3418,7 +3418,7 @@ void Optimizer::InertialOptimization(
     }
 }
 
-void Optimizer::InertialOptimization(map *pMap, Eigen::Vector3d &bg, Eigen::Vector3d &ba, float priorG, float priorA)
+void optimizer::inertial_optimization(map *pMap, Eigen::Vector3d &bg, Eigen::Vector3d &ba, float priorG, float priorA)
 {
     int                       its     = 200; // Check number of iterations
     long unsigned int         maxKFid = pMap->get_max_key_frame_id();
@@ -3588,7 +3588,7 @@ void Optimizer::InertialOptimization(map *pMap, Eigen::Vector3d &bg, Eigen::Vect
     }
 }
 
-void Optimizer::InertialOptimization(map *pMap, Eigen::Matrix3d &Rwg, double &scale)
+void optimizer::inertial_optimization(map *pMap, Eigen::Matrix3d &Rwg, double &scale)
 {
     int                       its     = 10;
     long unsigned int         maxKFid = pMap->get_max_key_frame_id();
@@ -3702,7 +3702,7 @@ void Optimizer::InertialOptimization(map *pMap, Eigen::Matrix3d &Rwg, double &sc
     Rwg   = VGDir->estimate().Rwg;
 }
 
-void Optimizer::LocalBundleAdjustment(key_frame *pMainKF, vector<key_frame *> vpAdjustKF, vector<key_frame *> vpFixedKF, bool *pbStopFlag)
+void optimizer::local_bundle_adjustment(key_frame *pMainKF, vector<key_frame *> vpAdjustKF, vector<key_frame *> vpFixedKF, bool *pbStopFlag)
 {
     [[maybe_unused]] bool bShowImages = false;
 
@@ -4189,7 +4189,7 @@ void Optimizer::LocalBundleAdjustment(key_frame *pMainKF, vector<key_frame *> vp
     }
 }
 
-void Optimizer::MergeInertialBA(key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, loop_closing::key_frame_and_pose &corrPoses)
+void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, loop_closing::key_frame_and_pose &corrPoses)
 {
     const int           Nd      = 6;
     const unsigned long maxKFid = pCurrKF->id;
@@ -4764,7 +4764,7 @@ void Optimizer::MergeInertialBA(key_frame *pCurrKF, key_frame *pMergeKF, bool *p
     pMap->increase_change_index();
 }
 
-int Optimizer::PoseInertialOptimizationLastKeyFrame(frame *pFrame, const camera_vector &cameras, bool bRecInit)
+int optimizer::pose_inertial_optimization_last_key_frame(frame *pFrame, const camera_vector &cameras, bool bRecInit)
 {
     g2o::SparseOptimizer                 optimizer;
     g2o::BlockSolverX::LinearSolverType *linearSolver;
@@ -5167,7 +5167,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(frame *pFrame, const camera_
     return nInitialCorrespondences - nBad;
 }
 
-int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vector &cameras, bool bRecInit)
+int optimizer::pose_inertial_optimization_last_frame(frame *pFrame, const camera_vector &cameras, bool bRecInit)
 {
     g2o::SparseOptimizer                 optimizer;
     g2o::BlockSolverX::LinearSolverType *linearSolver;
@@ -5593,7 +5593,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vec
         }
     }
 
-    H = Marginalize(H, 0, 14);
+    H = marginalize(H, 0, 14);
 
     pFrame->imu_constraint = new ConstraintPoseImu(VP->estimate().Rwb, VP->estimate().twb, VV->estimate(), VG->estimate(), VA->estimate(), H.block<15, 15>(15, 15));
     delete pFp->imu_constraint;
@@ -5602,12 +5602,12 @@ int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vec
     return nInitialCorrespondences - nBad;
 }
 
-void Optimizer::OptimizeEssentialGraph4DoF(map                                           *pMap,
-                                           key_frame                                     *pLoopKF,
-                                           key_frame                                     *pCurKF,
-                                           const loop_closing::key_frame_and_pose            &NonCorrectedSim3,
-                                           const loop_closing::key_frame_and_pose            &CorrectedSim3,
-                                           const std::map<key_frame *, set<key_frame *>> &LoopConnections)
+void optimizer::optimize_essential_graph_4dof(map                                           *pMap,
+                                              key_frame                                     *pLoopKF,
+                                              key_frame                                     *pCurKF,
+                                              const loop_closing::key_frame_and_pose        &NonCorrectedSim3,
+                                              const loop_closing::key_frame_and_pose        &CorrectedSim3,
+                                              const std::map<key_frame *, set<key_frame *>> &LoopConnections)
 {
 
     // Setup optimizer
