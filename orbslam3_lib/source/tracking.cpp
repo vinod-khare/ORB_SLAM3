@@ -1866,7 +1866,7 @@ void tracking::extract_features(frame &frame, keypoint_extractor &extractor, con
         frame.mono_left = left_worker.get();
     }
     frame.extraction_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extraction_started).count();
-    frame.initialize_features(left, cameras, right, extractor.mvImagePyramid, right.empty() ? std::vector<cv::Mat>{} : right_extractor->mvImagePyramid);
+    frame.initialize_features(left, cameras, right, extractor.image_pyramid, right.empty() ? std::vector<cv::Mat>{} : right_extractor->image_pyramid);
 }
 
 void tracking::extract_current_features()

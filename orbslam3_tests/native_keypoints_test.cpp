@@ -293,7 +293,7 @@ TEST_CASE("Display keypoints retain detector metadata without changing tracking 
     for (int level = 0; level < extractor.get_levels(); ++level)
     {
         std::vector<cv::KeyPoint> raw_keys;
-        raw_detector->detect(extractor.mvImagePyramid[level], raw_keys);
+        raw_detector->detect(extractor.image_pyramid[level], raw_keys);
         for (std::size_t index = 0; index < tracking_keys.size(); ++index)
         {
             const auto &tracking_key = tracking_keys[index];
