@@ -1,5 +1,5 @@
 #include "key_frame.h"
-#include "Pinhole.h"
+#include "pinhole.h"
 #include "tracking.h"
 #include "atlas.h"
 #include "frame.h"
@@ -162,7 +162,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     auto                         *map = atlas.get_current_map();
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
     ORB_SLAM3::camera_vector      cameras;
-    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
     cv::Mat image(256, 256, CV_8UC1);
     cv::RNG random(42);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);

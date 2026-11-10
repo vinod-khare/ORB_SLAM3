@@ -16,16 +16,16 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "Pinhole.h"
+#include "pinhole.h"
 
 namespace ORB_SLAM3
 {
 
 long unsigned int geometric_camera::next_id = 0;
 
-cv::Point2f Pinhole::project(const cv::Point3f &p3D) { return cv::Point2f(parameters[0] * p3D.x / p3D.z + parameters[2], parameters[1] * p3D.y / p3D.z + parameters[3]); }
+cv::Point2f pinhole::project(const cv::Point3f &p3D) { return cv::Point2f(parameters[0] * p3D.x / p3D.z + parameters[2], parameters[1] * p3D.y / p3D.z + parameters[3]); }
 
-Eigen::Vector2d Pinhole::project(const Eigen::Vector3d &v3D)
+Eigen::Vector2d pinhole::project(const Eigen::Vector3d &v3D)
 {
     Eigen::Vector2d res;
     res[0] = parameters[0] * v3D[0] / v3D[2] + parameters[2];
@@ -34,7 +34,7 @@ Eigen::Vector2d Pinhole::project(const Eigen::Vector3d &v3D)
     return res;
 }
 
-Eigen::Vector2f Pinhole::project(const Eigen::Vector3f &v3D)
+Eigen::Vector2f pinhole::project(const Eigen::Vector3f &v3D)
 {
     Eigen::Vector2f res;
     res[0] = parameters[0] * v3D[0] / v3D[2] + parameters[2];
@@ -43,19 +43,19 @@ Eigen::Vector2f Pinhole::project(const Eigen::Vector3f &v3D)
     return res;
 }
 
-Eigen::Vector2f Pinhole::project_mat(const cv::Point3f &p3D)
+Eigen::Vector2f pinhole::project_mat(const cv::Point3f &p3D)
 {
     cv::Point2f point = this->project(p3D);
     return Eigen::Vector2f(point.x, point.y);
 }
 
-float Pinhole::uncertainty2(const Eigen::Matrix<double, 2, 1> &p2D) { return 1.0; }
+float pinhole::uncertainty2(const Eigen::Matrix<double, 2, 1> &p2D) { return 1.0; }
 
-Eigen::Vector3f Pinhole::unproject_eigen(const cv::Point2f &p2D) { return Eigen::Vector3f((p2D.x - parameters[2]) / parameters[0], (p2D.y - parameters[3]) / parameters[1], 1.f); }
+Eigen::Vector3f pinhole::unproject_eigen(const cv::Point2f &p2D) { return Eigen::Vector3f((p2D.x - parameters[2]) / parameters[0], (p2D.y - parameters[3]) / parameters[1], 1.f); }
 
-cv::Point3f Pinhole::unproject(const cv::Point2f &p2D) { return cv::Point3f((p2D.x - parameters[2]) / parameters[0], (p2D.y - parameters[3]) / parameters[1], 1.f); }
+cv::Point3f pinhole::unproject(const cv::Point2f &p2D) { return cv::Point3f((p2D.x - parameters[2]) / parameters[0], (p2D.y - parameters[3]) / parameters[1], 1.f); }
 
-Eigen::Matrix<double, 2, 3> Pinhole::project_jacobian(const Eigen::Vector3d &v3D)
+Eigen::Matrix<double, 2, 3> pinhole::project_jacobian(const Eigen::Vector3d &v3D)
 {
     Eigen::Matrix<double, 2, 3> Jac;
     Jac(0, 0) = parameters[0] / v3D[2];
@@ -68,36 +68,36 @@ Eigen::Matrix<double, 2, 3> Pinhole::project_jacobian(const Eigen::Vector3d &v3D
     return Jac;
 }
 
-bool Pinhole::reconstruct_with_two_views(const std::vector<cv::KeyPoint> &vKeys1,
+bool pinhole::reconstruct_with_two_views(const std::vector<cv::KeyPoint> &vKeys1,
                                          const std::vector<cv::KeyPoint> &vKeys2,
                                          const std::vector<int>          &vMatches12,
                                          Sophus::SE3f                    &T21,
                                          std::vector<cv::Point3f>        &vP3D,
                                          std::vector<bool>               &vbTriangulated)
 {
-    if (!tvr)
+    if (!_two_view_reconstruction)
     {
-        Eigen::Matrix3f K = this->to_k_eigen();
-        tvr               = new two_view_reconstruction(K);
+        Eigen::Matrix3f K        = this->to_k_eigen();
+        _two_view_reconstruction = new two_view_reconstruction(K);
     }
 
-    return tvr->reconstruct(vKeys1, vKeys2, vMatches12, T21, vP3D, vbTriangulated);
+    return _two_view_reconstruction->reconstruct(vKeys1, vKeys2, vMatches12, T21, vP3D, vbTriangulated);
 }
 
-cv::Mat Pinhole::to_k()
+cv::Mat pinhole::to_k()
 {
     cv::Mat K = cv::Mat(cv::Matx33f(parameters[0], 0.f, parameters[2], 0.f, parameters[1], parameters[3], 0.f, 0.f, 1.f));
     return K;
 }
 
-Eigen::Matrix3f Pinhole::to_k_eigen()
+Eigen::Matrix3f pinhole::to_k_eigen()
 {
     Eigen::Matrix3f K;
     K << parameters[0], 0.f, parameters[2], 0.f, parameters[1], parameters[3], 0.f, 0.f, 1.f;
     return K;
 }
 
-bool Pinhole::epipolar_constrain(
+bool pinhole::epipolar_constrain(
     geometric_camera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel, const float unc)
 {
     // Compute Fundamental Matrix
@@ -125,13 +125,13 @@ bool Pinhole::epipolar_constrain(
     return dsqr < 3.84 * unc;
 }
 
-std::ostream &operator<<(std::ostream &os, const Pinhole &ph)
+std::ostream &operator<<(std::ostream &os, const pinhole &ph)
 {
     os << ph.parameters[0] << " " << ph.parameters[1] << " " << ph.parameters[2] << " " << ph.parameters[3];
     return os;
 }
 
-std::istream &operator>>(std::istream &is, Pinhole &ph)
+std::istream &operator>>(std::istream &is, pinhole &ph)
 {
     float nextParam;
     for (size_t i = 0; i < 4; i++)
@@ -143,7 +143,7 @@ std::istream &operator>>(std::istream &is, Pinhole &ph)
     return is;
 }
 
-bool Pinhole::IsEqual(geometric_camera &pCam)
+bool pinhole::is_equal(geometric_camera &pCam)
 {
     if (pCam.get_type() != geometric_camera::cam_pinhole)
     {

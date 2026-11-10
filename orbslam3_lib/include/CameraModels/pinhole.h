@@ -26,35 +26,35 @@
 
 namespace ORB_SLAM3
 {
-class Pinhole : public geometric_camera
+class pinhole : public geometric_camera
 {
 
   public:
-    Pinhole()
+    pinhole()
     {
         parameters.resize(4);
         id   = next_id++;
         type = cam_pinhole;
     }
-    Pinhole(const std::vector<float> _vParameters) : geometric_camera(_vParameters), tvr(nullptr)
+    pinhole(const std::vector<float> _vParameters) : geometric_camera(_vParameters), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 4);
         id   = next_id++;
         type = cam_pinhole;
     }
 
-    Pinhole(Pinhole *pPinhole) : geometric_camera(pPinhole->parameters), tvr(nullptr)
+    pinhole(pinhole *pPinhole) : geometric_camera(pPinhole->parameters), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 4);
         id   = next_id++;
         type = cam_pinhole;
     }
 
-    ~Pinhole()
+    ~pinhole()
     {
-        if (tvr)
+        if (_two_view_reconstruction)
         {
-            delete tvr;
+            delete _two_view_reconstruction;
         }
     }
 
@@ -95,15 +95,15 @@ class Pinhole : public geometric_camera
         return false;
     }
 
-    friend std::ostream &operator<<(std::ostream &os, const Pinhole &ph);
-    friend std::istream &operator>>(std::istream &os, Pinhole &ph);
+    friend std::ostream &operator<<(std::ostream &os, const pinhole &ph);
+    friend std::istream &operator>>(std::istream &os, pinhole &ph);
 
-    bool IsEqual(geometric_camera &pCam);
+    bool is_equal(geometric_camera &pCam);
 
   private:
     // Parameters vector corresponds to
     //       [fx, fy, cx, cy]
-    two_view_reconstruction *tvr;
+    two_view_reconstruction *_two_view_reconstruction;
 };
 } // namespace ORB_SLAM3
 

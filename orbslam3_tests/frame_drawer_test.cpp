@@ -1,4 +1,4 @@
-#include "Pinhole.h"
+#include "pinhole.h"
 #include "tracking.h"
 #include "atlas.h"
 #include "frame_drawer.h"
@@ -124,7 +124,7 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     random.fill(input, cv::RNG::UNIFORM, 0, 256);
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
     ORB_SLAM3::camera_vector      cameras;
-    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{100, 100, 64, 64}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{100, 100, 64, 64}));
     cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::frame::initial_computations = true;
     ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->to_k(), distortion, 10.f, 40.f);

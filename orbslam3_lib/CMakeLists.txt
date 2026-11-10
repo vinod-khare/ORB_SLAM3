@@ -46,7 +46,7 @@ add_library(ORB_SLAM3 SHARED
         source/sim3_solver.cpp
         source/ImuTypes.cpp
         source/G2oTypes.cpp
-        source/CameraModels/Pinhole.cpp
+        source/CameraModels/pinhole.cpp
         source/CameraModels/KannalaBrandt8.cpp
         source/OptimizableTypes.cpp
         source/geometric_tools.cpp

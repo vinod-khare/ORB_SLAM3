@@ -21,7 +21,7 @@
 #include "G2oTypes.h"
 #include "KannalaBrandt8.h"
 #include "optimizer.h"
-#include "Pinhole.h"
+#include "pinhole.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
 #include "geometric_tools.h"

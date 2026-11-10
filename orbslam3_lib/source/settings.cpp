@@ -19,7 +19,7 @@
 #include "settings.h"
 
 #include "CameraModels/KannalaBrandt8.h"
-#include "CameraModels/Pinhole.h"
+#include "CameraModels/pinhole.h"
 #include "system.h"
 
 #include <cmath>
@@ -155,7 +155,7 @@ std::unique_ptr<ORB_SLAM3::geometric_camera> make_camera(const kalibr_camera &ca
         return std::make_unique<ORB_SLAM3::KannalaBrandt8>(camera.parameters);
     }
 
-    return std::make_unique<ORB_SLAM3::Pinhole>(camera.parameters);
+    return std::make_unique<ORB_SLAM3::pinhole>(camera.parameters);
 }
 } // namespace
 

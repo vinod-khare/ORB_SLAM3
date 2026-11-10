@@ -1,6 +1,6 @@
 #include "KannalaBrandt8.h"
 #include "optimizer.h"
-#include "Pinhole.h"
+#include "pinhole.h"
 #include "tracking.h"
 #include "frame.h"
 #include "keypoint_extractor.h"
@@ -60,7 +60,7 @@ TEST_CASE("Frame feature data survives extractor reuse and destruction")
     cv::RNG    random(17);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     ORB_SLAM3::camera_vector cameras;
-    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
     const cv::Mat    distortion = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::frame frame(1.0, nullptr, cameras[0]->to_k(), distortion, 20, 40);
     ORB_SLAM3::frame::initial_computations = true;
@@ -177,7 +177,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
         }
         else
         {
-            cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+            cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
         }
     }
 
@@ -358,7 +358,7 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
         }
         else
         {
-            cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+            cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
         }
     }
     auto    calibration                    = cameras[0]->to_k();
@@ -408,7 +408,7 @@ TEST_CASE("RGB-D frames undistort tracked features using the primary camera")
     ORB_SLAM3::frame::initial_computations = true;
     ORB_SLAM3::frame         frame(1.0, nullptr, calibration, distortion, 20, 40);
     ORB_SLAM3::camera_vector cameras;
-    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
     ORB_SLAM3::tracking::extract_features(frame, extractor, image, cameras);
     frame.compute_stereo_from_rgbd(depth);
     REQUIRE(frame.feature_count > 0);

@@ -1,7 +1,7 @@
 #include "G2oTypes.h"
 #include "KannalaBrandt8.h"
 #include "OptimizableTypes.h"
-#include "Pinhole.h"
+#include "pinhole.h"
 #include "frame.h"
 #include "geometric_tools.h"
 
@@ -23,9 +23,9 @@ TEST_CASE("Camera collections distinguish rectified and fisheye stereo", "[camer
 {
     ORB_SLAM3::camera_vector cameras;
     REQUIRE_FALSE(ORB_SLAM3::is_fisheye_stereo(cameras));
-    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{500, 510, 320, 240}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{500, 510, 320, 240}));
     REQUIRE_FALSE(ORB_SLAM3::is_fisheye_stereo(cameras));
-    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{500, 510, 320, 240}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{500, 510, 320, 240}));
     REQUIRE_FALSE(ORB_SLAM3::is_fisheye_stereo(cameras));
     cameras.clear();
     cameras.push_back(std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{500, 510, 320, 240, 0, 0, 0, 0}));
@@ -71,7 +71,7 @@ template <typename Camera> void check_pnp_with_outliers(Camera &camera)
 
 TEST_CASE("OpenCV PnP relocalization handles pinhole outliers")
 {
-    ORB_SLAM3::Pinhole camera({500.0f, 510.0f, 320.0f, 240.0f});
+    ORB_SLAM3::pinhole camera({500.0f, 510.0f, 320.0f, 240.0f});
     check_pnp_with_outliers(camera);
 }
 
@@ -110,7 +110,7 @@ TEST_CASE("Optimizer edges bind their camera reference at construction", "[camer
     static_assert(!std::is_default_constructible_v<ORB_SLAM3::EdgeSE3ProjectXYZOnlyPose>);
     static_assert(!std::is_default_constructible_v<ORB_SLAM3::EdgeSE3ProjectXYZ>);
     ORB_SLAM3::camera_vector cameras;
-    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{500, 510, 320, 240}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{500, 510, 320, 240}));
     ORB_SLAM3::EdgeSE3ProjectXYZOnlyPose edge(*cameras[0]);
     REQUIRE(&edge.camera == cameras[0].get());
     const Eigen::Vector3f point(0, 0, 1);
@@ -129,7 +129,7 @@ TEST_CASE("Inertial camera poses update only their modeled stereo observations",
         }
         else
         {
-            cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{500, 510, 320, 240}));
+            cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{500, 510, 320, 240}));
         }
     }
     ORB_SLAM3::frame frame;

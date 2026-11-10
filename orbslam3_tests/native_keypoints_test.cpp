@@ -1,4 +1,4 @@
-#include "Pinhole.h"
+#include "pinhole.h"
 #include "tracking.h"
 #include "descriptor_matcher.h"
 #include "frame.h"
@@ -124,7 +124,7 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     const cv::Mat            distortion             = cv::Mat(cv::Vec4f(distortion_coefficient, 0, 0, 0));
     const cv::Mat            image                  = cv::Mat::zeros(256, 256, CV_8U);
     ORB_SLAM3::camera_vector cameras;
-    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
     ORB_SLAM3::frame::initial_computations = true;
     ORB_SLAM3::frame    frame(0.0, nullptr, calibration, distortion, 20, 40);
     ORB_SLAM3::keypoint key(73.25f, 81.75f, 31.f);
@@ -210,7 +210,7 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
     ORB_SLAM3::camera_vector      cameras;
-    cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{100, 100, 64, 64}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{100, 100, 64, 64}));
     cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::frame::initial_computations = true;
     ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->to_k(), distortion, 10.f, 40.f);
