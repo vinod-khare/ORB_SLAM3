@@ -19,7 +19,7 @@
 #include "system.h"
 
 #include "local_mapping.h"
-#include "LoopClosing.h"
+#include "loop_closing.h"
 #include "settings.h"
 #include "Tracking.h"
 #include "atlas.h"
@@ -129,7 +129,7 @@ system::system(const string &strVocFile, const string &strSettingsFile, const se
     }
 
     // Initialize the Loop Closing thread and launch
-    _loop_closer = std::make_unique<LoopClosing>(_statistics, _atlas.get(), _key_frame_database.get(), _vocabulary.get(), _sensor != monocular, activeLC);
+    _loop_closer = std::make_unique<loop_closing>(_statistics, _atlas.get(), _key_frame_database.get(), _vocabulary.get(), _sensor != monocular, activeLC);
 
     // Set pointers between threads
     _tracker->SetLocalMapper(_local_mapper.get());
@@ -138,13 +138,13 @@ system::system(const string &strVocFile, const string &strSettingsFile, const se
     _local_mapper->set_tracker(_tracker.get());
     _local_mapper->set_loop_closer(_loop_closer.get());
 
-    _loop_closer->SetTracker(_tracker.get());
-    _loop_closer->SetLocalMapper(_local_mapper.get());
+    _loop_closer->set_tracker(_tracker.get());
+    _loop_closer->set_local_mapper(_local_mapper.get());
 
     try
     {
         _local_mapping_thread = std::jthread(&local_mapping::run, _local_mapper.get());
-        _loop_closing_thread  = std::jthread(&LoopClosing::Run, _loop_closer.get());
+        _loop_closing_thread  = std::jthread(&loop_closing::run, _loop_closer.get());
     }
     catch (...)
     {
@@ -551,7 +551,7 @@ void system::reset_active_map()
 
 void system::stop_workers()
 {
-    _loop_closer->RequestFinish();
+    _loop_closer->request_finish();
     if (_loop_closing_thread.joinable())
     {
         _loop_closing_thread.join();

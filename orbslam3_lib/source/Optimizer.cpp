@@ -1587,8 +1587,8 @@ void Optimizer::LocalBundleAdjustment(key_frame *pKF, bool *pbStopFlag, map *pMa
 void Optimizer::OptimizeEssentialGraph(map                                           *pMap,
                                        key_frame                                     *pLoopKF,
                                        key_frame                                     *pCurKF,
-                                       const LoopClosing::KeyFrameAndPose            &NonCorrectedSim3,
-                                       const LoopClosing::KeyFrameAndPose            &CorrectedSim3,
+                                       const loop_closing::key_frame_and_pose            &NonCorrectedSim3,
+                                       const loop_closing::key_frame_and_pose            &CorrectedSim3,
                                        const std::map<key_frame *, set<key_frame *>> &LoopConnections,
                                        const bool                                    &bFixScale)
 {
@@ -1629,7 +1629,7 @@ void Optimizer::OptimizeEssentialGraph(map                                      
 
         const int nIDi = pKF->id;
 
-        LoopClosing::KeyFrameAndPose::const_iterator it = CorrectedSim3.find(pKF);
+        loop_closing::key_frame_and_pose::const_iterator it = CorrectedSim3.find(pKF);
 
         if (it != CorrectedSim3.end())
         {
@@ -1706,7 +1706,7 @@ void Optimizer::OptimizeEssentialGraph(map                                      
 
         g2o::Sim3 Swi;
 
-        LoopClosing::KeyFrameAndPose::const_iterator iti = NonCorrectedSim3.find(pKF);
+        loop_closing::key_frame_and_pose::const_iterator iti = NonCorrectedSim3.find(pKF);
 
         if (iti != NonCorrectedSim3.end())
         {
@@ -1726,7 +1726,7 @@ void Optimizer::OptimizeEssentialGraph(map                                      
 
             g2o::Sim3 Sjw;
 
-            LoopClosing::KeyFrameAndPose::const_iterator itj = NonCorrectedSim3.find(pParentKF);
+            loop_closing::key_frame_and_pose::const_iterator itj = NonCorrectedSim3.find(pParentKF);
 
             if (itj != NonCorrectedSim3.end())
             {
@@ -1756,7 +1756,7 @@ void Optimizer::OptimizeEssentialGraph(map                                      
             {
                 g2o::Sim3 Slw;
 
-                LoopClosing::KeyFrameAndPose::const_iterator itl = NonCorrectedSim3.find(pLKF);
+                loop_closing::key_frame_and_pose::const_iterator itl = NonCorrectedSim3.find(pLKF);
 
                 if (itl != NonCorrectedSim3.end())
                 {
@@ -1793,7 +1793,7 @@ void Optimizer::OptimizeEssentialGraph(map                                      
 
                     g2o::Sim3 Snw;
 
-                    LoopClosing::KeyFrameAndPose::const_iterator itn = NonCorrectedSim3.find(pKFn);
+                    loop_closing::key_frame_and_pose::const_iterator itn = NonCorrectedSim3.find(pKFn);
 
                     if (itn != NonCorrectedSim3.end())
                     {
@@ -1820,7 +1820,7 @@ void Optimizer::OptimizeEssentialGraph(map                                      
         if (pKF->has_imu && pKF->previous_key_frame)
         {
             g2o::Sim3                                    Spw;
-            LoopClosing::KeyFrameAndPose::const_iterator itp = NonCorrectedSim3.find(pKF->previous_key_frame);
+            loop_closing::key_frame_and_pose::const_iterator itp = NonCorrectedSim3.find(pKF->previous_key_frame);
             if (itp != NonCorrectedSim3.end())
             {
                 Spw = itp->second;
@@ -4189,7 +4189,7 @@ void Optimizer::LocalBundleAdjustment(key_frame *pMainKF, vector<key_frame *> vp
     }
 }
 
-void Optimizer::MergeInertialBA(key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, LoopClosing::KeyFrameAndPose &corrPoses)
+void Optimizer::MergeInertialBA(key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, loop_closing::key_frame_and_pose &corrPoses)
 {
     const int           Nd      = 6;
     const unsigned long maxKFid = pCurrKF->id;
@@ -5605,8 +5605,8 @@ int Optimizer::PoseInertialOptimizationLastFrame(frame *pFrame, const camera_vec
 void Optimizer::OptimizeEssentialGraph4DoF(map                                           *pMap,
                                            key_frame                                     *pLoopKF,
                                            key_frame                                     *pCurKF,
-                                           const LoopClosing::KeyFrameAndPose            &NonCorrectedSim3,
-                                           const LoopClosing::KeyFrameAndPose            &CorrectedSim3,
+                                           const loop_closing::key_frame_and_pose            &NonCorrectedSim3,
+                                           const loop_closing::key_frame_and_pose            &CorrectedSim3,
                                            const std::map<key_frame *, set<key_frame *>> &LoopConnections)
 {
 
@@ -5644,7 +5644,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(map                                  
 
         const int nIDi = pKF->id;
 
-        LoopClosing::KeyFrameAndPose::const_iterator it = CorrectedSim3.find(pKF);
+        loop_closing::key_frame_and_pose::const_iterator it = CorrectedSim3.find(pKF);
 
         if (it != CorrectedSim3.end())
         {
@@ -5728,7 +5728,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(map                                  
         g2o::Sim3 Siw;
 
         // Use noncorrected poses for posegraph edges
-        LoopClosing::KeyFrameAndPose::const_iterator iti = NonCorrectedSim3.find(pKF);
+        loop_closing::key_frame_and_pose::const_iterator iti = NonCorrectedSim3.find(pKF);
 
         if (iti != NonCorrectedSim3.end())
         {
@@ -5747,7 +5747,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(map                                  
 
             g2o::Sim3 Swj;
 
-            LoopClosing::KeyFrameAndPose::const_iterator itj = NonCorrectedSim3.find(pParentKF);
+            loop_closing::key_frame_and_pose::const_iterator itj = NonCorrectedSim3.find(pParentKF);
 
             if (itj != NonCorrectedSim3.end())
             {
@@ -5779,7 +5779,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(map                                  
 
             g2o::Sim3 Swj;
 
-            LoopClosing::KeyFrameAndPose::const_iterator itj = NonCorrectedSim3.find(prevKF);
+            loop_closing::key_frame_and_pose::const_iterator itj = NonCorrectedSim3.find(prevKF);
 
             if (itj != NonCorrectedSim3.end())
             {
@@ -5812,7 +5812,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(map                                  
             {
                 g2o::Sim3 Swl;
 
-                LoopClosing::KeyFrameAndPose::const_iterator itl = NonCorrectedSim3.find(pLKF);
+                loop_closing::key_frame_and_pose::const_iterator itl = NonCorrectedSim3.find(pLKF);
 
                 if (itl != NonCorrectedSim3.end())
                 {
@@ -5853,7 +5853,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(map                                  
 
                     g2o::Sim3 Swn;
 
-                    LoopClosing::KeyFrameAndPose::const_iterator itn = NonCorrectedSim3.find(pKFn);
+                    loop_closing::key_frame_and_pose::const_iterator itn = NonCorrectedSim3.find(pKFn);
 
                     if (itn != NonCorrectedSim3.end())
                     {

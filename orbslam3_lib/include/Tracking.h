@@ -22,7 +22,7 @@
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
 #include "local_mapping.h"
-#include "LoopClosing.h"
+#include "loop_closing.h"
 #include "settings.h"
 #include "system.h"
 #include "atlas.h"
@@ -45,7 +45,7 @@ namespace ORB_SLAM3
 {
 
 class local_mapping;
-class LoopClosing;
+class loop_closing;
 class system;
 class settings;
 
@@ -77,7 +77,7 @@ class Tracking
     void GrabImuData(const IMU::Point &imuMeasurement);
 
     void SetLocalMapper(local_mapping *pLocalMapper);
-    void SetLoopClosing(LoopClosing *pLoopClosing);
+    void SetLoopClosing(loop_closing *pLoopClosing);
     void SetResetHooks(std::function<void()> on_reset_start, std::function<void()> on_reset_complete);
     void SetStepByStep(bool bSet);
     bool GetStepByStep();
@@ -240,7 +240,7 @@ class Tracking
 
     // Other Thread Pointers
     local_mapping *mpLocalMapper;
-    LoopClosing  *mpLoopClosing;
+    loop_closing  *mpLoopClosing;
 
     // ORB
     std::unique_ptr<keypoint_extractor> left_keypoint_extractor, right_keypoint_extractor;

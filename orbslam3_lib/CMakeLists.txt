@@ -32,7 +32,7 @@ add_library(ORB_SLAM3 SHARED
         source/system.cpp
         source/Tracking.cpp
         source/local_mapping.cpp
-        source/LoopClosing.cpp
+        source/loop_closing.cpp
         source/keypoint_extractor.cpp
         source/descriptor_matcher.cpp
         source/converter.cpp

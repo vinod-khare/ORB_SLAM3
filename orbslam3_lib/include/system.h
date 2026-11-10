@@ -47,7 +47,7 @@ class map_point;
 class place_vocabulary;
 class Tracking;
 class local_mapping;
-class LoopClosing;
+class loop_closing;
 class settings;
 
 class system
@@ -217,7 +217,7 @@ class system
 
     // Loop Closer. It searches loops with every new keyframe. If there is a loop it performs
     // a pose graph optimization and full bundle adjustment (in a new thread) afterwards.
-    std::unique_ptr<LoopClosing> _loop_closer;
+    std::unique_ptr<loop_closing> _loop_closer;
 
     // System threads: Local Mapping and Loop Closing.
     // The Tracking thread "lives" in the main execution thread that creates the System object.

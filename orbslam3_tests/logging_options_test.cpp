@@ -1,4 +1,4 @@
-#include "LoopClosing.h"
+#include "loop_closing.h"
 #include "command_line_options.h"
 #include "folder_reader.h"
 #include "processing_statistics.h"
@@ -223,9 +223,9 @@ TEST_CASE("Processing statistics safely collect concurrent backend jobs", "[stat
 
 TEST_CASE("Global bundle adjustment shutdown joins its worker before returning", "[statistics]")
 {
-    struct loop_worker : ORB_SLAM3::LoopClosing
+    struct loop_worker : ORB_SLAM3::loop_closing
     {
-        explicit loop_worker(ORB_SLAM3::processing_statistics &statistics) : LoopClosing(statistics, nullptr, nullptr, nullptr, true, false) {}
+        explicit loop_worker(ORB_SLAM3::processing_statistics &statistics) : loop_closing(statistics, nullptr, nullptr, nullptr, true, false) {}
         void start_job()
         {
             _global_ba_thread = std::jthread(
@@ -236,7 +236,7 @@ TEST_CASE("Global bundle adjustment shutdown joins its worker before returning",
                     std::condition_variable_any                           ready;
                     std::unique_lock                                      lock(mutex);
                     ready.wait(lock, stop, [] { return false; });
-                    const std::lock_guard completion_lock(mMutexGBA);
+                    const std::lock_guard completion_lock(global_bundle_adjustment_mutex);
                 });
         }
     };
@@ -250,8 +250,8 @@ TEST_CASE("Global bundle adjustment shutdown joins its worker before returning",
         {
             worker.stop_global_bundle_adjustment();
             REQUIRE(measurements.get_snapshot().global_bundle_adjustment.jobs == 1);
-            REQUIRE_FALSE(worker.isRunningGBA());
-            REQUIRE(worker.isFinishedGBA());
+            REQUIRE_FALSE(worker.is_global_bundle_adjustment_running());
+            REQUIRE(worker.is_global_bundle_adjustment_finished());
             worker.stop_global_bundle_adjustment();
         }
     }

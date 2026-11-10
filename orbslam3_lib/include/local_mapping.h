@@ -19,7 +19,7 @@
 #ifndef LOCAL_MAPPING_H
 #define LOCAL_MAPPING_H
 
-#include "LoopClosing.h"
+#include "loop_closing.h"
 #include "Tracking.h"
 #include "atlas.h"
 #include "key_frame.h"
@@ -34,7 +34,7 @@ namespace ORB_SLAM3
 
 class system;
 class Tracking;
-class LoopClosing;
+class loop_closing;
 
 class local_mapping
 {
@@ -42,7 +42,7 @@ class local_mapping
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     local_mapping(processing_statistics &statistics, system *pSys, atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName = std::string());
 
-    void set_loop_closer(LoopClosing *pLoopCloser);
+    void set_loop_closer(loop_closing *pLoopCloser);
 
     void set_tracker(Tracking *pTracker);
 
@@ -140,7 +140,7 @@ class local_mapping
 
     atlas *owner_atlas;
 
-    LoopClosing *loop_closer;
+    loop_closing *loop_closer;
     Tracking    *tracker;
 
     std::list<key_frame *> new_key_frames;

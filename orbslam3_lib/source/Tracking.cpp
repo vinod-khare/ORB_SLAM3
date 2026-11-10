@@ -177,7 +177,7 @@ void Tracking::load_parameters(settings *settings)
 
 void Tracking::SetLocalMapper(local_mapping *pLocalMapper) { mpLocalMapper = pLocalMapper; }
 
-void Tracking::SetLoopClosing(LoopClosing *pLoopClosing) { mpLoopClosing = pLoopClosing; }
+void Tracking::SetLoopClosing(loop_closing *pLoopClosing) { mpLoopClosing = pLoopClosing; }
 
 void Tracking::SetResetHooks(std::function<void()> on_reset_start, std::function<void()> on_reset_complete)
 {
@@ -3023,7 +3023,7 @@ void Tracking::Reset(bool bLocMap)
 
     // Reset Loop Closing
     spdlog::debug("Reseting Loop Closing...");
-    mpLoopClosing->RequestReset();
+    mpLoopClosing->request_reset();
     spdlog::debug("done");
 
     // Clear BoW Database
@@ -3085,7 +3085,7 @@ void Tracking::ResetActiveMap(bool bLocMap)
 
     // Reset Loop Closing
     spdlog::debug("Reseting Loop Closing...");
-    mpLoopClosing->RequestResetActiveMap(pMap);
+    mpLoopClosing->request_reset_active_map(pMap);
     spdlog::debug("done");
 
     // Clear BoW Database

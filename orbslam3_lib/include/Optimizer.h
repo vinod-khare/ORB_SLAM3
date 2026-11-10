@@ -21,7 +21,7 @@
 
 #include "G2oCompat.h"
 #include "key_frame.h"
-#include "LoopClosing.h"
+#include "loop_closing.h"
 #include "frame.h"
 #include "map.h"
 #include "map_point.h"
@@ -43,7 +43,7 @@
 namespace ORB_SLAM3
 {
 
-class LoopClosing;
+class loop_closing;
 
 class Optimizer
 {
@@ -72,8 +72,8 @@ class Optimizer
     void static OptimizeEssentialGraph(map                                         *pMap,
                                        key_frame                                    *pLoopKF,
                                        key_frame                                    *pCurKF,
-                                       const LoopClosing::KeyFrameAndPose          &NonCorrectedSim3,
-                                       const LoopClosing::KeyFrameAndPose          &CorrectedSim3,
+                                       const loop_closing::key_frame_and_pose          &NonCorrectedSim3,
+                                       const loop_closing::key_frame_and_pose          &CorrectedSim3,
                                        const std::map<key_frame *, set<key_frame *>> &LoopConnections,
                                        const bool                                  &bFixScale);
     void static OptimizeEssentialGraph(
@@ -83,8 +83,8 @@ class Optimizer
     void static OptimizeEssentialGraph4DoF(map                                         *pMap,
                                            key_frame                                    *pLoopKF,
                                            key_frame                                    *pCurKF,
-                                           const LoopClosing::KeyFrameAndPose          &NonCorrectedSim3,
-                                           const LoopClosing::KeyFrameAndPose          &CorrectedSim3,
+                                           const loop_closing::key_frame_and_pose          &NonCorrectedSim3,
+                                           const loop_closing::key_frame_and_pose          &CorrectedSim3,
                                            const std::map<key_frame *, set<key_frame *>> &LoopConnections);
 
     // if bFixScale is true, optimize SE3 (stereo,rgbd), Sim3 otherwise (mono) (NEW)
@@ -100,7 +100,7 @@ class Optimizer
     // For inertial systems
 
     void static LocalInertialBA(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges, bool bLarge = false, bool bRecInit = false);
-    void static MergeInertialBA(key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, LoopClosing::KeyFrameAndPose &corrPoses);
+    void static MergeInertialBA(key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, loop_closing::key_frame_and_pose &corrPoses);
 
     // Local BA in welding area when two maps are merged
     void static LocalBundleAdjustment(key_frame *pMainKF, vector<key_frame *> vpAdjustKF, vector<key_frame *> vpFixedKF, bool *pbStopFlag);

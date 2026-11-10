@@ -18,7 +18,7 @@
 
 #include "local_mapping.h"
 
-#include "LoopClosing.h"
+#include "loop_closing.h"
 #include "Optimizer.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
@@ -48,7 +48,7 @@ local_mapping::local_mapping(processing_statistics &statistics, system *pSys, at
     key_frame_culling_count = 0;
 }
 
-void local_mapping::set_loop_closer(LoopClosing *pLoopCloser) { loop_closer = pLoopCloser; }
+void local_mapping::set_loop_closer(loop_closing *pLoopCloser) { loop_closer = pLoopCloser; }
 
 void local_mapping::set_tracker(Tracking *pTracker) { tracker = pTracker; }
 
@@ -205,7 +205,7 @@ void local_mapping::run()
                 }
             }
 
-            loop_closer->InsertKeyFrame(current_key_frame);
+            loop_closer->insert_key_frame(current_key_frame);
         }
         else if (stop() && !bad_imu)
         {
