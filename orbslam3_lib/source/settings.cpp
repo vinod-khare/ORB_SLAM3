@@ -20,7 +20,7 @@
 
 #include "CameraModels/KannalaBrandt8.h"
 #include "CameraModels/Pinhole.h"
-#include "System.h"
+#include "system.h"
 
 #include <cmath>
 #include <filesystem>
@@ -310,13 +310,13 @@ settings::settings(const std::string &config_file, const int &sensor, const feat
     read_image_info(fSettings);
     spdlog::info("Loaded image info");
 
-    if (_sensor == System::IMU_MONOCULAR || _sensor == System::IMU_STEREO || _sensor == System::IMU_RGBD)
+    if (_sensor == system::imu_monocular || _sensor == system::imu_stereo || _sensor == system::imu_rgbd)
     {
         read_imu(fSettings, config_file);
         spdlog::info("Loaded IMU calibration");
     }
 
-    if (_sensor == System::RGBD || _sensor == System::IMU_RGBD)
+    if (_sensor == system::rgbd || _sensor == system::imu_rgbd)
     {
         read_rgbd(fSettings);
         spdlog::info("Loaded RGB-D calibration");
@@ -348,12 +348,12 @@ void settings::read_cameras(cv::FileStorage &settings)
     _original_cameras.push_back(make_camera(camera1));
     _camera_1_distortion = camera1.distortion;
 
-    if ((_sensor == System::MONOCULAR || _sensor == System::IMU_MONOCULAR) && !_camera_1_distortion.empty())
+    if ((_sensor == system::monocular || _sensor == system::imu_monocular) && !_camera_1_distortion.empty())
     {
         _need_to_undistort = true;
     }
 
-    if (_sensor != System::STEREO && _sensor != System::IMU_STEREO)
+    if (_sensor != system::stereo && _sensor != system::imu_stereo)
     {
         return;
     }
@@ -413,7 +413,7 @@ void settings::read_image_info(cv::FileStorage &fSettings)
             _cameras[0]->setParameter(_cameras[0]->getParameter(1) * scaleRowFactor, 1);
             _cameras[0]->setParameter(_cameras[0]->getParameter(3) * scaleRowFactor, 3);
 
-            if (_sensor == System::STEREO || _sensor == System::IMU_STEREO)
+            if (_sensor == system::stereo || _sensor == system::imu_stereo)
             {
                 _cameras[1]->setParameter(_cameras[1]->getParameter(1) * scaleRowFactor, 1);
                 _cameras[1]->setParameter(_cameras[1]->getParameter(3) * scaleRowFactor, 3);
@@ -434,7 +434,7 @@ void settings::read_image_info(cv::FileStorage &fSettings)
             _cameras[0]->setParameter(_cameras[0]->getParameter(0) * scaleColFactor, 0);
             _cameras[0]->setParameter(_cameras[0]->getParameter(2) * scaleColFactor, 2);
 
-            if (_sensor == System::STEREO || _sensor == System::IMU_STEREO)
+            if (_sensor == system::stereo || _sensor == system::imu_stereo)
             {
                 _cameras[1]->setParameter(_cameras[1]->getParameter(0) * scaleColFactor, 0);
                 _cameras[1]->setParameter(_cameras[1]->getParameter(2) * scaleColFactor, 2);
@@ -676,7 +676,7 @@ void settings::precompute_rectification_maps()
     _baseline_fx = _baseline * P1.at<double>(0, 0);
 
     // Update relative pose between camera 1 and IMU if necessary
-    if (_sensor == System::IMU_STEREO)
+    if (_sensor == system::imu_stereo)
     {
         Eigen::Matrix3f eigenR_r1_u1;
         cv::cv2eigen(R_r1_u1, eigenR_r1_u1);
@@ -716,7 +716,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
         output << " ]" << endl;
     }
 
-    if (settings._sensor == System::STEREO || settings._sensor == System::IMU_STEREO)
+    if (settings._sensor == system::stereo || settings._sensor == system::imu_stereo)
     {
         output << "\t-Camera 2 parameters (";
         if (settings._camera_type == settings::pinhole)
@@ -766,7 +766,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
         }
         output << " ]" << endl;
 
-        if ((settings._sensor == System::STEREO || settings._sensor == System::IMU_STEREO) && settings._camera_type == settings::kannala_brandt)
+        if ((settings._sensor == system::stereo || settings._sensor == system::imu_stereo) && settings._camera_type == settings::kannala_brandt)
         {
             output << "\t-Camera 2 parameters after resize: [ ";
             for (size_t i = 0; i < settings._cameras[1]->size(); i++)
@@ -780,7 +780,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
     output << "\t-Sequence FPS: " << settings._fps << endl;
 
     // Stereo stuff
-    if (settings._sensor == System::STEREO || settings._sensor == System::IMU_STEREO)
+    if (settings._sensor == system::stereo || settings._sensor == system::imu_stereo)
     {
         output << "\t-Stereo baseline: " << settings._baseline << endl;
         output << "\t-Stereo depth threshold : " << settings._depth_threshold << endl;
@@ -794,7 +794,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
         }
     }
 
-    if (settings._sensor == System::IMU_MONOCULAR || settings._sensor == System::IMU_STEREO || settings._sensor == System::IMU_RGBD)
+    if (settings._sensor == system::imu_monocular || settings._sensor == system::imu_stereo || settings._sensor == system::imu_rgbd)
     {
         output << "\t-Gyro noise: " << settings._gyroscope_noise << endl;
         output << "\t-Accelerometer noise: " << settings._accelerometer_noise << endl;
@@ -803,7 +803,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
         output << "\t-IMU frequency: " << settings._imu_frequency << endl;
     }
 
-    if (settings._sensor == System::RGBD || settings._sensor == System::IMU_RGBD)
+    if (settings._sensor == system::rgbd || settings._sensor == system::imu_rgbd)
     {
         output << "\t-RGB-D depth map factor: " << settings._depth_map_factor << endl;
     }

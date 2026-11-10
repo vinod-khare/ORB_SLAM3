@@ -32,7 +32,7 @@
 namespace ORB_SLAM3
 {
 
-class System;
+class system;
 class Tracking;
 class LoopClosing;
 
@@ -40,7 +40,7 @@ class LocalMapping
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    LocalMapping(processing_statistics &statistics, System *pSys, atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName = std::string());
+    LocalMapping(processing_statistics &statistics, system *pSys, atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName = std::string());
 
     void SetLoopCloser(LoopClosing *pLoopCloser);
 
@@ -121,7 +121,7 @@ class LocalMapping
     void SearchInNeighbors();
     void KeyFrameCulling();
 
-    System *mpSystem;
+    system *mpSystem;
 
     bool mbMonocular;
     bool mbInertial;

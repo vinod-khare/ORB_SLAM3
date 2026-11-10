@@ -29,7 +29,7 @@ add_library(ORB_SLAM3 SHARED
         source/place_vocabulary.cpp
         source/dbow2_vocabulary.cpp
         source/dbow3_vocabulary.cpp
-        source/System.cpp
+        source/system.cpp
         source/Tracking.cpp
         source/LocalMapping.cpp
         source/LoopClosing.cpp

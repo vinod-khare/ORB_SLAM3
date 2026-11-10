@@ -24,7 +24,7 @@
 #include "LocalMapping.h"
 #include "LoopClosing.h"
 #include "settings.h"
-#include "System.h"
+#include "system.h"
 #include "atlas.h"
 #include "frame.h"
 #include "key_frame_database.h"
@@ -46,7 +46,7 @@ namespace ORB_SLAM3
 
 class LocalMapping;
 class LoopClosing;
-class System;
+class system;
 class settings;
 
 class Tracking
@@ -54,7 +54,7 @@ class Tracking
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Tracking(System              *pSys,
+    Tracking(system              *pSys,
              place_vocabulary    *pVoc,
              atlas               *pAtlas,
              key_frame_database  *pKFDB,
@@ -261,7 +261,7 @@ class Tracking
     std::vector<map_point *> mvpLocalMapPoints;
 
     // System
-    System               *mpSystem;
+    system               *mpSystem;
     std::function<void()> mOnResetStart;
     std::function<void()> mOnResetComplete;
 

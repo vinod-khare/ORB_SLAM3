@@ -19,7 +19,7 @@
  * ORB-SLAM3. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "System.h"
+#include "system.h"
 #include "Tracking.h"
 #include "atlas.h"
 #include "command_line_options.h"
@@ -48,7 +48,7 @@ namespace
 class system_viewer_control final : public ORB_SLAM3::viewer_control
 {
   public:
-    system_viewer_control(ORB_SLAM3::System &system, ORB_SLAM3::Tracking &tracker) : _system(system), _tracker(tracker) {}
+    system_viewer_control(ORB_SLAM3::system &system, ORB_SLAM3::Tracking &tracker) : _system(system), _tracker(tracker) {}
 
     void set_step_by_step(bool enabled) override { _tracker.SetStepByStep(enabled); }
     void process_next_frame() override { _tracker.mbStep = true; }
@@ -57,20 +57,20 @@ class system_viewer_control final : public ORB_SLAM3::viewer_control
     {
         if (enabled)
         {
-            _system.ActivateLocalizationMode();
+            _system.activate_localization_mode();
         }
         else
         {
-            _system.DeactivateLocalizationMode();
+            _system.deactivate_localization_mode();
         }
     }
 
-    void reset_active_map() override { _system.ResetActiveMap(); }
+    void reset_active_map() override { _system.reset_active_map(); }
     int  dbow_version() const override { return _system.dbow_version(); }
     void set_dbow_version(int version) override { _system.set_dbow_version(version); }
 
   private:
-    ORB_SLAM3::System   &_system;
+    ORB_SLAM3::system   &_system;
     ORB_SLAM3::Tracking &_tracker;
 };
 
@@ -161,22 +161,22 @@ int main(int argc, char **argv)
         }
 
         // Create SLAM system
-        const ORB_SLAM3::System::eSensor sensor =
-            stereo ? (inertial ? ORB_SLAM3::System::IMU_STEREO : ORB_SLAM3::System::STEREO) : (inertial ? ORB_SLAM3::System::IMU_MONOCULAR : ORB_SLAM3::System::MONOCULAR);
-        ORB_SLAM3::System SLAM(vocab_path, settings_path, sensor, 0, output_filename, options.overrides);
-        const float       image_scale = SLAM.GetImageScale();
+        const ORB_SLAM3::system::sensor_type sensor =
+            stereo ? (inertial ? ORB_SLAM3::system::imu_stereo : ORB_SLAM3::system::stereo) : (inertial ? ORB_SLAM3::system::imu_monocular : ORB_SLAM3::system::monocular);
+        ORB_SLAM3::system SLAM(vocab_path, settings_path, sensor, 0, output_filename, options.overrides);
+        const float       image_scale = SLAM.get_image_scale();
 
         std::unique_ptr<ORB_SLAM3::frame_drawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::map_drawer>   map_drawer;
         std::unique_ptr<ORB_SLAM3::viewer>       viewer;
-        system_viewer_control                    viewer_controls(SLAM, *SLAM.GetTracker());
+        system_viewer_control                    viewer_controls(SLAM, *SLAM.get_tracker());
         std::jthread                             viewer_thread;
 
         if (use_viewer)
         {
-            frame_drawer        = std::make_unique<ORB_SLAM3::frame_drawer>(*SLAM.GetAtlas());
+            frame_drawer        = std::make_unique<ORB_SLAM3::frame_drawer>(*SLAM.get_atlas());
             frame_drawer->_both = stereo;
-            map_drawer          = std::make_unique<ORB_SLAM3::map_drawer>(*SLAM.GetAtlas(), options.viewer);
+            map_drawer          = std::make_unique<ORB_SLAM3::map_drawer>(*SLAM.get_atlas(), options.viewer);
             viewer              = std::make_unique<ORB_SLAM3::viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, options.viewer);
             viewer->set_sequence(fmt::format("Settings: {}\nMode: {}\nDataset / sequence (left images): {}\nRight images: {}\nIMU: {}\nFrame selection: skip {}, stride {}, take {} (0 = all)",
                                              settings_path,
@@ -189,7 +189,7 @@ int main(int argc, char **argv)
                                              options.input.frames_take),
                                  reader.size());
 
-            SLAM.GetTracker()->SetResetHooks(
+            SLAM.get_tracker()->SetResetHooks(
                 [&viewer, &map_drawer]
                 {
                     map_drawer->break_camera_trajectory();
@@ -248,7 +248,7 @@ int main(int argc, char **argv)
                 const auto input_wait_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - input_started).count();
 
                 SLAM.set_next_optical_flow_pyramid(std::move(frame.optical_flow_pyramid));
-                SLAM.SetNextFrameColor(frame.color, frame.color_right);
+                SLAM.set_next_frame_color(frame.color, frame.color_right);
 
                 std::chrono::steady_clock::duration frontend_time{};
                 {
@@ -256,11 +256,11 @@ int main(int argc, char **argv)
 
                     if (stereo)
                     {
-                        SLAM.TrackStereo(frame.image, frame.image_right, frame.timestamp, frame.imu, frame.filename);
+                        SLAM.track_stereo(frame.image, frame.image_right, frame.timestamp, frame.imu, frame.filename);
                     }
                     else
                     {
-                        SLAM.TrackMonocular(frame.image, frame.timestamp, frame.imu, frame.filename);
+                        SLAM.track_monocular(frame.image, frame.timestamp, frame.imu, frame.filename);
                     }
                 }
 
@@ -270,13 +270,13 @@ int main(int argc, char **argv)
                 if (viewer)
                 {
                     const auto publication_started = std::chrono::steady_clock::now();
-                    auto      *tracker             = SLAM.GetTracker();
+                    auto      *tracker             = SLAM.get_tracker();
 
                     frame_drawer->update(*tracker);
 
                     if (tracker->mCurrentFrame.is_set() && tracker->mState == ORB_SLAM3::Tracking::OK)
                     {
-                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.get_pose(), SLAM.GetAtlas()->get_current_map()->get_id());
+                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.get_pose(), SLAM.get_atlas()->get_current_map()->get_id());
                     }
                     else
                     {
@@ -291,10 +291,10 @@ int main(int argc, char **argv)
 
                 if (viewer)
                 {
-                    const auto &current_frame = SLAM.GetTracker()->mCurrentFrame;
+                    const auto &current_frame = SLAM.get_tracker()->mCurrentFrame;
                     viewer->publish_statistics(
                         {.processing      = statistics,
-                         .camera_to_world = current_frame.is_set() && SLAM.GetTracker()->mState == ORB_SLAM3::Tracking::OK ? std::optional{current_frame.get_pose().inverse()} : std::nullopt,
+                         .camera_to_world = current_frame.is_set() && SLAM.get_tracker()->mState == ORB_SLAM3::Tracking::OK ? std::optional{current_frame.get_pose().inverse()} : std::nullopt,
                          .sequence_frame  = static_cast<std::size_t>(ni + 1),
                          .input_wait_ms   = input_wait_ms,
                          .viewer_publication_ms = viewer_publication_ms});
@@ -333,7 +333,7 @@ int main(int argc, char **argv)
         catch (...)
         {
             stop_viewer();
-            SLAM.Shutdown();
+            SLAM.shutdown();
             throw;
         }
 
@@ -342,7 +342,7 @@ int main(int argc, char **argv)
 
         // Stop all threads
         stop_viewer();
-        SLAM.Shutdown();
+        SLAM.shutdown();
 
         const auto   statistics       = SLAM.statistics().get_snapshot();
         const double processed_frames = static_cast<double>(statistics.frames);
@@ -364,27 +364,27 @@ int main(int argc, char **argv)
         {
             const string kf_file = output_folder + "kf_" + output_filename + ".txt";
             const string f_file  = output_folder + "f_" + output_filename + ".txt";
-            SLAM.SaveTrajectoryEuRoC(f_file);
-            SLAM.SaveKeyFrameTrajectoryEuRoC(kf_file);
+            SLAM.save_trajectory_euroc(f_file);
+            SLAM.save_key_frame_trajectory_euroc(kf_file);
         }
         else
         {
-            SLAM.SaveTrajectoryEuRoC(output_folder + "CameraTrajectory.txt");
-            SLAM.SaveKeyFrameTrajectoryEuRoC(output_folder + "KeyFrameTrajectory.txt");
+            SLAM.save_trajectory_euroc(output_folder + "CameraTrajectory.txt");
+            SLAM.save_key_frame_trajectory_euroc(output_folder + "KeyFrameTrajectory.txt");
         }
 
         if (save_colmap)
         {
             // Save COLMAP-compatible sparse model
             spdlog::info("COLMAP export enabled; output: {}", output_folder);
-            SLAM.SaveCOLMAP(output_folder);
+            SLAM.save_colmap(output_folder);
         }
 
         if (save_ply)
         {
             const string ply_output = output_folder + "pointcloud.ply";
             spdlog::info("PLY export enabled; base file: {}", ply_output);
-            SLAM.SavePointCloudPLY(ply_output);
+            SLAM.save_point_cloud_ply(ply_output);
         }
 
         return 0;

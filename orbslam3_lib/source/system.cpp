@@ -16,7 +16,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "System.h"
+#include "system.h"
 
 #include "LocalMapping.h"
 #include "LoopClosing.h"
@@ -40,8 +40,8 @@
 namespace ORB_SLAM3
 {
 
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr, const string &strSequence, const feature_overrides &overrides)
-    : mSensor(sensor), mbReset(false), mbResetActiveMap(false), mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false), mbShutDown(false)
+system::system(const string &strVocFile, const string &strSettingsFile, const sensor_type sensor, const int initFr, const string &strSequence, const feature_overrides &overrides)
+    : _sensor(sensor), _reset_requested(false), _active_map_reset_requested(false), _localization_mode_activation_requested(false), _localization_mode_deactivation_requested(false), _shutdown(false)
 {
     spdlog::info("ORB-SLAM3 Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.\n"
                  "ORB-SLAM2 Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.\n"
@@ -49,27 +49,27 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
                  "This is free software, and you are welcome to redistribute it\n"
                  "under certain conditions. See LICENSE.txt.");
 
-    if (mSensor == MONOCULAR)
+    if (_sensor == monocular)
     {
         spdlog::info("Input sensor: Monocular");
     }
-    else if (mSensor == STEREO)
+    else if (_sensor == stereo)
     {
         spdlog::info("Input sensor: Stereo");
     }
-    else if (mSensor == RGBD)
+    else if (_sensor == rgbd)
     {
         spdlog::info("Input sensor: RGB-D");
     }
-    else if (mSensor == IMU_MONOCULAR)
+    else if (_sensor == imu_monocular)
     {
         spdlog::info("Input sensor: Monocular-Inertial");
     }
-    else if (mSensor == IMU_STEREO)
+    else if (_sensor == imu_stereo)
     {
         spdlog::info("Input sensor: Stereo-Inertial");
     }
-    else if (mSensor == IMU_RGBD)
+    else if (_sensor == imu_rgbd)
     {
         spdlog::info("Input sensor: RGB-D-Inertial");
     }
@@ -82,12 +82,12 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         exit(-1);
     }
 
-    settings_ = std::make_unique<settings>(strSettingsFile, mSensor, overrides);
+    _settings = std::make_unique<settings>(strSettingsFile, _sensor, overrides);
 
     std::ostringstream settings_output;
-    settings_output << *settings_;
+    settings_output << *_settings;
     spdlog::info("{}", settings_output.str());
-    _cameras = std::move(settings_->_cameras);
+    _cameras = std::move(_settings->_cameras);
 
     cv::FileNode node     = fsSettings["loopClosing"];
     bool         activeLC = true;
@@ -96,55 +96,55 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         activeLC = static_cast<int>(fsSettings["loopClosing"]) != 0;
     }
 
-    mStrVocabularyFilePath = strVocFile;
-    mpVocabulary           = std::make_unique<place_vocabulary>(strVocFile, settings_->dbow_version());
-    mpKeyFrameDatabase     = std::make_unique<key_frame_database>(*mpVocabulary);
+    _vocabulary_file_path = strVocFile;
+    _vocabulary           = std::make_unique<place_vocabulary>(strVocFile, _settings->dbow_version());
+    _key_frame_database     = std::make_unique<key_frame_database>(*_vocabulary);
 
     spdlog::info("Initialization of Atlas from scratch");
-    mpAtlas = std::make_unique<atlas>(0);
+    _atlas = std::make_unique<atlas>(0);
 
-    if (mSensor == IMU_STEREO || mSensor == IMU_MONOCULAR || mSensor == IMU_RGBD)
+    if (_sensor == imu_stereo || _sensor == imu_monocular || _sensor == imu_rgbd)
     {
-        mpAtlas->set_inertial_sensor();
+        _atlas->set_inertial_sensor();
     }
 
     // Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     spdlog::info("Sequence name: {}", strSequence);
-    mpTracker = std::make_unique<Tracking>(this, mpVocabulary.get(), mpAtlas.get(), mpKeyFrameDatabase.get(), mSensor, settings_.get(), _cameras, strSequence);
+    _tracker = std::make_unique<Tracking>(this, _vocabulary.get(), _atlas.get(), _key_frame_database.get(), _sensor, _settings.get(), _cameras, strSequence);
 
     // Initialize the Local Mapping thread and launch
-    mpLocalMapper = std::make_unique<LocalMapping>(
-        _statistics, this, mpAtlas.get(), mSensor == MONOCULAR || mSensor == IMU_MONOCULAR, mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD, strSequence);
-    mpLocalMapper->mInitFr      = initFr;
-    mpLocalMapper->mThFarPoints = settings_->far_point_threshold();
-    if (mpLocalMapper->mThFarPoints != 0)
+    _local_mapper = std::make_unique<LocalMapping>(
+        _statistics, this, _atlas.get(), _sensor == monocular || _sensor == imu_monocular, _sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd, strSequence);
+    _local_mapper->mInitFr      = initFr;
+    _local_mapper->mThFarPoints = _settings->far_point_threshold();
+    if (_local_mapper->mThFarPoints != 0)
     {
-        spdlog::info("Discarding points farther than {} m from the current camera", mpLocalMapper->mThFarPoints);
-        mpLocalMapper->mbFarPoints = true;
+        spdlog::info("Discarding points farther than {} m from the current camera", _local_mapper->mThFarPoints);
+        _local_mapper->mbFarPoints = true;
     }
     else
     {
-        mpLocalMapper->mbFarPoints = false;
+        _local_mapper->mbFarPoints = false;
     }
 
     // Initialize the Loop Closing thread and launch
-    mpLoopCloser = std::make_unique<LoopClosing>(_statistics, mpAtlas.get(), mpKeyFrameDatabase.get(), mpVocabulary.get(), mSensor != MONOCULAR, activeLC);
+    _loop_closer = std::make_unique<LoopClosing>(_statistics, _atlas.get(), _key_frame_database.get(), _vocabulary.get(), _sensor != monocular, activeLC);
 
     // Set pointers between threads
-    mpTracker->SetLocalMapper(mpLocalMapper.get());
-    mpTracker->SetLoopClosing(mpLoopCloser.get());
+    _tracker->SetLocalMapper(_local_mapper.get());
+    _tracker->SetLoopClosing(_loop_closer.get());
 
-    mpLocalMapper->SetTracker(mpTracker.get());
-    mpLocalMapper->SetLoopCloser(mpLoopCloser.get());
+    _local_mapper->SetTracker(_tracker.get());
+    _local_mapper->SetLoopCloser(_loop_closer.get());
 
-    mpLoopCloser->SetTracker(mpTracker.get());
-    mpLoopCloser->SetLocalMapper(mpLocalMapper.get());
+    _loop_closer->SetTracker(_tracker.get());
+    _loop_closer->SetLocalMapper(_local_mapper.get());
 
     try
     {
-        _local_mapping_thread = std::jthread(&LocalMapping::Run, mpLocalMapper.get());
-        _loop_closing_thread  = std::jthread(&LoopClosing::Run, mpLoopCloser.get());
+        _local_mapping_thread = std::jthread(&LocalMapping::Run, _local_mapper.get());
+        _loop_closing_thread  = std::jthread(&LoopClosing::Run, _loop_closer.get());
     }
     catch (...)
     {
@@ -153,14 +153,14 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     }
 }
 
-System::~System() { stop_workers(); }
+system::~system() { stop_workers(); }
 
-int  System::dbow_version() const { return mpVocabulary->version(); }
-void System::set_dbow_version(int version) { mpVocabulary->set_version(version); }
+int  system::dbow_version() const { return _vocabulary->version(); }
+void system::set_dbow_version(int version) { _vocabulary->set_version(version); }
 
-void System::record_frame_statistics(double preprocessing_ms, double frontend_ms)
+void system::record_frame_statistics(double preprocessing_ms, double frontend_ms)
 {
-    const auto                         &frame = mpTracker->mCurrentFrame;
+    const auto                         &frame = _tracker->mCurrentFrame;
     processing_statistics::frame_sample sample{.frame_id           = frame.id,
                                                .timestamp          = frame.timestamp,
                                                .detected_keypoints = frame.flow_only ? 0 : frame.keypoints.size() + frame.right_keypoints.size(),
@@ -177,15 +177,15 @@ void System::record_frame_statistics(double preprocessing_ms, double frontend_ms
     sample.flow_occupied_cells = frame.flow_occupied_cells;
     sample.flow_only           = frame.flow_only;
     sample.features_extracted  = !frame.flow_only;
-    sample.tracking_state      = mpTracker->mState;
+    sample.tracking_state      = _tracker->mState;
 
-    if (auto *map = mpAtlas->get_current_map())
+    if (auto *map = _atlas->get_current_map())
     {
         sample.map_id           = map->get_id();
         sample.map_change_index = map->get_last_big_change_index();
     }
 
-    if (mpTracker->mState == Tracking::OK)
+    if (_tracker->mState == Tracking::OK)
     {
         for (std::size_t index = 0; index < frame.map_points.size(); ++index)
         {
@@ -199,46 +199,46 @@ void System::record_frame_statistics(double preprocessing_ms, double frontend_ms
     _statistics.record_frame(sample);
 }
 
-void System::RegisterFrameFilenameForExport(const string &filename)
+void system::register_frame_filename_for_export(const string &filename)
 {
-    const size_t pose_count = mpTracker->mlRelativeFramePoses.size();
+    const size_t pose_count = _tracker->mlRelativeFramePoses.size();
 
     // Handle tracker resets/restarts: trim stale filenames.
-    while (mlFrameFilenames.size() > pose_count)
+    while (_frame_filenames.size() > pose_count)
     {
-        mlFrameFilenames.pop_back();
+        _frame_filenames.pop_back();
     }
 
     // Handle newly appended frame poses: mirror growth with current filename.
-    while (mlFrameFilenames.size() < pose_count)
+    while (_frame_filenames.size() < pose_count)
     {
-        mlFrameFilenames.push_back(filename);
+        _frame_filenames.push_back(filename);
     }
 }
 
-Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
+Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
 {
-    if (mSensor != STEREO && mSensor != IMU_STEREO)
+    if (_sensor != stereo && _sensor != imu_stereo)
     {
-        spdlog::error("TrackStereo called, but the input sensor is not Stereo or Stereo-Inertial");
+        spdlog::error("track_stereo called, but the input sensor is not Stereo or Stereo-Inertial");
         exit(-1);
     }
 
     cv::Mat imLeftToFeed, imRightToFeed;
-    if (settings_->need_to_rectify())
+    if (_settings->need_to_rectify())
     {
-        cv::Mat M1l = settings_->left_rectification_map_x();
-        cv::Mat M2l = settings_->left_rectification_map_y();
-        cv::Mat M1r = settings_->right_rectification_map_x();
-        cv::Mat M2r = settings_->right_rectification_map_y();
+        cv::Mat M1l = _settings->left_rectification_map_x();
+        cv::Mat M2l = _settings->left_rectification_map_y();
+        cv::Mat M1r = _settings->right_rectification_map_x();
+        cv::Mat M2r = _settings->right_rectification_map_y();
 
         cv::remap(imLeft, imLeftToFeed, M1l, M2l, cv::INTER_LINEAR);
         cv::remap(imRight, imRightToFeed, M1r, M2r, cv::INTER_LINEAR);
     }
-    else if (settings_->need_to_resize())
+    else if (_settings->need_to_resize())
     {
-        cv::resize(imLeft, imLeftToFeed, settings_->new_image_size());
-        cv::resize(imRight, imRightToFeed, settings_->new_image_size());
+        cv::resize(imLeft, imLeftToFeed, _settings->new_image_size());
+        cv::resize(imRight, imRightToFeed, _settings->new_image_size());
     }
     else
     {
@@ -248,141 +248,141 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
 
     // Check mode change
     {
-        unique_lock<mutex> lock(mMutexMode);
-        if (mbActivateLocalizationMode)
+        unique_lock<mutex> lock(_mode_mutex);
+        if (_localization_mode_activation_requested)
         {
-            mpLocalMapper->RequestStop();
+            _local_mapper->RequestStop();
 
             // Wait until Local Mapping has effectively stopped
-            while (!mpLocalMapper->isStopped())
+            while (!_local_mapper->isStopped())
             {
                 usleep(1000);
             }
 
-            mpTracker->InformOnlyTracking(true);
-            mbActivateLocalizationMode = false;
+            _tracker->InformOnlyTracking(true);
+            _localization_mode_activation_requested = false;
         }
-        if (mbDeactivateLocalizationMode)
+        if (_localization_mode_deactivation_requested)
         {
-            mpTracker->InformOnlyTracking(false);
-            mpLocalMapper->Release();
-            mbDeactivateLocalizationMode = false;
+            _tracker->InformOnlyTracking(false);
+            _local_mapper->Release();
+            _localization_mode_deactivation_requested = false;
         }
     }
 
     // Check reset
     {
-        unique_lock<mutex> lock(mMutexReset);
-        if (mbReset)
+        unique_lock<mutex> lock(_reset_mutex);
+        if (_reset_requested)
         {
-            mpTracker->Reset();
-            mbReset          = false;
-            mbResetActiveMap = false;
+            _tracker->Reset();
+            _reset_requested          = false;
+            _active_map_reset_requested = false;
         }
-        else if (mbResetActiveMap)
+        else if (_active_map_reset_requested)
         {
-            mpTracker->ResetActiveMap();
-            mbResetActiveMap = false;
+            _tracker->ResetActiveMap();
+            _active_map_reset_requested = false;
         }
     }
 
-    if (mSensor == System::IMU_STEREO)
+    if (_sensor == system::imu_stereo)
     {
         for (size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
         {
-            mpTracker->GrabImuData(vImuMeas[i_imu]);
+            _tracker->GrabImuData(vImuMeas[i_imu]);
         }
     }
 
-    Sophus::SE3f Tcw = mpTracker->GrabImageStereo(imLeftToFeed, imRightToFeed, timestamp, filename);
-    RegisterFrameFilenameForExport(filename);
+    Sophus::SE3f Tcw = _tracker->GrabImageStereo(imLeftToFeed, imRightToFeed, timestamp, filename);
+    register_frame_filename_for_export(filename);
 
-    unique_lock<mutex> lock2(mMutexState);
-    mTrackingState      = mpTracker->mState;
-    mTrackedMapPoints   = mpTracker->mCurrentFrame.map_points;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.keypoints;
+    unique_lock<mutex> lock2(_state_mutex);
+    _tracking_state      = _tracker->mState;
+    _tracked_map_points   = _tracker->mCurrentFrame.map_points;
+    _tracked_keypoints_undistorted = _tracker->mCurrentFrame.keypoints;
 
     return Tcw;
 }
 
-Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
+Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
 {
-    if (mSensor != RGBD && mSensor != IMU_RGBD)
+    if (_sensor != rgbd && _sensor != imu_rgbd)
     {
-        spdlog::error("TrackRGBD called, but the input sensor is not RGBD");
+        spdlog::error("track_rgbd called, but the input sensor is not rgbd");
         exit(-1);
     }
 
     cv::Mat imToFeed      = im.clone();
     cv::Mat imDepthToFeed = depthmap.clone();
-    if (settings_->need_to_resize())
+    if (_settings->need_to_resize())
     {
         cv::Mat resizedIm;
-        cv::resize(im, resizedIm, settings_->new_image_size());
+        cv::resize(im, resizedIm, _settings->new_image_size());
         imToFeed = resizedIm;
 
-        cv::resize(depthmap, imDepthToFeed, settings_->new_image_size());
+        cv::resize(depthmap, imDepthToFeed, _settings->new_image_size());
     }
 
     // Check mode change
     {
-        unique_lock<mutex> lock(mMutexMode);
-        if (mbActivateLocalizationMode)
+        unique_lock<mutex> lock(_mode_mutex);
+        if (_localization_mode_activation_requested)
         {
-            mpLocalMapper->RequestStop();
+            _local_mapper->RequestStop();
 
             // Wait until Local Mapping has effectively stopped
-            while (!mpLocalMapper->isStopped())
+            while (!_local_mapper->isStopped())
             {
                 usleep(1000);
             }
 
-            mpTracker->InformOnlyTracking(true);
-            mbActivateLocalizationMode = false;
+            _tracker->InformOnlyTracking(true);
+            _localization_mode_activation_requested = false;
         }
-        if (mbDeactivateLocalizationMode)
+        if (_localization_mode_deactivation_requested)
         {
-            mpTracker->InformOnlyTracking(false);
-            mpLocalMapper->Release();
-            mbDeactivateLocalizationMode = false;
+            _tracker->InformOnlyTracking(false);
+            _local_mapper->Release();
+            _localization_mode_deactivation_requested = false;
         }
     }
 
     // Check reset
     {
-        unique_lock<mutex> lock(mMutexReset);
-        if (mbReset)
+        unique_lock<mutex> lock(_reset_mutex);
+        if (_reset_requested)
         {
-            mpTracker->Reset();
-            mbReset          = false;
-            mbResetActiveMap = false;
+            _tracker->Reset();
+            _reset_requested          = false;
+            _active_map_reset_requested = false;
         }
-        else if (mbResetActiveMap)
+        else if (_active_map_reset_requested)
         {
-            mpTracker->ResetActiveMap();
-            mbResetActiveMap = false;
+            _tracker->ResetActiveMap();
+            _active_map_reset_requested = false;
         }
     }
 
-    if (mSensor == System::IMU_RGBD)
+    if (_sensor == system::imu_rgbd)
     {
         for (size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
         {
-            mpTracker->GrabImuData(vImuMeas[i_imu]);
+            _tracker->GrabImuData(vImuMeas[i_imu]);
         }
     }
 
-    Sophus::SE3f Tcw = mpTracker->GrabImageRGBD(imToFeed, imDepthToFeed, timestamp, filename);
-    RegisterFrameFilenameForExport(filename);
+    Sophus::SE3f Tcw = _tracker->GrabImageRGBD(imToFeed, imDepthToFeed, timestamp, filename);
+    register_frame_filename_for_export(filename);
 
-    unique_lock<mutex> lock2(mMutexState);
-    mTrackingState      = mpTracker->mState;
-    mTrackedMapPoints   = mpTracker->mCurrentFrame.map_points;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.keypoints;
+    unique_lock<mutex> lock2(_state_mutex);
+    _tracking_state      = _tracker->mState;
+    _tracked_map_points   = _tracker->mCurrentFrame.map_points;
+    _tracked_keypoints_undistorted = _tracker->mCurrentFrame.keypoints;
     return Tcw;
 }
 
-void System::SetNextFrameColor(const cv::Mat &color_image, const cv::Mat &color_image_right)
+void system::set_next_frame_color(const cv::Mat &color_image, const cv::Mat &color_image_right)
 {
     const auto prepare_color = [this](const cv::Mat &image, bool right)
     {
@@ -391,13 +391,13 @@ void System::SetNextFrameColor(const cv::Mat &color_image, const cv::Mat &color_
         {
             return prepared;
         }
-        if ((mSensor == STEREO || mSensor == IMU_STEREO) && settings_->need_to_rectify())
+        if ((_sensor == stereo || _sensor == imu_stereo) && _settings->need_to_rectify())
         {
-            cv::remap(image, prepared, right ? settings_->right_rectification_map_x() : settings_->left_rectification_map_x(), right ? settings_->right_rectification_map_y() : settings_->left_rectification_map_y(), cv::INTER_LINEAR);
+            cv::remap(image, prepared, right ? _settings->right_rectification_map_x() : _settings->left_rectification_map_x(), right ? _settings->right_rectification_map_y() : _settings->left_rectification_map_y(), cv::INTER_LINEAR);
         }
-        else if (settings_->need_to_resize())
+        else if (_settings->need_to_resize())
         {
-            cv::resize(image, prepared, settings_->new_image_size());
+            cv::resize(image, prepared, _settings->new_image_size());
         }
         else
         {
@@ -405,127 +405,127 @@ void System::SetNextFrameColor(const cv::Mat &color_image, const cv::Mat &color_
         }
         return prepared;
     };
-    mpTracker->mNextFrameColor        = prepare_color(color_image, false);
-    mpTracker->next_frame_color_right = prepare_color(color_image_right, true);
+    _tracker->mNextFrameColor        = prepare_color(color_image, false);
+    _tracker->next_frame_color_right = prepare_color(color_image_right, true);
 }
 
-bool System::can_precompute_optical_flow_pyramid() const
+bool system::can_precompute_optical_flow_pyramid() const
 {
-    const bool stereo = mSensor == STEREO || mSensor == IMU_STEREO;
-    const bool mono   = mSensor == MONOCULAR || mSensor == IMU_MONOCULAR;
-    return settings_->use_optical_flow() && (stereo || mono) && !settings_->need_to_resize() && (!stereo || !settings_->need_to_rectify());
+    const bool is_stereo = _sensor == stereo || _sensor == imu_stereo;
+    const bool is_mono   = _sensor == monocular || _sensor == imu_monocular;
+    return _settings->use_optical_flow() && (is_stereo || is_mono) && !_settings->need_to_resize() && (!is_stereo || !_settings->need_to_rectify());
 }
 
-void System::set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid)
+void system::set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid)
 {
     if (!can_precompute_optical_flow_pyramid())
     {
         pyramid.clear();
     }
-    mpTracker->next_optical_flow_pyramid = std::move(pyramid);
+    _tracker->next_optical_flow_pyramid = std::move(pyramid);
 }
 
-Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
+Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
 {
 
     {
-        unique_lock<mutex> lock(mMutexReset);
-        if (mbShutDown)
+        unique_lock<mutex> lock(_reset_mutex);
+        if (_shutdown)
         {
             return Sophus::SE3f();
         }
     }
 
-    if (mSensor != MONOCULAR && mSensor != IMU_MONOCULAR)
+    if (_sensor != monocular && _sensor != imu_monocular)
     {
-        spdlog::error("TrackMonocular called, but the input sensor is not Monocular or Monocular-Inertial");
+        spdlog::error("track_monocular called, but the input sensor is not Monocular or Monocular-Inertial");
         exit(-1);
     }
 
     cv::Mat imToFeed = im.clone();
-    if (settings_->need_to_resize())
+    if (_settings->need_to_resize())
     {
         cv::Mat resizedIm;
-        cv::resize(im, resizedIm, settings_->new_image_size());
+        cv::resize(im, resizedIm, _settings->new_image_size());
         imToFeed = resizedIm;
     }
 
     // Check mode change
     {
-        unique_lock<mutex> lock(mMutexMode);
-        if (mbActivateLocalizationMode)
+        unique_lock<mutex> lock(_mode_mutex);
+        if (_localization_mode_activation_requested)
         {
-            mpLocalMapper->RequestStop();
+            _local_mapper->RequestStop();
 
             // Wait until Local Mapping has effectively stopped
-            while (!mpLocalMapper->isStopped())
+            while (!_local_mapper->isStopped())
             {
                 usleep(1000);
             }
 
-            mpTracker->InformOnlyTracking(true);
-            mbActivateLocalizationMode = false;
+            _tracker->InformOnlyTracking(true);
+            _localization_mode_activation_requested = false;
         }
-        if (mbDeactivateLocalizationMode)
+        if (_localization_mode_deactivation_requested)
         {
-            mpTracker->InformOnlyTracking(false);
-            mpLocalMapper->Release();
-            mbDeactivateLocalizationMode = false;
+            _tracker->InformOnlyTracking(false);
+            _local_mapper->Release();
+            _localization_mode_deactivation_requested = false;
         }
     }
 
     // Check reset
     {
-        unique_lock<mutex> lock(mMutexReset);
-        if (mbReset)
+        unique_lock<mutex> lock(_reset_mutex);
+        if (_reset_requested)
         {
-            mpTracker->Reset();
-            mbReset          = false;
-            mbResetActiveMap = false;
+            _tracker->Reset();
+            _reset_requested          = false;
+            _active_map_reset_requested = false;
         }
-        else if (mbResetActiveMap)
+        else if (_active_map_reset_requested)
         {
             spdlog::info("Resetting active map in monocular case");
-            mpTracker->ResetActiveMap();
-            mbResetActiveMap = false;
+            _tracker->ResetActiveMap();
+            _active_map_reset_requested = false;
         }
     }
 
-    if (mSensor == System::IMU_MONOCULAR)
+    if (_sensor == system::imu_monocular)
     {
         for (size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
         {
-            mpTracker->GrabImuData(vImuMeas[i_imu]);
+            _tracker->GrabImuData(vImuMeas[i_imu]);
         }
     }
 
-    Sophus::SE3f Tcw = mpTracker->GrabImageMonocular(imToFeed, timestamp, filename);
-    RegisterFrameFilenameForExport(filename);
+    Sophus::SE3f Tcw = _tracker->GrabImageMonocular(imToFeed, timestamp, filename);
+    register_frame_filename_for_export(filename);
 
-    unique_lock<mutex> lock2(mMutexState);
-    mTrackingState      = mpTracker->mState;
-    mTrackedMapPoints   = mpTracker->mCurrentFrame.map_points;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.keypoints;
+    unique_lock<mutex> lock2(_state_mutex);
+    _tracking_state      = _tracker->mState;
+    _tracked_map_points   = _tracker->mCurrentFrame.map_points;
+    _tracked_keypoints_undistorted = _tracker->mCurrentFrame.keypoints;
 
     return Tcw;
 }
 
-void System::ActivateLocalizationMode()
+void system::activate_localization_mode()
 {
-    unique_lock<mutex> lock(mMutexMode);
-    mbActivateLocalizationMode = true;
+    unique_lock<mutex> lock(_mode_mutex);
+    _localization_mode_activation_requested = true;
 }
 
-void System::DeactivateLocalizationMode()
+void system::deactivate_localization_mode()
 {
-    unique_lock<mutex> lock(mMutexMode);
-    mbDeactivateLocalizationMode = true;
+    unique_lock<mutex> lock(_mode_mutex);
+    _localization_mode_deactivation_requested = true;
 }
 
-bool System::MapChanged()
+bool system::map_changed()
 {
     static int n    = 0;
-    int        curn = mpAtlas->get_last_big_change_index();
+    int        curn = _atlas->get_last_big_change_index();
     if (n < curn)
     {
         n = curn;
@@ -537,67 +537,67 @@ bool System::MapChanged()
     }
 }
 
-void System::Reset()
+void system::reset()
 {
-    unique_lock<mutex> lock(mMutexReset);
-    mbReset = true;
+    unique_lock<mutex> lock(_reset_mutex);
+    _reset_requested = true;
 }
 
-void System::ResetActiveMap()
+void system::reset_active_map()
 {
-    unique_lock<mutex> lock(mMutexReset);
-    mbResetActiveMap = true;
+    unique_lock<mutex> lock(_reset_mutex);
+    _active_map_reset_requested = true;
 }
 
-void System::stop_workers()
+void system::stop_workers()
 {
-    mpLoopCloser->RequestFinish();
+    _loop_closer->RequestFinish();
     if (_loop_closing_thread.joinable())
     {
         _loop_closing_thread.join();
     }
-    mpLoopCloser->stop_global_bundle_adjustment();
-    mpLocalMapper->RequestFinish();
+    _loop_closer->stop_global_bundle_adjustment();
+    _local_mapper->RequestFinish();
     if (_local_mapping_thread.joinable())
     {
         _local_mapping_thread.join();
     }
 }
 
-void System::Shutdown()
+void system::shutdown()
 {
     const std::lock_guard shutdown_lock(_shutdown_mutex);
     {
-        unique_lock<mutex> lock(mMutexReset);
-        if (mbShutDown)
+        unique_lock<mutex> lock(_reset_mutex);
+        if (_shutdown)
         {
             return;
         }
-        mbShutDown = true;
+        _shutdown = true;
     }
 
-    spdlog::info("Shutdown");
-    mpTracker->report_flow_statistics();
+    spdlog::info("shutdown");
+    _tracker->report_flow_statistics();
 
     stop_workers();
 }
 
-bool System::isShutDown()
+bool system::is_shut_down()
 {
-    unique_lock<mutex> lock(mMutexReset);
-    return mbShutDown;
+    unique_lock<mutex> lock(_reset_mutex);
+    return _shutdown;
 }
 
-void System::SaveTrajectoryTUM(const string &filename)
+void system::save_trajectory_tum(const string &filename)
 {
     spdlog::info("Saving camera trajectory to {}", filename);
-    if (mSensor == MONOCULAR)
+    if (_sensor == monocular)
     {
-        spdlog::error("SaveTrajectoryTUM cannot be used for monocular");
+        spdlog::error("save_trajectory_tum cannot be used for monocular");
         return;
     }
 
-    vector<key_frame *> vpKFs = mpAtlas->get_all_key_frames();
+    vector<key_frame *> vpKFs = _atlas->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -614,10 +614,10 @@ void System::SaveTrajectoryTUM(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
-    list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
-    list<bool>::iterator                  lbL  = mpTracker->mlbLost.begin();
-    for (list<Sophus::SE3f>::iterator lit = mpTracker->mlRelativeFramePoses.begin(), lend = mpTracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
+    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
+    list<bool>::iterator                  lbL  = _tracker->mlbLost.begin();
+    for (list<Sophus::SE3f>::iterator lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
         if (*lbL)
         {
@@ -648,11 +648,11 @@ void System::SaveTrajectoryTUM(const string &filename)
     f.close();
 }
 
-void System::SaveKeyFrameTrajectoryTUM(const string &filename)
+void system::save_key_frame_trajectory_tum(const string &filename)
 {
     spdlog::info("Saving keyframe trajectory to {}", filename);
 
-    vector<key_frame *> vpKFs = mpAtlas->get_all_key_frames();
+    vector<key_frame *> vpKFs = _atlas->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -679,12 +679,12 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
     f.close();
 }
 
-void System::SaveTrajectoryEuRoC(const string &filename)
+void system::save_trajectory_euroc(const string &filename)
 {
 
     spdlog::info("Saving trajectory to {}", filename);
 
-    vector<map *> vpMaps     = mpAtlas->get_all_maps();
+    vector<map *> vpMaps     = _atlas->get_all_maps();
     size_t        numMaxKFs  = 0;
     map          *pBiggerMap = nullptr;
     spdlog::debug("There are {} maps in the atlas", vpMaps.size());
@@ -710,7 +710,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
     Sophus::SE3f Twb; // Can be word to cam0 or world to b depending on IMU or not.
-    if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
+    if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
     {
         Twb = vpKFs[0]->get_imu_pose();
     }
@@ -729,11 +729,11 @@ void System::SaveTrajectoryEuRoC(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
-    list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
-    list<bool>::iterator                  lbL  = mpTracker->mlbLost.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
+    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
+    list<bool>::iterator                  lbL  = _tracker->mlbLost.begin();
 
-    for (auto lit = mpTracker->mlRelativeFramePoses.begin(), lend = mpTracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
+    for (auto lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
         if (*lbL)
         {
@@ -763,7 +763,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
 
         Trw = Trw * pKF->get_pose() * Twb; // Tcp*Tpw*Twb0=Tcb0 where b0 is the new world reference
 
-        if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
+        if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
             Sophus::SE3f       Twb = (pKF->imu_calibration.mTbc * (*lit) * Trw).inverse();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
@@ -782,7 +782,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
     spdlog::info("Finished saving trajectory to {}", filename);
 }
 
-void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
+void system::save_trajectory_euroc(const string &filename, map *pMap)
 {
 
     spdlog::info("Saving trajectory of map {} to {}", pMap->get_id(), filename);
@@ -793,7 +793,7 @@ void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
     Sophus::SE3f Twb; // Can be word to cam0 or world to b dependingo on IMU or not.
-    if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
+    if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
     {
         Twb = vpKFs[0]->get_imu_pose();
     }
@@ -812,11 +812,11 @@ void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
-    list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
-    list<bool>::iterator                  lbL  = mpTracker->mlbLost.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
+    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
+    list<bool>::iterator                  lbL  = _tracker->mlbLost.begin();
 
-    for (auto lit = mpTracker->mlRelativeFramePoses.begin(), lend = mpTracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
+    for (auto lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
         if (*lbL)
         {
@@ -846,7 +846,7 @@ void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
 
         Trw = Trw * pKF->get_pose() * Twb; // Tcp*Tpw*Twb0=Tcb0 where b0 is the new world reference
 
-        if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
+        if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
             Sophus::SE3f       Twb = (pKF->imu_calibration.mTbc * (*lit) * Trw).inverse();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
@@ -865,11 +865,11 @@ void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
     spdlog::info("Finished saving trajectory to {}", filename);
 }
 
-void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
+void system::save_key_frame_trajectory_euroc(const string &filename)
 {
     spdlog::info("Saving keyframe trajectory to {}", filename);
 
-    vector<map *> vpMaps     = mpAtlas->get_all_maps();
+    vector<map *> vpMaps     = _atlas->get_all_maps();
     map          *pBiggerMap = nullptr;
     size_t        numMaxKFs  = 0;
     for (map *pMap : vpMaps)
@@ -904,7 +904,7 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
         {
             continue;
         }
-        if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
+        if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
             Sophus::SE3f       Twb = pKF->get_imu_pose();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
@@ -924,7 +924,7 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
     f.close();
 }
 
-void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, map *pMap)
+void system::save_key_frame_trajectory_euroc(const string &filename, map *pMap)
 {
     spdlog::info("Saving keyframe trajectory of map {} to {}", pMap->get_id(), filename);
 
@@ -945,7 +945,7 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, map *pMap)
         {
             continue;
         }
-        if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
+        if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
             Sophus::SE3f       Twb = pKF->get_imu_pose();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
@@ -965,14 +965,14 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, map *pMap)
     f.close();
 }
 
-void System::SaveCOLMAP(const string &strDir)
+void system::save_colmap(const string &strDir)
 {
     spdlog::debug("");
-    spdlog::debug("✨ [SaveCOLMAP] Exporting COLMAP-compatible sparse model");
-    spdlog::debug("📁 [SaveCOLMAP] Output directory: " + strDir);
+    spdlog::debug("✨ [save_colmap] Exporting COLMAP-compatible sparse model");
+    spdlog::debug("📁 [save_colmap] Output directory: " + strDir);
 
-    // Locate the largest map (same logic as SaveTrajectoryEuRoC)
-    vector<map *> vpMaps     = mpAtlas->get_all_maps();
+    // Locate the largest map (same logic as save_trajectory_euroc)
+    vector<map *> vpMaps     = _atlas->get_all_maps();
     map          *pBiggerMap = nullptr;
     int           numMaxKFs  = 0;
     for (map *pMap : vpMaps)
@@ -985,7 +985,7 @@ void System::SaveCOLMAP(const string &strDir)
     }
     if (!pBiggerMap)
     {
-        spdlog::debug("❌ [SaveCOLMAP] No map found. Nothing to export.");
+        spdlog::debug("❌ [save_colmap] No map found. Nothing to export.");
         return;
     }
 
@@ -1008,8 +1008,8 @@ void System::SaveCOLMAP(const string &strDir)
         fc << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
         fc << "# Number of cameras: 1\n";
 
-        int         width  = settings_->new_image_size().width;
-        int         height = settings_->new_image_size().height;
+        int         width  = _settings->new_image_size().width;
+        int         height = _settings->new_image_size().height;
         const auto &cam    = _cameras[0];
 
         if (cam)
@@ -1075,17 +1075,17 @@ void System::SaveCOLMAP(const string &strDir)
     fcsv << "# COLMAP conversion: Tcw = Twc.inverse(); use qw qx qy qz and Tcw.translation()\n";
     fcsv << "image_name,timestamp,tx,ty,tz,qx,qy,qz,qw,pose_convention\n";
 
-    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
-    list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
-    list<bool>::iterator                  lbL  = mpTracker->mlbLost.begin();
-    list<string>::iterator                lF   = mlFrameFilenames.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
+    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
+    list<bool>::iterator                  lbL  = _tracker->mlbLost.begin();
+    list<string>::iterator                lF   = _frame_filenames.begin();
 
     int          image_id = 1;
     int          dropped  = 0;
     int          exported = 0;
     Sophus::SE3f last_Tcw = Sophus::SE3f(); // Identity for first frame if needed
 
-    for (auto lit = mpTracker->mlRelativeFramePoses.begin(), lend = mpTracker->mlRelativeFramePoses.end(); lit != lend; ++lit, ++lRit, ++lT, ++lbL)
+    for (auto lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; ++lit, ++lRit, ++lT, ++lbL)
     {
         // Always try to export this frame
         Sophus::SE3f Tcw;
@@ -1114,7 +1114,7 @@ void System::SaveCOLMAP(const string &strDir)
             // Use last known pose for dropped frames
             Tcw = last_Tcw;
             std::ostringstream oss;
-            oss << "⚠️  [SaveCOLMAP] Using last pose for dropped frame, ts=" << std::fixed << std::setprecision(6) << *lT;
+            oss << "⚠️  [save_colmap] Using last pose for dropped frame, ts=" << std::fixed << std::setprecision(6) << *lT;
             spdlog::trace(oss.str());
             ++dropped;
         }
@@ -1123,7 +1123,7 @@ void System::SaveCOLMAP(const string &strDir)
 
         // Recover image filename from stored path (basename only)
         string img_name;
-        if (lF != mlFrameFilenames.end() && !lF->empty())
+        if (lF != _frame_filenames.end() && !lF->empty())
         {
             img_name = std::filesystem::path(*lF).filename().string();
         }
@@ -1133,7 +1133,7 @@ void System::SaveCOLMAP(const string &strDir)
             long long ns = llround(*lT * 1e9);
             img_name     = to_string(ns) + ".png";
         }
-        if (lF != mlFrameFilenames.end())
+        if (lF != _frame_filenames.end())
         {
             ++lF;
         }
@@ -1160,19 +1160,19 @@ void System::SaveCOLMAP(const string &strDir)
 
     {
         std::ostringstream oss;
-        oss << "✅ [SaveCOLMAP] Export complete. Frames exported: " << exported << ", with last-pose fallback for " << dropped << " dropped frames";
+        oss << "✅ [save_colmap] Export complete. Frames exported: " << exported << ", with last-pose fallback for " << dropped << " dropped frames";
         spdlog::debug(oss.str());
     }
-    spdlog::debug("📄 [SaveCOLMAP] " + strDir + "/cameras.txt");
-    spdlog::debug("📄 [SaveCOLMAP] " + strDir + "/images.txt   (COLMAP Tcw, qw qx qy qz)");
-    spdlog::debug("📄 [SaveCOLMAP] " + strDir + "/points3D.txt (empty, fill with point_triangulator)");
-    spdlog::debug("📄 [SaveCOLMAP] " + strDir + "/poses_debug.csv (Twc, qx qy qz qw)");
+    spdlog::debug("📄 [save_colmap] " + strDir + "/cameras.txt");
+    spdlog::debug("📄 [save_colmap] " + strDir + "/images.txt   (COLMAP Tcw, qw qx qy qz)");
+    spdlog::debug("📄 [save_colmap] " + strDir + "/points3D.txt (empty, fill with point_triangulator)");
+    spdlog::debug("📄 [save_colmap] " + strDir + "/poses_debug.csv (Twc, qx qy qz qw)");
 }
 
-void System::SavePointCloudPLY(const string &filename)
+void system::save_point_cloud_ply(const string &filename)
 {
     spdlog::debug("");
-    spdlog::debug("☁️  [SavePointCloudPLY] Exporting map points to PLY");
+    spdlog::debug("☁️  [save_point_cloud_ply] Exporting map points to PLY");
 
     std::filesystem::path base_path(filename);
     std::filesystem::path out_dir = base_path.parent_path();
@@ -1193,7 +1193,7 @@ void System::SavePointCloudPLY(const string &filename)
         std::filesystem::create_directories(out_dir);
     }
 
-    vector<map *> vpMapsAll = mpAtlas->get_all_maps();
+    vector<map *> vpMapsAll = _atlas->get_all_maps();
     vector<map *> vpMaps;
     vpMaps.reserve(vpMapsAll.size());
     for (map *pMap : vpMapsAll)
@@ -1206,7 +1206,7 @@ void System::SavePointCloudPLY(const string &filename)
 
     if (vpMaps.empty())
     {
-        spdlog::debug("❌ [SavePointCloudPLY] No valid maps found. Nothing to export.");
+        spdlog::debug("❌ [save_point_cloud_ply] No valid maps found. Nothing to export.");
         return;
     }
 
@@ -1257,7 +1257,7 @@ void System::SavePointCloudPLY(const string &filename)
         std::ofstream fply(out_file.string());
         if (!fply.is_open())
         {
-            spdlog::debug("❌ [SavePointCloudPLY] Failed to open file: " + out_file.string());
+            spdlog::debug("❌ [save_point_cloud_ply] Failed to open file: " + out_file.string());
             continue;
         }
 
@@ -1284,21 +1284,21 @@ void System::SavePointCloudPLY(const string &filename)
         fply.close();
 
         std::ostringstream ok;
-        ok << "✅ [SavePointCloudPLY] Wrote " << points.size() << " points to " << out_file.string();
+        ok << "✅ [save_point_cloud_ply] Wrote " << points.size() << " points to " << out_file.string();
         spdlog::debug(ok.str());
     }
 }
 
-void System::SaveTrajectoryKITTI(const string &filename)
+void system::save_trajectory_kitti(const string &filename)
 {
     spdlog::info("Saving camera trajectory to {}", filename);
-    if (mSensor == MONOCULAR)
+    if (_sensor == monocular)
     {
-        spdlog::error("SaveTrajectoryKITTI cannot be used for monocular");
+        spdlog::error("save_trajectory_kitti cannot be used for monocular");
         return;
     }
 
-    vector<key_frame *> vpKFs = mpAtlas->get_all_key_frames();
+    vector<key_frame *> vpKFs = _atlas->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -1315,9 +1315,9 @@ void System::SaveTrajectoryKITTI(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
-    list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
-    for (list<Sophus::SE3f>::iterator lit = mpTracker->mlRelativeFramePoses.begin(), lend = mpTracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++)
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
+    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
+    for (list<Sophus::SE3f>::iterator lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++)
     {
         ORB_SLAM3::key_frame *pKF = *lRit;
 
@@ -1347,79 +1347,79 @@ void System::SaveTrajectoryKITTI(const string &filename)
     f.close();
 }
 
-void System::SaveDebugData(const int &initIdx)
+void system::save_debug_data(const int &initIdx)
 {
     // 0. Save initialization trajectory
-    SaveTrajectoryEuRoC("init_FrameTrajectoy_" + to_string(mpLocalMapper->mInitSect) + "_" + to_string(initIdx) + ".txt");
+    save_trajectory_euroc("init_FrameTrajectoy_" + to_string(_local_mapper->mInitSect) + "_" + to_string(initIdx) + ".txt");
 
     // 1. Save scale
     ofstream f;
-    f.open("init_Scale_" + to_string(mpLocalMapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_Scale_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
     f << fixed;
-    f << mpLocalMapper->mScale << endl;
+    f << _local_mapper->mScale << endl;
     f.close();
 
     // 2. Save gravity direction
-    f.open("init_GDir_" + to_string(mpLocalMapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_GDir_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
     f << fixed;
-    f << mpLocalMapper->mRwg(0, 0) << "," << mpLocalMapper->mRwg(0, 1) << "," << mpLocalMapper->mRwg(0, 2) << endl;
-    f << mpLocalMapper->mRwg(1, 0) << "," << mpLocalMapper->mRwg(1, 1) << "," << mpLocalMapper->mRwg(1, 2) << endl;
-    f << mpLocalMapper->mRwg(2, 0) << "," << mpLocalMapper->mRwg(2, 1) << "," << mpLocalMapper->mRwg(2, 2) << endl;
+    f << _local_mapper->mRwg(0, 0) << "," << _local_mapper->mRwg(0, 1) << "," << _local_mapper->mRwg(0, 2) << endl;
+    f << _local_mapper->mRwg(1, 0) << "," << _local_mapper->mRwg(1, 1) << "," << _local_mapper->mRwg(1, 2) << endl;
+    f << _local_mapper->mRwg(2, 0) << "," << _local_mapper->mRwg(2, 1) << "," << _local_mapper->mRwg(2, 2) << endl;
     f.close();
 
     // 3. Save computational cost
-    f.open("init_CompCost_" + to_string(mpLocalMapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_CompCost_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
     f << fixed;
-    f << mpLocalMapper->mCostTime << endl;
+    f << _local_mapper->mCostTime << endl;
     f.close();
 
     // 4. Save biases
-    f.open("init_Biases_" + to_string(mpLocalMapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_Biases_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
     f << fixed;
-    f << mpLocalMapper->mbg(0) << "," << mpLocalMapper->mbg(1) << "," << mpLocalMapper->mbg(2) << endl;
-    f << mpLocalMapper->mba(0) << "," << mpLocalMapper->mba(1) << "," << mpLocalMapper->mba(2) << endl;
+    f << _local_mapper->mbg(0) << "," << _local_mapper->mbg(1) << "," << _local_mapper->mbg(2) << endl;
+    f << _local_mapper->mba(0) << "," << _local_mapper->mba(1) << "," << _local_mapper->mba(2) << endl;
     f.close();
 
     // 5. Save covariance matrix
-    f.open("init_CovMatrix_" + to_string(mpLocalMapper->mInitSect) + "_" + to_string(initIdx) + ".txt", ios_base::app);
+    f.open("init_CovMatrix_" + to_string(_local_mapper->mInitSect) + "_" + to_string(initIdx) + ".txt", ios_base::app);
     f << fixed;
-    for (int i = 0; i < mpLocalMapper->mcovInertial.rows(); i++)
+    for (int i = 0; i < _local_mapper->mcovInertial.rows(); i++)
     {
-        for (int j = 0; j < mpLocalMapper->mcovInertial.cols(); j++)
+        for (int j = 0; j < _local_mapper->mcovInertial.cols(); j++)
         {
             if (j != 0)
             {
                 f << ",";
             }
-            f << setprecision(15) << mpLocalMapper->mcovInertial(i, j);
+            f << setprecision(15) << _local_mapper->mcovInertial(i, j);
         }
         f << endl;
     }
     f.close();
 
     // 6. Save initialization time
-    f.open("init_Time_" + to_string(mpLocalMapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_Time_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
     f << fixed;
-    f << mpLocalMapper->mInitTime << endl;
+    f << _local_mapper->mInitTime << endl;
     f.close();
 }
 
-int System::GetTrackingState()
+int system::get_tracking_state()
 {
-    unique_lock<mutex> lock(mMutexState);
-    return mTrackingState;
+    unique_lock<mutex> lock(_state_mutex);
+    return _tracking_state;
 }
 
-vector<map_point *> System::GetTrackedMapPoints()
+vector<map_point *> system::get_tracked_map_points()
 {
-    unique_lock<mutex> lock(mMutexState);
-    return mTrackedMapPoints;
+    unique_lock<mutex> lock(_state_mutex);
+    return _tracked_map_points;
 }
 
-vector<keypoint> System::GetTrackedKeyPointsUn()
+vector<keypoint> system::get_tracked_keypoints_undistorted()
 {
-    unique_lock<mutex> lock(mMutexState);
-    auto               keypoints = mTrackedKeyPointsUn;
+    unique_lock<mutex> lock(_state_mutex);
+    auto               keypoints = _tracked_keypoints_undistorted;
     for (auto &key : keypoints)
     {
         key.pt = key.pt_undistorted;
@@ -1427,12 +1427,12 @@ vector<keypoint> System::GetTrackedKeyPointsUn()
     return keypoints;
 }
 
-double System::GetTimeFromIMUInit()
+double system::get_time_from_imu_init()
 {
-    double aux = mpLocalMapper->GetCurrKFTime() - mpLocalMapper->mFirstTs;
-    if ((aux > 0.) && mpAtlas->is_imu_initialized())
+    double aux = _local_mapper->GetCurrKFTime() - _local_mapper->mFirstTs;
+    if ((aux > 0.) && _atlas->is_imu_initialized())
     {
-        return mpLocalMapper->GetCurrKFTime() - mpLocalMapper->mFirstTs;
+        return _local_mapper->GetCurrKFTime() - _local_mapper->mFirstTs;
     }
     else
     {
@@ -1440,15 +1440,15 @@ double System::GetTimeFromIMUInit()
     }
 }
 
-bool System::isLost()
+bool system::is_lost()
 {
-    if (!mpAtlas->is_imu_initialized())
+    if (!_atlas->is_imu_initialized())
     {
         return false;
     }
     else
     {
-        if ((mpTracker->mState == Tracking::LOST)) //||(mpTracker->mState==Tracking::RECENTLY_LOST))
+        if ((_tracker->mState == Tracking::LOST)) //||(_tracker->mState==Tracking::RECENTLY_LOST))
         {
             return true;
         }
@@ -1459,28 +1459,28 @@ bool System::isLost()
     }
 }
 
-bool System::isFinished() { return (GetTimeFromIMUInit() > 0.1); }
+bool system::is_finished() { return (get_time_from_imu_init() > 0.1); }
 
-void System::ChangeDataset()
+void system::change_dataset()
 {
-    if (mpAtlas->get_current_map()->key_frame_count() < 12)
+    if (_atlas->get_current_map()->key_frame_count() < 12)
     {
-        mpTracker->ResetActiveMap();
+        _tracker->ResetActiveMap();
     }
     else
     {
-        mpTracker->CreateMapInAtlas();
+        _tracker->CreateMapInAtlas();
     }
 
-    mpTracker->NewDataset();
+    _tracker->NewDataset();
 }
 
-float System::GetImageScale() { return mpTracker->GetImageScale(); }
+float system::get_image_scale() { return _tracker->GetImageScale(); }
 
-atlas *System::GetAtlas() const { return mpAtlas.get(); }
+atlas *system::get_atlas() const { return _atlas.get(); }
 
-Tracking *System::GetTracker() const { return mpTracker.get(); }
+Tracking *system::get_tracker() const { return _tracker.get(); }
 
-float System::GetCameraFrameRate() const { return settings_->fps(); }
+float system::get_camera_frame_rate() const { return _settings->fps(); }
 
 } // namespace ORB_SLAM3

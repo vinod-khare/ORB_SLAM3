@@ -169,7 +169,7 @@ the final shutdown totals. CSV output is independent of logging and viewer setti
   image loading, resize, grayscale, CLAHE, optional optical-flow pyramid creation,
   and stereo synchronization. Waiting for space in the prepared-frame queue is
   excluded. This is preparation latency, not summed left/right CPU time.
-- **Frontend:** the synchronous `TrackMonocular`/`TrackStereo` call, including
+- **Frontend:** the synchronous `track_monocular`/`track_stereo` call, including
   internal image adaptation, feature extraction, matching, and pose estimation.
   Viewer publication and statistics logging are excluded.
 - **Backend:** latest completed job time, job count, and cumulative elapsed work
@@ -183,10 +183,10 @@ the final shutdown totals. CSV output is independent of logging and viewer setti
   input waits and preceding viewer/logging work, rather than reciprocal tracking
   time or dataset timestamps. The final Playback line includes the full loop.
 
-`System::statistics().get_snapshot()` returns a thread-safe value copy containing
+`system::statistics().get_snapshot()` returns a thread-safe value copy containing
 the latest frame ID, dataset timestamp, counts and timings, playback totals/FPS,
 and the three backend samples. Collection has bounded storage and no logging or
-UI dependency. `System` owns the collector directly; workers borrow it and are
+UI dependency. The `system` class owns the collector directly; workers borrow it and are
 joined on shutdown or destruction. Playback publishes each completed snapshot
 and its valid camera pose to the viewer's bounded history; the Statistics pane
 copies that history without holding a lock while rendering. Workers never render

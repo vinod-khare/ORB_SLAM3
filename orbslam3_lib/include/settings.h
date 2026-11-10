@@ -34,7 +34,7 @@
 namespace ORB_SLAM3
 {
 
-class System;
+class system;
 
 class settings
 {
@@ -113,7 +113,7 @@ class settings
     cv::Mat right_rectification_map_y() { return _right_rectification_map_y; }
 
   private:
-    friend class System;
+    friend class system;
 
     template <typename T> T read_parameter(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required = true)
     {
