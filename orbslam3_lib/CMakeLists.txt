@@ -53,7 +53,7 @@ add_library(ORB_SLAM3 SHARED
         source/two_view_reconstruction.cpp
         source/settings.cpp
         source/DUtils/random.cpp
-        source/DUtils/Timestamp.cpp)
+        source/DUtils/timestamp.cpp)
 
 target_compile_definitions(ORB_SLAM3 PUBLIC EIGEN_MAX_ALIGN_BYTES=16)
 target_compile_options(ORB_SLAM3 PRIVATE -Wall)

@@ -9,7 +9,7 @@
 
 #include "DUtils/random.h"
 
-#include "DUtils/Timestamp.h"
+#include "DUtils/timestamp.h"
 
 #include <cstdlib>
 
@@ -17,9 +17,9 @@ bool DUtils::random::_already_seeded = false;
 
 void DUtils::random::seed_rand()
 {
-    Timestamp time;
-    time.setToCurrentTime();
-    srand(static_cast<unsigned int>(time.getFloatTime()));
+    timestamp time;
+    time.set_to_current_time();
+    srand(static_cast<unsigned int>(time.get_float_time()));
 }
 
 void DUtils::random::seed_rand_once()

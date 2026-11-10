@@ -1,11 +1,11 @@
-#include "DUtils/Timestamp.h"
+#include "DUtils/timestamp.h"
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("Timestamp preserves fractional seconds")
+TEST_CASE("timestamp preserves fractional seconds")
 {
-    DUtils::Timestamp timestamp;
-    timestamp.setTime(10UL, 500000UL);
+    DUtils::timestamp timestamp;
+    timestamp.set_time(10UL, 500000UL);
 
-    REQUIRE(timestamp.getFloatTime() == 10.5);
+    REQUIRE(timestamp.get_float_time() == 10.5);
 }
