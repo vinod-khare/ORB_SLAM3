@@ -23,53 +23,55 @@
 #include "viewer_statistics.h"
 
 #include <atomic>
+#include <cstddef>
+#include <string>
 
 namespace ORB_SLAM3
 {
 class FrameDrawer;
 class MapDrawer;
 
-class Viewer
+class viewer
 {
   public:
     /** All dependencies, including settings, must outlive the viewer. */
-    Viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings);
+    viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings);
 
-    void Run();
-    void RequestFinish();
-    void RequestStop();
-    bool isFinished() const;
-    bool isStopped() const;
-    void Release();
-    bool exit_requested() const;
-    bool paused() const;
+    void run();
+    void request_finish();
+    void request_stop();
+    bool is_stopped() const;
+    void release();
+    bool is_exit_requested() const;
+    bool is_paused() const;
     void process_commands();
 
     /** Set immutable input metadata before starting the viewer thread. */
     void set_sequence(std::string description, std::size_t frames);
     void publish_statistics(const viewer_statistics::sample &frame);
 
-    bool both{false};
-
   private:
-    viewer_statistics      _statistics;
-    std::string            _sequence_description;
-    std::size_t            _sequence_frames{};
     viewer_control        &_controls;
     FrameDrawer           &_frame_drawer;
     MapDrawer             &_map_drawer;
     const viewer_settings &_settings;
     float                  _tracked_image_scale;
-    std::atomic<bool>      _finish_requested{false};
-    std::atomic<bool>      _finished{false};
-    std::atomic<bool>      _stop_requested{false};
-    std::atomic<bool>      _stopped{true};
-    std::atomic<bool>      _exit_requested{false};
-    std::atomic<bool>      _paused{false};
-    std::atomic<bool>      _reset_requested{false};
-    std::atomic<bool>      _localization_requested{false};
-    bool                   _localization_active{false};
-    std::atomic<int>       _dbow_version{2};
-    std::atomic<bool>      _dbow_error{false};
+
+    std::string       _sequence_description;
+    std::size_t       _sequence_frames{};
+    viewer_statistics _statistics;
+
+    std::atomic<bool> _exit_requested{false};
+    std::atomic<bool> _finish_requested{false};
+    std::atomic<bool> _finished{false};
+    std::atomic<bool> _paused{false};
+    std::atomic<bool> _stop_requested{false};
+    std::atomic<bool> _stopped{true};
+
+    std::atomic<bool> _dbow_error{false};
+    std::atomic<int>  _dbow_version{2};
+    bool              _localization_active{false};
+    std::atomic<bool> _localization_requested{false};
+    std::atomic<bool> _reset_requested{false};
 };
 } // namespace ORB_SLAM3

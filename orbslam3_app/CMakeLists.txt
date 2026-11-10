@@ -22,7 +22,7 @@ add_library(orbslam3_ui STATIC
     source/FrameDrawer.cpp
     source/ground_truth_trajectory.cpp
     source/MapDrawer.cpp
-    source/Viewer.cpp
+    source/viewer.cpp
     source/viewer_settings.cpp
     source/viewer_statistics.cpp)
 target_compile_options(orbslam3_ui PRIVATE -Wall)

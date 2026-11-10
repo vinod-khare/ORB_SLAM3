@@ -16,7 +16,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "Viewer.h"
+#include "viewer.h"
 
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
@@ -204,14 +204,14 @@ void show_statistics(const viewer_statistics::snapshot &statistics)
 }
 } // namespace
 
-Viewer::Viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings)
+viewer::viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings)
     : _controls(controls), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _settings(settings), _tracked_image_scale(tracked_image_scale)
 {
     _dbow_version = controls.dbow_version();
     _paused       = !settings.autostart;
 }
 
-void Viewer::Run()
+void viewer::run()
 {
     if (setpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)), 10) != 0)
     {
@@ -462,8 +462,8 @@ void Viewer::Run()
             texture       = HelloImGui::CreateTextureGpuFromRgbaData(rgba.data, rgba.cols, rgba.rows);
             show_image(texture);
         };
-        params.dockingParams.dockableWindows.emplace_back(both ? "Left camera" : "Camera", "Camera", [&] { camera_pane(false); });
-        if (both)
+        params.dockingParams.dockableWindows.emplace_back(_frame_drawer.both ? "Left camera" : "Camera", "Camera", [&] { camera_pane(false); });
+        if (_frame_drawer.both)
         {
             params.dockingParams.dockingSplits.emplace_back("Camera", "RightCamera", ImGuiDir_Right, 0.5f);
             params.dockingParams.dockableWindows.emplace_back("Right camera", "RightCamera", [&] { camera_pane(true); });
@@ -491,7 +491,7 @@ void Viewer::Run()
     _finished       = true;
 }
 
-void Viewer::process_commands()
+void viewer::process_commands()
 {
     const int requested = _dbow_version;
     if (requested != _controls.dbow_version())
@@ -519,21 +519,20 @@ void Viewer::process_commands()
     }
 }
 
-void Viewer::set_sequence(std::string description, std::size_t frames)
+void viewer::set_sequence(std::string description, std::size_t frames)
 {
     _sequence_description = std::move(description);
     _sequence_frames      = frames;
 }
 
-void Viewer::publish_statistics(const viewer_statistics::sample &frame) { _statistics.record(frame); }
+void viewer::publish_statistics(const viewer_statistics::sample &frame) { _statistics.record(frame); }
 
-void Viewer::RequestFinish() { _finish_requested = true; }
-void Viewer::RequestStop() { _stop_requested = true; }
-bool Viewer::isFinished() const { return _finished; }
-bool Viewer::isStopped() const { return _stopped || _finished; }
-bool Viewer::exit_requested() const { return _exit_requested; }
-bool Viewer::paused() const { return _paused; }
-void Viewer::Release()
+void viewer::request_finish() { _finish_requested = true; }
+void viewer::request_stop() { _stop_requested = true; }
+bool viewer::is_stopped() const { return _stopped || _finished; }
+bool viewer::is_exit_requested() const { return _exit_requested; }
+bool viewer::is_paused() const { return _paused; }
+void viewer::release()
 {
     _stop_requested = false;
     _stopped        = _finished.load();

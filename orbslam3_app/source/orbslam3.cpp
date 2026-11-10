@@ -25,10 +25,10 @@
 #include "MapDrawer.h"
 #include "System.h"
 #include "Tracking.h"
-#include "Viewer.h"
 #include "command_line_options.h"
 #include "frame_prefetcher.h"
 #include "time_this.h"
+#include "viewer.h"
 
 #include <chrono>
 #include <filesystem>
@@ -168,7 +168,7 @@ int main(int argc, char **argv)
 
         std::unique_ptr<ORB_SLAM3::FrameDrawer> frame_drawer;
         std::unique_ptr<ORB_SLAM3::MapDrawer>   map_drawer;
-        std::unique_ptr<ORB_SLAM3::Viewer>      viewer;
+        std::unique_ptr<ORB_SLAM3::viewer>      viewer;
         system_viewer_control                   viewer_controls(SLAM, *SLAM.GetTracker());
         std::jthread                            viewer_thread;
 
@@ -177,8 +177,7 @@ int main(int argc, char **argv)
             frame_drawer       = std::make_unique<ORB_SLAM3::FrameDrawer>(*SLAM.GetAtlas());
             frame_drawer->both = stereo;
             map_drawer         = std::make_unique<ORB_SLAM3::MapDrawer>(*SLAM.GetAtlas(), options.viewer);
-            viewer             = std::make_unique<ORB_SLAM3::Viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, options.viewer);
-            viewer->both       = stereo;
+            viewer             = std::make_unique<ORB_SLAM3::viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, options.viewer);
             viewer->set_sequence(fmt::format("Settings: {}\nMode: {}\nDataset / sequence (left images): {}\nRight images: {}\nIMU: {}\nFrame selection: skip {}, stride {}, take {} (0 = all)",
                                              settings_path,
                                              slam_type,
@@ -194,23 +193,23 @@ int main(int argc, char **argv)
                 [&viewer, &map_drawer]
                 {
                     map_drawer->break_camera_trajectory();
-                    viewer->RequestStop();
+                    viewer->request_stop();
 
-                    while (!viewer->isStopped())
+                    while (!viewer->is_stopped())
                     {
                         std::this_thread::sleep_for(std::chrono::milliseconds(3));
                     }
                 },
-                [&viewer] { viewer->Release(); });
+                [&viewer] { viewer->release(); });
 
-            viewer_thread = std::jthread(&ORB_SLAM3::Viewer::Run, viewer.get());
+            viewer_thread = std::jthread(&ORB_SLAM3::viewer::run, viewer.get());
         }
 
         const auto stop_viewer = [&]
         {
             if (viewer_thread.joinable())
             {
-                viewer->RequestFinish();
+                viewer->request_finish();
                 viewer_thread.join();
             }
         };
@@ -230,7 +229,7 @@ int main(int argc, char **argv)
             {
                 if (viewer)
                 {
-                    while (viewer->paused() && !viewer->exit_requested())
+                    while (viewer->is_paused() && !viewer->is_exit_requested())
                     {
                         viewer->process_commands();
                         std::this_thread::sleep_for(std::chrono::milliseconds(3));
@@ -238,7 +237,7 @@ int main(int argc, char **argv)
 
                     viewer->process_commands();
 
-                    if (viewer->exit_requested())
+                    if (viewer->is_exit_requested())
                     {
                         break;
                     }
