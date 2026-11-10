@@ -18,7 +18,7 @@
 
 #include "loop_closing.h"
 
-#include "G2oTypes.h"
+#include "g2o_types.h"
 #include "optimizer.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
@@ -113,10 +113,10 @@ void loop_closing::run()
                             if ((tracker->sensor == system::imu_monocular || tracker->sensor == system::imu_stereo || tracker->sensor == system::imu_rgbd) &&
                                 current_key_frame->get_map()->get_inertial_ba1())
                             {
-                                Eigen::Vector3d phi   = LogSO3(old_to_new_similarity.rotation().toRotationMatrix());
+                                Eigen::Vector3d phi   = log_so3(old_to_new_similarity.rotation().toRotationMatrix());
                                 phi(0)                = 0;
                                 phi(1)                = 0;
-                                old_to_new_similarity = g2o::Sim3(ExpSO3(phi), old_to_new_similarity.translation(), 1.0);
+                                old_to_new_similarity = g2o::Sim3(exp_so3(phi), old_to_new_similarity.translation(), 1.0);
                             }
                         }
 
@@ -183,7 +183,7 @@ void loop_closing::run()
                         g2o::Sim3    g2oTwc(Twc.unit_quaternion(), Twc.translation(), 1.0);
                         g2o::Sim3    g2oSww_new = g2oTwc * loop_sim3_world_to_camera;
 
-                        Eigen::Vector3d    phi = LogSO3(g2oSww_new.rotation().toRotationMatrix());
+                        Eigen::Vector3d    phi = log_so3(g2oSww_new.rotation().toRotationMatrix());
                         std::ostringstream phi_output;
                         phi_output << phi.transpose();
                         spdlog::debug("Loop rotation phi = {}", phi_output.str());
@@ -197,7 +197,7 @@ void loop_closing::run()
                                 {
                                     phi(0)                    = 0;
                                     phi(1)                    = 0;
-                                    g2oSww_new                = g2o::Sim3(ExpSO3(phi), g2oSww_new.translation(), 1.0);
+                                    g2oSww_new                = g2o::Sim3(exp_so3(phi), g2oSww_new.translation(), 1.0);
                                     loop_sim3_world_to_camera = g2oTwc.inverse() * g2oSww_new;
                                 }
                             }

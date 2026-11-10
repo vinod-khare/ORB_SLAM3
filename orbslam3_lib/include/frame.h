@@ -46,7 +46,7 @@ namespace ORB_SLAM3
 
 class map_point;
 class key_frame;
-class ConstraintPoseImu;
+class constraint_pose_imu;
 class geometric_camera;
 
 class frame
@@ -137,7 +137,7 @@ class frame
     // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
     bool unproject_stereo(const int &i, Eigen::Vector3f &x3D);
 
-    ConstraintPoseImu *imu_constraint;
+    constraint_pose_imu *imu_constraint;
 
     bool imu_is_preintegrated() const;
     void set_integrated();

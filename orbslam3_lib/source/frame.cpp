@@ -19,7 +19,7 @@
 #include "frame.h"
 
 #include "CameraModels/kannala_brandt8.h"
-#include "G2oTypes.h"
+#include "g2o_types.h"
 #include "geometric_camera.h"
 #include "key_frame.h"
 #include "converter.h"

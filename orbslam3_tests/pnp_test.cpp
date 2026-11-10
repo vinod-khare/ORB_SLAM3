@@ -1,9 +1,9 @@
-#include "G2oTypes.h"
-#include "kannala_brandt8.h"
 #include "OptimizableTypes.h"
-#include "pinhole.h"
 #include "frame.h"
+#include "g2o_types.h"
 #include "geometric_tools.h"
+#include "kannala_brandt8.h"
+#include "pinhole.h"
 
 #include <algorithm>
 #include <array>
@@ -136,19 +136,19 @@ TEST_CASE("Inertial camera poses update only their modeled stereo observations",
     frame.set_pose(Sophus::SE3f{});
     frame.set_velocity(Eigen::Vector3f::Zero());
     frame.baseline_fx = 20;
-    ORB_SLAM3::ImuCamPose       pose(&frame, cameras);
+    ORB_SLAM3::imu_cam_pose     pose(&frame, cameras);
     const std::array<double, 6> update{};
-    pose.Update(update.data());
-    pose.UpdateW(update.data());
+    pose.update(update.data());
+    pose.update_world_reference(update.data());
     REQUIRE(pose.cameras.data() == cameras.data());
-    REQUIRE(pose.Rcw.size() == (fisheye ? 2 : 1));
-    REQUIRE(pose.Project(Eigen::Vector3d(0, 0, 1)).isApprox(Eigen::Vector2d(320, 240)));
-    static_assert(!std::is_default_constructible_v<ORB_SLAM3::VertexPose>);
-    static_assert(!std::is_default_constructible_v<ORB_SLAM3::VertexPose4DoF>);
-    ORB_SLAM3::VertexPose vertex(&frame, cameras);
-    std::stringstream     serialized_pose;
+    REQUIRE(pose.rotation_camera_world.size() == (fisheye ? 2 : 1));
+    REQUIRE(pose.project(Eigen::Vector3d(0, 0, 1)).isApprox(Eigen::Vector2d(320, 240)));
+    static_assert(!std::is_default_constructible_v<ORB_SLAM3::vertex_pose>);
+    static_assert(!std::is_default_constructible_v<ORB_SLAM3::vertex_pose_4dof>);
+    ORB_SLAM3::vertex_pose vertex(&frame, cameras);
+    std::stringstream      serialized_pose;
     REQUIRE(vertex.write(serialized_pose));
     REQUIRE(vertex.read(serialized_pose));
     REQUIRE(vertex.estimate().cameras.data() == cameras.data());
-    REQUIRE(vertex.estimate().Project(Eigen::Vector3d(0, 0, 1)).isApprox(Eigen::Vector2d(320, 240)));
+    REQUIRE(vertex.estimate().project(Eigen::Vector3d(0, 0, 1)).isApprox(Eigen::Vector2d(320, 240)));
 }

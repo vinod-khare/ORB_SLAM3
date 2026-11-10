@@ -18,7 +18,7 @@
 
 #include "tracking.h"
 
-#include "G2oTypes.h"
+#include "g2o_types.h"
 #include "kannala_brandt8.h"
 #include "optimizer.h"
 #include "pinhole.h"
