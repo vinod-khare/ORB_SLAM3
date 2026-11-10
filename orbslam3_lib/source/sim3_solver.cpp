@@ -18,7 +18,7 @@
 
 #include "sim3_solver.h"
 
-#include "DUtils/Random.h"
+#include "DUtils/random.h"
 #include "key_frame.h"
 #include "descriptor_matcher.h"
 
@@ -186,7 +186,7 @@ Eigen::Matrix4f sim3_solver::iterate(int iteration_limit, bool &no_more_iteratio
         // Get min set of points
         for (short i = 0; i < 3; ++i)
         {
-            int randi = DUtils::Random::RandomInt(0, vAvailableIndices.size() - 1);
+            int randi = DUtils::random::random_int(0, vAvailableIndices.size() - 1);
 
             int idx = vAvailableIndices[randi];
 
@@ -268,7 +268,7 @@ Eigen::Matrix4f sim3_solver::iterate(int iteration_limit, bool &no_more_iteratio
         // Get min set of points
         for (short i = 0; i < 3; ++i)
         {
-            int randi = DUtils::Random::RandomInt(0, vAvailableIndices.size() - 1);
+            int randi = DUtils::random::random_int(0, vAvailableIndices.size() - 1);
 
             int idx = vAvailableIndices[randi];
 
