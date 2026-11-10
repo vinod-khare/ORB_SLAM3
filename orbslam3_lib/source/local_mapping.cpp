@@ -64,7 +64,7 @@ void local_mapping::run()
         // Check if there are keyframes in the queue
         if (check_new_key_frames() && !bad_imu)
         {
-            const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::LOCAL_MAPPING);
+            const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::local_mapping);
             // BoW conversion and insertion in Map
             process_new_key_frame();
 

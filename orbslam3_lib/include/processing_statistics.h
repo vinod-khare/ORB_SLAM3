@@ -16,9 +16,9 @@ class processing_statistics
 
     enum class backend_stage
     {
-        LOCAL_MAPPING,
-        LOOP_CLOSING,
-        GLOBAL_BUNDLE_ADJUSTMENT
+        local_mapping,
+        loop_closing,
+        global_bundle_adjustment
     };
 
     struct frame_sample
@@ -103,7 +103,7 @@ class processing_statistics
     void record_backend(backend_stage stage, double milliseconds)
     {
         const std::lock_guard lock(_mutex);
-        auto &sample = stage == backend_stage::LOCAL_MAPPING ? _snapshot.local_mapping : stage == backend_stage::LOOP_CLOSING ? _snapshot.loop_closing : _snapshot.global_bundle_adjustment;
+        auto &sample = stage == backend_stage::local_mapping ? _snapshot.local_mapping : stage == backend_stage::loop_closing ? _snapshot.loop_closing : _snapshot.global_bundle_adjustment;
         ++sample.jobs;
         sample.last_ms   = milliseconds;
         sample.total_ms += milliseconds;

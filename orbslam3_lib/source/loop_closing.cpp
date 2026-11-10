@@ -65,7 +65,7 @@ void loop_closing::run()
 
         if (check_new_key_frames())
         {
-            const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::LOOP_CLOSING);
+            const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::loop_closing);
             if (last_current_key_frame)
             {
                 last_current_key_frame->loop_candidate_key_frames.clear();
@@ -1977,7 +1977,7 @@ void loop_closing::reset_if_requested()
 
 void loop_closing::run_global_bundle_adjustment(map *pActiveMap, unsigned long nLoopKF)
 {
-    const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::GLOBAL_BUNDLE_ADJUSTMENT);
+    const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::global_bundle_adjustment);
     spdlog::debug("Starting Global Bundle Adjustment");
 
     const bool bImuInit = pActiveMap->is_imu_initialized();

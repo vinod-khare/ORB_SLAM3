@@ -152,10 +152,10 @@ TEST_CASE("Processing statistics preserve samples and measure wall-clock through
     REQUIRE(first.frame.frontend_ms == 8.0);
     REQUIRE(first.throughput_fps == 20.0);
 
-    measurements.record_backend(statistics::backend_stage::LOCAL_MAPPING, 20.0);
-    measurements.record_backend(statistics::backend_stage::LOCAL_MAPPING, 30.0);
-    measurements.record_backend(statistics::backend_stage::LOOP_CLOSING, 4.0);
-    measurements.record_backend(statistics::backend_stage::GLOBAL_BUNDLE_ADJUSTMENT, 60.0);
+    measurements.record_backend(statistics::backend_stage::local_mapping, 20.0);
+    measurements.record_backend(statistics::backend_stage::local_mapping, 30.0);
+    measurements.record_backend(statistics::backend_stage::loop_closing, 4.0);
+    measurements.record_backend(statistics::backend_stage::global_bundle_adjustment, 60.0);
     measurements.record_frame({8, 12.55, 0, 60, 3.0, 7.0}, started + std::chrono::milliseconds(200));
     const auto second = measurements.get_snapshot();
     REQUIRE(second.frames == 2);
@@ -192,7 +192,7 @@ TEST_CASE("Processing statistics safely collect concurrent backend jobs", "[stat
                 {
                     for (int job = 0; job < 100; ++job)
                     {
-                        measurements.record_backend(statistics::backend_stage::LOCAL_MAPPING, 2.0);
+                        measurements.record_backend(statistics::backend_stage::local_mapping, 2.0);
                         const auto sample = measurements.get_snapshot();
                         if (sample.local_mapping.total_ms != static_cast<double>(sample.local_mapping.jobs) * 2.0)
                         {
@@ -207,14 +207,14 @@ TEST_CASE("Processing statistics safely collect concurrent backend jobs", "[stat
     REQUIRE(measurements.get_snapshot().local_mapping.total_ms == 800.0);
     statistics timed_measurements;
     {
-        const statistics::backend_timer timer(timed_measurements, statistics::backend_stage::LOOP_CLOSING);
+        const statistics::backend_timer timer(timed_measurements, statistics::backend_stage::loop_closing);
     }
     REQUIRE(timed_measurements.get_snapshot().loop_closing.jobs == 1);
     REQUIRE(timed_measurements.get_snapshot().loop_closing.last_ms >= 0.0);
 
     const auto finish_early = [&timed_measurements]
     {
-        const statistics::backend_timer timer(timed_measurements, statistics::backend_stage::GLOBAL_BUNDLE_ADJUSTMENT);
+        const statistics::backend_timer timer(timed_measurements, statistics::backend_stage::global_bundle_adjustment);
         return;
     };
     finish_early();
@@ -231,7 +231,7 @@ TEST_CASE("Global bundle adjustment shutdown joins its worker before returning",
             _global_ba_thread = std::jthread(
                 [this](std::stop_token stop)
                 {
-                    const ORB_SLAM3::processing_statistics::backend_timer timer(_statistics, ORB_SLAM3::processing_statistics::backend_stage::GLOBAL_BUNDLE_ADJUSTMENT);
+                    const ORB_SLAM3::processing_statistics::backend_timer timer(_statistics, ORB_SLAM3::processing_statistics::backend_stage::global_bundle_adjustment);
                     std::mutex                                            mutex;
                     std::condition_variable_any                           ready;
                     std::unique_lock                                      lock(mutex);
