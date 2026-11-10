@@ -18,8 +18,8 @@
 
 #include "key_frame.h"
 
-#include "ImuTypes.h"
 #include "converter.h"
+#include "imu_types.h"
 
 #include <mutex>
 
@@ -121,9 +121,9 @@ void key_frame::set_pose(const Sophus::SE3f &Tcw)
     world_pose = camera_pose.inverse();
     world_rotation = world_pose.rotationMatrix();
 
-    if (imu_calibration.mbIsSet) // TODO Use a flag instead of the OpenCV matrix
+    if (imu_calibration.is_set) // TODO Use a flag instead of the OpenCV matrix
     {
-        imu_position_world = world_rotation * imu_calibration.mTcb.translation() + world_pose.translation();
+        imu_position_world = world_rotation * imu_calibration.camera_to_body.translation() + world_pose.translation();
     }
 }
 
@@ -161,13 +161,13 @@ Eigen::Vector3f key_frame::get_imu_position()
 Eigen::Matrix3f key_frame::get_imu_rotation()
 {
     unique_lock<mutex> lock(pose_mutex);
-    return (world_pose * imu_calibration.mTcb).rotationMatrix();
+    return (world_pose * imu_calibration.camera_to_body).rotationMatrix();
 }
 
 Sophus::SE3f key_frame::get_imu_pose()
 {
     unique_lock<mutex> lock(pose_mutex);
-    return world_pose * imu_calibration.mTcb;
+    return world_pose * imu_calibration.camera_to_body;
 }
 
 Eigen::Matrix3f key_frame::get_rotation()
@@ -870,7 +870,7 @@ float key_frame::compute_scene_median_depth(const int q)
     return vDepths[(vDepths.size() - 1) / q];
 }
 
-void key_frame::set_new_bias(const IMU::Bias &b)
+void key_frame::set_new_bias(const imu::bias &b)
 {
     unique_lock<mutex> lock(pose_mutex);
     imu_bias = b;
@@ -892,7 +892,7 @@ Eigen::Vector3f key_frame::get_accelerometer_bias()
     return Eigen::Vector3f(imu_bias.bax, imu_bias.bay, imu_bias.baz);
 }
 
-IMU::Bias key_frame::get_imu_bias()
+imu::bias key_frame::get_imu_bias()
 {
     unique_lock<mutex> lock(pose_mutex);
     return imu_bias;

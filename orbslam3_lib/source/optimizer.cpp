@@ -579,7 +579,7 @@ void optimizer::full_inertial_ba(
                     EdgeGyroRW *egr = new EdgeGyroRW();
                     egr->setVertex(0, VG1);
                     egr->setVertex(1, VG2);
-                    Eigen::Matrix3d InfoG = pKFi->imu_preintegrated->C.block<3, 3>(9, 9).cast<double>().inverse();
+                    Eigen::Matrix3d InfoG = pKFi->imu_preintegrated->covariance.block<3, 3>(9, 9).cast<double>().inverse();
                     egr->setInformation(InfoG);
                     egr->computeError();
                     optimizer.addEdge(egr);
@@ -587,7 +587,7 @@ void optimizer::full_inertial_ba(
                     EdgeAccRW *ear = new EdgeAccRW();
                     ear->setVertex(0, VA1);
                     ear->setVertex(1, VA2);
-                    Eigen::Matrix3d InfoA = pKFi->imu_preintegrated->C.block<3, 3>(12, 12).cast<double>().inverse();
+                    Eigen::Matrix3d InfoA = pKFi->imu_preintegrated->covariance.block<3, 3>(12, 12).cast<double>().inverse();
                     ear->setInformation(InfoA);
                     ear->computeError();
                     optimizer.addEdge(ear);
@@ -824,7 +824,7 @@ void optimizer::full_inertial_ba(
 
             Vector6d vb;
             vb << VG->estimate(), VA->estimate();
-            IMU::Bias b(vb[3], vb[4], vb[5], vb[0], vb[1], vb[2]);
+            imu::bias b(vb[3], vb[4], vb[5], vb[0], vb[1], vb[2]);
             if (nLoopId == 0)
             {
                 pKFi->set_new_bias(b);
@@ -2808,14 +2808,14 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
             vegr[i] = new EdgeGyroRW();
             vegr[i]->setVertex(0, VG1);
             vegr[i]->setVertex(1, VG2);
-            Eigen::Matrix3d InfoG = pKFi->imu_preintegrated->C.block<3, 3>(9, 9).cast<double>().inverse();
+            Eigen::Matrix3d InfoG = pKFi->imu_preintegrated->covariance.block<3, 3>(9, 9).cast<double>().inverse();
             vegr[i]->setInformation(InfoG);
             optimizer.addEdge(vegr[i]);
 
             vear[i] = new EdgeAccRW();
             vear[i]->setVertex(0, VA1);
             vear[i]->setVertex(1, VA2);
-            Eigen::Matrix3d InfoA = pKFi->imu_preintegrated->C.block<3, 3>(12, 12).cast<double>().inverse();
+            Eigen::Matrix3d InfoA = pKFi->imu_preintegrated->covariance.block<3, 3>(12, 12).cast<double>().inverse();
             vear[i]->setInformation(InfoA);
 
             optimizer.addEdge(vear[i]);
@@ -3099,7 +3099,7 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
             VertexAccBias  *VA = static_cast<VertexAccBias *>(optimizer.vertex(maxKFid + 3 * (pKFi->id) + 3));
             Vector6d        b;
             b << VG->estimate(), VA->estimate();
-            pKFi->set_new_bias(IMU::Bias(b[3], b[4], b[5], b[0], b[1], b[2]));
+            pKFi->set_new_bias(imu::bias(b[3], b[4], b[5], b[0], b[1], b[2]));
         }
     }
 
@@ -3386,7 +3386,7 @@ void optimizer::inertial_optimization(
     ba << VA->estimate();
     scale = VS->estimate();
 
-    IMU::Bias b(vb[3], vb[4], vb[5], vb[0], vb[1], vb[2]);
+    imu::bias b(vb[3], vb[4], vb[5], vb[0], vb[1], vb[2]);
     Rwg = VGDir->estimate().Rwg;
 
     // Keyframes velocities and biases
@@ -3408,7 +3408,7 @@ void optimizer::inertial_optimization(
             pKFi->set_new_bias(b);
             if (pKFi->imu_preintegrated)
             {
-                pKFi->imu_preintegrated->Reintegrate();
+                pKFi->imu_preintegrated->reintegrate();
             }
         }
         else
@@ -3557,7 +3557,7 @@ void optimizer::inertial_optimization(map *pMap, Eigen::Vector3d &bg, Eigen::Vec
     bg << VG->estimate();
     ba << VA->estimate();
 
-    IMU::Bias b(vb[3], vb[4], vb[5], vb[0], vb[1], vb[2]);
+    imu::bias b(vb[3], vb[4], vb[5], vb[0], vb[1], vb[2]);
 
     // Keyframes velocities and biases
     const int N = vpKFs.size();
@@ -3578,7 +3578,7 @@ void optimizer::inertial_optimization(map *pMap, Eigen::Vector3d &bg, Eigen::Vec
             pKFi->set_new_bias(b);
             if (pKFi->imu_preintegrated)
             {
-                pKFi->imu_preintegrated->Reintegrate();
+                pKFi->imu_preintegrated->reintegrate();
             }
         }
         else
@@ -4490,14 +4490,14 @@ void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool 
             vegr[i] = new EdgeGyroRW();
             vegr[i]->setVertex(0, VG1);
             vegr[i]->setVertex(1, VG2);
-            Eigen::Matrix3d InfoG = pKFi->imu_preintegrated->C.block<3, 3>(9, 9).cast<double>().inverse();
+            Eigen::Matrix3d InfoG = pKFi->imu_preintegrated->covariance.block<3, 3>(9, 9).cast<double>().inverse();
             vegr[i]->setInformation(InfoG);
             optimizer.addEdge(vegr[i]);
 
             vear[i] = new EdgeAccRW();
             vear[i]->setVertex(0, VA1);
             vear[i]->setVertex(1, VA2);
-            Eigen::Matrix3d InfoA = pKFi->imu_preintegrated->C.block<3, 3>(12, 12).cast<double>().inverse();
+            Eigen::Matrix3d InfoA = pKFi->imu_preintegrated->covariance.block<3, 3>(12, 12).cast<double>().inverse();
             vear[i]->setInformation(InfoA);
             optimizer.addEdge(vear[i]);
         }
@@ -4724,7 +4724,7 @@ void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool 
             VertexAccBias  *VA = static_cast<VertexAccBias *>(optimizer.vertex(maxKFid + 3 * (pKFi->id) + 3));
             Vector6d        b;
             b << VG->estimate(), VA->estimate();
-            pKFi->set_new_bias(IMU::Bias(b[3], b[4], b[5], b[0], b[1], b[2]));
+            pKFi->set_new_bias(imu::bias(b[3], b[4], b[5], b[0], b[1], b[2]));
         }
     }
 
@@ -4748,7 +4748,7 @@ void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool 
             VertexAccBias  *VA = static_cast<VertexAccBias *>(optimizer.vertex(maxKFid + 3 * (pKFi->id) + 3));
             Vector6d        b;
             b << VG->estimate(), VA->estimate();
-            pKFi->set_new_bias(IMU::Bias(b[3], b[4], b[5], b[0], b[1], b[2]));
+            pKFi->set_new_bias(imu::bias(b[3], b[4], b[5], b[0], b[1], b[2]));
         }
     }
 
@@ -4962,14 +4962,14 @@ int optimizer::pose_inertial_optimization_last_key_frame(frame *pFrame, const ca
     EdgeGyroRW *egr = new EdgeGyroRW();
     egr->setVertex(0, VGk);
     egr->setVertex(1, VG);
-    Eigen::Matrix3d InfoG = pFrame->imu_preintegrated->C.block<3, 3>(9, 9).cast<double>().inverse();
+    Eigen::Matrix3d InfoG = pFrame->imu_preintegrated->covariance.block<3, 3>(9, 9).cast<double>().inverse();
     egr->setInformation(InfoG);
     optimizer.addEdge(egr);
 
     EdgeAccRW *ear = new EdgeAccRW();
     ear->setVertex(0, VAk);
     ear->setVertex(1, VA);
-    Eigen::Matrix3d InfoA = pFrame->imu_preintegrated->C.block<3, 3>(12, 12).cast<double>().inverse();
+    Eigen::Matrix3d InfoA = pFrame->imu_preintegrated->covariance.block<3, 3>(12, 12).cast<double>().inverse();
     ear->setInformation(InfoA);
     optimizer.addEdge(ear);
 
@@ -5117,7 +5117,7 @@ int optimizer::pose_inertial_optimization_last_key_frame(frame *pFrame, const ca
     pFrame->set_imu_pose_velocity(VP->estimate().Rwb.cast<float>(), VP->estimate().twb.cast<float>(), VV->estimate().cast<float>());
     Vector6d b;
     b << VG->estimate(), VA->estimate();
-    pFrame->imu_bias = IMU::Bias(b[3], b[4], b[5], b[0], b[1], b[2]);
+    pFrame->imu_bias = imu::bias(b[3], b[4], b[5], b[0], b[1], b[2]);
 
     // Recover Hessian, marginalize keyFframe states and generate new prior for frame
     Eigen::Matrix<double, 15, 15> H;
@@ -5367,14 +5367,14 @@ int optimizer::pose_inertial_optimization_last_frame(frame *pFrame, const camera
     EdgeGyroRW *egr = new EdgeGyroRW();
     egr->setVertex(0, VGk);
     egr->setVertex(1, VG);
-    Eigen::Matrix3d InfoG = pFrame->imu_preintegrated->C.block<3, 3>(9, 9).cast<double>().inverse();
+    Eigen::Matrix3d InfoG = pFrame->imu_preintegrated->covariance.block<3, 3>(9, 9).cast<double>().inverse();
     egr->setInformation(InfoG);
     optimizer.addEdge(egr);
 
     EdgeAccRW *ear = new EdgeAccRW();
     ear->setVertex(0, VAk);
     ear->setVertex(1, VA);
-    Eigen::Matrix3d InfoA = pFrame->imu_preintegrated->C.block<3, 3>(12, 12).cast<double>().inverse();
+    Eigen::Matrix3d InfoA = pFrame->imu_preintegrated->covariance.block<3, 3>(12, 12).cast<double>().inverse();
     ear->setInformation(InfoA);
     optimizer.addEdge(ear);
 
@@ -5536,7 +5536,7 @@ int optimizer::pose_inertial_optimization_last_frame(frame *pFrame, const camera
     pFrame->set_imu_pose_velocity(VP->estimate().Rwb.cast<float>(), VP->estimate().twb.cast<float>(), VV->estimate().cast<float>());
     Vector6d b;
     b << VG->estimate(), VA->estimate();
-    pFrame->imu_bias = IMU::Bias(b[3], b[4], b[5], b[0], b[1], b[2]);
+    pFrame->imu_bias = imu::bias(b[3], b[4], b[5], b[0], b[1], b[2]);
 
     // Recover Hessian, marginalize previous frame states and generate new prior for frame
     Eigen::Matrix<double, 30, 30> H;

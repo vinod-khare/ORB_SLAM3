@@ -44,7 +44,7 @@ add_library(ORB_SLAM3 SHARED
         source/frame.cpp
         source/key_frame_database.cpp
         source/sim3_solver.cpp
-        source/ImuTypes.cpp
+        source/imu_types.cpp
         source/G2oTypes.cpp
         source/CameraModels/pinhole.cpp
         source/CameraModels/kannala_brandt8.cpp

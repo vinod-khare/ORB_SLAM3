@@ -19,10 +19,10 @@
 #ifndef TRACKING_H
 #define TRACKING_H
 
-#include "geometric_camera.h"
-#include "ImuTypes.h"
 #include "atlas.h"
 #include "frame.h"
+#include "geometric_camera.h"
+#include "imu_types.h"
 #include "key_frame_database.h"
 #include "keypoint_extractor.h"
 #include "local_mapping.h"
@@ -74,7 +74,7 @@ class tracking
     static void
     extract_features(frame &frame, keypoint_extractor &extractor, const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {}, keypoint_extractor *right_extractor = nullptr);
 
-    void grab_imu_data(const IMU::Point &imuMeasurement);
+    void grab_imu_data(const imu::point &imuMeasurement);
 
     void set_local_mapper(local_mapping *pLocalMapper);
     void set_loop_closing(loop_closing *pLoopClosing);
@@ -85,7 +85,7 @@ class tracking
     // Use this function if you have deactivated local mapping and you only want to localize the camera.
     void inform_only_tracking(const bool &flag);
 
-    void       update_frame_imu(const float s, const IMU::Bias &b, key_frame *pCurrentKeyFrame);
+    void       update_frame_imu(const float s, const imu::bias &b, key_frame *pCurrentKeyFrame);
     key_frame *get_last_key_frame() { return last_key_frame; }
 
     void create_map_in_atlas();
@@ -217,20 +217,20 @@ class tracking
     bool map_updated;
 
     // Imu preintegration from last frame
-    IMU::Preintegrated *imu_preintegrated_from_last_key_frame;
+    imu::preintegrated *imu_preintegrated_from_last_key_frame;
 
     // Queue of IMU measurements between frames
-    std::list<IMU::Point> imu_data_queue;
+    std::list<imu::point> imu_data_queue;
 
     // Vector of IMU measurements from previous to current frame (to be filled by PreintegrateIMU)
-    std::vector<IMU::Point> imu_measurements_from_last_frame;
+    std::vector<imu::point> imu_measurements_from_last_frame;
     std::mutex              imu_queue_mutex;
 
     // Imu calibration parameters
-    IMU::Calib *imu_calibration;
+    imu::calib *imu_calibration;
 
     // Last Bias Estimation (at keyframe creation)
-    IMU::Bias last_bias;
+    imu::bias last_bias;
 
     // In case of performing only localization, this flag is true when there are no matches to
     // points in the map. Still tracking will continue if there are enough matches with temporal points.

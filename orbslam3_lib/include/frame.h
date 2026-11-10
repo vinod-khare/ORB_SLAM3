@@ -19,11 +19,11 @@
 #pragma once
 
 #include "Eigen/Core"
-#include "ImuTypes.h"
-#include "settings.h"
 #include "converter.h"
+#include "imu_types.h"
 #include "keypoint.h"
 #include "place_vocabulary.h"
+#include "settings.h"
 #include "sophus/se3.hpp"
 
 #include <array>
@@ -83,7 +83,7 @@ class frame
           float               baseline_fx,
           float               depth_threshold,
           frame              *previous        = nullptr,
-          const IMU::Calib   &imu_calibration = {},
+          const imu::calib   &imu_calibration = {},
           const Sophus::SE3f &left_to_right   = {});
 
     const std::vector<cv::Mat> &get_optical_flow_pyramid(const cv::Mat &image, bool right = false);
@@ -112,7 +112,7 @@ class frame
     Eigen::Matrix3f get_relative_pose_tlr_rotation();
     Eigen::Vector3f get_relative_pose_tlr_translation();
 
-    void set_new_bias(const IMU::Bias &b);
+    void set_new_bias(const imu::bias &b);
 
     // Check if a map_point is in the frustum of the camera
     // and fill variables of the map_point to be used by the tracking
@@ -255,21 +255,21 @@ class frame
     static float             grid_element_height_inverse;
     std::vector<std::size_t> grid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
-    IMU::Bias predicted_imu_bias;
+    imu::bias predicted_imu_bias;
 
     // IMU bias
-    IMU::Bias imu_bias;
+    imu::bias imu_bias;
 
     // Imu calibration
-    IMU::Calib imu_calibration;
+    imu::calib imu_calibration;
 
     // Imu preintegration from last keyframe
-    IMU::Preintegrated *imu_preintegrated;
-    key_frame           *last_key_frame;
+    imu::preintegrated *imu_preintegrated;
+    key_frame          *last_key_frame;
 
     // Pointer to previous frame
     frame              *previous_frame;
-    IMU::Preintegrated *frame_imu_preintegrated;
+    imu::preintegrated *frame_imu_preintegrated;
 
     // Current and Next Frame id.
     static long unsigned int next_id;

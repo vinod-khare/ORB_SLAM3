@@ -254,8 +254,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     const auto pose = Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f(1, 2, 3));
     current.set_pose(pose);
     current.set_velocity(Eigen::Vector3f(4, 5, 6));
-    ORB_SLAM3::IMU::Preintegrated frame_integration;
-    ORB_SLAM3::IMU::Preintegrated keyframe_integration;
+    ORB_SLAM3::imu::preintegrated frame_integration;
+    ORB_SLAM3::imu::preintegrated keyframe_integration;
     current.frame_imu_preintegrated = &frame_integration;
     current.imu_preintegrated       = &keyframe_integration;
     current.set_integrated();

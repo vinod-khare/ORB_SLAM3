@@ -473,7 +473,7 @@ class EdgeInertial : public g2o::BaseMultiEdge<9, Vector9d>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    EdgeInertial(IMU::Preintegrated *pInt);
+    EdgeInertial(imu::preintegrated *pInt);
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -517,7 +517,7 @@ class EdgeInertial : public g2o::BaseMultiEdge<9, Vector9d>
 
     const Eigen::Matrix3d JRg, JVg, JPg;
     const Eigen::Matrix3d JVa, JPa;
-    IMU::Preintegrated   *mpInt;
+    imu::preintegrated   *mpInt;
     const double          dt;
     Eigen::Vector3d       g;
 };
@@ -528,7 +528,7 @@ class EdgeInertialGS : public g2o::BaseMultiEdge<9, Vector9d>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    EdgeInertialGS(IMU::Preintegrated *pInt);
+    EdgeInertialGS(imu::preintegrated *pInt);
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -538,7 +538,7 @@ class EdgeInertialGS : public g2o::BaseMultiEdge<9, Vector9d>
 
     const Eigen::Matrix3d JRg, JVg, JPg;
     const Eigen::Matrix3d JVa, JPa;
-    IMU::Preintegrated   *mpInt;
+    imu::preintegrated   *mpInt;
     const double          dt;
     Eigen::Vector3d       g, gI;
 

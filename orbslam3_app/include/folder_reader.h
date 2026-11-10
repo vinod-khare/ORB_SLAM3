@@ -90,12 +90,12 @@ class folder_reader
   private:
     static bool                        is_numeric_stem(const std::string &s);
     static cv::Mat                     read_image_at_path(const std::string &path);
-    std::vector<ORB_SLAM3::IMU::Point> collect_imu(double timestamp, bool is_first_frame) const;
+    std::vector<ORB_SLAM3::imu::point> collect_imu(double timestamp, bool is_first_frame) const;
 
     std::vector<std::string>           _images;
     std::vector<std::string>           _right_images;
     std::vector<double>                _time_stamps;
-    std::vector<ORB_SLAM3::IMU::Point> _imu_measurements;
+    std::vector<ORB_SLAM3::imu::point> _imu_measurements;
     mutable size_t                     _index     = 0;
     mutable size_t                     _imu_index = 0;
 };

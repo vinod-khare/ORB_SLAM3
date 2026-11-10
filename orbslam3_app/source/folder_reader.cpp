@@ -176,8 +176,8 @@ folder_reader::folder_reader(const settings &reader_settings)
 
         if (!_time_stamps.empty())
         {
-            const auto first_after_frame = std::upper_bound(_imu_measurements.begin(), _imu_measurements.end(), _time_stamps.front(),
-                                                            [](double timestamp, const ORB_SLAM3::IMU::Point &measurement) { return timestamp < measurement.t; });
+            const auto first_after_frame = std::upper_bound(
+                _imu_measurements.begin(), _imu_measurements.end(), _time_stamps.front(), [](double timestamp, const ORB_SLAM3::imu::point &measurement) { return timestamp < measurement.t; });
             if (first_after_frame != _imu_measurements.begin())
             {
                 _imu_index = static_cast<size_t>(std::distance(_imu_measurements.begin(), first_after_frame) - 1);
@@ -208,9 +208,9 @@ cv::Mat folder_reader::read_image_at_path(const std::string &path)
     return image;
 }
 
-std::vector<ORB_SLAM3::IMU::Point> folder_reader::collect_imu(double timestamp, bool is_first_frame) const
+std::vector<ORB_SLAM3::imu::point> folder_reader::collect_imu(double timestamp, bool is_first_frame) const
 {
-    std::vector<ORB_SLAM3::IMU::Point> imu;
+    std::vector<ORB_SLAM3::imu::point> imu;
     if (!is_first_frame)
     {
         while (_imu_index < _imu_measurements.size() && _imu_measurements[_imu_index].t <= timestamp)

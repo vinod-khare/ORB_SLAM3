@@ -1074,7 +1074,7 @@ void local_mapping::cull_key_frames()
 
                     if ((bInitImu && (pKF->id < last_ID) && t < 3.) || (t < 0.5))
                     {
-                        pKF->next_key_frame->imu_preintegrated->MergePrevious(pKF->imu_preintegrated);
+                        pKF->next_key_frame->imu_preintegrated->merge_previous(pKF->imu_preintegrated);
                         pKF->next_key_frame->previous_key_frame = pKF->previous_key_frame;
                         pKF->previous_key_frame->next_key_frame = pKF->next_key_frame;
                         pKF->next_key_frame                     = NULL;
@@ -1083,7 +1083,7 @@ void local_mapping::cull_key_frames()
                     }
                     else if (!current_key_frame->get_map()->get_inertial_ba2() && ((pKF->get_imu_position() - pKF->previous_key_frame->get_imu_position()).norm() < 0.02) && (t < 3))
                     {
-                        pKF->next_key_frame->imu_preintegrated->MergePrevious(pKF->imu_preintegrated);
+                        pKF->next_key_frame->imu_preintegrated->merge_previous(pKF->imu_preintegrated);
                         pKF->next_key_frame->previous_key_frame = pKF->previous_key_frame;
                         pKF->previous_key_frame->next_key_frame = pKF->next_key_frame;
                         pKF->next_key_frame                     = NULL;
@@ -1284,7 +1284,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
     }
 
     const int N = vpKF.size();
-    IMU::Bias b(0, 0, 0, 0, 0, 0);
+    imu::bias b(0, 0, 0, 0, 0, 0);
 
     // Compute and KF velocities imu_world_rotation estimation
     if (!current_key_frame->get_map()->is_imu_initialized())
@@ -1303,8 +1303,8 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
                 continue;
             }
 
-            dirG                 -= (*itKF)->previous_key_frame->get_imu_rotation() * (*itKF)->imu_preintegrated->GetUpdatedDeltaVelocity();
-            Eigen::Vector3f _vel  = ((*itKF)->get_imu_position() - (*itKF)->previous_key_frame->get_imu_position()) / (*itKF)->imu_preintegrated->dT;
+            dirG                 -= (*itKF)->previous_key_frame->get_imu_rotation() * (*itKF)->imu_preintegrated->get_updated_delta_velocity();
+            Eigen::Vector3f _vel  = ((*itKF)->get_imu_position() - (*itKF)->previous_key_frame->get_imu_position()) / (*itKF)->imu_preintegrated->delta_time;
             (*itKF)->set_velocity(_vel);
             (*itKF)->previous_key_frame->set_velocity(_vel);
         }

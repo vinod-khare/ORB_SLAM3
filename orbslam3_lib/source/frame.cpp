@@ -351,7 +351,7 @@ frame::frame(double              timestamp,
              float               baseline_fx,
              float               depth_threshold,
              frame              *previous,
-             const IMU::Calib   &imu_calibration,
+             const imu::calib   &imu_calibration,
              const Sophus::SE3f &left_to_right)
     : imu_constraint(nullptr), _has_pose(false), _left_to_right(left_to_right), _right_to_left(left_to_right.inverse()), _left_to_right_rotation(left_to_right.rotationMatrix()),
       _left_to_right_translation(left_to_right.translation()), _has_velocity(false), place_vocabulary_ptr(vocabulary), timestamp(timestamp), calibration_matrix(calibration.clone()),
@@ -419,7 +419,7 @@ void frame::set_pose(const Sophus::SE3<float> &Tcw)
     _has_pose = true;
 }
 
-void frame::set_new_bias(const IMU::Bias &b)
+void frame::set_new_bias(const imu::bias &b)
 {
     imu_bias = b;
     if (imu_preintegrated)
@@ -444,7 +444,7 @@ void frame::set_imu_pose_velocity(const Eigen::Matrix3f &Rwb, const Eigen::Vecto
     Sophus::SE3f Twb(Rwb, twb);
     Sophus::SE3f Tbw = Twb.inverse();
 
-    _camera_from_world = imu_calibration.mTcb * Tbw;
+    _camera_from_world = imu_calibration.camera_to_body * Tbw;
 
     update_pose_matrices();
     _is_set   = true;
@@ -460,11 +460,11 @@ void frame::update_pose_matrices()
     _world_to_camera_translation = _camera_from_world.translation();
 }
 
-Eigen::Matrix<float, 3, 1> frame::get_imu_position() const { return _world_from_camera_rotation * imu_calibration.mTcb.translation() + _camera_origin; }
+Eigen::Matrix<float, 3, 1> frame::get_imu_position() const { return _world_from_camera_rotation * imu_calibration.camera_to_body.translation() + _camera_origin; }
 
-Eigen::Matrix<float, 3, 3> frame::get_imu_rotation() { return _world_from_camera_rotation * imu_calibration.mTcb.rotationMatrix(); }
+Eigen::Matrix<float, 3, 3> frame::get_imu_rotation() { return _world_from_camera_rotation * imu_calibration.camera_to_body.rotationMatrix(); }
 
-Sophus::SE3<float> frame::get_imu_pose() { return _camera_from_world.inverse() * imu_calibration.mTcb; }
+Sophus::SE3<float> frame::get_imu_pose() { return _camera_from_world.inverse() * imu_calibration.camera_to_body; }
 
 Sophus::SE3f frame::get_relative_pose_trl() { return _right_to_left; }
 

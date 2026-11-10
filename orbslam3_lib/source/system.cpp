@@ -216,7 +216,7 @@ void system::register_frame_filename_for_export(const string &filename)
     }
 }
 
-Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
+Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<imu::point> &vImuMeas, string filename)
 {
     if (_sensor != stereo && _sensor != imu_stereo)
     {
@@ -305,7 +305,7 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
     return Tcw;
 }
 
-Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
+Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, const vector<imu::point> &vImuMeas, string filename)
 {
     if (_sensor != rgbd && _sensor != imu_rgbd)
     {
@@ -425,7 +425,7 @@ void system::set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid)
     _tracker->next_optical_flow_pyramid = std::move(pyramid);
 }
 
-Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point> &vImuMeas, string filename)
+Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp, const vector<imu::point> &vImuMeas, string filename)
 {
 
     {
@@ -765,7 +765,7 @@ void system::save_trajectory_euroc(const string &filename)
 
         if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
-            Sophus::SE3f       Twb = (pKF->imu_calibration.mTbc * (*lit) * Trw).inverse();
+            Sophus::SE3f       Twb = (pKF->imu_calibration.body_to_camera * (*lit) * Trw).inverse();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
             Eigen::Vector3f    twb = Twb.translation();
             f << setprecision(6) << 1e9 * (*lT) << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
@@ -848,7 +848,7 @@ void system::save_trajectory_euroc(const string &filename, map *pMap)
 
         if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
-            Sophus::SE3f       Twb = (pKF->imu_calibration.mTbc * (*lit) * Trw).inverse();
+            Sophus::SE3f       Twb = (pKF->imu_calibration.body_to_camera * (*lit) * Trw).inverse();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
             Eigen::Vector3f    twb = Twb.translation();
             f << setprecision(6) << 1e9 * (*lT) << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;

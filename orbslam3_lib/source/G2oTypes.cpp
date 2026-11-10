@@ -18,8 +18,8 @@
 
 #include "G2oTypes.h"
 
-#include "ImuTypes.h"
 #include "converter.h"
+#include "imu_types.h"
 namespace ORB_SLAM3
 {
 
@@ -50,10 +50,10 @@ ImuCamPose::ImuCamPose(key_frame *pKF) : cameras(pKF->cameras), its(0)
     // Left camera
     tcw[0] = pKF->get_translation().cast<double>();
     Rcw[0] = pKF->get_rotation().cast<double>();
-    tcb[0] = pKF->imu_calibration.mTcb.translation().cast<double>();
-    Rcb[0] = pKF->imu_calibration.mTcb.rotationMatrix().cast<double>();
+    tcb[0] = pKF->imu_calibration.camera_to_body.translation().cast<double>();
+    Rcb[0] = pKF->imu_calibration.camera_to_body.rotationMatrix().cast<double>();
     Rbc[0] = Rcb[0].transpose();
-    tbc[0] = pKF->imu_calibration.mTbc.translation().cast<double>();
+    tbc[0] = pKF->imu_calibration.body_to_camera.translation().cast<double>();
     bf     = pKF->mbf;
 
     if (num_cams > 1)
@@ -99,10 +99,10 @@ ImuCamPose::ImuCamPose(frame *pF, const camera_vector &cameras) : cameras(camera
     // Left camera
     tcw[0] = pF->get_pose().translation().cast<double>();
     Rcw[0] = pF->get_pose().rotationMatrix().cast<double>();
-    tcb[0] = pF->imu_calibration.mTcb.translation().cast<double>();
-    Rcb[0] = pF->imu_calibration.mTcb.rotationMatrix().cast<double>();
+    tcb[0] = pF->imu_calibration.camera_to_body.translation().cast<double>();
+    Rcb[0] = pF->imu_calibration.camera_to_body.rotationMatrix().cast<double>();
     Rbc[0] = Rcb[0].transpose();
-    tbc[0] = pF->imu_calibration.mTbc.translation().cast<double>();
+    tbc[0] = pF->imu_calibration.body_to_camera.translation().cast<double>();
     bf     = pF->baseline_fx;
 
     if (num_cams > 1)
@@ -131,10 +131,10 @@ ImuCamPose::ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *
     Rbc.resize(1);
     tbc.resize(1);
 
-    tcb[0] = pKF->imu_calibration.mTcb.translation().cast<double>();
-    Rcb[0] = pKF->imu_calibration.mTcb.rotationMatrix().cast<double>();
+    tcb[0] = pKF->imu_calibration.camera_to_body.translation().cast<double>();
+    Rcb[0] = pKF->imu_calibration.camera_to_body.rotationMatrix().cast<double>();
     Rbc[0] = Rcb[0].transpose();
-    tbc[0] = pKF->imu_calibration.mTbc.translation().cast<double>();
+    tbc[0] = pKF->imu_calibration.body_to_camera.translation().cast<double>();
     twb    = _Rwc * tcb[0] + _twc;
     Rwb    = _Rwc * Rcb[0];
     Rcw[0] = _Rwc.transpose();
@@ -478,14 +478,15 @@ VertexAccBias::VertexAccBias(frame *pF)
     setEstimate(ba);
 }
 
-EdgeInertial::EdgeInertial(IMU::Preintegrated *pInt)
-    : JRg(pInt->JRg.cast<double>()), JVg(pInt->JVg.cast<double>()), JPg(pInt->JPg.cast<double>()), JVa(pInt->JVa.cast<double>()), JPa(pInt->JPa.cast<double>()), mpInt(pInt), dt(pInt->dT)
+EdgeInertial::EdgeInertial(imu::preintegrated *pInt)
+    : JRg(pInt->rotation_gyro_bias_jacobian.cast<double>()), JVg(pInt->velocity_gyro_bias_jacobian.cast<double>()), JPg(pInt->position_gyro_bias_jacobian.cast<double>()),
+      JVa(pInt->velocity_accel_bias_jacobian.cast<double>()), JPa(pInt->position_accel_bias_jacobian.cast<double>()), mpInt(pInt), dt(pInt->delta_time)
 {
     // This edge links 6 vertices
     resize(6);
-    g << 0, 0, -IMU::GRAVITY_VALUE;
+    g << 0, 0, -imu::gravity_value;
 
-    Matrix9d Info = pInt->C.block<9, 9>(0, 0).cast<double>().inverse();
+    Matrix9d Info = pInt->covariance.block<9, 9>(0, 0).cast<double>().inverse();
     Info          = (Info + Info.transpose()) / 2;
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 9, 9>> es(Info);
     Eigen::Matrix<double, 9, 1>                                eigs = es.eigenvalues();
@@ -502,17 +503,17 @@ EdgeInertial::EdgeInertial(IMU::Preintegrated *pInt)
 
 void EdgeInertial::computeError()
 {
-    // TODO Maybe Reintegrate inertial measurments when difference between linearization point and current estimate is too big
+    // TODO Maybe reintegrate inertial measurments when difference between linearization point and current estimate is too big
     const VertexPose     *VP1 = static_cast<const VertexPose *>(_vertices[0]);
     const VertexVelocity *VV1 = static_cast<const VertexVelocity *>(_vertices[1]);
     const VertexGyroBias *VG1 = static_cast<const VertexGyroBias *>(_vertices[2]);
     const VertexAccBias  *VA1 = static_cast<const VertexAccBias *>(_vertices[3]);
     const VertexPose     *VP2 = static_cast<const VertexPose *>(_vertices[4]);
     const VertexVelocity *VV2 = static_cast<const VertexVelocity *>(_vertices[5]);
-    const IMU::Bias       b1(VA1->estimate()[0], VA1->estimate()[1], VA1->estimate()[2], VG1->estimate()[0], VG1->estimate()[1], VG1->estimate()[2]);
-    const Eigen::Matrix3d dR = mpInt->GetDeltaRotation(b1).cast<double>();
-    const Eigen::Vector3d dV = mpInt->GetDeltaVelocity(b1).cast<double>();
-    const Eigen::Vector3d dP = mpInt->GetDeltaPosition(b1).cast<double>();
+    const imu::bias       b1(VA1->estimate()[0], VA1->estimate()[1], VA1->estimate()[2], VG1->estimate()[0], VG1->estimate()[1], VG1->estimate()[2]);
+    const Eigen::Matrix3d dR = mpInt->get_delta_rotation(b1).cast<double>();
+    const Eigen::Vector3d dV = mpInt->get_delta_velocity(b1).cast<double>();
+    const Eigen::Vector3d dP = mpInt->get_delta_position(b1).cast<double>();
 
     const Eigen::Vector3d er = LogSO3(dR.transpose() * VP1->estimate().Rwb.transpose() * VP2->estimate().Rwb);
     const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose() * (VV2->estimate() - VV1->estimate() - g * dt) - dV;
@@ -529,8 +530,8 @@ void EdgeInertial::linearizeOplus()
     const VertexAccBias  *VA1 = static_cast<const VertexAccBias *>(_vertices[3]);
     const VertexPose     *VP2 = static_cast<const VertexPose *>(_vertices[4]);
     const VertexVelocity *VV2 = static_cast<const VertexVelocity *>(_vertices[5]);
-    const IMU::Bias       b1(VA1->estimate()[0], VA1->estimate()[1], VA1->estimate()[2], VG1->estimate()[0], VG1->estimate()[1], VG1->estimate()[2]);
-    const IMU::Bias       db = mpInt->GetDeltaBias(b1);
+    const imu::bias       b1(VA1->estimate()[0], VA1->estimate()[1], VA1->estimate()[2], VG1->estimate()[0], VG1->estimate()[1], VG1->estimate()[2]);
+    const imu::bias       db = mpInt->get_delta_bias(b1);
     Eigen::Vector3d       dbg;
     dbg << db.bwx, db.bwy, db.bwz;
 
@@ -538,7 +539,7 @@ void EdgeInertial::linearizeOplus()
     const Eigen::Matrix3d Rbw1 = Rwb1.transpose();
     const Eigen::Matrix3d Rwb2 = VP2->estimate().Rwb;
 
-    const Eigen::Matrix3d dR    = mpInt->GetDeltaRotation(b1).cast<double>();
+    const Eigen::Matrix3d dR    = mpInt->get_delta_rotation(b1).cast<double>();
     const Eigen::Matrix3d eR    = dR.transpose() * Rbw1 * Rwb2;
     const Eigen::Vector3d er    = LogSO3(eR);
     const Eigen::Matrix3d invJr = InverseRightJacobianSO3(er);
@@ -580,14 +581,15 @@ void EdgeInertial::linearizeOplus()
     _jacobianOplus[5].block<3, 3>(3, 0) = Rbw1; // OK
 }
 
-EdgeInertialGS::EdgeInertialGS(IMU::Preintegrated *pInt)
-    : JRg(pInt->JRg.cast<double>()), JVg(pInt->JVg.cast<double>()), JPg(pInt->JPg.cast<double>()), JVa(pInt->JVa.cast<double>()), JPa(pInt->JPa.cast<double>()), mpInt(pInt), dt(pInt->dT)
+EdgeInertialGS::EdgeInertialGS(imu::preintegrated *pInt)
+    : JRg(pInt->rotation_gyro_bias_jacobian.cast<double>()), JVg(pInt->velocity_gyro_bias_jacobian.cast<double>()), JPg(pInt->position_gyro_bias_jacobian.cast<double>()),
+      JVa(pInt->velocity_accel_bias_jacobian.cast<double>()), JPa(pInt->position_accel_bias_jacobian.cast<double>()), mpInt(pInt), dt(pInt->delta_time)
 {
     // This edge links 8 vertices
     resize(8);
-    gI << 0, 0, -IMU::GRAVITY_VALUE;
+    gI << 0, 0, -imu::gravity_value;
 
-    Matrix9d Info = pInt->C.block<9, 9>(0, 0).cast<double>().inverse();
+    Matrix9d Info = pInt->covariance.block<9, 9>(0, 0).cast<double>().inverse();
     Info          = (Info + Info.transpose()) / 2;
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 9, 9>> es(Info);
     Eigen::Matrix<double, 9, 1>                                eigs = es.eigenvalues();
@@ -604,7 +606,7 @@ EdgeInertialGS::EdgeInertialGS(IMU::Preintegrated *pInt)
 
 void EdgeInertialGS::computeError()
 {
-    // TODO Maybe Reintegrate inertial measurments when difference between linearization point and current estimate is too big
+    // TODO Maybe reintegrate inertial measurments when difference between linearization point and current estimate is too big
     const VertexPose     *VP1   = static_cast<const VertexPose *>(_vertices[0]);
     const VertexVelocity *VV1   = static_cast<const VertexVelocity *>(_vertices[1]);
     const VertexGyroBias *VG    = static_cast<const VertexGyroBias *>(_vertices[2]);
@@ -613,12 +615,12 @@ void EdgeInertialGS::computeError()
     const VertexVelocity *VV2   = static_cast<const VertexVelocity *>(_vertices[5]);
     const VertexGDir     *VGDir = static_cast<const VertexGDir *>(_vertices[6]);
     const VertexScale    *VS    = static_cast<const VertexScale *>(_vertices[7]);
-    const IMU::Bias       b(VA->estimate()[0], VA->estimate()[1], VA->estimate()[2], VG->estimate()[0], VG->estimate()[1], VG->estimate()[2]);
+    const imu::bias       b(VA->estimate()[0], VA->estimate()[1], VA->estimate()[2], VG->estimate()[0], VG->estimate()[1], VG->estimate()[2]);
     g                        = VGDir->estimate().Rwg * gI;
     const double          s  = VS->estimate();
-    const Eigen::Matrix3d dR = mpInt->GetDeltaRotation(b).cast<double>();
-    const Eigen::Vector3d dV = mpInt->GetDeltaVelocity(b).cast<double>();
-    const Eigen::Vector3d dP = mpInt->GetDeltaPosition(b).cast<double>();
+    const Eigen::Matrix3d dR = mpInt->get_delta_rotation(b).cast<double>();
+    const Eigen::Vector3d dV = mpInt->get_delta_velocity(b).cast<double>();
+    const Eigen::Vector3d dP = mpInt->get_delta_position(b).cast<double>();
 
     const Eigen::Vector3d er = LogSO3(dR.transpose() * VP1->estimate().Rwb.transpose() * VP2->estimate().Rwb);
     const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose() * (s * (VV2->estimate() - VV1->estimate()) - g * dt) - dV;
@@ -637,8 +639,8 @@ void EdgeInertialGS::linearizeOplus()
     const VertexVelocity *VV2   = static_cast<const VertexVelocity *>(_vertices[5]);
     const VertexGDir     *VGDir = static_cast<const VertexGDir *>(_vertices[6]);
     const VertexScale    *VS    = static_cast<const VertexScale *>(_vertices[7]);
-    const IMU::Bias       b(VA->estimate()[0], VA->estimate()[1], VA->estimate()[2], VG->estimate()[0], VG->estimate()[1], VG->estimate()[2]);
-    const IMU::Bias       db = mpInt->GetDeltaBias(b);
+    const imu::bias       b(VA->estimate()[0], VA->estimate()[1], VA->estimate()[2], VG->estimate()[0], VG->estimate()[1], VG->estimate()[2]);
+    const imu::bias       db = mpInt->get_delta_bias(b);
 
     Eigen::Vector3d dbg;
     dbg << db.bwx, db.bwy, db.bwz;
@@ -648,11 +650,11 @@ void EdgeInertialGS::linearizeOplus()
     const Eigen::Matrix3d Rwb2     = VP2->estimate().Rwb;
     const Eigen::Matrix3d Rwg      = VGDir->estimate().Rwg;
     Eigen::MatrixXd       Gm       = Eigen::MatrixXd::Zero(3, 2);
-    Gm(0, 1)                       = -IMU::GRAVITY_VALUE;
-    Gm(1, 0)                       = IMU::GRAVITY_VALUE;
+    Gm(0, 1)                       = -imu::gravity_value;
+    Gm(1, 0)                       = imu::gravity_value;
     const double          s        = VS->estimate();
     const Eigen::MatrixXd dGdTheta = Rwg * Gm;
-    const Eigen::Matrix3d dR       = mpInt->GetDeltaRotation(b).cast<double>();
+    const Eigen::Matrix3d dR       = mpInt->get_delta_rotation(b).cast<double>();
     const Eigen::Matrix3d eR       = dR.transpose() * Rbw1 * Rwb2;
     const Eigen::Vector3d er       = LogSO3(eR);
     const Eigen::Matrix3d invJr    = InverseRightJacobianSO3(er);

@@ -171,9 +171,9 @@ void tracking::load_parameters(settings *settings)
     float Naw                   = settings->accelerometer_random_walk();
 
     const float sf  = sqrt(imu_frequency);
-    imu_calibration = new IMU::Calib(Tbc, Ng * sf, Na * sf, Ngw / sf, Naw / sf);
+    imu_calibration = new imu::calib(Tbc, Ng * sf, Na * sf, Ngw / sf, Naw / sf);
 
-    imu_preintegrated_from_last_key_frame = new IMU::Preintegrated(IMU::Bias(), *imu_calibration);
+    imu_preintegrated_from_last_key_frame = new imu::preintegrated(imu::bias(), *imu_calibration);
 }
 
 void tracking::set_local_mapper(local_mapping *pLocalMapper) { local_mapper = pLocalMapper; }
@@ -417,7 +417,7 @@ Sophus::SE3f tracking::grab_image_monocular(const cv::Mat &im, const double &tim
     return current_frame.get_pose();
 }
 
-void tracking::grab_imu_data(const IMU::Point &imuMeasurement)
+void tracking::grab_imu_data(const imu::point &imuMeasurement)
 {
     unique_lock<mutex> lock(imu_queue_mutex);
     imu_data_queue.push_back(imuMeasurement);
@@ -449,7 +449,7 @@ void tracking::preintegrate_imu()
             unique_lock<mutex> lock(imu_queue_mutex);
             if (!imu_data_queue.empty())
             {
-                IMU::Point *m = &imu_data_queue.front();
+                imu::point *m = &imu_data_queue.front();
                 if (m->t < current_frame.previous_frame->timestamp - imu_period)
                 {
                     imu_data_queue.pop_front();
@@ -484,7 +484,7 @@ void tracking::preintegrate_imu()
         return;
     }
 
-    IMU::Preintegrated *pImuPreintegratedFromLastFrame = new IMU::Preintegrated(last_frame.imu_bias, current_frame.imu_calibration);
+    imu::preintegrated *pImuPreintegratedFromLastFrame = new imu::preintegrated(last_frame.imu_bias, current_frame.imu_calibration);
 
     for (int i = 0; i < n; i++)
     {
@@ -531,8 +531,8 @@ void tracking::preintegrate_imu()
         {
             spdlog::error("IMU preintegration from the last keyframe is missing");
         }
-        imu_preintegrated_from_last_key_frame->IntegrateNewMeasurement(acc, angVel, tstep);
-        pImuPreintegratedFromLastFrame->IntegrateNewMeasurement(acc, angVel, tstep);
+        imu_preintegrated_from_last_key_frame->integrate_new_measurement(acc, angVel, tstep);
+        pImuPreintegratedFromLastFrame->integrate_new_measurement(acc, angVel, tstep);
     }
 
     current_frame.frame_imu_preintegrated = pImuPreintegratedFromLastFrame;
@@ -556,12 +556,12 @@ bool tracking::predict_state_imu()
         const Eigen::Matrix3f Rwb1 = last_key_frame->get_imu_rotation();
         const Eigen::Vector3f Vwb1 = last_key_frame->get_velocity();
 
-        const Eigen::Vector3f Gz(0, 0, -IMU::GRAVITY_VALUE);
-        const float           t12 = imu_preintegrated_from_last_key_frame->dT;
+        const Eigen::Vector3f Gz(0, 0, -imu::gravity_value);
+        const float           t12 = imu_preintegrated_from_last_key_frame->delta_time;
 
-        Eigen::Matrix3f Rwb2 = IMU::NormalizeRotation(Rwb1 * imu_preintegrated_from_last_key_frame->GetDeltaRotation(last_key_frame->get_imu_bias()));
-        Eigen::Vector3f twb2 = twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * imu_preintegrated_from_last_key_frame->GetDeltaPosition(last_key_frame->get_imu_bias());
-        Eigen::Vector3f Vwb2 = Vwb1 + t12 * Gz + Rwb1 * imu_preintegrated_from_last_key_frame->GetDeltaVelocity(last_key_frame->get_imu_bias());
+        Eigen::Matrix3f Rwb2 = imu::normalize_rotation(Rwb1 * imu_preintegrated_from_last_key_frame->get_delta_rotation(last_key_frame->get_imu_bias()));
+        Eigen::Vector3f twb2 = twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * imu_preintegrated_from_last_key_frame->get_delta_position(last_key_frame->get_imu_bias());
+        Eigen::Vector3f Vwb2 = Vwb1 + t12 * Gz + Rwb1 * imu_preintegrated_from_last_key_frame->get_delta_velocity(last_key_frame->get_imu_bias());
         current_frame.set_imu_pose_velocity(Rwb2, twb2, Vwb2);
 
         current_frame.imu_bias           = last_key_frame->get_imu_bias();
@@ -573,12 +573,12 @@ bool tracking::predict_state_imu()
         const Eigen::Vector3f twb1 = last_frame.get_imu_position();
         const Eigen::Matrix3f Rwb1 = last_frame.get_imu_rotation();
         const Eigen::Vector3f Vwb1 = last_frame.get_velocity();
-        const Eigen::Vector3f Gz(0, 0, -IMU::GRAVITY_VALUE);
-        const float           t12 = current_frame.frame_imu_preintegrated->dT;
+        const Eigen::Vector3f Gz(0, 0, -imu::gravity_value);
+        const float           t12 = current_frame.frame_imu_preintegrated->delta_time;
 
-        Eigen::Matrix3f Rwb2 = IMU::NormalizeRotation(Rwb1 * current_frame.frame_imu_preintegrated->GetDeltaRotation(last_frame.imu_bias));
-        Eigen::Vector3f twb2 = twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * current_frame.frame_imu_preintegrated->GetDeltaPosition(last_frame.imu_bias);
-        Eigen::Vector3f Vwb2 = Vwb1 + t12 * Gz + Rwb1 * current_frame.frame_imu_preintegrated->GetDeltaVelocity(last_frame.imu_bias);
+        Eigen::Matrix3f Rwb2 = imu::normalize_rotation(Rwb1 * current_frame.frame_imu_preintegrated->get_delta_rotation(last_frame.imu_bias));
+        Eigen::Vector3f twb2 = twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * current_frame.frame_imu_preintegrated->get_delta_position(last_frame.imu_bias);
+        Eigen::Vector3f Vwb2 = Vwb1 + t12 * Gz + Rwb1 * current_frame.frame_imu_preintegrated->get_delta_velocity(last_frame.imu_bias);
 
         current_frame.set_imu_pose_velocity(Rwb2, twb2, Vwb2);
 
@@ -979,7 +979,7 @@ void tracking::track()
             pF->previous_frame = new frame(last_frame);
 
             // Load preintegration
-            pF->frame_imu_preintegrated = new IMU::Preintegrated(current_frame.frame_imu_preintegrated);
+            pF->frame_imu_preintegrated = new imu::preintegrated(current_frame.frame_imu_preintegrated);
         }
 
         if (pCurrentMap->is_imu_initialized())
@@ -1132,7 +1132,7 @@ void tracking::stereo_initialization()
                 return;
             }
 
-            if (!fast_initialization && (current_frame.frame_imu_preintegrated->avgA - last_frame.frame_imu_preintegrated->avgA).norm() < 0.5)
+            if (!fast_initialization && (current_frame.frame_imu_preintegrated->average_acceleration - last_frame.frame_imu_preintegrated->average_acceleration).norm() < 0.5)
             {
                 spdlog::debug("Insufficient acceleration for initialization");
                 return;
@@ -1143,15 +1143,15 @@ void tracking::stereo_initialization()
                 delete imu_preintegrated_from_last_key_frame;
             }
 
-            imu_preintegrated_from_last_key_frame = new IMU::Preintegrated(IMU::Bias(), *imu_calibration);
+            imu_preintegrated_from_last_key_frame = new imu::preintegrated(imu::bias(), *imu_calibration);
             current_frame.imu_preintegrated       = imu_preintegrated_from_last_key_frame;
         }
 
         // Set Frame pose to the origin (In case of inertial SLAM to imu)
         if (sensor == system::imu_stereo || sensor == system::imu_rgbd)
         {
-            Eigen::Matrix3f Rwb0 = current_frame.imu_calibration.mTcb.rotationMatrix();
-            Eigen::Vector3f twb0 = current_frame.imu_calibration.mTcb.translation();
+            Eigen::Matrix3f Rwb0 = current_frame.imu_calibration.camera_to_body.rotationMatrix();
+            Eigen::Vector3f twb0 = current_frame.imu_calibration.camera_to_body.translation();
             Eigen::Vector3f Vwb0;
             Vwb0.setZero();
             current_frame.set_imu_pose_velocity(Rwb0, twb0, Vwb0);
@@ -1261,7 +1261,7 @@ void tracking::monocular_initialization()
                 {
                     delete imu_preintegrated_from_last_key_frame;
                 }
-                imu_preintegrated_from_last_key_frame = new IMU::Preintegrated(IMU::Bias(), *imu_calibration);
+                imu_preintegrated_from_last_key_frame = new imu::preintegrated(imu::bias(), *imu_calibration);
                 current_frame.imu_preintegrated       = imu_preintegrated_from_last_key_frame;
             }
 
@@ -1323,7 +1323,7 @@ void tracking::create_initial_map_monocular()
 
     if (sensor == system::imu_monocular)
     {
-        pKFini->imu_preintegrated = (IMU::Preintegrated *)(NULL);
+        pKFini->imu_preintegrated = (imu::preintegrated *)(NULL);
     }
 
     pKFini->compute_bow();
@@ -1414,7 +1414,7 @@ void tracking::create_initial_map_monocular()
         pKFini->next_key_frame     = pKFcur;
         pKFcur->imu_preintegrated  = imu_preintegrated_from_last_key_frame;
 
-        imu_preintegrated_from_last_key_frame = new IMU::Preintegrated(pKFcur->imu_preintegrated->GetUpdatedBias(), pKFcur->imu_calibration);
+        imu_preintegrated_from_last_key_frame = new imu::preintegrated(pKFcur->imu_preintegrated->get_updated_bias(), pKFcur->imu_calibration);
     }
 
     local_mapper->insert_key_frame(pKFini);
@@ -1477,7 +1477,7 @@ void tracking::create_map_in_atlas()
     if ((sensor == system::imu_monocular || sensor == system::imu_stereo || sensor == system::imu_rgbd) && imu_preintegrated_from_last_key_frame)
     {
         delete imu_preintegrated_from_last_key_frame;
-        imu_preintegrated_from_last_key_frame = new IMU::Preintegrated(IMU::Bias(), *imu_calibration);
+        imu_preintegrated_from_last_key_frame = new imu::preintegrated(imu::bias(), *imu_calibration);
     }
 
     if (last_key_frame)
@@ -1823,7 +1823,7 @@ void tracking::create_frame(double timestamp, keypoint_extractor &extractor)
                           baseline_fx,
                           depth_threshold,
                           inertial ? &last_frame : nullptr,
-                          inertial ? *imu_calibration : IMU::Calib(),
+                          inertial ? *imu_calibration : imu::calib(),
                           stereo && is_fisheye_stereo(cameras) ? left_to_right_pose : Sophus::SE3f());
 
     extract_features(current_frame, extractor, gray_image, cameras, stereo ? right_image : cv::Mat(), stereo ? right_keypoint_extractor.get() : nullptr);
@@ -2434,7 +2434,7 @@ void tracking::create_new_key_frame()
     // Reset preintegration from last KF (Create new object)
     if (sensor == system::imu_monocular || sensor == system::imu_stereo || sensor == system::imu_rgbd)
     {
-        imu_preintegrated_from_last_key_frame = new IMU::Preintegrated(pKF->get_imu_bias(), pKF->imu_calibration);
+        imu_preintegrated_from_last_key_frame = new imu::preintegrated(pKF->get_imu_bias(), pKF->imu_calibration);
     }
 
     if (sensor != system::monocular && sensor != system::imu_monocular) // TODO check if include imu_stereo
@@ -3174,7 +3174,7 @@ vector<map_point *> tracking::get_local_map_points() { return local_map_points; 
 
 void tracking::inform_only_tracking(const bool &flag) { only_tracking = flag; }
 
-void tracking::update_frame_imu(const float s, const IMU::Bias &b, key_frame *pCurrentKeyFrame)
+void tracking::update_frame_imu(const float s, const imu::bias &b, key_frame *pCurrentKeyFrame)
 {
     map                                   *pMap = pCurrentKeyFrame->get_map();
     list<ORB_SLAM3::key_frame *>::iterator lRit = reference_key_frames.begin();
@@ -3217,29 +3217,29 @@ void tracking::update_frame_imu(const float s, const IMU::Bias &b, key_frame *pC
     }
     else
     {
-        const Eigen::Vector3f Gz(0, 0, -IMU::GRAVITY_VALUE);
+        const Eigen::Vector3f Gz(0, 0, -imu::gravity_value);
         const Eigen::Vector3f twb1 = last_frame.last_key_frame->get_imu_position();
         const Eigen::Matrix3f Rwb1 = last_frame.last_key_frame->get_imu_rotation();
         const Eigen::Vector3f Vwb1 = last_frame.last_key_frame->get_velocity();
-        float                 t12  = last_frame.imu_preintegrated->dT;
+        float                 t12  = last_frame.imu_preintegrated->delta_time;
 
-        last_frame.set_imu_pose_velocity(IMU::NormalizeRotation(Rwb1 * last_frame.imu_preintegrated->GetUpdatedDeltaRotation()),
-                                         twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * last_frame.imu_preintegrated->GetUpdatedDeltaPosition(),
-                                         Vwb1 + Gz * t12 + Rwb1 * last_frame.imu_preintegrated->GetUpdatedDeltaVelocity());
+        last_frame.set_imu_pose_velocity(imu::normalize_rotation(Rwb1 * last_frame.imu_preintegrated->get_updated_delta_rotation()),
+                                         twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * last_frame.imu_preintegrated->get_updated_delta_position(),
+                                         Vwb1 + Gz * t12 + Rwb1 * last_frame.imu_preintegrated->get_updated_delta_velocity());
     }
 
     if (current_frame.imu_preintegrated)
     {
-        const Eigen::Vector3f Gz(0, 0, -IMU::GRAVITY_VALUE);
+        const Eigen::Vector3f Gz(0, 0, -imu::gravity_value);
 
         const Eigen::Vector3f twb1 = current_frame.last_key_frame->get_imu_position();
         const Eigen::Matrix3f Rwb1 = current_frame.last_key_frame->get_imu_rotation();
         const Eigen::Vector3f Vwb1 = current_frame.last_key_frame->get_velocity();
-        float                 t12  = current_frame.imu_preintegrated->dT;
+        float                 t12  = current_frame.imu_preintegrated->delta_time;
 
-        current_frame.set_imu_pose_velocity(IMU::NormalizeRotation(Rwb1 * current_frame.imu_preintegrated->GetUpdatedDeltaRotation()),
-                                            twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * current_frame.imu_preintegrated->GetUpdatedDeltaPosition(),
-                                            Vwb1 + Gz * t12 + Rwb1 * current_frame.imu_preintegrated->GetUpdatedDeltaVelocity());
+        current_frame.set_imu_pose_velocity(imu::normalize_rotation(Rwb1 * current_frame.imu_preintegrated->get_updated_delta_rotation()),
+                                            twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * current_frame.imu_preintegrated->get_updated_delta_position(),
+                                            Vwb1 + Gz * t12 + Rwb1 * current_frame.imu_preintegrated->get_updated_delta_velocity());
     }
 
     first_imu_frame_id = current_frame.id;

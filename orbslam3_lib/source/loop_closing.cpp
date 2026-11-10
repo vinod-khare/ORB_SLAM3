@@ -1644,7 +1644,7 @@ void loop_closing::merge_local_2()
         bg << 0., 0., 0.;
         ba << 0., 0., 0.;
         optimizer::inertial_optimization(pCurrentMap, bg, ba);
-        IMU::Bias          b(ba[0], ba[1], ba[2], bg[0], bg[1], bg[2]);
+        imu::bias          b(ba[0], ba[1], ba[2], bg[0], bg[1], bg[2]);
         unique_lock<mutex> lock(owner_atlas->get_current_map()->map_update_mutex);
         tracker->update_frame_imu(1.0f, b, tracker->get_last_key_frame());
 

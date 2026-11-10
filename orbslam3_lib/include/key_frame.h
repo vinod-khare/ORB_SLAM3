@@ -19,9 +19,9 @@
 #ifndef KEY_FRAME_H
 #define KEY_FRAME_H
 
-#include "geometric_camera.h"
-#include "ImuTypes.h"
 #include "frame.h"
+#include "geometric_camera.h"
+#include "imu_types.h"
 #include "key_frame_database.h"
 #include "keypoint_extractor.h"
 #include "map_point.h"
@@ -136,12 +136,12 @@ class key_frame
     map *get_map();
     void update_map(map *pMap);
 
-    void            set_new_bias(const IMU::Bias &b);
+    void            set_new_bias(const imu::bias &b);
     Eigen::Vector3f get_gyro_bias();
 
     Eigen::Vector3f get_accelerometer_bias();
 
-    IMU::Bias get_imu_bias();
+    imu::bias get_imu_bias();
 
     bool project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v);
     bool project_point_undistort(map_point *pMP, cv::Point2f &kp, float &u, float &v);
@@ -196,7 +196,7 @@ class key_frame
     Sophus::SE3f      camera_pose_before_global_ba;
     Eigen::Vector3f   velocity_world_global_ba;
     Eigen::Vector3f   velocity_world_before_global_ba;
-    IMU::Bias         bias_global_ba;
+    imu::bias         bias_global_ba;
     long unsigned int global_ba_key_frame_id;
 
     // Variables used by merging
@@ -205,7 +205,7 @@ class key_frame
     Sophus::SE3f      world_pose_before_merge;
     Eigen::Vector3f   velocity_world_merge;
     Eigen::Vector3f   velocity_world_before_merge;
-    IMU::Bias         bias_merge;
+    imu::bias         bias_merge;
     long unsigned int merge_corrected_key_frame_id;
     long unsigned int merge_key_frame_id;
     float             scale_merge;
@@ -254,8 +254,8 @@ class key_frame
     key_frame *previous_key_frame;
     key_frame *next_key_frame;
 
-    IMU::Preintegrated *imu_preintegrated;
-    IMU::Calib          imu_calibration;
+    imu::preintegrated *imu_preintegrated;
+    imu::calib          imu_calibration;
 
     unsigned int origin_map_id;
 
@@ -285,7 +285,7 @@ class key_frame
     Sophus::SE3<float> right_to_left_pose;
 
     // Imu bias
-    IMU::Bias imu_bias;
+    imu::bias imu_bias;
 
     // MapPoints associated to keypoints
     std::vector<map_point *> map_points;
