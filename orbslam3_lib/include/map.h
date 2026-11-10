@@ -30,7 +30,7 @@ namespace ORB_SLAM3
 
 class MapPoint;
 class KeyFrame;
-class KeyFrameDatabase;
+class key_frame_database;
 
 class map
 {

@@ -16,8 +16,8 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef KEYFRAMEDATABASE_H
-#define KEYFRAMEDATABASE_H
+#ifndef KEY_FRAME_DATABASE_H
+#define KEY_FRAME_DATABASE_H
 
 #include "KeyFrame.h"
 #include "frame.h"
@@ -36,41 +36,41 @@ class KeyFrame;
 class frame;
 class map;
 
-class KeyFrameDatabase
+class key_frame_database
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    KeyFrameDatabase() {}
-    KeyFrameDatabase(const place_vocabulary &voc);
+    key_frame_database() {}
+    key_frame_database(const place_vocabulary &voc);
 
     void add(KeyFrame *pKF);
 
     void erase(KeyFrame *pKF);
 
     void clear();
-    void clearMap(map *pMap);
+    void clear_map(map *pMap);
 
     // Loop Detection(DEPRECATED)
-    std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame *pKF, float minScore);
+    std::vector<KeyFrame *> detect_loop_candidates(KeyFrame *pKF, float minScore);
 
     // Loop and Merge Detection
-    void DetectCandidates(KeyFrame *pKF, float minScore, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand);
-    void DetectBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nMinWords);
-    void DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nNumCandidates);
+    void detect_candidates(KeyFrame *pKF, float minScore, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand);
+    void detect_best_candidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nMinWords);
+    void detect_n_best_candidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nNumCandidates);
 
     // Relocalization
-    std::vector<KeyFrame *> DetectRelocalizationCandidates(frame *F, map *pMap);
+    std::vector<KeyFrame *> detect_relocalization_candidates(frame *F, map *pMap);
 
   protected:
     // Associated vocabulary
-    const place_vocabulary *mpVoc;
+    const place_vocabulary *vocabulary;
 
     // Inverted file
-    std::vector<list<KeyFrame *>> mvInvertedFile;
+    std::vector<list<KeyFrame *>> inverted_file;
 
     // Mutex
-    std::mutex mMutex;
+    std::mutex database_mutex;
 };
 
 } // namespace ORB_SLAM3

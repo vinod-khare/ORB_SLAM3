@@ -21,9 +21,9 @@
 
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
-#include "KeyFrameDatabase.h"
 #include "MapPoint.h"
 #include "frame.h"
+#include "key_frame_database.h"
 #include "keypoint_extractor.h"
 #include "place_vocabulary.h"
 
@@ -41,7 +41,7 @@ namespace ORB_SLAM3
 class map;
 class MapPoint;
 class frame;
-class KeyFrameDatabase;
+class key_frame_database;
 
 class GeometricCamera;
 
@@ -49,7 +49,7 @@ class KeyFrame
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    KeyFrame(frame &F, map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras);
+    KeyFrame(frame &F, map *pMap, key_frame_database *pKFDB, const camera_vector &cameras);
 
     // Pose functions
     void SetPose(const Sophus::SE3f &Tcw);
@@ -146,7 +146,7 @@ class KeyFrame
     bool ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v);
     bool ProjectPointUnDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v);
 
-    void SetKeyFrameDatabase(KeyFrameDatabase *pKFDB);
+    void SetKeyFrameDatabase(key_frame_database *pKFDB);
 
     bool bImu;
 
@@ -292,8 +292,8 @@ class KeyFrame
     // For save relation without pointer, this is necessary for save/load function
 
     // BoW
-    KeyFrameDatabase *mpKeyFrameDB;
-    place_vocabulary *place_vocabulary_ptr;
+    key_frame_database *mpKeyFrameDB;
+    place_vocabulary   *place_vocabulary_ptr;
 
     // Grid over the image to speed up feature matching
     std::vector<std::vector<std::vector<size_t>>> mGrid;

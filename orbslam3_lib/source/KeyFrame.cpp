@@ -46,7 +46,7 @@ std::vector<keypoint> keypoints_with_color(frame &frame, const std::vector<keypo
 
 long unsigned int KeyFrame::nNextId = 0;
 
-KeyFrame::KeyFrame(frame &F, map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras)
+KeyFrame::KeyFrame(frame &F, map *pMap, key_frame_database *pKFDB, const camera_vector &cameras)
     : bImu(pMap->is_imu_initialized()), mnFrameId(F.id), mTimeStamp(F.timestamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS), mfGridElementWidthInv(F.grid_element_width_inverse),
       mfGridElementHeightInv(F.grid_element_height_inverse), mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0), mnNumberOfOpt(0), mnLoopQuery(0),
       mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), mnPlaceRecognitionQuery(0), mnPlaceRecognitionWords(0), mPlaceRecognitionScore(0), mbCurrentPlaceRecognition(false), mnBAGlobalForKF(0),
@@ -1059,6 +1059,6 @@ Eigen::Vector3f KeyFrame::GetRightTranslation()
     return (mTrl * mTcw).translation();
 }
 
-void KeyFrame::SetKeyFrameDatabase(KeyFrameDatabase *pKFDB) { mpKeyFrameDB = pKFDB; }
+void KeyFrame::SetKeyFrameDatabase(key_frame_database *pKFDB) { mpKeyFrameDB = pKFDB; }
 
 } // namespace ORB_SLAM3

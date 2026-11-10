@@ -34,7 +34,7 @@
 namespace ORB_SLAM3
 {
 
-LoopClosing::LoopClosing(processing_statistics &statistics, atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC)
+LoopClosing::LoopClosing(processing_statistics &statistics, atlas *pAtlas, key_frame_database *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC)
     : _statistics(statistics), mbResetRequested(false), mbResetActiveMapRequested(false), mbFinishRequested(false), mbFinished(true), mpAtlas(pAtlas), mpKeyFrameDB(pDB),
       place_vocabulary_ptr(pVoc), mpMatchedKF(NULL), mbLoopDetected(false), mnLoopNumCoincidences(0), mnLoopNumNotFound(0), mbMergeDetected(false), mnMergeNumCoincidences(0),
       mnMergeNumNotFound(0), mLastLoopKFid(0), mbRunningGBA(false), mbFinishedGBA(true), mbStopGBA(false), mbFixScale(bFixScale), mnFullBAIdx(0), mbActiveLC(bActiveLC)
@@ -406,7 +406,7 @@ bool LoopClosing::NewDetectCommonRegions()
     if (!bMergeDetectedInKF || !bLoopDetectedInKF)
     {
         // Search in BoW
-        mpKeyFrameDB->DetectNBestCandidates(mpCurrentKF, vpLoopBowCand, vpMergeBowCand, 3);
+        mpKeyFrameDB->detect_n_best_candidates(mpCurrentKF, vpLoopBowCand, vpMergeBowCand, 3);
     }
 
     // Check the BoW candidates if the geometric candidate list is empty

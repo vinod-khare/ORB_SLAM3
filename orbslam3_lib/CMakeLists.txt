@@ -42,7 +42,7 @@ add_library(ORB_SLAM3 SHARED
         source/map.cpp
         source/Optimizer.cpp
         source/frame.cpp
-        source/KeyFrameDatabase.cpp
+        source/key_frame_database.cpp
         source/sim3_solver.cpp
         source/ImuTypes.cpp
         source/G2oTypes.cpp

@@ -18,13 +18,13 @@
 
 #include "System.h"
 
-#include "KeyFrameDatabase.h"
 #include "LocalMapping.h"
 #include "LoopClosing.h"
 #include "Settings.h"
 #include "Tracking.h"
 #include "atlas.h"
 #include "converter.h"
+#include "key_frame_database.h"
 #include "place_vocabulary.h"
 
 #include <cmath>
@@ -98,7 +98,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     mStrVocabularyFilePath = strVocFile;
     mpVocabulary           = std::make_unique<place_vocabulary>(strVocFile, settings_->dbow_version());
-    mpKeyFrameDatabase     = std::make_unique<KeyFrameDatabase>(*mpVocabulary);
+    mpKeyFrameDatabase     = std::make_unique<key_frame_database>(*mpVocabulary);
 
     spdlog::info("Initialization of Atlas from scratch");
     mpAtlas = std::make_unique<atlas>(0);

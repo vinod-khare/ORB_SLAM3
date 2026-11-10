@@ -41,7 +41,7 @@ namespace ORB_SLAM3
 using std::string;
 using std::vector;
 
-class KeyFrameDatabase;
+class key_frame_database;
 class map;
 class MapPoint;
 class place_vocabulary;
@@ -201,7 +201,7 @@ class System
     std::unique_ptr<place_vocabulary> mpVocabulary;
 
     // KeyFrame database for place recognition (relocalization and loop detection).
-    std::unique_ptr<KeyFrameDatabase> mpKeyFrameDatabase;
+    std::unique_ptr<key_frame_database> mpKeyFrameDatabase;
 
     // Map structure that stores the pointers to all KeyFrames and MapPoints.
     // Map* mpMap;

@@ -20,11 +20,11 @@
 #define LOCALMAPPING_H
 
 #include "KeyFrame.h"
-#include "KeyFrameDatabase.h"
 #include "LoopClosing.h"
 #include "Settings.h"
 #include "Tracking.h"
 #include "atlas.h"
+#include "key_frame_database.h"
 #include "processing_statistics.h"
 
 #include <mutex>

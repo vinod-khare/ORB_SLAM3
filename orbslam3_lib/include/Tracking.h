@@ -21,13 +21,13 @@
 
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
-#include "KeyFrameDatabase.h"
 #include "LocalMapping.h"
 #include "LoopClosing.h"
 #include "Settings.h"
 #include "System.h"
 #include "atlas.h"
 #include "frame.h"
+#include "key_frame_database.h"
 #include "keypoint_extractor.h"
 #include "place_vocabulary.h"
 
@@ -57,7 +57,7 @@ class Tracking
     Tracking(System              *pSys,
              place_vocabulary    *pVoc,
              atlas               *pAtlas,
-             KeyFrameDatabase    *pKFDB,
+             key_frame_database  *pKFDB,
              const int            sensor,
              Settings            *settings,
              const camera_vector &cameras,
@@ -248,8 +248,8 @@ class Tracking
     bool                                use_initial_extractor_{false};
 
     // BoW
-    place_vocabulary *place_vocabulary_ptr;
-    KeyFrameDatabase *mpKeyFrameDB;
+    place_vocabulary   *place_vocabulary_ptr;
+    key_frame_database *mpKeyFrameDB;
 
     // Initalization (only for monocular)
     bool mbReadyToInitializate;

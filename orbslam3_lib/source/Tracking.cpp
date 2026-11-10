@@ -42,7 +42,7 @@ using namespace std;
 namespace ORB_SLAM3
 {
 
-Tracking::Tracking(System *pSys, place_vocabulary *pVoc, atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings, const camera_vector &cameras, const string &_nameSeq)
+Tracking::Tracking(System *pSys, place_vocabulary *pVoc, atlas *pAtlas, key_frame_database *pKFDB, const int sensor, Settings *settings, const camera_vector &cameras, const string &_nameSeq)
     : mState(NO_IMAGES_YET), mSensor(sensor), mTrackedFr(0), mbStep(false), mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), place_vocabulary_ptr(pVoc), mpKeyFrameDB(pKFDB),
       mbReadyToInitializate(false), mpSystem(pSys), bStepByStep(false), mpAtlas(pAtlas), mpLastKeyFrame(nullptr), mnLastRelocFrameId(0), time_recently_lost(5.0), mnFirstFrameId(0),
       mnInitialFrameId(0), mbCreatedMap(false), cameras(cameras)
@@ -2834,7 +2834,7 @@ bool Tracking::Relocalization()
 
     // Relocalization is performed when tracking is lost
     // Track Lost: Query KeyFrame Database for keyframe candidates for relocalisation
-    vector<KeyFrame *> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame, mpAtlas->get_current_map());
+    vector<KeyFrame *> vpCandidateKFs = mpKeyFrameDB->detect_relocalization_candidates(&mCurrentFrame, mpAtlas->get_current_map());
 
     if (vpCandidateKFs.empty())
     {
@@ -3090,7 +3090,7 @@ void Tracking::ResetActiveMap(bool bLocMap)
 
     // Clear BoW Database
     spdlog::debug("Reseting Database");
-    mpKeyFrameDB->clearMap(pMap); // Only clear the active map references
+    mpKeyFrameDB->clear_map(pMap); // Only clear the active map references
     spdlog::debug("done");
 
     // Clear Map (this erase MapPoints and KeyFrames)

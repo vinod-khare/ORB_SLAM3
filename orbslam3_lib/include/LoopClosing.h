@@ -20,10 +20,10 @@
 #define LOOPCLOSING_H
 
 #include "KeyFrame.h"
-#include "KeyFrameDatabase.h"
 #include "LocalMapping.h"
 #include "Tracking.h"
 #include "atlas.h"
+#include "key_frame_database.h"
 #include "place_vocabulary.h"
 #include "processing_statistics.h"
 
@@ -40,7 +40,7 @@ namespace ORB_SLAM3
 
 class Tracking;
 class LocalMapping;
-class KeyFrameDatabase;
+class key_frame_database;
 class map;
 
 class LoopClosing
@@ -50,7 +50,7 @@ class LoopClosing
     typedef std::map<KeyFrame *, g2o::Sim3, std::less<KeyFrame *>, Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3>>> KeyFrameAndPose;
 
   public:
-    LoopClosing(processing_statistics &statistics, atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
+    LoopClosing(processing_statistics &statistics, atlas *pAtlas, key_frame_database *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
     ~LoopClosing();
 
     void SetTracker(Tracking *pTracker);
@@ -133,8 +133,8 @@ class LoopClosing
     atlas    *mpAtlas;
     Tracking *mpTracker;
 
-    KeyFrameDatabase *mpKeyFrameDB;
-    place_vocabulary *place_vocabulary_ptr;
+    key_frame_database *mpKeyFrameDB;
+    place_vocabulary   *place_vocabulary_ptr;
 
     LocalMapping *mpLocalMapper;
 
