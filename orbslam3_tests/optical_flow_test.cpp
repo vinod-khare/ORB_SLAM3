@@ -1,4 +1,4 @@
-#include "KannalaBrandt8.h"
+#include "kannala_brandt8.h"
 #include "optimizer.h"
 #include "pinhole.h"
 #include "tracking.h"
@@ -171,8 +171,8 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     {
         if (camera_kind == 2)
         {
-            auto camera           = std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
-            camera->mvLappingArea = {0, 256};
+            auto camera           = std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
+            camera->lapping_area = {0, 256};
             cameras.push_back(std::move(camera));
         }
         else
@@ -352,8 +352,8 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
     {
         if (fisheye)
         {
-            auto camera           = std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
-            camera->mvLappingArea = {0, 256};
+            auto camera           = std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
+            camera->lapping_area = {0, 256};
             cameras.push_back(std::move(camera));
         }
         else
@@ -485,8 +485,8 @@ TEST_CASE("Fisheye flow preserves both camera observations for pose optimization
     ORB_SLAM3::camera_vector cameras;
     for (int view = 0; view < 2; ++view)
     {
-        auto camera           = std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
-        camera->mvLappingArea = {0, 256};
+        auto camera           = std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
+        camera->lapping_area = {0, 256};
         cameras.push_back(std::move(camera));
     }
     cv::Mat image(256, 256, CV_8UC1);

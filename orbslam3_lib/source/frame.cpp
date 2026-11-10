@@ -18,7 +18,7 @@
 
 #include "frame.h"
 
-#include "CameraModels/KannalaBrandt8.h"
+#include "CameraModels/kannala_brandt8.h"
 #include "G2oTypes.h"
 #include "geometric_camera.h"
 #include "key_frame.h"
@@ -1074,8 +1074,8 @@ void frame::compute_stereo_fisheye_matches(const camera_vector &cameras)
                 const auto      sigma_right = level_sigma_squared[right_keypoints[right_index].octave];
                 Eigen::Vector3f point;
                 const auto      depth =
-                    static_cast<KannalaBrandt8 &>(*cameras[0])
-                        .TriangulateMatches(
+                    static_cast<kannala_brandt8 &>(*cameras[0])
+                        .triangulate_matches(
                             *cameras[1], keypoints[left_index], right_keypoints[right_index], _left_to_right_rotation, _left_to_right_translation, sigma_left, sigma_right, point);
                 if (depth > 0.0001f)
                 {

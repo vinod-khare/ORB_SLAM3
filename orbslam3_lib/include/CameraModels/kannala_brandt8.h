@@ -26,30 +26,31 @@
 
 namespace ORB_SLAM3
 {
-class KannalaBrandt8 : public geometric_camera
+class kannala_brandt8 : public geometric_camera
 {
 
   public:
-    KannalaBrandt8() : precision(1e-6)
+    kannala_brandt8() : _precision(1e-6)
     {
         parameters.resize(8);
         id   = next_id++;
         type = cam_fisheye;
     }
-    KannalaBrandt8(const std::vector<float> _vParameters) : geometric_camera(_vParameters), mvLappingArea(2, 0), precision(1e-6), tvr(nullptr)
+    kannala_brandt8(const std::vector<float> _vParameters) : geometric_camera(_vParameters), lapping_area(2, 0), _precision(1e-6), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 8);
         id   = next_id++;
         type = cam_fisheye;
     }
 
-    KannalaBrandt8(const std::vector<float> _vParameters, const float _precision) : geometric_camera(_vParameters), mvLappingArea(2, 0), precision(_precision), tvr(nullptr)
+    kannala_brandt8(const std::vector<float> _vParameters, const float precision_value)
+        : geometric_camera(_vParameters), lapping_area(2, 0), _precision(precision_value), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 8);
         id   = next_id++;
         type = cam_fisheye;
     }
-    KannalaBrandt8(KannalaBrandt8 *pKannala) : geometric_camera(pKannala->parameters), mvLappingArea(2, 0), precision(pKannala->precision), tvr(nullptr)
+    kannala_brandt8(kannala_brandt8 *pKannala) : geometric_camera(pKannala->parameters), lapping_area(2, 0), _precision(pKannala->_precision), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 8);
         id   = next_id++;
@@ -81,16 +82,16 @@ class KannalaBrandt8 : public geometric_camera
     bool epipolar_constrain(
         geometric_camera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel, const float unc);
 
-    float TriangulateMatches(geometric_camera      &pCamera2,
-                             const cv::KeyPoint    &kp1,
-                             const cv::KeyPoint    &kp2,
-                             const Eigen::Matrix3f &R12,
-                             const Eigen::Vector3f &t12,
-                             const float            sigmaLevel,
-                             const float            unc,
-                             Eigen::Vector3f       &p3D);
+    float triangulate_matches(geometric_camera      &pCamera2,
+                              const cv::KeyPoint    &kp1,
+                              const cv::KeyPoint    &kp2,
+                              const Eigen::Matrix3f &R12,
+                              const Eigen::Vector3f &t12,
+                              const float            sigmaLevel,
+                              const float            unc,
+                              Eigen::Vector3f       &p3D);
 
-    std::vector<int> mvLappingArea;
+    std::vector<int> lapping_area;
 
     bool match_and_triangulate(const cv::KeyPoint &kp1,
                                const cv::KeyPoint &kp2,
@@ -101,22 +102,22 @@ class KannalaBrandt8 : public geometric_camera
                                const float         sigmaLevel2,
                                Eigen::Vector3f    &x3Dtriangulated);
 
-    friend std::ostream &operator<<(std::ostream &os, const KannalaBrandt8 &kb);
-    friend std::istream &operator>>(std::istream &is, KannalaBrandt8 &kb);
+    friend std::ostream &operator<<(std::ostream &os, const kannala_brandt8 &kb);
+    friend std::istream &operator>>(std::istream &is, kannala_brandt8 &kb);
 
-    float GetPrecision() { return precision; }
+    float get_precision() { return _precision; }
 
-    bool IsEqual(geometric_camera &pCam);
+    bool is_equal(geometric_camera &pCam);
 
   private:
-    const float precision;
+    const float _precision;
 
     // Parameters vector corresponds to
     //[fx, fy, cx, cy, k0, k1, k2, k3]
 
-    two_view_reconstruction *tvr;
+    two_view_reconstruction *_two_view_reconstruction;
 
-    void Triangulate(const cv::Point2f &p1, const cv::Point2f &p2, const Eigen::Matrix<float, 3, 4> &Tcw1, const Eigen::Matrix<float, 3, 4> &Tcw2, Eigen::Vector3f &x3D);
+    void triangulate(const cv::Point2f &p1, const cv::Point2f &p2, const Eigen::Matrix<float, 3, 4> &Tcw1, const Eigen::Matrix<float, 3, 4> &Tcw2, Eigen::Vector3f &x3D);
 };
 } // namespace ORB_SLAM3
 

@@ -1,5 +1,5 @@
 #include "G2oTypes.h"
-#include "KannalaBrandt8.h"
+#include "kannala_brandt8.h"
 #include "OptimizableTypes.h"
 #include "pinhole.h"
 #include "frame.h"
@@ -28,9 +28,9 @@ TEST_CASE("Camera collections distinguish rectified and fisheye stereo", "[camer
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{500, 510, 320, 240}));
     REQUIRE_FALSE(ORB_SLAM3::is_fisheye_stereo(cameras));
     cameras.clear();
-    cameras.push_back(std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{500, 510, 320, 240, 0, 0, 0, 0}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{500, 510, 320, 240, 0, 0, 0, 0}));
     REQUIRE_FALSE(ORB_SLAM3::is_fisheye_stereo(cameras));
-    cameras.push_back(std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{500, 510, 320, 240, 0, 0, 0, 0}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{500, 510, 320, 240, 0, 0, 0, 0}));
     REQUIRE(ORB_SLAM3::is_fisheye_stereo(cameras));
 }
 
@@ -77,7 +77,7 @@ TEST_CASE("OpenCV PnP relocalization handles pinhole outliers")
 
 TEST_CASE("OpenCV PnP relocalization handles Kannala-Brandt outliers")
 {
-    ORB_SLAM3::KannalaBrandt8 camera({500.0f, 510.0f, 320.0f, 240.0f, 0.01f, -0.001f, 0.0001f, -0.00001f});
+    ORB_SLAM3::kannala_brandt8 camera({500.0f, 510.0f, 320.0f, 240.0f, 0.01f, -0.001f, 0.0001f, -0.00001f});
     check_pnp_with_outliers(camera);
 }
 
@@ -125,7 +125,7 @@ TEST_CASE("Inertial camera poses update only their modeled stereo observations",
     {
         if (fisheye)
         {
-            cameras.push_back(std::make_unique<ORB_SLAM3::KannalaBrandt8>(std::vector<float>{500, 510, 320, 240, 0, 0, 0, 0}));
+            cameras.push_back(std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{500, 510, 320, 240, 0, 0, 0, 0}));
         }
         else
         {

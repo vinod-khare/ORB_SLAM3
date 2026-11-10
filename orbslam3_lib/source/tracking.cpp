@@ -19,7 +19,7 @@
 #include "tracking.h"
 
 #include "G2oTypes.h"
-#include "KannalaBrandt8.h"
+#include "kannala_brandt8.h"
 #include "optimizer.h"
 #include "pinhole.h"
 #include "converter.h"
@@ -1860,9 +1860,9 @@ void tracking::extract_features(frame &frame, keypoint_extractor &extractor, con
     {
         auto left_worker = std::async(
             std::launch::async,
-            [&] { return extract(extractor, left, frame.keypoints, is_fisheye_stereo(cameras) ? static_cast<KannalaBrandt8 &>(*cameras[0]).mvLappingArea : std::vector<int>{0, 0}); });
+            [&] { return extract(extractor, left, frame.keypoints, is_fisheye_stereo(cameras) ? static_cast<kannala_brandt8 &>(*cameras[0]).lapping_area : std::vector<int>{0, 0}); });
         frame.mono_right =
-            extract(*right_extractor, right, frame.right_keypoints, is_fisheye_stereo(cameras) ? static_cast<KannalaBrandt8 &>(*cameras[1]).mvLappingArea : std::vector<int>{0, 0});
+            extract(*right_extractor, right, frame.right_keypoints, is_fisheye_stereo(cameras) ? static_cast<kannala_brandt8 &>(*cameras[1]).lapping_area : std::vector<int>{0, 0});
         frame.mono_left = left_worker.get();
     }
     frame.extraction_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extraction_started).count();

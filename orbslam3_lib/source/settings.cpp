@@ -18,7 +18,7 @@
 
 #include "settings.h"
 
-#include "CameraModels/KannalaBrandt8.h"
+#include "CameraModels/kannala_brandt8.h"
 #include "CameraModels/pinhole.h"
 #include "system.h"
 
@@ -152,7 +152,7 @@ std::unique_ptr<ORB_SLAM3::geometric_camera> make_camera(const kalibr_camera &ca
 {
     if (camera.type == ORB_SLAM3::settings::kannala_brandt)
     {
-        return std::make_unique<ORB_SLAM3::KannalaBrandt8>(camera.parameters);
+        return std::make_unique<ORB_SLAM3::kannala_brandt8>(camera.parameters);
     }
 
     return std::make_unique<ORB_SLAM3::pinhole>(camera.parameters);
@@ -383,8 +383,8 @@ void settings::read_cameras(cv::FileStorage &settings)
         };
 
         const int last_column                                     = _original_image_size.width - 1;
-        static_cast<KannalaBrandt8 &>(*_cameras[0]).mvLappingArea = {read_overlap("Camera1.overlappingBegin", 0), read_overlap("Camera1.overlappingEnd", last_column)};
-        static_cast<KannalaBrandt8 &>(*_cameras[1]).mvLappingArea = {read_overlap("Camera2.overlappingBegin", 0), read_overlap("Camera2.overlappingEnd", last_column)};
+        static_cast<kannala_brandt8 &>(*_cameras[0]).lapping_area = {read_overlap("Camera1.overlappingBegin", 0), read_overlap("Camera1.overlappingEnd", last_column)};
+        static_cast<kannala_brandt8 &>(*_cameras[1]).lapping_area = {read_overlap("Camera2.overlappingBegin", 0), read_overlap("Camera2.overlappingEnd", last_column)};
     }
 
     // Kalibr T_cn_cnm1 maps cam0 points into cam1, so left_to_right_pose is its inverse.
@@ -441,11 +441,11 @@ void settings::read_image_info(cv::FileStorage &fSettings)
 
                 if (_camera_type == kannala_brandt)
                 {
-                    static_cast<KannalaBrandt8 &>(*_cameras[0]).mvLappingArea[0] *= scaleColFactor;
-                    static_cast<KannalaBrandt8 &>(*_cameras[0]).mvLappingArea[1] *= scaleColFactor;
+                    static_cast<kannala_brandt8 &>(*_cameras[0]).lapping_area[0] *= scaleColFactor;
+                    static_cast<kannala_brandt8 &>(*_cameras[0]).lapping_area[1] *= scaleColFactor;
 
-                    static_cast<KannalaBrandt8 &>(*_cameras[1]).mvLappingArea[0] *= scaleColFactor;
-                    static_cast<KannalaBrandt8 &>(*_cameras[1]).mvLappingArea[1] *= scaleColFactor;
+                    static_cast<kannala_brandt8 &>(*_cameras[1]).lapping_area[0] *= scaleColFactor;
+                    static_cast<kannala_brandt8 &>(*_cameras[1]).lapping_area[1] *= scaleColFactor;
                 }
             }
         }
@@ -787,8 +787,8 @@ ostream &operator<<(std::ostream &output, const settings &settings)
 
         if (settings._camera_type == settings::kannala_brandt)
         {
-            auto vOverlapping1 = static_cast<KannalaBrandt8 &>(*settings._cameras[0]).mvLappingArea;
-            auto vOverlapping2 = static_cast<KannalaBrandt8 &>(*settings._cameras[1]).mvLappingArea;
+            auto vOverlapping1 = static_cast<kannala_brandt8 &>(*settings._cameras[0]).lapping_area;
+            auto vOverlapping2 = static_cast<kannala_brandt8 &>(*settings._cameras[1]).lapping_area;
             output << "\t-Camera 1 overlapping area: [ " << vOverlapping1[0] << " , " << vOverlapping1[1] << " ]" << endl;
             output << "\t-Camera 2 overlapping area: [ " << vOverlapping2[0] << " , " << vOverlapping2[1] << " ]" << endl;
         }
