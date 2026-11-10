@@ -252,74 +252,74 @@ static void compute_orientation(const Mat &image, vector<KeyPoint> &keypoints, c
 
 void keypoint_distribution_node::divide_node(keypoint_distribution_node &n1, keypoint_distribution_node &n2, keypoint_distribution_node &n3, keypoint_distribution_node &n4)
 {
-    const int halfX = ceil(static_cast<float>(UR.x - UL.x) / 2);
-    const int halfY = ceil(static_cast<float>(BR.y - UL.y) / 2);
+    const int halfX = ceil(static_cast<float>(upper_right.x - upper_left.x) / 2);
+    const int halfY = ceil(static_cast<float>(bottom_right.y - upper_left.y) / 2);
 
     // Define boundaries of childs
-    n1.UL = UL;
-    n1.UR = cv::Point2i(UL.x + halfX, UL.y);
-    n1.BL = cv::Point2i(UL.x, UL.y + halfY);
-    n1.BR = cv::Point2i(UL.x + halfX, UL.y + halfY);
-    n1.vKeys.reserve(vKeys.size());
+    n1.upper_left = upper_left;
+    n1.upper_right = cv::Point2i(upper_left.x + halfX, upper_left.y);
+    n1.bottom_left = cv::Point2i(upper_left.x, upper_left.y + halfY);
+    n1.bottom_right = cv::Point2i(upper_left.x + halfX, upper_left.y + halfY);
+    n1.keypoints.reserve(keypoints.size());
 
-    n2.UL = n1.UR;
-    n2.UR = UR;
-    n2.BL = n1.BR;
-    n2.BR = cv::Point2i(UR.x, UL.y + halfY);
-    n2.vKeys.reserve(vKeys.size());
+    n2.upper_left = n1.upper_right;
+    n2.upper_right = upper_right;
+    n2.bottom_left = n1.bottom_right;
+    n2.bottom_right = cv::Point2i(upper_right.x, upper_left.y + halfY);
+    n2.keypoints.reserve(keypoints.size());
 
-    n3.UL = n1.BL;
-    n3.UR = n1.BR;
-    n3.BL = BL;
-    n3.BR = cv::Point2i(n1.BR.x, BL.y);
-    n3.vKeys.reserve(vKeys.size());
+    n3.upper_left = n1.bottom_left;
+    n3.upper_right = n1.bottom_right;
+    n3.bottom_left = bottom_left;
+    n3.bottom_right = cv::Point2i(n1.bottom_right.x, bottom_left.y);
+    n3.keypoints.reserve(keypoints.size());
 
-    n4.UL = n3.UR;
-    n4.UR = n2.BR;
-    n4.BL = n3.BR;
-    n4.BR = BR;
-    n4.vKeys.reserve(vKeys.size());
+    n4.upper_left = n3.upper_right;
+    n4.upper_right = n2.bottom_right;
+    n4.bottom_left = n3.bottom_right;
+    n4.bottom_right = bottom_right;
+    n4.keypoints.reserve(keypoints.size());
 
     // Associate points to childs
-    for (size_t i = 0; i < vKeys.size(); i++)
+    for (size_t i = 0; i < keypoints.size(); i++)
     {
-        const cv::KeyPoint &kp = vKeys[i];
-        if (kp.pt.x < n1.UR.x)
+        const cv::KeyPoint &kp = keypoints[i];
+        if (kp.pt.x < n1.upper_right.x)
         {
-            if (kp.pt.y < n1.BR.y)
+            if (kp.pt.y < n1.bottom_right.y)
             {
-                n1.vKeys.push_back(kp);
+                n1.keypoints.push_back(kp);
             }
             else
             {
-                n3.vKeys.push_back(kp);
+                n3.keypoints.push_back(kp);
             }
         }
-        else if (kp.pt.y < n1.BR.y)
+        else if (kp.pt.y < n1.bottom_right.y)
         {
-            n2.vKeys.push_back(kp);
+            n2.keypoints.push_back(kp);
         }
         else
         {
-            n4.vKeys.push_back(kp);
+            n4.keypoints.push_back(kp);
         }
     }
 
-    if (n1.vKeys.size() == 1)
+    if (n1.keypoints.size() == 1)
     {
-        n1.bNoMore = true;
+        n1.is_terminal = true;
     }
-    if (n2.vKeys.size() == 1)
+    if (n2.keypoints.size() == 1)
     {
-        n2.bNoMore = true;
+        n2.is_terminal = true;
     }
-    if (n3.vKeys.size() == 1)
+    if (n3.keypoints.size() == 1)
     {
-        n3.bNoMore = true;
+        n3.is_terminal = true;
     }
-    if (n4.vKeys.size() == 1)
+    if (n4.keypoints.size() == 1)
     {
-        n4.bNoMore = true;
+        n4.is_terminal = true;
     }
 }
 
@@ -335,7 +335,7 @@ static bool compareNodes(pair<int, keypoint_distribution_node *> &e1, pair<int, 
     }
     else
     {
-        if (e1.second->UL.x < e2.second->UL.x)
+        if (e1.second->upper_left.x < e2.second->upper_left.x)
         {
             return true;
         }
@@ -362,11 +362,11 @@ keypoint_extractor::distribute_keypoints(const vector<cv::KeyPoint> &vToDistribu
     for (int i = 0; i < nIni; i++)
     {
         keypoint_distribution_node ni;
-        ni.UL = cv::Point2i(hX * static_cast<float>(i), 0);
-        ni.UR = cv::Point2i(hX * static_cast<float>(i + 1), 0);
-        ni.BL = cv::Point2i(ni.UL.x, maxY - minY);
-        ni.BR = cv::Point2i(ni.UR.x, maxY - minY);
-        ni.vKeys.reserve(vToDistributeKeys.size());
+        ni.upper_left = cv::Point2i(hX * static_cast<float>(i), 0);
+        ni.upper_right = cv::Point2i(hX * static_cast<float>(i + 1), 0);
+        ni.bottom_left = cv::Point2i(ni.upper_left.x, maxY - minY);
+        ni.bottom_right = cv::Point2i(ni.upper_right.x, maxY - minY);
+        ni.keypoints.reserve(vToDistributeKeys.size());
 
         lNodes.push_back(ni);
         vpIniNodes[i] = &lNodes.back();
@@ -376,19 +376,19 @@ keypoint_extractor::distribute_keypoints(const vector<cv::KeyPoint> &vToDistribu
     for (size_t i = 0; i < vToDistributeKeys.size(); i++)
     {
         const cv::KeyPoint &kp = vToDistributeKeys[i];
-        vpIniNodes[kp.pt.x / hX]->vKeys.push_back(kp);
+        vpIniNodes[kp.pt.x / hX]->keypoints.push_back(kp);
     }
 
     list<keypoint_distribution_node>::iterator lit = lNodes.begin();
 
     while (lit != lNodes.end())
     {
-        if (lit->vKeys.size() == 1)
+        if (lit->keypoints.size() == 1)
         {
-            lit->bNoMore = true;
+            lit->is_terminal = true;
             lit++;
         }
-        else if (lit->vKeys.empty())
+        else if (lit->keypoints.empty())
         {
             lit = lNodes.erase(lit);
         }
@@ -419,7 +419,7 @@ keypoint_extractor::distribute_keypoints(const vector<cv::KeyPoint> &vToDistribu
 
         while (lit != lNodes.end())
         {
-            if (lit->bNoMore)
+            if (lit->is_terminal)
             {
                 // If node only contains one point do not subdivide and continue
                 lit++;
@@ -432,44 +432,44 @@ keypoint_extractor::distribute_keypoints(const vector<cv::KeyPoint> &vToDistribu
                 lit->divide_node(n1, n2, n3, n4);
 
                 // Add childs if they contain points
-                if (n1.vKeys.size() > 0)
+                if (n1.keypoints.size() > 0)
                 {
                     lNodes.push_front(n1);
-                    if (n1.vKeys.size() > 1)
+                    if (n1.keypoints.size() > 1)
                     {
                         nToExpand++;
-                        vSizeAndPointerToNode.push_back(make_pair(n1.vKeys.size(), &lNodes.front()));
-                        lNodes.front().lit = lNodes.begin();
+                        vSizeAndPointerToNode.push_back(make_pair(n1.keypoints.size(), &lNodes.front()));
+                        lNodes.front().node_iterator = lNodes.begin();
                     }
                 }
-                if (n2.vKeys.size() > 0)
+                if (n2.keypoints.size() > 0)
                 {
                     lNodes.push_front(n2);
-                    if (n2.vKeys.size() > 1)
+                    if (n2.keypoints.size() > 1)
                     {
                         nToExpand++;
-                        vSizeAndPointerToNode.push_back(make_pair(n2.vKeys.size(), &lNodes.front()));
-                        lNodes.front().lit = lNodes.begin();
+                        vSizeAndPointerToNode.push_back(make_pair(n2.keypoints.size(), &lNodes.front()));
+                        lNodes.front().node_iterator = lNodes.begin();
                     }
                 }
-                if (n3.vKeys.size() > 0)
+                if (n3.keypoints.size() > 0)
                 {
                     lNodes.push_front(n3);
-                    if (n3.vKeys.size() > 1)
+                    if (n3.keypoints.size() > 1)
                     {
                         nToExpand++;
-                        vSizeAndPointerToNode.push_back(make_pair(n3.vKeys.size(), &lNodes.front()));
-                        lNodes.front().lit = lNodes.begin();
+                        vSizeAndPointerToNode.push_back(make_pair(n3.keypoints.size(), &lNodes.front()));
+                        lNodes.front().node_iterator = lNodes.begin();
                     }
                 }
-                if (n4.vKeys.size() > 0)
+                if (n4.keypoints.size() > 0)
                 {
                     lNodes.push_front(n4);
-                    if (n4.vKeys.size() > 1)
+                    if (n4.keypoints.size() > 1)
                     {
                         nToExpand++;
-                        vSizeAndPointerToNode.push_back(make_pair(n4.vKeys.size(), &lNodes.front()));
-                        lNodes.front().lit = lNodes.begin();
+                        vSizeAndPointerToNode.push_back(make_pair(n4.keypoints.size(), &lNodes.front()));
+                        lNodes.front().node_iterator = lNodes.begin();
                     }
                 }
 
@@ -502,44 +502,44 @@ keypoint_extractor::distribute_keypoints(const vector<cv::KeyPoint> &vToDistribu
                     vPrevSizeAndPointerToNode[j].second->divide_node(n1, n2, n3, n4);
 
                     // Add childs if they contain points
-                    if (n1.vKeys.size() > 0)
+                    if (n1.keypoints.size() > 0)
                     {
                         lNodes.push_front(n1);
-                        if (n1.vKeys.size() > 1)
+                        if (n1.keypoints.size() > 1)
                         {
-                            vSizeAndPointerToNode.push_back(make_pair(n1.vKeys.size(), &lNodes.front()));
-                            lNodes.front().lit = lNodes.begin();
+                            vSizeAndPointerToNode.push_back(make_pair(n1.keypoints.size(), &lNodes.front()));
+                            lNodes.front().node_iterator = lNodes.begin();
                         }
                     }
-                    if (n2.vKeys.size() > 0)
+                    if (n2.keypoints.size() > 0)
                     {
                         lNodes.push_front(n2);
-                        if (n2.vKeys.size() > 1)
+                        if (n2.keypoints.size() > 1)
                         {
-                            vSizeAndPointerToNode.push_back(make_pair(n2.vKeys.size(), &lNodes.front()));
-                            lNodes.front().lit = lNodes.begin();
+                            vSizeAndPointerToNode.push_back(make_pair(n2.keypoints.size(), &lNodes.front()));
+                            lNodes.front().node_iterator = lNodes.begin();
                         }
                     }
-                    if (n3.vKeys.size() > 0)
+                    if (n3.keypoints.size() > 0)
                     {
                         lNodes.push_front(n3);
-                        if (n3.vKeys.size() > 1)
+                        if (n3.keypoints.size() > 1)
                         {
-                            vSizeAndPointerToNode.push_back(make_pair(n3.vKeys.size(), &lNodes.front()));
-                            lNodes.front().lit = lNodes.begin();
+                            vSizeAndPointerToNode.push_back(make_pair(n3.keypoints.size(), &lNodes.front()));
+                            lNodes.front().node_iterator = lNodes.begin();
                         }
                     }
-                    if (n4.vKeys.size() > 0)
+                    if (n4.keypoints.size() > 0)
                     {
                         lNodes.push_front(n4);
-                        if (n4.vKeys.size() > 1)
+                        if (n4.keypoints.size() > 1)
                         {
-                            vSizeAndPointerToNode.push_back(make_pair(n4.vKeys.size(), &lNodes.front()));
-                            lNodes.front().lit = lNodes.begin();
+                            vSizeAndPointerToNode.push_back(make_pair(n4.keypoints.size(), &lNodes.front()));
+                            lNodes.front().node_iterator = lNodes.begin();
                         }
                     }
 
-                    lNodes.erase(vPrevSizeAndPointerToNode[j].second->lit);
+                    lNodes.erase(vPrevSizeAndPointerToNode[j].second->node_iterator);
 
                     if ((int)lNodes.size() >= N)
                     {
@@ -560,7 +560,7 @@ keypoint_extractor::distribute_keypoints(const vector<cv::KeyPoint> &vToDistribu
     vResultKeys.reserve(nfeatures);
     for (const keypoint_distribution_node &node : lNodes)
     {
-        const auto bestKey = std::max_element(node.vKeys.begin(), node.vKeys.end(), [](const keypoint &left, const keypoint &right) { return left.response < right.response; });
+        const auto bestKey = std::max_element(node.keypoints.begin(), node.keypoints.end(), [](const keypoint &left, const keypoint &right) { return left.response < right.response; });
         vResultKeys.push_back(static_cast<const cv::KeyPoint &>(*bestKey));
     }
 
