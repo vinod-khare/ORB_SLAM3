@@ -19,7 +19,7 @@
 #ifndef ORB_SLAM3_SETTINGS_H
 #define ORB_SLAM3_SETTINGS_H
 
-#include "CameraModels/GeometricCamera.h"
+#include "CameraModels/geometric_camera.h"
 #include "descriptor_matcher_type.h"
 #include "feature_overrides.h"
 #include "keypoint_descriptor_type.h"

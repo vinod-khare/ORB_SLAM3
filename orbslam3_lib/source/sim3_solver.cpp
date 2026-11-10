@@ -486,7 +486,7 @@ Eigen::Vector3f sim3_solver::get_estimated_translation() { return best_translati
 
 float sim3_solver::get_estimated_scale() { return best_scale; }
 
-void sim3_solver::project(const vector<Eigen::Vector3f> &world_points, vector<Eigen::Vector2f> &image_points, Eigen::Matrix4f camera_from_world, GeometricCamera &camera)
+void sim3_solver::project(const vector<Eigen::Vector3f> &world_points, vector<Eigen::Vector2f> &image_points, Eigen::Matrix4f camera_from_world, geometric_camera &camera)
 {
     Eigen::Matrix3f Rcw = camera_from_world.block<3, 3>(0, 0);
     Eigen::Vector3f tcw = camera_from_world.block<3, 1>(0, 3);
@@ -502,7 +502,7 @@ void sim3_solver::project(const vector<Eigen::Vector3f> &world_points, vector<Ei
     }
 }
 
-void sim3_solver::from_camera_to_image(const vector<Eigen::Vector3f> &camera_points, vector<Eigen::Vector2f> &image_points, GeometricCamera &camera)
+void sim3_solver::from_camera_to_image(const vector<Eigen::Vector3f> &camera_points, vector<Eigen::Vector2f> &image_points, geometric_camera &camera)
 {
     image_points.clear();
     image_points.reserve(camera_points.size());

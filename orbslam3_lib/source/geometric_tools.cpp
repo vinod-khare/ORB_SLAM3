@@ -18,7 +18,7 @@
 
 #include "geometric_tools.h"
 
-#include "CameraModels/GeometricCamera.h"
+#include "CameraModels/geometric_camera.h"
 #include "key_frame.h"
 
 #include <algorithm>
@@ -32,7 +32,7 @@ namespace ORB_SLAM3
 bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_points,
                                        const std::vector<cv::Point2f> &image_points,
                                        const std::vector<float>       &max_errors,
-                                       GeometricCamera                &camera,
+                                       geometric_camera                &camera,
                                        int                             min_inliers,
                                        Eigen::Matrix4f                &camera_from_world,
                                        std::vector<bool>              &inliers)
@@ -43,7 +43,7 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
         return false;
     }
 
-    const bool is_fisheye      = camera.GetType() == GeometricCamera::CAM_FISHEYE;
+    const bool is_fisheye      = camera.get_type() == geometric_camera::cam_fisheye;
     double     max_pixel_error = 0.0;
     for (size_t i = 0; i < image_points.size(); ++i)
     {
@@ -54,11 +54,11 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
         max_pixel_error = std::max(max_pixel_error, static_cast<double>(max_errors[i]));
     }
 
-    cv::Mat camera_matrix = cv::Mat(cv::Matx33d(camera.getParameter(0), 0.0, camera.getParameter(2), 0.0, camera.getParameter(1), camera.getParameter(3), 0.0, 0.0, 1.0));
+    cv::Mat camera_matrix = cv::Mat(cv::Matx33d(camera.get_parameter(0), 0.0, camera.get_parameter(2), 0.0, camera.get_parameter(1), camera.get_parameter(3), 0.0, 0.0, 1.0));
     cv::Mat distortion_coefficients;
     if (is_fisheye)
     {
-        distortion_coefficients = cv::Mat(cv::Vec4d(camera.getParameter(4), camera.getParameter(5), camera.getParameter(6), camera.getParameter(7)));
+        distortion_coefficients = cv::Mat(cv::Vec4d(camera.get_parameter(4), camera.get_parameter(5), camera.get_parameter(6), camera.get_parameter(7)));
     }
 
     cv::Mat          rotation_vector;
@@ -97,7 +97,7 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
 
         if (is_fisheye)
         {
-            const double focal_length = std::min(camera.getParameter(0), camera.getParameter(1));
+            const double focal_length = std::min(camera.get_parameter(0), camera.get_parameter(1));
 
             if (focal_length <= 0.0)
             {
@@ -261,8 +261,8 @@ Eigen::Matrix3f geometric_tools::compute_f12(key_frame *&key_frame1, key_frame *
 
     Eigen::Matrix3f translation_skew = Sophus::SO3f::hat(translation1_from_camera2);
 
-    const Eigen::Matrix3f calibration1 = key_frame1->cameras[0]->toK_();
-    const Eigen::Matrix3f calibration2 = key_frame2->cameras[0]->toK_();
+    const Eigen::Matrix3f calibration1 = key_frame1->cameras[0]->to_k_eigen();
+    const Eigen::Matrix3f calibration2 = key_frame2->cameras[0]->to_k_eigen();
 
     return calibration1.transpose().inverse() * translation_skew * rotation1_from_camera2 * calibration2.inverse();
 }

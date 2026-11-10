@@ -62,7 +62,7 @@ TEST_CASE("Frame feature data survives extractor reuse and destruction")
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
     const cv::Mat    distortion = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::frame frame(1.0, nullptr, cameras[0]->toK(), distortion, 20, 40);
+    ORB_SLAM3::frame frame(1.0, nullptr, cameras[0]->to_k(), distortion, 20, 40);
     ORB_SLAM3::frame::initial_computations = true;
     cv::Mat descriptors;
     {
@@ -76,7 +76,7 @@ TEST_CASE("Frame feature data survives extractor reuse and destruction")
         REQUIRE(frame.level_sigma_squared == extractor.get_scale_sigma_squares());
         REQUIRE(frame.inverse_level_sigma_squared == extractor.get_inverse_scale_sigma_squares());
         descriptors = descriptor_matrix(frame.keypoints).clone();
-        ORB_SLAM3::frame other(2.0, nullptr, cameras[0]->toK(), distortion, 20, 40);
+        ORB_SLAM3::frame other(2.0, nullptr, cameras[0]->to_k(), distortion, 20, 40);
         ORB_SLAM3::tracking::extract_features(other, extractor, cv::Mat::zeros(image.size(), image.type()), cameras);
         REQUIRE(other.feature_count == 0);
     }
@@ -181,7 +181,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
         }
     }
 
-    auto    calibration = cameras[0]->toK();
+    auto    calibration = cameras[0]->to_k();
     cv::Mat distortion  = cv::Mat::zeros(4, 1, CV_32F);
 
     if (camera_kind == 3)
@@ -361,7 +361,7 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
             cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
         }
     }
-    auto    calibration                    = cameras[0]->toK();
+    auto    calibration                    = cameras[0]->to_k();
     cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::frame::initial_computations = true;
     const Sophus::SE3f relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0, 0));
@@ -495,7 +495,7 @@ TEST_CASE("Fisheye flow preserves both camera observations for pose optimization
     ORB_SLAM3::keypoint_extractor left_extractor(400, 1.2f, 4, 20, 7);
     ORB_SLAM3::keypoint_extractor right_extractor(400, 1.2f, 4, 20, 7);
     const Sophus::SE3f            relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0.02f, 0));
-    ORB_SLAM3::frame              frame(1.0, nullptr, cameras[0]->toK(), cv::Mat::zeros(4, 1, CV_32F), 20, 40, nullptr, {}, relative_pose);
+    ORB_SLAM3::frame              frame(1.0, nullptr, cameras[0]->to_k(), cv::Mat::zeros(4, 1, CV_32F), 20, 40, nullptr, {}, relative_pose);
     ORB_SLAM3::frame::initial_computations = true;
     ORB_SLAM3::tracking::extract_features(frame, left_extractor, image, cameras, image, &right_extractor);
 

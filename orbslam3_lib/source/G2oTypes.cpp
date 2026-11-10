@@ -348,7 +348,7 @@ bool VertexPose::write(std::ostream &os) const
 
         for (size_t i = 0; i < _estimate.cameras[idx]->size(); i++)
         {
-            os << _estimate.cameras[idx]->getParameter(i) << " ";
+            os << _estimate.cameras[idx]->get_parameter(i) << " ";
         }
     }
 
@@ -368,7 +368,7 @@ void EdgeMono::linearizeOplus()
     const Eigen::Vector3d  Xb  = VPose->estimate().Rbc[cam_idx] * Xc + VPose->estimate().tbc[cam_idx];
     const Eigen::Matrix3d &Rcb = VPose->estimate().Rcb[cam_idx];
 
-    const Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().cameras[cam_idx]->projectJac(Xc);
+    const Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
     _jacobianOplusXi                           = -proj_jac * Rcw;
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
@@ -391,7 +391,7 @@ void EdgeMonoOnlyPose::linearizeOplus()
     const Eigen::Vector3d  Xb  = VPose->estimate().Rbc[cam_idx] * Xc + VPose->estimate().tbc[cam_idx];
     const Eigen::Matrix3d &Rcb = VPose->estimate().Rcb[cam_idx];
 
-    Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().cameras[cam_idx]->projectJac(Xc);
+    Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     double                      x = Xb(0);
@@ -415,7 +415,7 @@ void EdgeStereo::linearizeOplus()
     const double           inv_z2 = 1.0 / (Xc(2) * Xc(2));
 
     Eigen::Matrix<double, 3, 3> proj_jac;
-    proj_jac.block<2, 3>(0, 0)  = VPose->estimate().cameras[cam_idx]->projectJac(Xc);
+    proj_jac.block<2, 3>(0, 0)  = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
     proj_jac.block<1, 3>(2, 0)  = proj_jac.block<1, 3>(0, 0);
     proj_jac(2, 2)             += bf * inv_z2;
 
@@ -444,7 +444,7 @@ void EdgeStereoOnlyPose::linearizeOplus()
     const double           inv_z2 = 1.0 / (Xc(2) * Xc(2));
 
     Eigen::Matrix<double, 3, 3> proj_jac;
-    proj_jac.block<2, 3>(0, 0)  = VPose->estimate().cameras[cam_idx]->projectJac(Xc);
+    proj_jac.block<2, 3>(0, 0)  = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
     proj_jac.block<1, 3>(2, 0)  = proj_jac.block<1, 3>(0, 0);
     proj_jac(2, 2)             += bf * inv_z2;
 

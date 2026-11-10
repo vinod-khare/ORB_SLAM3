@@ -213,7 +213,7 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{100, 100, 64, 64}));
     cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::frame::initial_computations = true;
-    ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->toK(), distortion, 10.f, 40.f);
+    ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->to_k(), distortion, 10.f, 40.f);
     ORB_SLAM3::tracking::extract_features(frame, extractor, image, cameras);
     REQUIRE(frame.feature_count >= 2);
     REQUIRE(frame.extraction_ms > 0);
@@ -235,7 +235,7 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     frame.color_image.at<cv::Vec3b>(cvRound(second_keypoint.y), cvRound(second_keypoint.x)) = cv::Vec3b(220, 40, 10);
     ORB_SLAM3::key_frame colored_keyframe(frame, &map, nullptr, cameras);
     REQUIRE(&colored_keyframe.cameras == &cameras);
-    REQUIRE(colored_keyframe.cameras[0]->getParameter(0) == 100);
+    REQUIRE(colored_keyframe.cameras[0]->get_parameter(0) == 100);
     REQUIRE(colored_keyframe.cameras.size() == 1);
     REQUIRE(colored_keyframe.keypoints[0].color == frame.keypoint_color(0));
     const std::array<unsigned char, 3> second_color{10, 40, 220};

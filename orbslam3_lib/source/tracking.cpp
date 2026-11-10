@@ -58,15 +58,15 @@ tracking::tracking(
     for (const auto &pCam : cameras)
     {
         const char *camera_type = "unknown";
-        if (pCam->GetType() == GeometricCamera::CAM_PINHOLE)
+        if (pCam->get_type() == geometric_camera::cam_pinhole)
         {
             camera_type = "pinhole";
         }
-        else if (pCam->GetType() == GeometricCamera::CAM_FISHEYE)
+        else if (pCam->get_type() == geometric_camera::cam_fisheye)
         {
             camera_type = "fisheye";
         }
-        spdlog::debug("Camera {} is {}", pCam->GetId(), camera_type);
+        spdlog::debug("Camera {} is {}", pCam->get_id(), camera_type);
     }
 }
 
@@ -89,16 +89,16 @@ void tracking::load_parameters(settings *settings)
     image_scale = 1.0f;
 
     camera_matrix                 = cv::Mat::eye(3, 3, CV_32F);
-    camera_matrix.at<float>(0, 0) = cameras[0]->getParameter(0);
-    camera_matrix.at<float>(1, 1) = cameras[0]->getParameter(1);
-    camera_matrix.at<float>(0, 2) = cameras[0]->getParameter(2);
-    camera_matrix.at<float>(1, 2) = cameras[0]->getParameter(3);
+    camera_matrix.at<float>(0, 0) = cameras[0]->get_parameter(0);
+    camera_matrix.at<float>(1, 1) = cameras[0]->get_parameter(1);
+    camera_matrix.at<float>(0, 2) = cameras[0]->get_parameter(2);
+    camera_matrix.at<float>(1, 2) = cameras[0]->get_parameter(3);
 
     camera_matrix_eigen.setIdentity();
-    camera_matrix_eigen(0, 0) = cameras[0]->getParameter(0);
-    camera_matrix_eigen(1, 1) = cameras[0]->getParameter(1);
-    camera_matrix_eigen(0, 2) = cameras[0]->getParameter(2);
-    camera_matrix_eigen(1, 2) = cameras[0]->getParameter(3);
+    camera_matrix_eigen(0, 0) = cameras[0]->get_parameter(0);
+    camera_matrix_eigen(1, 1) = cameras[0]->get_parameter(1);
+    camera_matrix_eigen(0, 2) = cameras[0]->get_parameter(2);
+    camera_matrix_eigen(1, 2) = cameras[0]->get_parameter(3);
 
     if ((sensor == system::stereo || sensor == system::imu_stereo || sensor == system::imu_rgbd) && settings->camera_type() == settings::kannala_brandt)
     {
@@ -1295,7 +1295,7 @@ void tracking::monocular_initialization()
 
         const auto initial_keys = to_cv_keypoints(initial_frame.keypoints, true);
         const auto current_keys = to_cv_keypoints(current_frame.keypoints, true);
-        if (cameras[0]->ReconstructWithTwoViews(initial_keys, current_keys, initial_matches, Tcw, initial_3d_points, vbTriangulated))
+        if (cameras[0]->reconstruct_with_two_views(initial_keys, current_keys, initial_matches, Tcw, initial_3d_points, vbTriangulated))
         {
             for (size_t i = 0, iend = initial_matches.size(); i < iend; i++)
             {

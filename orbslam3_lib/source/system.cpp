@@ -1014,17 +1014,17 @@ void system::save_colmap(const string &strDir)
 
         if (cam)
         {
-            if (cam->GetType() == GeometricCamera::CAM_PINHOLE)
+            if (cam->get_type() == geometric_camera::cam_pinhole)
             {
-                // mvParameters: [fx, fy, cx, cy]
-                fc << "1 PINHOLE " << width << " " << height << " " << cam->getParameter(0) << " " << cam->getParameter(1) << " " << cam->getParameter(2) << " " << cam->getParameter(3)
+                // parameters: [fx, fy, cx, cy]
+                fc << "1 PINHOLE " << width << " " << height << " " << cam->get_parameter(0) << " " << cam->get_parameter(1) << " " << cam->get_parameter(2) << " " << cam->get_parameter(3)
                    << "\n";
             }
             else
             {
                 // KannalaBrandt8: [fx, fy, cx, cy, k1, k2, k3, k4]
-                fc << "1 OPENCV_FISHEYE " << width << " " << height << " " << cam->getParameter(0) << " " << cam->getParameter(1) << " " << cam->getParameter(2) << " " << cam->getParameter(3)
-                   << " " << cam->getParameter(4) << " " << cam->getParameter(5) << " " << cam->getParameter(6) << " " << cam->getParameter(7) << "\n";
+                fc << "1 OPENCV_FISHEYE " << width << " " << height << " " << cam->get_parameter(0) << " " << cam->get_parameter(1) << " " << cam->get_parameter(2) << " " << cam->get_parameter(3)
+                   << " " << cam->get_parameter(4) << " " << cam->get_parameter(5) << " " << cam->get_parameter(6) << " " << cam->get_parameter(7) << "\n";
             }
         }
         else

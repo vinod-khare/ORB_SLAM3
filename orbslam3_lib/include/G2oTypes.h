@@ -43,7 +43,7 @@ namespace ORB_SLAM3
 
 class key_frame;
 class frame;
-class GeometricCamera;
+class geometric_camera;
 
 typedef Eigen::Matrix<double, 6, 1>   Vector6d;
 typedef Eigen::Matrix<double, 9, 1>   Vector9d;

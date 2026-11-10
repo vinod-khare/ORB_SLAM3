@@ -47,7 +47,7 @@ namespace ORB_SLAM3
 class map_point;
 class key_frame;
 class ConstraintPoseImu;
-class GeometricCamera;
+class geometric_camera;
 
 class frame
 {
@@ -339,7 +339,7 @@ class frame
     // Stereo fisheye
     void compute_stereo_fisheye_matches(const camera_vector &cameras);
 
-    bool is_in_frustum_checks(map_point *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight = false);
+    bool is_in_frustum_checks(map_point *pMP, float viewingCosLimit, geometric_camera &camera, bool bRight = false);
 
     Eigen::Vector3f unproject_stereo_fisheye(const int &i);
 

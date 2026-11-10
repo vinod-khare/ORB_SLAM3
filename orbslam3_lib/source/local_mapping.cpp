@@ -534,8 +534,8 @@ void local_mapping::create_new_map_points()
             }
 
             // Check parallax between rays
-            Eigen::Vector3f xn1 = current_key_frame->cameras[camera_index1]->unprojectEig(kp1.pt);
-            Eigen::Vector3f xn2 = pKF2->cameras[camera_index2]->unprojectEig(kp2.pt);
+            Eigen::Vector3f xn1 = current_key_frame->cameras[camera_index1]->unproject_eigen(kp1.pt);
+            Eigen::Vector3f xn2 = pKF2->cameras[camera_index2]->unproject_eigen(kp2.pt);
 
             Eigen::Vector3f ray1            = Rwc1 * xn1;
             Eigen::Vector3f ray2            = Rwc2 * xn2;

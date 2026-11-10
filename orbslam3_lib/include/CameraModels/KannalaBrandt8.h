@@ -19,69 +19,69 @@
 #ifndef CAMERAMODELS_KANNALABRANDT8_H
 #define CAMERAMODELS_KANNALABRANDT8_H
 
-#include "GeometricCamera.h"
+#include "geometric_camera.h"
 #include "two_view_reconstruction.h"
 
 #include <assert.h>
 
 namespace ORB_SLAM3
 {
-class KannalaBrandt8 : public GeometricCamera
+class KannalaBrandt8 : public geometric_camera
 {
 
   public:
     KannalaBrandt8() : precision(1e-6)
     {
-        mvParameters.resize(8);
-        mnId   = nNextId++;
-        mnType = CAM_FISHEYE;
+        parameters.resize(8);
+        id   = next_id++;
+        type = cam_fisheye;
     }
-    KannalaBrandt8(const std::vector<float> _vParameters) : GeometricCamera(_vParameters), mvLappingArea(2, 0), precision(1e-6), tvr(nullptr)
+    KannalaBrandt8(const std::vector<float> _vParameters) : geometric_camera(_vParameters), mvLappingArea(2, 0), precision(1e-6), tvr(nullptr)
     {
-        assert(mvParameters.size() == 8);
-        mnId   = nNextId++;
-        mnType = CAM_FISHEYE;
+        assert(parameters.size() == 8);
+        id   = next_id++;
+        type = cam_fisheye;
     }
 
-    KannalaBrandt8(const std::vector<float> _vParameters, const float _precision) : GeometricCamera(_vParameters), mvLappingArea(2, 0), precision(_precision), tvr(nullptr)
+    KannalaBrandt8(const std::vector<float> _vParameters, const float _precision) : geometric_camera(_vParameters), mvLappingArea(2, 0), precision(_precision), tvr(nullptr)
     {
-        assert(mvParameters.size() == 8);
-        mnId   = nNextId++;
-        mnType = CAM_FISHEYE;
+        assert(parameters.size() == 8);
+        id   = next_id++;
+        type = cam_fisheye;
     }
-    KannalaBrandt8(KannalaBrandt8 *pKannala) : GeometricCamera(pKannala->mvParameters), mvLappingArea(2, 0), precision(pKannala->precision), tvr(nullptr)
+    KannalaBrandt8(KannalaBrandt8 *pKannala) : geometric_camera(pKannala->parameters), mvLappingArea(2, 0), precision(pKannala->precision), tvr(nullptr)
     {
-        assert(mvParameters.size() == 8);
-        mnId   = nNextId++;
-        mnType = CAM_FISHEYE;
+        assert(parameters.size() == 8);
+        id   = next_id++;
+        type = cam_fisheye;
     }
 
     cv::Point2f     project(const cv::Point3f &p3D);
     Eigen::Vector2d project(const Eigen::Vector3d &v3D);
     Eigen::Vector2f project(const Eigen::Vector3f &v3D);
-    Eigen::Vector2f projectMat(const cv::Point3f &p3D);
+    Eigen::Vector2f project_mat(const cv::Point3f &p3D);
 
     float uncertainty2(const Eigen::Matrix<double, 2, 1> &p2D);
 
-    Eigen::Vector3f unprojectEig(const cv::Point2f &p2D);
+    Eigen::Vector3f unproject_eigen(const cv::Point2f &p2D);
     cv::Point3f     unproject(const cv::Point2f &p2D);
 
-    Eigen::Matrix<double, 2, 3> projectJac(const Eigen::Vector3d &v3D);
+    Eigen::Matrix<double, 2, 3> project_jacobian(const Eigen::Vector3d &v3D);
 
-    bool ReconstructWithTwoViews(const std::vector<cv::KeyPoint> &vKeys1,
-                                 const std::vector<cv::KeyPoint> &vKeys2,
-                                 const std::vector<int>          &vMatches12,
-                                 Sophus::SE3f                    &T21,
-                                 std::vector<cv::Point3f>        &vP3D,
-                                 std::vector<bool>               &vbTriangulated);
+    bool reconstruct_with_two_views(const std::vector<cv::KeyPoint> &vKeys1,
+                                    const std::vector<cv::KeyPoint> &vKeys2,
+                                    const std::vector<int>          &vMatches12,
+                                    Sophus::SE3f                    &T21,
+                                    std::vector<cv::Point3f>        &vP3D,
+                                    std::vector<bool>               &vbTriangulated);
 
-    cv::Mat         toK();
-    Eigen::Matrix3f toK_();
+    cv::Mat         to_k();
+    Eigen::Matrix3f to_k_eigen();
 
-    bool epipolarConstrain(
-        GeometricCamera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel, const float unc);
+    bool epipolar_constrain(
+        geometric_camera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel, const float unc);
 
-    float TriangulateMatches(GeometricCamera       &pCamera2,
+    float TriangulateMatches(geometric_camera      &pCamera2,
                              const cv::KeyPoint    &kp1,
                              const cv::KeyPoint    &kp2,
                              const Eigen::Matrix3f &R12,
@@ -92,21 +92,21 @@ class KannalaBrandt8 : public GeometricCamera
 
     std::vector<int> mvLappingArea;
 
-    bool matchAndtriangulate(const cv::KeyPoint &kp1,
-                             const cv::KeyPoint &kp2,
-                             GeometricCamera    &pOther,
-                             Sophus::SE3f       &Tcw1,
-                             Sophus::SE3f       &Tcw2,
-                             const float         sigmaLevel1,
-                             const float         sigmaLevel2,
-                             Eigen::Vector3f    &x3Dtriangulated);
+    bool match_and_triangulate(const cv::KeyPoint &kp1,
+                               const cv::KeyPoint &kp2,
+                               geometric_camera   &pOther,
+                               Sophus::SE3f       &Tcw1,
+                               Sophus::SE3f       &Tcw2,
+                               const float         sigmaLevel1,
+                               const float         sigmaLevel2,
+                               Eigen::Vector3f    &x3Dtriangulated);
 
     friend std::ostream &operator<<(std::ostream &os, const KannalaBrandt8 &kb);
     friend std::istream &operator>>(std::istream &is, KannalaBrandt8 &kb);
 
     float GetPrecision() { return precision; }
 
-    bool IsEqual(GeometricCamera &pCam);
+    bool IsEqual(geometric_camera &pCam);
 
   private:
     const float precision;

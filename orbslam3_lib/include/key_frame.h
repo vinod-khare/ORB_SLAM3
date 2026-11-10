@@ -19,7 +19,7 @@
 #ifndef KEY_FRAME_H
 #define KEY_FRAME_H
 
-#include "GeometricCamera.h"
+#include "geometric_camera.h"
 #include "ImuTypes.h"
 #include "frame.h"
 #include "key_frame_database.h"
@@ -43,7 +43,7 @@ class map_point;
 class frame;
 class key_frame_database;
 
-class GeometricCamera;
+class geometric_camera;
 
 class key_frame
 {

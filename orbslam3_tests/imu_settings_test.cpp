@@ -133,7 +133,7 @@ TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shut
     const bool        explicit_shutdown = GENERATE(false, true);
     ORB_SLAM3::system system(vocabulary_path.string(), files.path.string(), sensor);
     REQUIRE(system.cameras().size() == (sensor == ORB_SLAM3::system::stereo ? 2 : 1));
-    REQUIRE(system.cameras()[0]->GetType() == (fisheye ? ORB_SLAM3::GeometricCamera::CAM_FISHEYE : ORB_SLAM3::GeometricCamera::CAM_PINHOLE));
+    REQUIRE(system.cameras()[0]->get_type() == (fisheye ? ORB_SLAM3::geometric_camera::cam_fisheye : ORB_SLAM3::geometric_camera::cam_pinhole));
     const auto   &primary_camera = *system.cameras()[0];
     const cv::Mat image(512, 512, CV_8UC1, cv::Scalar(0));
     if (sensor == ORB_SLAM3::system::stereo)

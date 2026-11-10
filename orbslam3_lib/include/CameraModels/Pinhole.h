@@ -19,35 +19,35 @@
 #ifndef CAMERAMODELS_PINHOLE_H
 #define CAMERAMODELS_PINHOLE_H
 
-#include "GeometricCamera.h"
+#include "geometric_camera.h"
 #include "two_view_reconstruction.h"
 
 #include <assert.h>
 
 namespace ORB_SLAM3
 {
-class Pinhole : public GeometricCamera
+class Pinhole : public geometric_camera
 {
 
   public:
     Pinhole()
     {
-        mvParameters.resize(4);
-        mnId   = nNextId++;
-        mnType = CAM_PINHOLE;
+        parameters.resize(4);
+        id   = next_id++;
+        type = cam_pinhole;
     }
-    Pinhole(const std::vector<float> _vParameters) : GeometricCamera(_vParameters), tvr(nullptr)
+    Pinhole(const std::vector<float> _vParameters) : geometric_camera(_vParameters), tvr(nullptr)
     {
-        assert(mvParameters.size() == 4);
-        mnId   = nNextId++;
-        mnType = CAM_PINHOLE;
+        assert(parameters.size() == 4);
+        id   = next_id++;
+        type = cam_pinhole;
     }
 
-    Pinhole(Pinhole *pPinhole) : GeometricCamera(pPinhole->mvParameters), tvr(nullptr)
+    Pinhole(Pinhole *pPinhole) : geometric_camera(pPinhole->parameters), tvr(nullptr)
     {
-        assert(mvParameters.size() == 4);
-        mnId   = nNextId++;
-        mnType = CAM_PINHOLE;
+        assert(parameters.size() == 4);
+        id   = next_id++;
+        type = cam_pinhole;
     }
 
     ~Pinhole()
@@ -61,36 +61,36 @@ class Pinhole : public GeometricCamera
     cv::Point2f     project(const cv::Point3f &p3D);
     Eigen::Vector2d project(const Eigen::Vector3d &v3D);
     Eigen::Vector2f project(const Eigen::Vector3f &v3D);
-    Eigen::Vector2f projectMat(const cv::Point3f &p3D);
+    Eigen::Vector2f project_mat(const cv::Point3f &p3D);
 
     float uncertainty2(const Eigen::Matrix<double, 2, 1> &p2D);
 
-    Eigen::Vector3f unprojectEig(const cv::Point2f &p2D);
+    Eigen::Vector3f unproject_eigen(const cv::Point2f &p2D);
     cv::Point3f     unproject(const cv::Point2f &p2D);
 
-    Eigen::Matrix<double, 2, 3> projectJac(const Eigen::Vector3d &v3D);
+    Eigen::Matrix<double, 2, 3> project_jacobian(const Eigen::Vector3d &v3D);
 
-    bool ReconstructWithTwoViews(const std::vector<cv::KeyPoint> &vKeys1,
-                                 const std::vector<cv::KeyPoint> &vKeys2,
-                                 const std::vector<int>          &vMatches12,
-                                 Sophus::SE3f                    &T21,
-                                 std::vector<cv::Point3f>        &vP3D,
-                                 std::vector<bool>               &vbTriangulated);
+    bool reconstruct_with_two_views(const std::vector<cv::KeyPoint> &vKeys1,
+                                    const std::vector<cv::KeyPoint> &vKeys2,
+                                    const std::vector<int>          &vMatches12,
+                                    Sophus::SE3f                    &T21,
+                                    std::vector<cv::Point3f>        &vP3D,
+                                    std::vector<bool>               &vbTriangulated);
 
-    cv::Mat         toK();
-    Eigen::Matrix3f toK_();
+    cv::Mat         to_k();
+    Eigen::Matrix3f to_k_eigen();
 
-    bool epipolarConstrain(
-        GeometricCamera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel, const float unc);
+    bool epipolar_constrain(
+        geometric_camera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel, const float unc);
 
-    bool matchAndtriangulate(const cv::KeyPoint &kp1,
-                             const cv::KeyPoint &kp2,
-                             GeometricCamera    &pOther,
-                             Sophus::SE3f       &Tcw1,
-                             Sophus::SE3f       &Tcw2,
-                             const float         sigmaLevel1,
-                             const float         sigmaLevel2,
-                             Eigen::Vector3f    &x3Dtriangulated)
+    bool match_and_triangulate(const cv::KeyPoint &kp1,
+                               const cv::KeyPoint &kp2,
+                               geometric_camera   &pOther,
+                               Sophus::SE3f       &Tcw1,
+                               Sophus::SE3f       &Tcw2,
+                               const float         sigmaLevel1,
+                               const float         sigmaLevel2,
+                               Eigen::Vector3f    &x3Dtriangulated)
     {
         return false;
     }
@@ -98,7 +98,7 @@ class Pinhole : public GeometricCamera
     friend std::ostream &operator<<(std::ostream &os, const Pinhole &ph);
     friend std::istream &operator>>(std::istream &os, Pinhole &ph);
 
-    bool IsEqual(GeometricCamera &pCam);
+    bool IsEqual(geometric_camera &pCam);
 
   private:
     // Parameters vector corresponds to

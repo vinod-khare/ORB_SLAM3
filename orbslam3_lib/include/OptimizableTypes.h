@@ -19,7 +19,7 @@
 #ifndef ORB_SLAM3_OPTIMIZABLETYPES_H
 #define ORB_SLAM3_OPTIMIZABLETYPES_H
 
-#include "CameraModels/GeometricCamera.h"
+#include "CameraModels/geometric_camera.h"
 #include "G2oCompat.h"
 
 #include <memory>
@@ -35,7 +35,7 @@ class EdgeSE3ProjectXYZOnlyPose : public g2o::BaseUnaryEdge<2, Eigen::Vector2d, 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    explicit EdgeSE3ProjectXYZOnlyPose(GeometricCamera &camera) : camera(camera) {}
+    explicit EdgeSE3ProjectXYZOnlyPose(geometric_camera &camera) : camera(camera) {}
 
     bool read(std::istream &is);
 
@@ -57,7 +57,7 @@ class EdgeSE3ProjectXYZOnlyPose : public g2o::BaseUnaryEdge<2, Eigen::Vector2d, 
     virtual void linearizeOplus();
 
     Eigen::Vector3d  Xw;
-    GeometricCamera &camera;
+    geometric_camera &camera;
 };
 
 class EdgeSE3ProjectXYZOnlyPoseToBody : public g2o::BaseUnaryEdge<2, Eigen::Vector2d, g2o::VertexSE3Expmap>
@@ -65,7 +65,7 @@ class EdgeSE3ProjectXYZOnlyPoseToBody : public g2o::BaseUnaryEdge<2, Eigen::Vect
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    explicit EdgeSE3ProjectXYZOnlyPoseToBody(GeometricCamera &camera) : camera(camera) {}
+    explicit EdgeSE3ProjectXYZOnlyPoseToBody(geometric_camera &camera) : camera(camera) {}
 
     bool read(std::istream &is);
 
@@ -87,7 +87,7 @@ class EdgeSE3ProjectXYZOnlyPoseToBody : public g2o::BaseUnaryEdge<2, Eigen::Vect
     virtual void linearizeOplus();
 
     Eigen::Vector3d  Xw;
-    GeometricCamera &camera;
+    geometric_camera &camera;
 
     g2o::SE3Quat mTrl;
 };
@@ -97,7 +97,7 @@ class EdgeSE3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::Ve
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    explicit EdgeSE3ProjectXYZ(GeometricCamera &camera);
+    explicit EdgeSE3ProjectXYZ(geometric_camera &camera);
 
     bool read(std::istream &is);
 
@@ -120,7 +120,7 @@ class EdgeSE3ProjectXYZ : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::Ve
 
     virtual void linearizeOplus();
 
-    GeometricCamera &camera;
+    geometric_camera &camera;
 };
 
 class EdgeSE3ProjectXYZToBody : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>
@@ -128,7 +128,7 @@ class EdgeSE3ProjectXYZToBody : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    explicit EdgeSE3ProjectXYZToBody(GeometricCamera &camera);
+    explicit EdgeSE3ProjectXYZToBody(geometric_camera &camera);
 
     bool read(std::istream &is);
 
@@ -151,7 +151,7 @@ class EdgeSE3ProjectXYZToBody : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g
 
     virtual void linearizeOplus();
 
-    GeometricCamera &camera;
+    geometric_camera &camera;
     g2o::SE3Quat     mTrl;
 };
 

@@ -19,7 +19,7 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-#include "CameraModels/GeometricCamera.h"
+#include "CameraModels/geometric_camera.h"
 #include "ImuTypes.h"
 #include "atlas.h"
 #include "feature_overrides.h"

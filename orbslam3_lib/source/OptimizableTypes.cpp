@@ -61,7 +61,7 @@ void EdgeSE3ProjectXYZOnlyPose::linearizeOplus()
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;
 
-    _jacobianOplusXi = -camera.projectJac(xyz_trans) * SE3deriv;
+    _jacobianOplusXi = -camera.project_jacobian(xyz_trans) * SE3deriv;
 }
 
 bool EdgeSE3ProjectXYZOnlyPoseToBody::read(std::istream &is)
@@ -107,10 +107,10 @@ void EdgeSE3ProjectXYZOnlyPoseToBody::linearizeOplus()
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z_w, -y_w, 1.f, 0.f, 0.f, -z_w, 0.f, x_w, 0.f, 1.f, 0.f, y_w, -x_w, 0.f, 0.f, 0.f, 1.f;
 
-    _jacobianOplusXi = -camera.projectJac(X_r) * mTrl.rotation().toRotationMatrix() * SE3deriv;
+    _jacobianOplusXi = -camera.project_jacobian(X_r) * mTrl.rotation().toRotationMatrix() * SE3deriv;
 }
 
-EdgeSE3ProjectXYZ::EdgeSE3ProjectXYZ(GeometricCamera &camera) : BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>(), camera(camera) {}
+EdgeSE3ProjectXYZ::EdgeSE3ProjectXYZ(geometric_camera &camera) : BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>(), camera(camera) {}
 
 bool EdgeSE3ProjectXYZ::read(std::istream &is)
 {
@@ -154,17 +154,17 @@ void EdgeSE3ProjectXYZ::linearizeOplus()
     double z = xyz_trans[2];
 
     // Materialize: `auto` would keep an Eigen expression referencing a destroyed temporary.
-    const Eigen::Matrix<double, 2, 3> projectJac = -camera.projectJac(xyz_trans);
+    const Eigen::Matrix<double, 2, 3> project_jacobian = -camera.project_jacobian(xyz_trans);
 
-    _jacobianOplusXi = projectJac * T.rotation().toRotationMatrix();
+    _jacobianOplusXi = project_jacobian * T.rotation().toRotationMatrix();
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;
 
-    _jacobianOplusXj = projectJac * SE3deriv;
+    _jacobianOplusXj = project_jacobian * SE3deriv;
 }
 
-EdgeSE3ProjectXYZToBody::EdgeSE3ProjectXYZToBody(GeometricCamera &camera) : BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>(), camera(camera) {}
+EdgeSE3ProjectXYZToBody::EdgeSE3ProjectXYZToBody(geometric_camera &camera) : BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>(), camera(camera) {}
 
 bool EdgeSE3ProjectXYZToBody::read(std::istream &is)
 {
@@ -205,7 +205,7 @@ void EdgeSE3ProjectXYZToBody::linearizeOplus()
     Eigen::Vector3d         X_l  = T_lw.map(X_w);
     Eigen::Vector3d         X_r  = mTrl.map(T_lw.map(X_w));
 
-    _jacobianOplusXi = -camera.projectJac(X_r) * T_rw.rotation().toRotationMatrix();
+    _jacobianOplusXi = -camera.project_jacobian(X_r) * T_rw.rotation().toRotationMatrix();
 
     double x = X_l[0];
     double y = X_l[1];
@@ -214,7 +214,7 @@ void EdgeSE3ProjectXYZToBody::linearizeOplus()
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;
 
-    _jacobianOplusXj = -camera.projectJac(X_r) * mTrl.rotation().toRotationMatrix() * SE3deriv;
+    _jacobianOplusXj = -camera.project_jacobian(X_r) * mTrl.rotation().toRotationMatrix() * SE3deriv;
 }
 
 VertexSim3Expmap::VertexSim3Expmap(const camera_vector &cameras) : BaseVertex<7, g2o::Sim3>(), cameras(cameras)
@@ -261,7 +261,7 @@ bool VertexSim3Expmap::write(std::ostream &os) const
     {
         for (size_t parameter_index = 0; parameter_index < cameras[0]->size(); ++parameter_index)
         {
-            os << cameras[0]->getParameter(parameter_index) << " ";
+            os << cameras[0]->get_parameter(parameter_index) << " ";
         }
     }
 

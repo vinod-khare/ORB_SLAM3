@@ -58,8 +58,8 @@ class sim3_solver
 
     void check_inliers();
 
-    void project(const std::vector<Eigen::Vector3f> &world_points, std::vector<Eigen::Vector2f> &image_points, Eigen::Matrix4f camera_from_world, GeometricCamera &camera);
-    void from_camera_to_image(const std::vector<Eigen::Vector3f> &camera_points, std::vector<Eigen::Vector2f> &image_points, GeometricCamera &camera);
+    void project(const std::vector<Eigen::Vector3f> &world_points, std::vector<Eigen::Vector2f> &image_points, Eigen::Matrix4f camera_from_world, geometric_camera &camera);
+    void from_camera_to_image(const std::vector<Eigen::Vector3f> &camera_points, std::vector<Eigen::Vector2f> &image_points, geometric_camera &camera);
 
   protected:
     // KeyFrames and matches

@@ -148,7 +148,7 @@ kalibr_camera read_kalibr_camera(const YAML::Node &calibration, const std::strin
     return result;
 }
 
-std::unique_ptr<ORB_SLAM3::GeometricCamera> make_camera(const kalibr_camera &camera)
+std::unique_ptr<ORB_SLAM3::geometric_camera> make_camera(const kalibr_camera &camera)
 {
     if (camera.type == ORB_SLAM3::settings::kannala_brandt)
     {
@@ -390,7 +390,7 @@ void settings::read_cameras(cv::FileStorage &settings)
     // Kalibr T_cn_cnm1 maps cam0 points into cam1, so left_to_right_pose is its inverse.
     _left_to_right_pose = read_transform(calibration["cam1"]["T_cn_cnm1"], "cam1.T_cn_cnm1", _calibration_file).inverse();
     _baseline           = _left_to_right_pose.translation().norm();
-    _baseline_fx        = _baseline * _cameras[0]->getParameter(0);
+    _baseline_fx        = _baseline * _cameras[0]->get_parameter(0);
 
     bool found;
     _depth_threshold = read_parameter<float>(settings, "Stereo.ThDepth", found);
@@ -410,13 +410,13 @@ void settings::read_image_info(cv::FileStorage &fSettings)
         {
             // Update calibration
             float scaleRowFactor = (float)_new_image_size.height / (float)_original_image_size.height;
-            _cameras[0]->setParameter(_cameras[0]->getParameter(1) * scaleRowFactor, 1);
-            _cameras[0]->setParameter(_cameras[0]->getParameter(3) * scaleRowFactor, 3);
+            _cameras[0]->set_parameter(_cameras[0]->get_parameter(1) * scaleRowFactor, 1);
+            _cameras[0]->set_parameter(_cameras[0]->get_parameter(3) * scaleRowFactor, 3);
 
             if (_sensor == system::stereo || _sensor == system::imu_stereo)
             {
-                _cameras[1]->setParameter(_cameras[1]->getParameter(1) * scaleRowFactor, 1);
-                _cameras[1]->setParameter(_cameras[1]->getParameter(3) * scaleRowFactor, 3);
+                _cameras[1]->set_parameter(_cameras[1]->get_parameter(1) * scaleRowFactor, 1);
+                _cameras[1]->set_parameter(_cameras[1]->get_parameter(3) * scaleRowFactor, 3);
             }
         }
     }
@@ -431,13 +431,13 @@ void settings::read_image_info(cv::FileStorage &fSettings)
         {
             // Update calibration
             float scaleColFactor = (float)_new_image_size.width / (float)_original_image_size.width;
-            _cameras[0]->setParameter(_cameras[0]->getParameter(0) * scaleColFactor, 0);
-            _cameras[0]->setParameter(_cameras[0]->getParameter(2) * scaleColFactor, 2);
+            _cameras[0]->set_parameter(_cameras[0]->get_parameter(0) * scaleColFactor, 0);
+            _cameras[0]->set_parameter(_cameras[0]->get_parameter(2) * scaleColFactor, 2);
 
             if (_sensor == system::stereo || _sensor == system::imu_stereo)
             {
-                _cameras[1]->setParameter(_cameras[1]->getParameter(0) * scaleColFactor, 0);
-                _cameras[1]->setParameter(_cameras[1]->getParameter(2) * scaleColFactor, 2);
+                _cameras[1]->set_parameter(_cameras[1]->get_parameter(0) * scaleColFactor, 0);
+                _cameras[1]->set_parameter(_cameras[1]->get_parameter(2) * scaleColFactor, 2);
 
                 if (_camera_type == kannala_brandt)
                 {
@@ -526,7 +526,7 @@ void settings::read_rgbd(cv::FileStorage &fSettings)
     _depth_map_factor = read_parameter<float>(fSettings, "RGBD.DepthMapFactor", found);
     _depth_threshold  = read_parameter<float>(fSettings, "Stereo.ThDepth", found);
     _baseline         = read_parameter<float>(fSettings, "Stereo.b", found);
-    _baseline_fx      = _baseline * _cameras[0]->getParameter(0);
+    _baseline_fx      = _baseline * _cameras[0]->get_parameter(0);
 }
 
 void settings::read_features(cv::FileStorage &fSettings, const std::string &config_file, const feature_overrides &overrides)
@@ -640,9 +640,9 @@ void settings::read_other_parameters(cv::FileStorage &fSettings)
 void settings::precompute_rectification_maps()
 {
     // Precompute rectification maps, new calibrations, ...
-    cv::Mat K1 = _cameras[0]->toK();
+    cv::Mat K1 = _cameras[0]->to_k();
     K1.convertTo(K1, CV_64F);
-    cv::Mat K2 = _cameras[1]->toK();
+    cv::Mat K2 = _cameras[1]->to_k();
     K2.convertTo(K2, CV_64F);
 
     cv::Mat cvTlr;
@@ -663,14 +663,14 @@ void settings::precompute_rectification_maps()
         K2, camera_2_distortion_coefficients(), R_r2_u2, P2.rowRange(0, 3).colRange(0, 3), _new_image_size, CV_32F, _right_rectification_map_x, _right_rectification_map_y);
 
     // Update calibration
-    _cameras[0]->setParameter(P1.at<double>(0, 0), 0);
-    _cameras[0]->setParameter(P1.at<double>(1, 1), 1);
-    _cameras[0]->setParameter(P1.at<double>(0, 2), 2);
-    _cameras[0]->setParameter(P1.at<double>(1, 2), 3);
-    _cameras[1]->setParameter(P2.at<double>(0, 0), 0);
-    _cameras[1]->setParameter(P2.at<double>(1, 1), 1);
-    _cameras[1]->setParameter(P2.at<double>(0, 2), 2);
-    _cameras[1]->setParameter(P2.at<double>(1, 2), 3);
+    _cameras[0]->set_parameter(P1.at<double>(0, 0), 0);
+    _cameras[0]->set_parameter(P1.at<double>(1, 1), 1);
+    _cameras[0]->set_parameter(P1.at<double>(0, 2), 2);
+    _cameras[0]->set_parameter(P1.at<double>(1, 2), 3);
+    _cameras[1]->set_parameter(P2.at<double>(0, 0), 0);
+    _cameras[1]->set_parameter(P2.at<double>(1, 1), 1);
+    _cameras[1]->set_parameter(P2.at<double>(0, 2), 2);
+    _cameras[1]->set_parameter(P2.at<double>(1, 2), 3);
 
     // Update baseline_fx
     _baseline_fx = _baseline * P1.at<double>(0, 0);
@@ -702,7 +702,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
     output << ")" << ": [";
     for (size_t i = 0; i < settings._original_cameras[0]->size(); i++)
     {
-        output << " " << settings._original_cameras[0]->getParameter(i);
+        output << " " << settings._original_cameras[0]->get_parameter(i);
     }
     output << " ]" << endl;
 
@@ -730,7 +730,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
         output << "" << ": [";
         for (size_t i = 0; i < settings._original_cameras[1]->size(); i++)
         {
-            output << " " << settings._original_cameras[1]->getParameter(i);
+            output << " " << settings._original_cameras[1]->get_parameter(i);
         }
         output << " ]" << endl;
 
@@ -753,7 +753,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
         output << "\t-Camera 1 parameters after rectification: [ ";
         for (size_t i = 0; i < settings._cameras[0]->size(); i++)
         {
-            output << " " << settings._cameras[0]->getParameter(i);
+            output << " " << settings._cameras[0]->get_parameter(i);
         }
         output << " ]" << endl;
     }
@@ -762,7 +762,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
         output << "\t-Camera 1 parameters after resize: [ ";
         for (size_t i = 0; i < settings._cameras[0]->size(); i++)
         {
-            output << " " << settings._cameras[0]->getParameter(i);
+            output << " " << settings._cameras[0]->get_parameter(i);
         }
         output << " ]" << endl;
 
@@ -771,7 +771,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
             output << "\t-Camera 2 parameters after resize: [ ";
             for (size_t i = 0; i < settings._cameras[1]->size(); i++)
             {
-                output << " " << settings._cameras[1]->getParameter(i);
+                output << " " << settings._cameras[1]->get_parameter(i);
             }
             output << " ]" << endl;
         }

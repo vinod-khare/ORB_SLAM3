@@ -1311,7 +1311,7 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                         }
                     }
 
-                    if (bCoarse || pKF1->cameras[camera_index1]->epipolarConstrain(*pKF2->cameras[camera_index2],
+                    if (bCoarse || pKF1->cameras[camera_index1]->epipolar_constrain(*pKF2->cameras[camera_index2],
                                                                                    kp1,
                                                                                    kp2,
                                                                                    R12,

@@ -31,7 +31,7 @@ namespace ORB_SLAM3
 {
 
 class key_frame;
-class GeometricCamera;
+class geometric_camera;
 
 /** Shared camera geometry and matrix comparison helpers. */
 class geometric_tools
@@ -42,7 +42,7 @@ class geometric_tools
     static bool solve_pnp_ransac(const std::vector<cv::Point3f> &world_points,
                                  const std::vector<cv::Point2f> &image_points,
                                  const std::vector<float>       &max_errors,
-                                 GeometricCamera                &camera,
+                                 geometric_camera                &camera,
                                  int                             min_inliers,
                                  Eigen::Matrix4f                &camera_from_world,
                                  std::vector<bool>              &inliers);

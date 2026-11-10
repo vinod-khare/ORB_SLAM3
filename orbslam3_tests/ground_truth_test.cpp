@@ -172,7 +172,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     std::vector<std::unique_ptr<ORB_SLAM3::key_frame>> keyframes;
     for (const double timestamp : {1.25, 2.25, 3.25})
     {
-        ORB_SLAM3::frame frame(timestamp, nullptr, cameras[0]->toK(), distortion, 0, 40);
+        ORB_SLAM3::frame frame(timestamp, nullptr, cameras[0]->to_k(), distortion, 0, 40);
         ORB_SLAM3::tracking::extract_features(frame, extractor, image, cameras);
         frame.dataset                  = 0;
         const Eigen::Vector3f position = trajectory.pose_at(timestamp)->translation().cast<float>();

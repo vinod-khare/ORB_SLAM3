@@ -16,7 +16,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
-static_assert(std::has_virtual_destructor_v<ORB_SLAM3::GeometricCamera>);
+static_assert(std::has_virtual_destructor_v<ORB_SLAM3::geometric_camera>);
 static_assert(!std::is_copy_constructible_v<ORB_SLAM3::camera_vector::value_type>);
 
 TEST_CASE("Camera collections distinguish rectified and fisheye stereo", "[camera_rig]")

@@ -20,7 +20,7 @@
 
 #include "CameraModels/KannalaBrandt8.h"
 #include "G2oTypes.h"
-#include "GeometricCamera.h"
+#include "geometric_camera.h"
 #include "key_frame.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
@@ -1100,7 +1100,7 @@ void frame::compute_stereo_fisheye_matches(const camera_vector &cameras)
     }
 }
 
-bool frame::is_in_frustum_checks(map_point *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight)
+bool frame::is_in_frustum_checks(map_point *pMP, float viewingCosLimit, geometric_camera &camera, bool bRight)
 {
     // 3D in absolute coordinates
     Eigen::Vector3f P = pMP->get_world_position();

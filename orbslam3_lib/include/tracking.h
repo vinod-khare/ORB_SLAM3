@@ -19,7 +19,7 @@
 #ifndef TRACKING_H
 #define TRACKING_H
 
-#include "GeometricCamera.h"
+#include "geometric_camera.h"
 #include "ImuTypes.h"
 #include "atlas.h"
 #include "frame.h"
