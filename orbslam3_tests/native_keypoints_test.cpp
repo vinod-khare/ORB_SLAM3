@@ -1,8 +1,8 @@
-#include "Frame.h"
 #include "MapPoint.h"
 #include "Pinhole.h"
 #include "Tracking.h"
 #include "descriptor_matcher.h"
+#include "frame.h"
 #include "keypoint_extractor.h"
 
 #include <algorithm>
@@ -125,43 +125,43 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     const cv::Mat            image                  = cv::Mat::zeros(256, 256, CV_8U);
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
-    ORB_SLAM3::Frame::mbInitialComputations = true;
-    ORB_SLAM3::Frame    frame(0.0, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::frame::initial_computations = true;
+    ORB_SLAM3::frame    frame(0.0, nullptr, calibration, distortion, 20, 40);
     ORB_SLAM3::keypoint key(73.25f, 81.75f, 31.f);
     key.pt_undistorted = cv::Point2f(-10, -20);
     key.descriptor     = cv::Mat::zeros(1, 32, CV_8U);
-    frame.mvKeys       = {key};
+    frame.keypoints    = {key};
     frame.initialize_features(image, cameras);
-    frame.SetPose(Sophus::SE3f{});
+    frame.set_pose(Sophus::SE3f{});
     std::vector<cv::Point2f> expected;
     cv::undistortPoints(std::vector<cv::Point2f>{key.pt}, expected, calibration, distortion, cv::noArray(), calibration);
     const auto &position = expected.front();
-    REQUIRE(frame.mvKeys.front().pt == key.pt);
-    REQUIRE(frame.mvKeys.front().display.pt == key.pt);
-    REQUIRE(cv::norm(frame.mvKeys.front().pt_undistorted - position) < 0.001);
-    REQUIRE(frame.GetFeaturesInArea(position.x, position.y, 0.01f) == std::vector<std::size_t>{0});
+    REQUIRE(frame.keypoints.front().pt == key.pt);
+    REQUIRE(frame.keypoints.front().display.pt == key.pt);
+    REQUIRE(cv::norm(frame.keypoints.front().pt_undistorted - position) < 0.001);
+    REQUIRE(frame.get_features_in_area(position.x, position.y, 0.01f) == std::vector<std::size_t>{0});
     if (distortion_coefficient != 0)
     {
-        REQUIRE(frame.GetFeaturesInArea(key.pt.x, key.pt.y, 0.01f).empty());
+        REQUIRE(frame.get_features_in_area(key.pt.x, key.pt.y, 0.01f).empty());
     }
 
     cv::Mat depth                                                           = cv::Mat::zeros(image.size(), CV_32F);
     depth.at<float>(static_cast<int>(key.pt.y), static_cast<int>(key.pt.x)) = 2.f;
-    frame.ComputeStereoFromRGBD(depth);
-    REQUIRE(frame.mvDepth.front() == 2.f);
-    REQUIRE(frame.mvuRight.front() == Catch::Approx(position.x - 10.f));
+    frame.compute_stereo_from_rgbd(depth);
+    REQUIRE(frame.depths.front() == 2.f);
+    REQUIRE(frame.right_coordinates.front() == Catch::Approx(position.x - 10.f));
     Eigen::Vector3f point;
-    REQUIRE(frame.UnprojectStereo(0, point));
+    REQUIRE(frame.unproject_stereo(0, point));
     REQUIRE(point.x() == Catch::Approx((position.x - 128.f) * 2.f / 200.f));
     REQUIRE(point.y() == Catch::Approx((position.y - 128.f) * 2.f / 200.f));
     REQUIRE(point.z() == 2.f);
 
     ORB_SLAM3::Map         map;
     ORB_SLAM3::KeyFrame    keyframe(frame, &map, nullptr, cameras);
-    const ORB_SLAM3::Frame copied(frame);
+    const ORB_SLAM3::frame copied(frame);
     REQUIRE(keyframe.mvKeys.front().pt == key.pt);
-    REQUIRE(keyframe.mvKeys.front().pt_undistorted == frame.mvKeys.front().pt_undistorted);
-    REQUIRE(copied.mvKeys.front().pt_undistorted == frame.mvKeys.front().pt_undistorted);
+    REQUIRE(keyframe.mvKeys.front().pt_undistorted == frame.keypoints.front().pt_undistorted);
+    REQUIRE(copied.keypoints.front().pt_undistorted == frame.keypoints.front().pt_undistorted);
     REQUIRE(keyframe.GetFeaturesInArea(position.x, position.y, 0.01f) == std::vector<std::size_t>{0});
     REQUIRE(keyframe.descriptor(0).data == frame.descriptor(0).data);
 
@@ -170,18 +170,18 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     std::vector<int>              matches;
     REQUIRE(matcher.search_for_initialization(frame, frame, previous_matches, matches, 2) == 1);
     REQUIRE(matches == std::vector<int>{0});
-    REQUIRE(previous_matches.front() == frame.mvKeys.front().pt_undistorted);
+    REQUIRE(previous_matches.front() == frame.keypoints.front().pt_undistorted);
 
     frame.set_tracked_features({}, {});
-    REQUIRE(frame.mvKeys.empty());
-    REQUIRE(frame.GetFeaturesInArea(position.x, position.y, 2).empty());
+    REQUIRE(frame.keypoints.empty());
+    REQUIRE(frame.get_features_in_area(position.x, position.y, 2).empty());
 }
 
 TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]")
 {
-    ORB_SLAM3::Frame frame;
-    frame.mvKeys                                = {cv::KeyPoint(1.f, 1.f, 1.f), cv::KeyPoint(-1.f, 0.f, 1.f), cv::KeyPoint(2.9f, 2.9f, 1.f)};
-    frame.mvKeys.front().pt_undistorted         = cv::Point2f(0.f, 0.f);
+    ORB_SLAM3::frame frame;
+    frame.keypoints                             = {cv::KeyPoint(1.f, 1.f, 1.f), cv::KeyPoint(-1.f, 0.f, 1.f), cv::KeyPoint(2.9f, 2.9f, 1.f)};
+    frame.keypoints.front().pt_undistorted      = cv::Point2f(0.f, 0.f);
     const int channels                          = GENERATE(1, 3, 4);
     frame.color_image                           = cv::Mat(3, 3, CV_MAKETYPE(CV_8U, channels), cv::Scalar(10, 20, 30, 40));
     const std::array<unsigned char, 3> expected = channels == 1 ? std::array<unsigned char, 3>{10, 10, 10} : std::array<unsigned char, 3>{30, 20, 10};
@@ -195,7 +195,7 @@ TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]
     const std::array<unsigned char, 3> rgb = channels == 1 ? expected : std::array<unsigned char, 3>{10, 20, 30};
     REQUIRE(frame.keypoint_color(0) == rgb);
     frame.is_fisheye_stereo = true;
-    frame.mvKeysRight       = {cv::KeyPoint(0.f, 0.f, 1.f)};
+    frame.right_keypoints   = {cv::KeyPoint(0.f, 0.f, 1.f)};
     frame.color_image_right = cv::Mat(1, 1, CV_8UC1, cv::Scalar(70));
     const std::array<unsigned char, 3> gray{70, 70, 70};
     REQUIRE(frame.keypoint_color(3) == gray);
@@ -211,27 +211,27 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
     ORB_SLAM3::camera_vector      cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{100, 100, 64, 64}));
-    cv::Mat distortion                      = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::Frame::mbInitialComputations = true;
-    ORB_SLAM3::Frame frame(0.0, nullptr, cameras[0]->toK(), distortion, 10.f, 40.f);
+    cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::frame::initial_computations = true;
+    ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->toK(), distortion, 10.f, 40.f);
     ORB_SLAM3::Tracking::extract_features(frame, extractor, image, cameras);
-    REQUIRE(frame.N >= 2);
+    REQUIRE(frame.feature_count >= 2);
     REQUIRE(frame.extraction_ms > 0);
     REQUIRE(frame.stereo_matching_ms >= 0);
     frame.optical_flow_ms = 2.0;
-    const ORB_SLAM3::Frame copied(frame);
+    const ORB_SLAM3::frame copied(frame);
     REQUIRE(copied.extraction_ms == frame.extraction_ms);
     REQUIRE(copied.stereo_matching_ms == frame.stereo_matching_ms);
     REQUIRE(copied.optical_flow_ms == frame.optical_flow_ms);
-    const ORB_SLAM3::Frame next(frame, 0.1);
+    const ORB_SLAM3::frame next(frame, 0.1);
     REQUIRE(next.extraction_ms == 0);
     REQUIRE(next.stereo_matching_ms == 0);
     REQUIRE(next.optical_flow_ms == 0);
-    frame.SetPose(Sophus::SE3f{});
-    frame.mnDataset   = 0;
+    frame.set_pose(Sophus::SE3f{});
+    frame.dataset     = 0;
     frame.color_image = cv::Mat(128, 128, CV_8UC3, cv::Scalar(10, 30, 200));
     ORB_SLAM3::Map map;
-    const auto     second_keypoint                                                          = frame.mvKeys[1].pt;
+    const auto     second_keypoint                                                          = frame.keypoints[1].pt;
     frame.color_image.at<cv::Vec3b>(cvRound(second_keypoint.y), cvRound(second_keypoint.x)) = cv::Vec3b(220, 40, 10);
     ORB_SLAM3::KeyFrame colored_keyframe(frame, &map, nullptr, cameras);
     REQUIRE(&colored_keyframe.cameras == &cameras);

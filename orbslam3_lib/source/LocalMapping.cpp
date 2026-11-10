@@ -1326,7 +1326,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
 
     mScale = 1.0;
 
-    mInitTime = mpTracker->mLastFrame.mTimeStamp - vpKF.front()->mTimeStamp;
+    mInitTime = mpTracker->mLastFrame.timestamp - vpKF.front()->mTimeStamp;
 
     Optimizer::InertialOptimization(mpAtlas->get_current_map(), mRwg, mScale, mbg, mba, mbMonocular, infoInertial, false, false, priorG, priorA);
 
@@ -1362,7 +1362,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     if (!mpAtlas->is_imu_initialized())
     {
         mpAtlas->set_imu_initialized();
-        mpTracker->t0IMU        = mpTracker->mCurrentFrame.mTimeStamp;
+        mpTracker->t0IMU        = mpTracker->mCurrentFrame.timestamp;
         mpCurrentKeyFrame->bImu = true;
     }
 

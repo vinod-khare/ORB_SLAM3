@@ -760,7 +760,7 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &
     }
 }
 
-vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Map *pMap)
+vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(frame *F, Map *pMap)
 {
     list<KeyFrame *> lKFsSharingWords;
 
@@ -768,17 +768,17 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
     {
         unique_lock<mutex> lock(mMutex);
 
-        for (DBoW2::BowVector::const_iterator vit = F->mBowVec.begin(), vend = F->mBowVec.end(); vit != vend; vit++)
+        for (DBoW2::BowVector::const_iterator vit = F->bow_vector.begin(), vend = F->bow_vector.end(); vit != vend; vit++)
         {
             list<KeyFrame *> &lKFs = mvInvertedFile[vit->first];
 
             for (list<KeyFrame *>::iterator lit = lKFs.begin(), lend = lKFs.end(); lit != lend; lit++)
             {
                 KeyFrame *pKFi = *lit;
-                if (pKFi->mnRelocQuery != F->mnId)
+                if (pKFi->mnRelocQuery != F->id)
                 {
                     pKFi->mnRelocWords = 0;
-                    pKFi->mnRelocQuery = F->mnId;
+                    pKFi->mnRelocQuery = F->id;
                     lKFsSharingWords.push_back(pKFi);
                 }
                 pKFi->mnRelocWords++;
@@ -814,7 +814,7 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
         if (pKFi->mnRelocWords > minCommonWords)
         {
             nscores++;
-            float si          = mpVoc->score(F->mBowVec, pKFi->mBowVec);
+            float si          = mpVoc->score(F->bow_vector, pKFi->mBowVec);
             pKFi->mRelocScore = si;
             lScoreAndMatch.push_back(make_pair(si, pKFi));
         }
@@ -840,7 +840,7 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
         for (vector<KeyFrame *>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++)
         {
             KeyFrame *pKF2 = *vit;
-            if (pKF2->mnRelocQuery != F->mnId)
+            if (pKF2->mnRelocQuery != F->id)
             {
                 continue;
             }

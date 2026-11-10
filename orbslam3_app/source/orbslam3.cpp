@@ -274,9 +274,9 @@ int main(int argc, char **argv)
 
                     frame_drawer->update(*tracker);
 
-                    if (tracker->mCurrentFrame.isSet() && tracker->mState == ORB_SLAM3::Tracking::OK)
+                    if (tracker->mCurrentFrame.is_set() && tracker->mState == ORB_SLAM3::Tracking::OK)
                     {
-                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.GetPose(), SLAM.GetAtlas()->get_current_map()->GetId());
+                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.get_pose(), SLAM.GetAtlas()->get_current_map()->GetId());
                     }
                     else
                     {
@@ -294,7 +294,7 @@ int main(int argc, char **argv)
                     const auto &current_frame = SLAM.GetTracker()->mCurrentFrame;
                     viewer->publish_statistics(
                         {.processing      = statistics,
-                         .camera_to_world = current_frame.isSet() && SLAM.GetTracker()->mState == ORB_SLAM3::Tracking::OK ? std::optional{current_frame.GetPose().inverse()} : std::nullopt,
+                         .camera_to_world = current_frame.is_set() && SLAM.GetTracker()->mState == ORB_SLAM3::Tracking::OK ? std::optional{current_frame.get_pose().inverse()} : std::nullopt,
                          .sequence_frame  = static_cast<std::size_t>(ni + 1),
                          .input_wait_ms   = input_wait_ms,
                          .viewer_publication_ms = viewer_publication_ms});

@@ -19,7 +19,7 @@
 #ifndef DESCRIPTOR_MATCHER_H
 #define DESCRIPTOR_MATCHER_H
 
-#include "Frame.h"
+#include "frame.h"
 #include "KeyFrame.h"
 #include "MapPoint.h"
 #include "descriptor_matcher_type.h"
@@ -48,20 +48,20 @@ class descriptor_matcher
     static std::vector<size_t>            rank_candidates(const cv::Mat &query, const cv::Mat &train, const std::vector<size_t> &indices);
     static std::vector<size_t>            rank_candidates(const cv::Mat &query, const std::vector<size_t> &indices, const std::function<const cv::Mat &(size_t)> &get_descriptor);
     static std::vector<size_t>            rank_candidates(const cv::Mat &query, const std::vector<keypoint> &train, const std::vector<size_t> &indices);
-    static std::vector<size_t>            rank_candidates(const cv::Mat &query, const Frame &train, const std::vector<size_t> &indices, bool right = false);
+    static std::vector<size_t>            rank_candidates(const cv::Mat &query, const frame &train, const std::vector<size_t> &indices, bool right = false);
     static std::vector<size_t>            rank_candidates(const cv::Mat &query, const KeyFrame &train, const std::vector<size_t> &indices, bool right = false);
 
     // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
     // Used to track the local map (Tracking)
-    int search_by_projection(Frame &F, const std::vector<MapPoint *> &vpMapPoints, const float th = 3, const bool bFarPoints = false, const float thFarPoints = 50.0f);
+    int search_by_projection(frame &F, const std::vector<MapPoint *> &vpMapPoints, const float th = 3, const bool bFarPoints = false, const float thFarPoints = 50.0f);
 
     // Project MapPoints tracked in last frame into the current frame and search matches.
     // Used to track from previous frame (Tracking)
-    int search_by_projection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono, const camera_vector &cameras);
+    int search_by_projection(frame &CurrentFrame, const frame &LastFrame, const float th, const bool bMono, const camera_vector &cameras);
 
     // Project MapPoints seen in KeyFrame into the Frame and search matches.
     // Used in relocalisation (Tracking)
-    int search_by_projection(Frame &CurrentFrame, KeyFrame *pKF, const std::set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras);
+    int search_by_projection(frame &CurrentFrame, KeyFrame *pKF, const std::set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras);
 
     // Project MapPoints using a Similarity Transformation and search matches.
     // Used in loop detection (Loop Closing)
@@ -69,16 +69,22 @@ class descriptor_matcher
 
     // Project MapPoints using a Similarity Transformation and search matches.
     // Used in Place Recognition (Loop Closing and Merging)
-    int search_by_projection(KeyFrame *pKF, Sophus::Sim3<float> &Scw, const std::vector<MapPoint *> &vpPoints, const std::vector<KeyFrame *> &vpPointsKFs, std::vector<MapPoint *> &vpMatched,
-                             std::vector<KeyFrame *> &vpMatchedKF, int th, float distance_multiplier = 1.0);
+    int search_by_projection(KeyFrame                      *pKF,
+                             Sophus::Sim3<float>           &Scw,
+                             const std::vector<MapPoint *> &vpPoints,
+                             const std::vector<KeyFrame *> &vpPointsKFs,
+                             std::vector<MapPoint *>       &vpMatched,
+                             std::vector<KeyFrame *>       &vpMatchedKF,
+                             int                            th,
+                             float                          distance_multiplier = 1.0);
 
     // Match selected tracking descriptors constrained by place-recognition vocabulary nodes.
     // Used in Relocalisation and Loop Detection
-    int search_by_vocabulary(KeyFrame *pKF, Frame &F, std::vector<MapPoint *> &vpMapPointMatches);
+    int search_by_vocabulary(KeyFrame *pKF, frame &F, std::vector<MapPoint *> &vpMapPointMatches);
     int search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<MapPoint *> &vpMatches12);
 
     // Matching for the Map Initialization (only used in the monocular case)
-    int search_for_initialization(Frame &F1, Frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize = 10);
+    int search_for_initialization(frame &F1, frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize = 10);
 
     // Matching to triangulate new MapPoints. Check Epipolar Constraint.
     int search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<pair<size_t, size_t>> &vMatchedPairs, const bool bOnlyStereo, const bool bCoarse = false);

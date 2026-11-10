@@ -89,23 +89,23 @@ TEST_CASE("Tracking preserves initialization extraction during deferred recovery
     tracker.mImGray = cv::Mat(512, 512, CV_8UC1);
     cv::RNG random(17);
     random.fill(tracker.mImGray, cv::RNG::UNIFORM, 0, 256);
-    ORB_SLAM3::Frame::mbInitialComputations = true;
+    ORB_SLAM3::frame::initial_computations = true;
 
     const bool initial = GENERATE(false, true);
     tracker.create_frame(1.0, tracker.extractor(initial));
-    const auto descriptors = descriptor_matrix(tracker.mCurrentFrame.mvKeys);
+    const auto descriptors = descriptor_matrix(tracker.mCurrentFrame.keypoints);
     REQUIRE(descriptors.rows > 0);
     REQUIRE((descriptors.rows > 250) == initial);
-    REQUIRE(tracker.mCurrentFrame.mpPrevFrame == (sensor == ORB_SLAM3::System::IMU_MONOCULAR ? &tracker.mLastFrame : nullptr));
+    REQUIRE(tracker.mCurrentFrame.previous_frame == (sensor == ORB_SLAM3::System::IMU_MONOCULAR ? &tracker.mLastFrame : nullptr));
     tracker.mLastFrame    = tracker.mCurrentFrame;
-    tracker.mCurrentFrame = ORB_SLAM3::Frame(tracker.mLastFrame, 1.05);
+    tracker.mCurrentFrame = ORB_SLAM3::frame(tracker.mLastFrame, 1.05);
     REQUIRE(tracker.mCurrentFrame.flow_only);
     tracker.extract_current_features();
     REQUIRE_FALSE(tracker.mCurrentFrame.flow_only);
-    REQUIRE(tracker.mCurrentFrame.mpPrevFrame == &tracker.mLastFrame);
-    REQUIRE(tracker.mCurrentFrame.mTimeStamp == 1.05);
-    REQUIRE(tracker.mCurrentFrame.N == descriptors.rows);
-    REQUIRE(cv::norm(descriptor_matrix(tracker.mCurrentFrame.mvKeys), descriptors, cv::NORM_INF) == 0);
+    REQUIRE(tracker.mCurrentFrame.previous_frame == &tracker.mLastFrame);
+    REQUIRE(tracker.mCurrentFrame.timestamp == 1.05);
+    REQUIRE(tracker.mCurrentFrame.feature_count == descriptors.rows);
+    REQUIRE(cv::norm(descriptor_matrix(tracker.mCurrentFrame.keypoints), descriptors, cv::NORM_INF) == 0);
 }
 
 TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shutdown]")

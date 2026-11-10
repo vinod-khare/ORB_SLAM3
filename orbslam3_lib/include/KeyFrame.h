@@ -19,7 +19,7 @@
 #ifndef KEYFRAME_H
 #define KEYFRAME_H
 
-#include "Frame.h"
+#include "frame.h"
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
 #include "KeyFrameDatabase.h"
@@ -39,7 +39,7 @@ namespace ORB_SLAM3
 
 class Map;
 class MapPoint;
-class Frame;
+class frame;
 class KeyFrameDatabase;
 
 class GeometricCamera;
@@ -48,7 +48,7 @@ class KeyFrame
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras);
+    KeyFrame(frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras);
 
     // Pose functions
     void SetPose(const Sophus::SE3f &Tcw);

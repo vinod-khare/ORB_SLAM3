@@ -41,7 +41,7 @@ add_library(ORB_SLAM3 SHARED
         source/atlas.cpp
         source/Map.cpp
         source/Optimizer.cpp
-        source/Frame.cpp
+        source/frame.cpp
         source/KeyFrameDatabase.cpp
         source/sim3_solver.cpp
         source/ImuTypes.cpp

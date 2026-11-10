@@ -30,14 +30,14 @@ namespace ORB_SLAM3
 
 namespace
 {
-std::vector<keypoint> keypoints_with_color(Frame &frame, const std::vector<keypoint> &keys, int index_offset)
+std::vector<keypoint> keypoints_with_color(frame &frame, const std::vector<keypoint> &keys, int index_offset)
 {
     auto colored_keys = keys;
     for (std::size_t index = 0; index < colored_keys.size(); ++index)
     {
         const int frame_index         = index_offset + static_cast<int>(index);
         colored_keys[index].color     = frame.keypoint_color(frame_index);
-        const auto &image             = frame.is_fisheye_stereo && frame_index >= static_cast<int>(frame.mvKeys.size()) ? frame.color_image_right : frame.color_image;
+        const auto &image             = frame.is_fisheye_stereo && frame_index >= static_cast<int>(frame.keypoints.size()) ? frame.color_image_right : frame.color_image;
         colored_keys[index].has_color = !image.empty();
     }
     return colored_keys;
@@ -46,18 +46,18 @@ std::vector<keypoint> keypoints_with_color(Frame &frame, const std::vector<keypo
 
 long unsigned int KeyFrame::nNextId = 0;
 
-KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras)
-    : bImu(pMap->isImuInitialized()), mnFrameId(F.mnId), mTimeStamp(F.mTimeStamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS), mfGridElementWidthInv(F.mfGridElementWidthInv),
-      mfGridElementHeightInv(F.mfGridElementHeightInv), mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0), mnNumberOfOpt(0), mnLoopQuery(0),
+KeyFrame::KeyFrame(frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras)
+    : bImu(pMap->isImuInitialized()), mnFrameId(F.id), mTimeStamp(F.timestamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS), mfGridElementWidthInv(F.grid_element_width_inverse),
+      mfGridElementHeightInv(F.grid_element_height_inverse), mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0), mnNumberOfOpt(0), mnLoopQuery(0),
       mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), mnPlaceRecognitionQuery(0), mnPlaceRecognitionWords(0), mPlaceRecognitionScore(0), mbCurrentPlaceRecognition(false), mnBAGlobalForKF(0),
-      mnMergeCorrectedForKF(0), mnBALocalForMerge(0), fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy), mbf(F.mbf), mb(F.mb), mThDepth(F.mThDepth),
-      mDistCoef(F.mDistCoef), N(F.N), mvKeys(keypoints_with_color(F, F.mvKeys, 0)), mvuRight(F.mvuRight), mvDepth(F.mvDepth), mBowVec(F.mBowVec), mFeatVec(F.mFeatVec),
-      mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor), mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
-      mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX), mnMaxY(F.mnMaxY), mPrevKF(nullptr), mNextKF(nullptr),
-      mpImuPreintegrated(F.mpImuPreintegrated), mImuCalib(F.mImuCalib), mNameFile(F.mNameFile), mnDataset(F.mnDataset), mbHasVelocity(false), mTlr(F.GetRelativePoseTlr()),
-      mTrl(F.GetRelativePoseTrl()), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), place_vocabulary_ptr(F.place_vocabulary_ptr), mbFirstConnection(true), mpParent(nullptr),
-      mbNotErase(false), mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb / 2), mpMap(pMap), mK_(F.mK_), cameras(cameras), mvLeftToRightMatch(F.mvLeftToRightMatch),
-      mvRightToLeftMatch(F.mvRightToLeftMatch), mvKeysRight(keypoints_with_color(F, F.mvKeysRight, static_cast<int>(F.mvKeys.size())))
+      mnMergeCorrectedForKF(0), mnBALocalForMerge(0), fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy), mbf(F.baseline_fx), mb(F.baseline), mThDepth(F.depth_threshold),
+      mDistCoef(F.distortion_coefficients), N(F.feature_count), mvKeys(keypoints_with_color(F, F.keypoints, 0)), mvuRight(F.right_coordinates), mvDepth(F.depths), mBowVec(F.bow_vector),
+      mFeatVec(F.feature_vector), mnScaleLevels(F.scale_levels), mfScaleFactor(F.scale_factor), mfLogScaleFactor(F.log_scale_factor), mvScaleFactors(F.scale_factors),
+      mvLevelSigma2(F.level_sigma_squared), mvInvLevelSigma2(F.inverse_level_sigma_squared), mnMinX(F.min_x), mnMinY(F.min_y), mnMaxX(F.max_x), mnMaxY(F.max_y), mPrevKF(nullptr),
+      mNextKF(nullptr), mpImuPreintegrated(F.imu_preintegrated), mImuCalib(F.imu_calibration), mNameFile(F.name_file), mnDataset(F.dataset), mbHasVelocity(false),
+      mTlr(F.get_relative_pose_tlr()), mTrl(F.get_relative_pose_trl()), mvpMapPoints(F.map_points), mpKeyFrameDB(pKFDB), place_vocabulary_ptr(F.place_vocabulary_ptr), mbFirstConnection(true),
+      mpParent(nullptr), mbNotErase(false), mbToBeErased(false), mbBad(false), mHalfBaseline(F.baseline / 2), mpMap(pMap), mK_(F.eigen_calibration_matrix), cameras(cameras),
+      mvLeftToRightMatch(F.left_to_right_matches), mvRightToLeftMatch(F.right_to_left_matches), mvKeysRight(keypoints_with_color(F, F.right_keypoints, static_cast<int>(F.keypoints.size())))
 {
     mnId = nNextId++;
     mGrid.resize(mnGridCols);
@@ -74,27 +74,27 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_ve
         }
         for (int j = 0; j < mnGridRows; j++)
         {
-            mGrid[i][j] = F.mGrid[i][j];
+            mGrid[i][j] = F.grid[i][j];
             if (is_fisheye_stereo(cameras))
             {
-                mGridRight[i][j] = F.mGridRight[i][j];
+                mGridRight[i][j] = F.right_grid[i][j];
             }
         }
     }
 
-    if (!F.HasVelocity())
+    if (!F.has_velocity())
     {
         mVw.setZero();
         mbHasVelocity = false;
     }
     else
     {
-        mVw           = F.GetVelocity();
+        mVw           = F.get_velocity();
         mbHasVelocity = true;
     }
 
-    mImuBias = F.mImuBias;
-    SetPose(F.GetPose());
+    mImuBias = F.imu_bias;
+    SetPose(F.get_pose());
 
     mnOriginMapId = pMap->GetId();
 }

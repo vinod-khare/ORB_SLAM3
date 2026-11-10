@@ -72,40 +72,41 @@ MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame *pRefKF,
     mnId = nNextId++;
 }
 
-MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, Frame *pFrame, const int &idxF)
-    : mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0),
-      mnCorrectedByKF(0), mnCorrectedReference(0), mnBAGlobalForKF(0), mnOriginMapId(pMap->GetId()), mpRefKF(nullptr), mnVisible(1), mnFound(1), mbBad(false), mpReplaced(nullptr), mpMap(pMap)
+MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, frame *pFrame, const int &idxF)
+    : mnFirstKFid(-1), mnFirstFrame(pFrame->id), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
+      mnCorrectedReference(0), mnBAGlobalForKF(0), mnOriginMapId(pMap->GetId()), mpRefKF(nullptr), mnVisible(1), mnFound(1), mbBad(false), mpReplaced(nullptr), mpMap(pMap)
 {
     SetWorldPos(Pos);
 
     Eigen::Vector3f Ow;
-    if (!pFrame->is_fisheye_stereo || std::cmp_less(idxF, pFrame->mvKeys.size()))
+    if (!pFrame->is_fisheye_stereo || std::cmp_less(idxF, pFrame->keypoints.size()))
     {
-        Ow = pFrame->GetCameraCenter();
+        Ow = pFrame->get_camera_center();
     }
     else
     {
-        Eigen::Matrix3f Rwl = pFrame->GetRwc();
-        Eigen::Vector3f tlr = pFrame->GetRelativePoseTlr().translation();
-        Eigen::Vector3f twl = pFrame->GetOw();
+        Eigen::Matrix3f Rwl = pFrame->get_rwc();
+        Eigen::Vector3f tlr = pFrame->get_relative_pose_tlr().translation();
+        Eigen::Vector3f twl = pFrame->get_camera_origin();
 
         Ow = Rwl * tlr + twl;
     }
     mNormalVector = mWorldPos - Ow;
     mNormalVector = mNormalVector / mNormalVector.norm();
 
-    Eigen::Vector3f PC    = mWorldPos - Ow;
-    const float     dist  = PC.norm();
-    const int       level = (!pFrame->is_fisheye_stereo || std::cmp_less(idxF, pFrame->mvKeys.size())) ? pFrame->mvKeys[idxF].octave : pFrame->mvKeysRight[idxF - pFrame->mvKeys.size()].octave;
-    const float     levelScaleFactor = pFrame->mvScaleFactors[level];
-    const int       nLevels          = pFrame->mnScaleLevels;
+    Eigen::Vector3f PC   = mWorldPos - Ow;
+    const float     dist = PC.norm();
+    const int       level =
+        (!pFrame->is_fisheye_stereo || std::cmp_less(idxF, pFrame->keypoints.size())) ? pFrame->keypoints[idxF].octave : pFrame->right_keypoints[idxF - pFrame->keypoints.size()].octave;
+    const float levelScaleFactor = pFrame->scale_factors[level];
+    const int   nLevels          = pFrame->scale_levels;
 
     mfMaxDistance = dist * levelScaleFactor;
-    mfMinDistance = mfMaxDistance / pFrame->mvScaleFactors[nLevels - 1];
+    mfMinDistance = mfMaxDistance / pFrame->scale_factors[nLevels - 1];
 
     pFrame->descriptor(idxF).copyTo(mDescriptor);
     _color     = pFrame->keypoint_color(idxF);
-    _has_color = !(pFrame->is_fisheye_stereo && std::cmp_greater_equal(idxF, pFrame->mvKeys.size()) ? pFrame->color_image_right : pFrame->color_image).empty();
+    _has_color = !(pFrame->is_fisheye_stereo && std::cmp_greater_equal(idxF, pFrame->keypoints.size()) ? pFrame->color_image_right : pFrame->color_image).empty();
 
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
@@ -593,7 +594,7 @@ int MapPoint::PredictScale(const float &currentDist, KeyFrame *pKF)
     return nScale;
 }
 
-int MapPoint::PredictScale(const float &currentDist, Frame *pF)
+int MapPoint::PredictScale(const float &currentDist, frame *pF)
 {
     float ratio;
     {
@@ -601,14 +602,14 @@ int MapPoint::PredictScale(const float &currentDist, Frame *pF)
         ratio = mfMaxDistance / currentDist;
     }
 
-    int nScale = ceil(log(ratio) / pF->mfLogScaleFactor);
+    int nScale = ceil(log(ratio) / pF->log_scale_factor);
     if (nScale < 0)
     {
         nScale = 0;
     }
-    else if (nScale >= pF->mnScaleLevels)
+    else if (nScale >= pF->scale_levels)
     {
-        nScale = pF->mnScaleLevels - 1;
+        nScale = pF->scale_levels - 1;
     }
 
     return nScale;

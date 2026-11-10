@@ -1,8 +1,8 @@
-#include "Frame.h"
 #include "KeyFrame.h"
 #include "Pinhole.h"
 #include "Tracking.h"
 #include "atlas.h"
+#include "frame.h"
 #include "ground_truth_trajectory.h"
 #include "map_drawer.h"
 
@@ -166,17 +166,17 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     cv::Mat image(256, 256, CV_8UC1);
     cv::RNG random(42);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
-    cv::Mat distortion                      = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::Frame::mbInitialComputations = true;
+    cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::frame::initial_computations = true;
     const ORB_SLAM3::ground_truth_trajectory          trajectory(file.path.string());
     std::vector<std::unique_ptr<ORB_SLAM3::KeyFrame>> keyframes;
     for (const double timestamp : {1.25, 2.25, 3.25})
     {
-        ORB_SLAM3::Frame frame(timestamp, nullptr, cameras[0]->toK(), distortion, 0, 40);
+        ORB_SLAM3::frame frame(timestamp, nullptr, cameras[0]->toK(), distortion, 0, 40);
         ORB_SLAM3::Tracking::extract_features(frame, extractor, image, cameras);
-        frame.mnDataset                = 0;
+        frame.dataset                  = 0;
         const Eigen::Vector3f position = trajectory.pose_at(timestamp)->translation().cast<float>();
-        frame.SetPose(Sophus::SE3f(Eigen::Quaternionf::Identity(), -position));
+        frame.set_pose(Sophus::SE3f(Eigen::Quaternionf::Identity(), -position));
         keyframes.push_back(std::make_unique<ORB_SLAM3::KeyFrame>(frame, map, nullptr, cameras));
         map->AddKeyFrame(keyframes.back().get());
     }

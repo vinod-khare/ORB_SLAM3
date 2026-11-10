@@ -72,11 +72,11 @@ ImuCamPose::ImuCamPose(KeyFrame *pKF) : cameras(pKF->cameras), its(0)
     DR.setIdentity();
 }
 
-ImuCamPose::ImuCamPose(Frame *pF, const camera_vector &cameras) : cameras(cameras), its(0)
+ImuCamPose::ImuCamPose(frame *pF, const camera_vector &cameras) : cameras(cameras), its(0)
 {
     // Load IMU pose
-    twb = pF->GetImuPosition().cast<double>();
-    Rwb = pF->GetImuRotation().cast<double>();
+    twb = pF->get_imu_position().cast<double>();
+    Rwb = pF->get_imu_rotation().cast<double>();
 
     // Load camera poses
     int num_cams;
@@ -97,17 +97,17 @@ ImuCamPose::ImuCamPose(Frame *pF, const camera_vector &cameras) : cameras(camera
     tbc.resize(num_cams);
 
     // Left camera
-    tcw[0] = pF->GetPose().translation().cast<double>();
-    Rcw[0] = pF->GetPose().rotationMatrix().cast<double>();
-    tcb[0] = pF->mImuCalib.mTcb.translation().cast<double>();
-    Rcb[0] = pF->mImuCalib.mTcb.rotationMatrix().cast<double>();
+    tcw[0] = pF->get_pose().translation().cast<double>();
+    Rcw[0] = pF->get_pose().rotationMatrix().cast<double>();
+    tcb[0] = pF->imu_calibration.mTcb.translation().cast<double>();
+    Rcb[0] = pF->imu_calibration.mTcb.rotationMatrix().cast<double>();
     Rbc[0] = Rcb[0].transpose();
-    tbc[0] = pF->mImuCalib.mTbc.translation().cast<double>();
-    bf     = pF->mbf;
+    tbc[0] = pF->imu_calibration.mTbc.translation().cast<double>();
+    bf     = pF->baseline_fx;
 
     if (num_cams > 1)
     {
-        Eigen::Matrix4d Trl = pF->GetRelativePoseTrl().matrix().cast<double>();
+        Eigen::Matrix4d Trl = pF->get_relative_pose_trl().matrix().cast<double>();
         Rcw[1]              = Trl.block<3, 3>(0, 0) * Rcw[0];
         tcw[1]              = Trl.block<3, 3>(0, 0) * tcw[0] + Trl.block<3, 1>(0, 3);
         tcb[1]              = Trl.block<3, 3>(0, 0) * tcb[0] + Trl.block<3, 1>(0, 3);
@@ -458,23 +458,23 @@ void EdgeStereoOnlyPose::linearizeOplus()
 
 VertexVelocity::VertexVelocity(KeyFrame *pKF) { setEstimate(pKF->GetVelocity().cast<double>()); }
 
-VertexVelocity::VertexVelocity(Frame *pF) { setEstimate(pF->GetVelocity().cast<double>()); }
+VertexVelocity::VertexVelocity(frame *pF) { setEstimate(pF->get_velocity().cast<double>()); }
 
 VertexGyroBias::VertexGyroBias(KeyFrame *pKF) { setEstimate(pKF->GetGyroBias().cast<double>()); }
 
-VertexGyroBias::VertexGyroBias(Frame *pF)
+VertexGyroBias::VertexGyroBias(frame *pF)
 {
     Eigen::Vector3d bg;
-    bg << pF->mImuBias.bwx, pF->mImuBias.bwy, pF->mImuBias.bwz;
+    bg << pF->imu_bias.bwx, pF->imu_bias.bwy, pF->imu_bias.bwz;
     setEstimate(bg);
 }
 
 VertexAccBias::VertexAccBias(KeyFrame *pKF) { setEstimate(pKF->GetAccBias().cast<double>()); }
 
-VertexAccBias::VertexAccBias(Frame *pF)
+VertexAccBias::VertexAccBias(frame *pF)
 {
     Eigen::Vector3d ba;
-    ba << pF->mImuBias.bax, pF->mImuBias.bay, pF->mImuBias.baz;
+    ba << pF->imu_bias.bax, pF->imu_bias.bay, pF->imu_bias.baz;
     setEstimate(ba);
 }
 

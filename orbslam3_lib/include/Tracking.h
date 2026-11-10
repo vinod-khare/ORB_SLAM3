@@ -19,7 +19,7 @@
 #ifndef TRACKING_H
 #define TRACKING_H
 
-#include "Frame.h"
+#include "frame.h"
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
 #include "KeyFrameDatabase.h"
@@ -72,7 +72,7 @@ class Tracking
 
     /** Extract current-image keypoints/descriptors and supply feature data to a frame. */
     static void
-    extract_features(Frame &frame, keypoint_extractor &extractor, const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {}, keypoint_extractor *right_extractor = nullptr);
+    extract_features(frame &frame, keypoint_extractor &extractor, const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {}, keypoint_extractor *right_extractor = nullptr);
 
     void GrabImuData(const IMU::Point &imuMeasurement);
 
@@ -129,8 +129,8 @@ class Tracking
     int mSensor;
 
     // Current Frame
-    Frame mCurrentFrame;
-    Frame mLastFrame;
+    frame mCurrentFrame;
+    frame mLastFrame;
 
     cv::Mat              mImGray;
     cv::Mat              mImColor; // Original color image (BGR) for display
@@ -143,7 +143,7 @@ class Tracking
     std::vector<int>         mvIniMatches;
     std::vector<cv::Point2f> mvbPrevMatched;
     std::vector<cv::Point3f> mvIniP3D;
-    Frame                    mInitialFrame;
+    frame                    mInitialFrame;
 
     // Lists used to recover the full camera trajectory at the end of the execution.
     // Basically we store the reference keyframe for each frame and its relative transformation

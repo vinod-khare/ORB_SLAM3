@@ -1,6 +1,6 @@
 #include "frame_prefetcher.h"
 
-#include "Frame.h"
+#include "frame.h"
 #include "time_this.h"
 
 #include <chrono>
@@ -183,7 +183,7 @@ void frame_prefetcher::run(std::stop_token stop_token)
                 preprocess_image(prepared.image, size, *clahe, _image_scale != 1.f, &prepared.color);
                 if (_precompute_optical_flow)
                 {
-                    prepared.optical_flow_pyramid = ORB_SLAM3::Frame::build_optical_flow_pyramid(prepared.image);
+                    prepared.optical_flow_pyramid = ORB_SLAM3::frame::build_optical_flow_pyramid(prepared.image);
                 }
 
                 if (_stereo)

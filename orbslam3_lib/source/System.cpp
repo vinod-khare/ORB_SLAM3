@@ -161,16 +161,16 @@ void System::set_dbow_version(int version) { mpVocabulary->set_version(version);
 void System::record_frame_statistics(double preprocessing_ms, double frontend_ms)
 {
     const auto                         &frame = mpTracker->mCurrentFrame;
-    processing_statistics::frame_sample sample{.frame_id           = frame.mnId,
-                                               .timestamp          = frame.mTimeStamp,
-                                               .detected_keypoints = frame.flow_only ? 0 : frame.mvKeys.size() + frame.mvKeysRight.size(),
+    processing_statistics::frame_sample sample{.frame_id           = frame.id,
+                                               .timestamp          = frame.timestamp,
+                                               .detected_keypoints = frame.flow_only ? 0 : frame.keypoints.size() + frame.right_keypoints.size(),
                                                .preprocessing_ms   = preprocessing_ms,
                                                .frontend_ms        = frontend_ms};
     sample.extraction_ms       = frame.extraction_ms;
     sample.stereo_matching_ms  = frame.stereo_matching_ms;
     sample.optical_flow_ms     = frame.optical_flow_ms;
-    sample.left_keypoints      = frame.mvKeys.size();
-    sample.right_keypoints     = frame.mvKeysRight.size();
+    sample.left_keypoints      = frame.keypoints.size();
+    sample.right_keypoints     = frame.right_keypoints.size();
     sample.flow_candidates     = frame.flow_candidates;
     sample.flow_tracks         = frame.flow_tracks;
     sample.flow_inliers        = frame.flow_inliers;
@@ -187,9 +187,9 @@ void System::record_frame_statistics(double preprocessing_ms, double frontend_ms
 
     if (mpTracker->mState == Tracking::OK)
     {
-        for (std::size_t index = 0; index < frame.mvpMapPoints.size(); ++index)
+        for (std::size_t index = 0; index < frame.map_points.size(); ++index)
         {
-            if (frame.mvpMapPoints[index] && index < frame.mvbOutlier.size() && !frame.mvbOutlier[index])
+            if (frame.map_points[index] && index < frame.outliers.size() && !frame.outliers[index])
             {
                 ++sample.matched_keypoints;
             }
@@ -299,8 +299,8 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState      = mpTracker->mState;
-    mTrackedMapPoints   = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeys;
+    mTrackedMapPoints   = mpTracker->mCurrentFrame.map_points;
+    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.keypoints;
 
     return Tcw;
 }
@@ -377,8 +377,8 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState      = mpTracker->mState;
-    mTrackedMapPoints   = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeys;
+    mTrackedMapPoints   = mpTracker->mCurrentFrame.map_points;
+    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.keypoints;
     return Tcw;
 }
 
@@ -504,8 +504,8 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState      = mpTracker->mState;
-    mTrackedMapPoints   = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeys;
+    mTrackedMapPoints   = mpTracker->mCurrentFrame.map_points;
+    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.keypoints;
 
     return Tcw;
 }

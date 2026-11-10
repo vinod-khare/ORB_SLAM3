@@ -21,8 +21,8 @@
 
 #include "converter.h"
 
-#include <Frame.h>
 #include <KeyFrame.h>
+#include <frame.h>
 #include <math.h>
 
 #include <memory>
@@ -42,7 +42,7 @@ namespace ORB_SLAM3
 {
 
 class KeyFrame;
-class Frame;
+class frame;
 class GeometricCamera;
 
 typedef Eigen::Matrix<double, 6, 1>   Vector6d;
@@ -77,7 +77,7 @@ class ImuCamPose
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     ImuCamPose() {}
     ImuCamPose(KeyFrame *pKF);
-    ImuCamPose(Frame *pF, const camera_vector &cameras);
+    ImuCamPose(frame *pF, const camera_vector &cameras);
     ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF);
 
     void SetParam(const std::vector<Eigen::Matrix3d> &_Rcw,
@@ -135,7 +135,7 @@ class VertexPose : public g2o::BaseVertex<6, ImuCamPose>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     VertexPose(KeyFrame *pKF) { setEstimate(ImuCamPose(pKF)); }
-    VertexPose(Frame *pF, const camera_vector &cameras) { setEstimate(ImuCamPose(pF, cameras)); }
+    VertexPose(frame *pF, const camera_vector &cameras) { setEstimate(ImuCamPose(pF, cameras)); }
 
     virtual bool read(std::istream &is);
     virtual bool write(std::ostream &os) const;
@@ -155,7 +155,7 @@ class VertexPose4DoF : public g2o::BaseVertex<4, ImuCamPose>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     VertexPose4DoF(KeyFrame *pKF) { setEstimate(ImuCamPose(pKF)); }
-    VertexPose4DoF(Frame *pF, const camera_vector &cameras) { setEstimate(ImuCamPose(pF, cameras)); }
+    VertexPose4DoF(frame *pF, const camera_vector &cameras) { setEstimate(ImuCamPose(pF, cameras)); }
     VertexPose4DoF(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF) { setEstimate(ImuCamPose(_Rwc, _twc, pKF)); }
 
     virtual bool read(std::istream &is) { return false; }
@@ -183,7 +183,7 @@ class VertexVelocity : public g2o::BaseVertex<3, Eigen::Vector3d>
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     VertexVelocity() {}
     VertexVelocity(KeyFrame *pKF);
-    VertexVelocity(Frame *pF);
+    VertexVelocity(frame *pF);
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -204,7 +204,7 @@ class VertexGyroBias : public g2o::BaseVertex<3, Eigen::Vector3d>
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     VertexGyroBias() {}
     VertexGyroBias(KeyFrame *pKF);
-    VertexGyroBias(Frame *pF);
+    VertexGyroBias(frame *pF);
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -225,7 +225,7 @@ class VertexAccBias : public g2o::BaseVertex<3, Eigen::Vector3d>
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     VertexAccBias() {}
     VertexAccBias(KeyFrame *pKF);
-    VertexAccBias(Frame *pF);
+    VertexAccBias(frame *pF);
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }

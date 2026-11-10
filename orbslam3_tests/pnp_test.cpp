@@ -1,8 +1,8 @@
-#include "Frame.h"
 #include "G2oTypes.h"
 #include "KannalaBrandt8.h"
 #include "OptimizableTypes.h"
 #include "Pinhole.h"
+#include "frame.h"
 #include "geometric_tools.h"
 
 #include <algorithm>
@@ -132,10 +132,10 @@ TEST_CASE("Inertial camera poses update only their modeled stereo observations",
             cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{500, 510, 320, 240}));
         }
     }
-    ORB_SLAM3::Frame frame;
-    frame.SetPose(Sophus::SE3f{});
-    frame.SetVelocity(Eigen::Vector3f::Zero());
-    frame.mbf = 20;
+    ORB_SLAM3::frame frame;
+    frame.set_pose(Sophus::SE3f{});
+    frame.set_velocity(Eigen::Vector3f::Zero());
+    frame.baseline_fx = 20;
     ORB_SLAM3::ImuCamPose       pose(&frame, cameras);
     const std::array<double, 6> update{};
     pose.Update(update.data());

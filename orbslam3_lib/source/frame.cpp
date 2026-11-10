@@ -16,7 +16,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "Frame.h"
+#include "frame.h"
 
 #include "CameraModels/KannalaBrandt8.h"
 #include "G2oTypes.h"
@@ -35,33 +35,36 @@
 namespace ORB_SLAM3
 {
 
-long unsigned int Frame::nNextId               = 0;
-bool              Frame::mbInitialComputations = true;
-float             Frame::cx, Frame::cy, Frame::fx, Frame::fy, Frame::invfx, Frame::invfy;
-float             Frame::mnMinX, Frame::mnMinY, Frame::mnMaxX, Frame::mnMaxY;
-float             Frame::mfGridElementWidthInv, Frame::mfGridElementHeightInv;
+long unsigned int frame::next_id              = 0;
+bool              frame::initial_computations = true;
+float             frame::cx, frame::cy, frame::fx, frame::fy, frame::invfx, frame::invfy;
+float             frame::min_x, frame::min_y, frame::max_x, frame::max_y;
+float             frame::grid_element_width_inverse, frame::grid_element_height_inverse;
 
 // For stereo fisheye matching
 
-Frame::Frame()
-    : mpcpi(nullptr), mbHasPose(false), mbHasVelocity(false), mpImuPreintegrated(nullptr), mpPrevFrame(nullptr), mpImuPreintegratedFrame(nullptr), mpReferenceKF(nullptr), mbIsSet(false),
-      mbImuPreintegrated(false)
+frame::frame()
+    : imu_constraint(nullptr), _has_pose(false), _has_velocity(false), imu_preintegrated(nullptr), previous_frame(nullptr), frame_imu_preintegrated(nullptr), reference_key_frame(nullptr),
+      _is_set(false), _imu_preintegrated(false)
 {
 }
 
 // Copy Constructor
-Frame::Frame(const Frame &frame)
-    : mpcpi(frame.mpcpi), mTcw(frame.mTcw), mbHasPose(false), mTlr(frame.mTlr), mTrl(frame.mTrl), mRlr(frame.mRlr), mtlr(frame.mtlr), mbHasVelocity(false),
-      place_vocabulary_ptr(frame.place_vocabulary_ptr), mTimeStamp(frame.mTimeStamp), optical_flow_pyramid(frame.optical_flow_pyramid),
-      right_optical_flow_pyramid(frame.right_optical_flow_pyramid), mK(frame.mK.clone()), mK_(converter::to_matrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()), mbf(frame.mbf),
-      mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys), mvKeysRight(frame.mvKeysRight), is_fisheye_stereo(frame.is_fisheye_stereo), mvpMapPoints(frame.mvpMapPoints),
-      mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias),
-      mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated), mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame),
-      mpImuPreintegratedFrame(frame.mpImuPreintegratedFrame), mnId(frame.mnId), mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor),
-      mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2),
-      mvInvLevelSigma2(frame.mvInvLevelSigma2), mNameFile(frame.mNameFile), mnDataset(frame.mnDataset), mbIsSet(frame.mbIsSet), mbImuPreintegrated(frame.mbImuPreintegrated),
-      mpMutexImu(frame.mpMutexImu), monoLeft(frame.monoLeft), monoRight(frame.monoRight), mvLeftToRightMatch(frame.mvLeftToRightMatch), mvRightToLeftMatch(frame.mvRightToLeftMatch),
-      mvStereo3Dpoints(frame.mvStereo3Dpoints)
+frame::frame(const frame &frame)
+    : imu_constraint(frame.imu_constraint), _camera_from_world(frame._camera_from_world), _has_pose(false), _left_to_right(frame._left_to_right), _right_to_left(frame._right_to_left),
+      _left_to_right_rotation(frame._left_to_right_rotation), _left_to_right_translation(frame._left_to_right_translation), _has_velocity(false),
+      place_vocabulary_ptr(frame.place_vocabulary_ptr), timestamp(frame.timestamp), optical_flow_pyramid(frame.optical_flow_pyramid),
+      right_optical_flow_pyramid(frame.right_optical_flow_pyramid), calibration_matrix(frame.calibration_matrix.clone()),
+      eigen_calibration_matrix(converter::to_matrix3f(frame.calibration_matrix)), distortion_coefficients(frame.distortion_coefficients.clone()), baseline_fx(frame.baseline_fx),
+      baseline(frame.baseline), depth_threshold(frame.depth_threshold), feature_count(frame.feature_count), keypoints(frame.keypoints), right_keypoints(frame.right_keypoints),
+      is_fisheye_stereo(frame.is_fisheye_stereo), map_points(frame.map_points), right_coordinates(frame.right_coordinates), depths(frame.depths), bow_vector(frame.bow_vector),
+      feature_vector(frame.feature_vector), outliers(frame.outliers), close_map_point_count(frame.close_map_point_count), imu_bias(frame.imu_bias), imu_calibration(frame.imu_calibration),
+      imu_preintegrated(frame.imu_preintegrated), last_key_frame(frame.last_key_frame), previous_frame(frame.previous_frame), frame_imu_preintegrated(frame.frame_imu_preintegrated),
+      id(frame.id), reference_key_frame(frame.reference_key_frame), scale_levels(frame.scale_levels), scale_factor(frame.scale_factor), log_scale_factor(frame.log_scale_factor),
+      scale_factors(frame.scale_factors), inverse_scale_factors(frame.inverse_scale_factors), level_sigma_squared(frame.level_sigma_squared),
+      inverse_level_sigma_squared(frame.inverse_level_sigma_squared), name_file(frame.name_file), dataset(frame.dataset), _is_set(frame._is_set), _imu_preintegrated(frame._imu_preintegrated),
+      _imu_mutex(frame._imu_mutex), mono_left(frame.mono_left), mono_right(frame.mono_right), left_to_right_matches(frame.left_to_right_matches),
+      right_to_left_matches(frame.right_to_left_matches), stereo_3d_points(frame.stereo_3d_points)
 {
     color_image         = frame.color_image;
     color_image_right   = frame.color_image_right;
@@ -78,34 +81,34 @@ Frame::Frame(const Frame &frame)
     {
         for (int j = 0; j < FRAME_GRID_ROWS; j++)
         {
-            mGrid[i][j] = frame.mGrid[i][j];
+            grid[i][j] = frame.grid[i][j];
             if (frame.is_fisheye_stereo)
             {
-                mGridRight[i][j] = frame.mGridRight[i][j];
+                right_grid[i][j] = frame.right_grid[i][j];
             }
         }
     }
 
-    if (frame.mbHasPose)
+    if (frame._has_pose)
     {
-        SetPose(frame.GetPose());
+        set_pose(frame.get_pose());
     }
 
-    if (frame.HasVelocity())
+    if (frame.has_velocity())
     {
-        SetVelocity(frame.GetVelocity());
+        set_velocity(frame.get_velocity());
     }
 
-    mmProjectPoints  = frame.mmProjectPoints;
-    mmMatchedInImage = frame.mmMatchedInImage;
+    projected_points = frame.projected_points;
+    matched_in_image = frame.matched_in_image;
 }
 
-std::array<unsigned char, 3> Frame::keypoint_color(int index) const
+std::array<unsigned char, 3> frame::keypoint_color(int index) const
 {
-    const bool  right     = is_fisheye_stereo && index >= static_cast<int>(mvKeys.size());
+    const bool  right     = is_fisheye_stereo && index >= static_cast<int>(keypoints.size());
     const auto &image     = right ? color_image_right : color_image;
-    const auto &keys      = right ? mvKeysRight : mvKeys;
-    const int   key_index = right ? index - static_cast<int>(mvKeys.size()) : index;
+    const auto &keys      = right ? right_keypoints : keypoints;
+    const int   key_index = right ? index - static_cast<int>(keypoints.size()) : index;
     if (image.empty() || image.depth() != CV_8U || key_index < 0 || static_cast<std::size_t>(key_index) >= keys.size())
     {
         return {255, 255, 255};
@@ -129,7 +132,7 @@ std::array<unsigned char, 3> Frame::keypoint_color(int index) const
     return {255, 255, 255};
 }
 
-const std::vector<cv::Mat> &Frame::get_optical_flow_pyramid(const cv::Mat &image, bool right)
+const std::vector<cv::Mat> &frame::get_optical_flow_pyramid(const cv::Mat &image, bool right)
 {
     auto &pyramid = right ? right_optical_flow_pyramid : optical_flow_pyramid;
     if (pyramid.empty())
@@ -140,24 +143,24 @@ const std::vector<cv::Mat> &Frame::get_optical_flow_pyramid(const cv::Mat &image
     return pyramid;
 }
 
-std::vector<cv::Mat> Frame::build_optical_flow_pyramid(const cv::Mat &image)
+std::vector<cv::Mat> frame::build_optical_flow_pyramid(const cv::Mat &image)
 {
     std::vector<cv::Mat> pyramid;
     cv::buildOpticalFlowPyramid(image, pyramid, cv::Size(21, 21), 3, true, cv::BORDER_REFLECT_101, cv::BORDER_CONSTANT, false);
     return pyramid;
 }
 
-Frame::Frame(Frame &previous, double timestamp) : Frame(static_cast<const Frame &>(previous))
+frame::frame(frame &previous, double timestamp) : frame(static_cast<const frame &>(previous))
 {
-    mnId                    = nNextId++;
-    mTimeStamp              = timestamp;
-    mpPrevFrame             = &previous;
-    mpcpi                   = nullptr;
-    mpImuPreintegrated      = nullptr;
-    mpImuPreintegratedFrame = nullptr;
-    mbImuPreintegrated      = false;
-    mbHasPose               = false;
-    mbIsSet                 = false;
+    id                      = next_id++;
+    this->timestamp         = timestamp;
+    previous_frame          = &previous;
+    imu_constraint          = nullptr;
+    imu_preintegrated       = nullptr;
+    frame_imu_preintegrated = nullptr;
+    _imu_preintegrated      = false;
+    _has_pose               = false;
+    _is_set                 = false;
     flow_candidates         = 0;
     flow_tracks             = 0;
     flow_inliers            = 0;
@@ -168,21 +171,21 @@ Frame::Frame(Frame &previous, double timestamp) : Frame(static_cast<const Frame 
 
     optical_flow_pyramid.clear();
     right_optical_flow_pyramid.clear();
-    imgLeft.release();
-    imgRight.release();
+    left_image.release();
+    right_image.release();
 
     set_tracked_features({}, {});
 }
 
-void Frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points, std::vector<keypoint> right_keys, std::vector<MapPoint *> right_points)
+void frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoint *> points, std::vector<keypoint> right_keys, std::vector<MapPoint *> right_points)
 {
     CV_Assert(keys.size() == points.size());
     CV_Assert(right_keys.size() == right_points.size());
     CV_Assert(is_fisheye_stereo || right_keys.empty());
-    flow_only   = true;
-    mvKeys      = std::move(keys);
-    mvKeysRight = std::move(right_keys);
-    for (auto *view : {&mvKeys, &mvKeysRight})
+    flow_only       = true;
+    keypoints       = std::move(keys);
+    right_keypoints = std::move(right_keys);
+    for (auto *view : {&keypoints, &right_keypoints})
     {
         for (auto &key : *view)
         {
@@ -193,114 +196,114 @@ void Frame::set_tracked_features(std::vector<keypoint> keys, std::vector<MapPoin
             }
         }
     }
-    mvpMapPoints = std::move(points);
-    mvpMapPoints.insert(mvpMapPoints.end(), right_points.begin(), right_points.end());
-    N        = static_cast<int>(mvpMapPoints.size());
-    monoLeft = monoRight = -1;
-    mBowVec.clear();
-    mFeatVec.clear();
-    mvbOutlier.assign(N, false);
-    mvuRight.assign(mvKeys.size(), -1.0f);
-    mvDepth.assign(mvKeys.size(), -1.0f);
-    mnCloseMPs = 0;
-    mvLeftToRightMatch.assign(is_fisheye_stereo ? mvKeys.size() : 0, -1);
-    mvRightToLeftMatch.assign(mvKeysRight.size(), -1);
-    mvStereo3Dpoints.clear();
-    mmProjectPoints.clear();
-    mmMatchedInImage.clear();
-    if (!is_fisheye_stereo && N > 0)
+    map_points = std::move(points);
+    map_points.insert(map_points.end(), right_points.begin(), right_points.end());
+    feature_count = static_cast<int>(map_points.size());
+    mono_left = mono_right = -1;
+    bow_vector.clear();
+    feature_vector.clear();
+    outliers.assign(feature_count, false);
+    right_coordinates.assign(keypoints.size(), -1.0f);
+    depths.assign(keypoints.size(), -1.0f);
+    close_map_point_count = 0;
+    left_to_right_matches.assign(is_fisheye_stereo ? keypoints.size() : 0, -1);
+    right_to_left_matches.assign(right_keypoints.size(), -1);
+    stereo_3d_points.clear();
+    projected_points.clear();
+    matched_in_image.clear();
+    if (!is_fisheye_stereo && feature_count > 0)
     {
-        UndistortKeyPoints();
+        _undistort_keypoints();
     }
     for (int x = 0; x < FRAME_GRID_COLS; ++x)
     {
         for (int y = 0; y < FRAME_GRID_ROWS; ++y)
         {
-            mGrid[x][y].clear();
-            mGridRight[x][y].clear();
+            grid[x][y].clear();
+            right_grid[x][y].clear();
         }
     }
-    AssignFeaturesToGrid();
+    _assign_features_to_grid();
 }
 
-void Frame::initialize_features(const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right, const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid)
+void frame::initialize_features(const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right, const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid)
 {
     flow_only = false;
-    mBowVec.clear();
-    mFeatVec.clear();
-    mmProjectPoints.clear();
-    mmMatchedInImage.clear();
+    bow_vector.clear();
+    feature_vector.clear();
+    projected_points.clear();
+    matched_in_image.clear();
     for (int x = 0; x < FRAME_GRID_COLS; ++x)
     {
         for (int y = 0; y < FRAME_GRID_ROWS; ++y)
         {
-            mGrid[x][y].clear();
-            mGridRight[x][y].clear();
+            grid[x][y].clear();
+            right_grid[x][y].clear();
         }
     }
     is_fisheye_stereo = ORB_SLAM3::is_fisheye_stereo(cameras);
-    N                 = static_cast<int>(mvKeys.size() + (is_fisheye_stereo ? mvKeysRight.size() : 0));
-    mvpMapPoints.assign(N, nullptr);
-    mvbOutlier.assign(N, false);
-    mvuRight.assign(mvKeys.size(), -1.0f);
-    mvDepth.assign(mvKeys.size(), -1.0f);
-    mvLeftToRightMatch.clear();
-    mvRightToLeftMatch.clear();
-    mvStereo3Dpoints.clear();
-    mnCloseMPs = 0;
+    feature_count     = static_cast<int>(keypoints.size() + (is_fisheye_stereo ? right_keypoints.size() : 0));
+    map_points.assign(feature_count, nullptr);
+    outliers.assign(feature_count, false);
+    right_coordinates.assign(keypoints.size(), -1.0f);
+    depths.assign(keypoints.size(), -1.0f);
+    left_to_right_matches.clear();
+    right_to_left_matches.clear();
+    stereo_3d_points.clear();
+    close_map_point_count = 0;
     if (!is_fisheye_stereo)
     {
-        monoLeft = monoRight = -1;
+        mono_left = mono_right = -1;
     }
-    if (N == 0)
+    if (feature_count == 0)
     {
         return;
     }
-    if (mbInitialComputations)
+    if (initial_computations)
     {
-        ComputeImageBounds(left);
-        mfGridElementWidthInv  = static_cast<float>(FRAME_GRID_COLS) / (mnMaxX - mnMinX);
-        mfGridElementHeightInv = static_cast<float>(FRAME_GRID_ROWS) / (mnMaxY - mnMinY);
-        fx                     = mK.at<float>(0, 0);
-        fy                     = mK.at<float>(1, 1);
-        cx                     = mK.at<float>(0, 2);
-        cy                     = mK.at<float>(1, 2);
-        invfx                  = 1.0f / fx;
-        invfy                  = 1.0f / fy;
-        mbInitialComputations  = false;
+        _compute_image_bounds(left);
+        grid_element_width_inverse  = static_cast<float>(FRAME_GRID_COLS) / (max_x - min_x);
+        grid_element_height_inverse = static_cast<float>(FRAME_GRID_ROWS) / (max_y - min_y);
+        fx                          = calibration_matrix.at<float>(0, 0);
+        fy                          = calibration_matrix.at<float>(1, 1);
+        cx                          = calibration_matrix.at<float>(0, 2);
+        cy                          = calibration_matrix.at<float>(1, 2);
+        invfx                       = 1.0f / fx;
+        invfy                       = 1.0f / fy;
+        initial_computations        = false;
     }
-    mb                        = mbf / fx;
+    baseline                  = baseline_fx / fx;
     const auto stereo_started = std::chrono::steady_clock::now();
     if (is_fisheye_stereo)
     {
-        imgLeft  = left.clone();
-        imgRight = right.clone();
-        ComputeStereoFishEyeMatches(cameras);
+        left_image  = left.clone();
+        right_image = right.clone();
+        compute_stereo_fisheye_matches(cameras);
     }
     else if (!right.empty())
     {
-        ComputeStereoMatches(left_pyramid, right_pyramid);
+        compute_stereo_matches(left_pyramid, right_pyramid);
     }
     stereo_matching_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - stereo_started).count();
     if (is_fisheye_stereo)
     {
-        for (auto &key : mvKeys)
+        for (auto &key : keypoints)
         {
             key.pt_undistorted = key.pt;
         }
-        for (auto &key : mvKeysRight)
+        for (auto &key : right_keypoints)
         {
             key.pt_undistorted = key.pt;
         }
     }
     else
     {
-        UndistortKeyPoints();
+        _undistort_keypoints();
     }
-    AssignFeaturesToGrid();
+    _assign_features_to_grid();
 }
 
-bool Frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers)
+bool frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers)
 {
     flow_inliers        = 0;
     flow_occupied_cells = 0;
@@ -313,14 +316,14 @@ bool Frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inlier
     std::array<bool, 16> occupied{};
     int                  inliers = 0;
 
-    for (std::size_t index = 0; index < mvpMapPoints.size(); ++index)
+    for (std::size_t index = 0; index < map_points.size(); ++index)
     {
-        if (!mvpMapPoints[index] || mvbOutlier[index])
+        if (!map_points[index] || outliers[index])
         {
             continue;
         }
 
-        const auto &point = index < mvKeys.size() ? mvKeys[index].pt : mvKeysRight[index - mvKeys.size()].pt;
+        const auto &point = index < keypoints.size() ? keypoints[index].pt : right_keypoints[index - keypoints.size()].pt;
 
         if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.x < 0 || point.y < 0 || point.x >= image_size.width || point.y >= image_size.height)
         {
@@ -338,138 +341,140 @@ bool Frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inlier
     flow_inliers        = inliers;
     flow_occupied_cells = static_cast<int>(std::count(occupied.begin(), occupied.end(), true));
 
-    return inliers >= minimum_inliers && inliers >= 0.6 * N && flow_occupied_cells >= 6;
+    return inliers >= minimum_inliers && inliers >= 0.6 * feature_count && flow_occupied_cells >= 6;
 }
 
-Frame::Frame(double              timestamp,
+frame::frame(double              timestamp,
              place_vocabulary   *vocabulary,
              const cv::Mat      &calibration,
              const cv::Mat      &distortion,
              float               baseline_fx,
              float               depth_threshold,
-             Frame              *previous,
+             frame              *previous,
              const IMU::Calib   &imu_calibration,
              const Sophus::SE3f &left_to_right)
-    : mpcpi(nullptr), mbHasPose(false), mTlr(left_to_right), mTrl(left_to_right.inverse()), mRlr(left_to_right.rotationMatrix()), mtlr(left_to_right.translation()), mbHasVelocity(false),
-      place_vocabulary_ptr(vocabulary), mTimeStamp(timestamp), mK(calibration.clone()), mK_(converter::to_matrix3f(calibration)), mDistCoef(distortion.clone()), mbf(baseline_fx), mb(0),
-      mThDepth(depth_threshold), N(0), mnCloseMPs(0), mImuCalib(imu_calibration), mpImuPreintegrated(nullptr), mpLastKeyFrame(nullptr), mpPrevFrame(previous), mpImuPreintegratedFrame(nullptr),
-      mnId(nNextId++), mpReferenceKF(nullptr), mnScaleLevels(0), mfScaleFactor(1), mfLogScaleFactor(0), mnDataset(0), mbIsSet(false), mbImuPreintegrated(false), monoLeft(-1), monoRight(-1)
+    : imu_constraint(nullptr), _has_pose(false), _left_to_right(left_to_right), _right_to_left(left_to_right.inverse()), _left_to_right_rotation(left_to_right.rotationMatrix()),
+      _left_to_right_translation(left_to_right.translation()), _has_velocity(false), place_vocabulary_ptr(vocabulary), timestamp(timestamp), calibration_matrix(calibration.clone()),
+      eigen_calibration_matrix(converter::to_matrix3f(calibration)), distortion_coefficients(distortion.clone()), baseline_fx(baseline_fx), baseline(0), depth_threshold(depth_threshold),
+      feature_count(0), close_map_point_count(0), imu_calibration(imu_calibration), imu_preintegrated(nullptr), last_key_frame(nullptr), previous_frame(previous),
+      frame_imu_preintegrated(nullptr), id(next_id++), reference_key_frame(nullptr), scale_levels(0), scale_factor(1), log_scale_factor(0), dataset(0), _is_set(false),
+      _imu_preintegrated(false), mono_left(-1), mono_right(-1)
 {
-    if (previous && previous->HasVelocity())
+    if (previous && previous->has_velocity())
     {
-        SetVelocity(previous->GetVelocity());
+        set_velocity(previous->get_velocity());
     }
     else
     {
-        mVw.setZero();
+        _world_velocity.setZero();
     }
 }
 
-void Frame::AssignFeaturesToGrid()
+void frame::_assign_features_to_grid()
 {
     // Fill matrix with points
     const int nCells = FRAME_GRID_COLS * FRAME_GRID_ROWS;
 
-    int nReserve = 0.5f * N / (nCells);
+    int nReserve = 0.5f * feature_count / (nCells);
 
     for (unsigned int i = 0; i < FRAME_GRID_COLS; i++)
     {
         for (unsigned int j = 0; j < FRAME_GRID_ROWS; j++)
         {
-            mGrid[i][j].reserve(nReserve);
+            grid[i][j].reserve(nReserve);
             if (is_fisheye_stereo)
             {
-                mGridRight[i][j].reserve(nReserve);
+                right_grid[i][j].reserve(nReserve);
             }
         }
     }
 
-    for (int i = 0; i < N; i++)
+    for (int i = 0; i < feature_count; i++)
     {
-        const auto &kp = (!is_fisheye_stereo || std::cmp_less(i, mvKeys.size())) ? mvKeys[i] : mvKeysRight[i - static_cast<int>(mvKeys.size())];
+        const auto &kp = (!is_fisheye_stereo || std::cmp_less(i, keypoints.size())) ? keypoints[i] : right_keypoints[i - static_cast<int>(keypoints.size())];
 
         int nGridPosX, nGridPosY;
-        if (PosInGrid(kp.undistorted(), nGridPosX, nGridPosY))
+        if (position_in_grid(kp.undistorted(), nGridPosX, nGridPosY))
         {
-            if (!is_fisheye_stereo || std::cmp_less(i, mvKeys.size()))
+            if (!is_fisheye_stereo || std::cmp_less(i, keypoints.size()))
             {
-                mGrid[nGridPosX][nGridPosY].push_back(i);
+                grid[nGridPosX][nGridPosY].push_back(i);
             }
             else
             {
-                mGridRight[nGridPosX][nGridPosY].push_back(i - static_cast<int>(mvKeys.size()));
+                right_grid[nGridPosX][nGridPosY].push_back(i - static_cast<int>(keypoints.size()));
             }
         }
     }
 }
 
-bool Frame::isSet() const { return mbIsSet; }
+bool frame::is_set() const { return _is_set; }
 
-void Frame::SetPose(const Sophus::SE3<float> &Tcw)
+void frame::set_pose(const Sophus::SE3<float> &Tcw)
 {
-    mTcw = Tcw;
+    _camera_from_world = Tcw;
 
-    UpdatePoseMatrices();
-    mbIsSet   = true;
-    mbHasPose = true;
+    update_pose_matrices();
+    _is_set   = true;
+    _has_pose = true;
 }
 
-void Frame::SetNewBias(const IMU::Bias &b)
+void frame::set_new_bias(const IMU::Bias &b)
 {
-    mImuBias = b;
-    if (mpImuPreintegrated)
+    imu_bias = b;
+    if (imu_preintegrated)
     {
-        mpImuPreintegrated->SetNewBias(b);
+        imu_preintegrated->SetNewBias(b);
     }
 }
 
-void Frame::SetVelocity(Eigen::Vector3f Vwb)
+void frame::set_velocity(Eigen::Vector3f Vwb)
 {
-    mVw           = Vwb;
-    mbHasVelocity = true;
+    _world_velocity = Vwb;
+    _has_velocity   = true;
 }
 
-Eigen::Vector3f Frame::GetVelocity() const { return mVw; }
+Eigen::Vector3f frame::get_velocity() const { return _world_velocity; }
 
-void Frame::SetImuPoseVelocity(const Eigen::Matrix3f &Rwb, const Eigen::Vector3f &twb, const Eigen::Vector3f &Vwb)
+void frame::set_imu_pose_velocity(const Eigen::Matrix3f &Rwb, const Eigen::Vector3f &twb, const Eigen::Vector3f &Vwb)
 {
-    mVw           = Vwb;
-    mbHasVelocity = true;
+    _world_velocity = Vwb;
+    _has_velocity   = true;
 
     Sophus::SE3f Twb(Rwb, twb);
     Sophus::SE3f Tbw = Twb.inverse();
 
-    mTcw = mImuCalib.mTcb * Tbw;
+    _camera_from_world = imu_calibration.mTcb * Tbw;
 
-    UpdatePoseMatrices();
-    mbIsSet   = true;
-    mbHasPose = true;
+    update_pose_matrices();
+    _is_set   = true;
+    _has_pose = true;
 }
 
-void Frame::UpdatePoseMatrices()
+void frame::update_pose_matrices()
 {
-    Sophus::SE3<float> Twc = mTcw.inverse();
-    mRwc                   = Twc.rotationMatrix();
-    mOw                    = Twc.translation();
-    mRcw                   = mTcw.rotationMatrix();
-    mtcw                   = mTcw.translation();
+    Sophus::SE3<float> Twc       = _camera_from_world.inverse();
+    _world_from_camera_rotation  = Twc.rotationMatrix();
+    _camera_origin               = Twc.translation();
+    _world_to_camera_rotation    = _camera_from_world.rotationMatrix();
+    _world_to_camera_translation = _camera_from_world.translation();
 }
 
-Eigen::Matrix<float, 3, 1> Frame::GetImuPosition() const { return mRwc * mImuCalib.mTcb.translation() + mOw; }
+Eigen::Matrix<float, 3, 1> frame::get_imu_position() const { return _world_from_camera_rotation * imu_calibration.mTcb.translation() + _camera_origin; }
 
-Eigen::Matrix<float, 3, 3> Frame::GetImuRotation() { return mRwc * mImuCalib.mTcb.rotationMatrix(); }
+Eigen::Matrix<float, 3, 3> frame::get_imu_rotation() { return _world_from_camera_rotation * imu_calibration.mTcb.rotationMatrix(); }
 
-Sophus::SE3<float> Frame::GetImuPose() { return mTcw.inverse() * mImuCalib.mTcb; }
+Sophus::SE3<float> frame::get_imu_pose() { return _camera_from_world.inverse() * imu_calibration.mTcb; }
 
-Sophus::SE3f Frame::GetRelativePoseTrl() { return mTrl; }
+Sophus::SE3f frame::get_relative_pose_trl() { return _right_to_left; }
 
-Sophus::SE3f Frame::GetRelativePoseTlr() { return mTlr; }
+Sophus::SE3f frame::get_relative_pose_tlr() { return _left_to_right; }
 
-Eigen::Matrix3f Frame::GetRelativePoseTlr_rotation() { return mTlr.rotationMatrix(); }
+Eigen::Matrix3f frame::get_relative_pose_tlr_rotation() { return _left_to_right.rotationMatrix(); }
 
-Eigen::Vector3f Frame::GetRelativePoseTlr_translation() { return mTlr.translation(); }
+Eigen::Vector3f frame::get_relative_pose_tlr_translation() { return _left_to_right.translation(); }
 
-bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, const camera_vector &cameras)
+bool frame::is_in_frustum(MapPoint *pMP, float viewingCosLimit, const camera_vector &cameras)
 {
     if (!is_fisheye_stereo)
     {
@@ -481,7 +486,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, const camera_vecto
         Eigen::Matrix<float, 3, 1> P = pMP->GetWorldPos();
 
         // 3D in camera coordinates
-        const Eigen::Matrix<float, 3, 1> Pc      = mRcw * P + mtcw;
+        const Eigen::Matrix<float, 3, 1> Pc      = _world_to_camera_rotation * P + _world_to_camera_translation;
         const float                      Pc_dist = Pc.norm();
 
         // Check positive depth
@@ -494,11 +499,11 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, const camera_vecto
 
         const Eigen::Vector2f uv = cameras[0]->project(Pc);
 
-        if (uv(0) < mnMinX || uv(0) > mnMaxX)
+        if (uv(0) < min_x || uv(0) > max_x)
         {
             return false;
         }
-        if (uv(1) < mnMinY || uv(1) > mnMaxY)
+        if (uv(1) < min_y || uv(1) > max_y)
         {
             return false;
         }
@@ -509,7 +514,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, const camera_vecto
         // Check distance is in the scale invariance region of the MapPoint
         const float           maxDistance = pMP->GetMaxDistanceInvariance();
         const float           minDistance = pMP->GetMinDistanceInvariance();
-        const Eigen::Vector3f PO          = P - mOw;
+        const Eigen::Vector3f PO          = P - _camera_origin;
         const float           dist        = PO.norm();
 
         if (dist < minDistance || dist > maxDistance)
@@ -533,7 +538,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, const camera_vecto
         // Data used by the tracking
         pMP->mbTrackInView = true;
         pMP->mTrackProjX   = uv(0);
-        pMP->mTrackProjXR  = uv(0) - mbf * invz;
+        pMP->mTrackProjXR  = uv(0) - baseline_fx * invz;
 
         pMP->mTrackDepth = Pc_dist;
 
@@ -550,21 +555,21 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, const camera_vecto
         pMP->mnTrackScaleLevel  = -1;
         pMP->mnTrackScaleLevelR = -1;
 
-        pMP->mbTrackInView  = isInFrustumChecks(pMP, viewingCosLimit, *cameras[0]);
-        pMP->mbTrackInViewR = isInFrustumChecks(pMP, viewingCosLimit, *cameras[1], true);
+        pMP->mbTrackInView  = is_in_frustum_checks(pMP, viewingCosLimit, *cameras[0]);
+        pMP->mbTrackInViewR = is_in_frustum_checks(pMP, viewingCosLimit, *cameras[1], true);
 
         return pMP->mbTrackInView || pMP->mbTrackInViewR;
     }
 }
 
-bool Frame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v)
+bool frame::project_point_distort(MapPoint *pMP, cv::Point2f &kp, float &u, float &v)
 {
 
     // 3D in absolute coordinates
     Eigen::Vector3f P = pMP->GetWorldPos();
 
     // 3D in camera coordinates
-    const Eigen::Vector3f Pc  = mRcw * P + mtcw;
+    const Eigen::Vector3f Pc  = _world_to_camera_rotation * P + _world_to_camera_translation;
     const float          &PcX = Pc(0);
     const float          &PcY = Pc(1);
     const float          &PcZ = Pc(2);
@@ -581,11 +586,11 @@ bool Frame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float 
     u                = fx * PcX * invz + cx;
     v                = fy * PcY * invz + cy;
 
-    if (u < mnMinX || u > mnMaxX)
+    if (u < min_x || u > max_x)
     {
         return false;
     }
-    if (v < mnMinY || v > mnMaxY)
+    if (v < min_y || v > max_y)
     {
         return false;
     }
@@ -595,14 +600,14 @@ bool Frame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float 
     float x  = (u - cx) * invfx;
     float y  = (v - cy) * invfy;
     float r2 = x * x + y * y;
-    float k1 = mDistCoef.at<float>(0);
-    float k2 = mDistCoef.at<float>(1);
-    float p1 = mDistCoef.at<float>(2);
-    float p2 = mDistCoef.at<float>(3);
+    float k1 = distortion_coefficients.at<float>(0);
+    float k2 = distortion_coefficients.at<float>(1);
+    float p1 = distortion_coefficients.at<float>(2);
+    float p2 = distortion_coefficients.at<float>(3);
     float k3 = 0;
-    if (mDistCoef.total() == 5)
+    if (distortion_coefficients.total() == 5)
     {
-        k3 = mDistCoef.at<float>(4);
+        k3 = distortion_coefficients.at<float>(4);
     }
 
     // Radial distorsion
@@ -624,35 +629,35 @@ bool Frame::ProjectPointDistort(MapPoint *pMP, cv::Point2f &kp, float &u, float 
     return true;
 }
 
-Eigen::Vector3f Frame::inRefCoordinates(Eigen::Vector3f pCw) { return mRcw * pCw + mtcw; }
+Eigen::Vector3f frame::in_reference_coordinates(Eigen::Vector3f pCw) { return _world_to_camera_rotation * pCw + _world_to_camera_translation; }
 
-vector<size_t> Frame::GetFeaturesInArea(const float &x, const float &y, const float &r, const int minLevel, const int maxLevel, const bool bRight) const
+vector<size_t> frame::get_features_in_area(const float &x, const float &y, const float &r, const int minLevel, const int maxLevel, const bool bRight) const
 {
     vector<size_t> vIndices;
-    vIndices.reserve(N);
+    vIndices.reserve(feature_count);
 
     float factorX = r;
     float factorY = r;
 
-    const int nMinCellX = max(0, (int)floor((x - mnMinX - factorX) * mfGridElementWidthInv));
+    const int nMinCellX = max(0, (int)floor((x - min_x - factorX) * grid_element_width_inverse));
     if (nMinCellX >= FRAME_GRID_COLS)
     {
         return vIndices;
     }
 
-    const int nMaxCellX = min((int)FRAME_GRID_COLS - 1, (int)ceil((x - mnMinX + factorX) * mfGridElementWidthInv));
+    const int nMaxCellX = min((int)FRAME_GRID_COLS - 1, (int)ceil((x - min_x + factorX) * grid_element_width_inverse));
     if (nMaxCellX < 0)
     {
         return vIndices;
     }
 
-    const int nMinCellY = max(0, (int)floor((y - mnMinY - factorY) * mfGridElementHeightInv));
+    const int nMinCellY = max(0, (int)floor((y - min_y - factorY) * grid_element_height_inverse));
     if (nMinCellY >= FRAME_GRID_ROWS)
     {
         return vIndices;
     }
 
-    const int nMaxCellY = min((int)FRAME_GRID_ROWS - 1, (int)ceil((y - mnMinY + factorY) * mfGridElementHeightInv));
+    const int nMaxCellY = min((int)FRAME_GRID_ROWS - 1, (int)ceil((y - min_y + factorY) * grid_element_height_inverse));
     if (nMaxCellY < 0)
     {
         return vIndices;
@@ -664,7 +669,7 @@ vector<size_t> Frame::GetFeaturesInArea(const float &x, const float &y, const fl
     {
         for (int iy = nMinCellY; iy <= nMaxCellY; iy++)
         {
-            const vector<size_t> vCell = (!bRight) ? mGrid[ix][iy] : mGridRight[ix][iy];
+            const vector<size_t> vCell = (!bRight) ? grid[ix][iy] : right_grid[ix][iy];
             if (vCell.empty())
             {
                 continue;
@@ -672,7 +677,7 @@ vector<size_t> Frame::GetFeaturesInArea(const float &x, const float &y, const fl
 
             for (size_t j = 0, jend = vCell.size(); j < jend; j++)
             {
-                const auto &kpUn = (!is_fisheye_stereo || !bRight) ? mvKeys[vCell[j]] : mvKeysRight[vCell[j]];
+                const auto &kpUn = (!is_fisheye_stereo || !bRight) ? keypoints[vCell[j]] : right_keypoints[vCell[j]];
                 if (bCheckLevels)
                 {
                     if (kpUn.octave < minLevel)
@@ -702,10 +707,10 @@ vector<size_t> Frame::GetFeaturesInArea(const float &x, const float &y, const fl
     return vIndices;
 }
 
-bool Frame::PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY)
+bool frame::position_in_grid(const cv::KeyPoint &kp, int &posX, int &posY)
 {
-    posX = round((kp.pt.x - mnMinX) * mfGridElementWidthInv);
-    posY = round((kp.pt.y - mnMinY) * mfGridElementHeightInv);
+    posX = round((kp.pt.x - min_x) * grid_element_width_inverse);
+    posY = round((kp.pt.y - min_y) * grid_element_height_inverse);
 
     // Keypoint's coordinates are undistorted, which could cause to go out of the image
     if (posX < 0 || posX >= FRAME_GRID_COLS || posY < 0 || posY >= FRAME_GRID_ROWS)
@@ -716,22 +721,22 @@ bool Frame::PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY)
     return true;
 }
 
-void Frame::ComputeBoW()
+void frame::compute_bow()
 {
-    if (mBowVec.empty())
+    if (bow_vector.empty())
     {
-        auto       vCurrentDesc      = descriptor_vector(mvKeys);
-        const auto right_descriptors = descriptor_vector(mvKeysRight);
+        auto       vCurrentDesc      = descriptor_vector(keypoints);
+        const auto right_descriptors = descriptor_vector(right_keypoints);
         vCurrentDesc.insert(vCurrentDesc.end(), right_descriptors.begin(), right_descriptors.end());
-        place_vocabulary_ptr->transform(vCurrentDesc, mBowVec, mFeatVec, 4);
+        place_vocabulary_ptr->transform(vCurrentDesc, bow_vector, feature_vector, 4);
     }
 }
 
-void Frame::UndistortKeyPoints()
+void frame::_undistort_keypoints()
 {
-    if (mDistCoef.at<float>(0) == 0.0)
+    if (distortion_coefficients.at<float>(0) == 0.0)
     {
-        for (auto &key : mvKeys)
+        for (auto &key : keypoints)
         {
             key.pt_undistorted = key.pt;
         }
@@ -739,29 +744,29 @@ void Frame::UndistortKeyPoints()
     }
 
     // Fill matrix with points
-    cv::Mat mat(N, 2, CV_32F);
+    cv::Mat mat(feature_count, 2, CV_32F);
 
-    for (int i = 0; i < N; i++)
+    for (int i = 0; i < feature_count; i++)
     {
-        mat.at<float>(i, 0) = mvKeys[i].pt.x;
-        mat.at<float>(i, 1) = mvKeys[i].pt.y;
+        mat.at<float>(i, 0) = keypoints[i].pt.x;
+        mat.at<float>(i, 1) = keypoints[i].pt.y;
     }
 
     // Undistort points
     mat = mat.reshape(2);
-    cv::undistortPoints(mat, mat, mK, mDistCoef, cv::Mat(), mK);
+    cv::undistortPoints(mat, mat, calibration_matrix, distortion_coefficients, cv::Mat(), calibration_matrix);
     mat = mat.reshape(1);
 
-    for (int i = 0; i < N; i++)
+    for (int i = 0; i < feature_count; i++)
     {
-        mvKeys[i].pt_undistorted.x = mat.at<float>(i, 0);
-        mvKeys[i].pt_undistorted.y = mat.at<float>(i, 1);
+        keypoints[i].pt_undistorted.x = mat.at<float>(i, 0);
+        keypoints[i].pt_undistorted.y = mat.at<float>(i, 1);
     }
 }
 
-void Frame::ComputeImageBounds(const cv::Mat &imLeft)
+void frame::_compute_image_bounds(const cv::Mat &imLeft)
 {
-    if (mDistCoef.at<float>(0) != 0.0)
+    if (distortion_coefficients.at<float>(0) != 0.0)
     {
         cv::Mat mat(4, 2, CV_32F);
         mat.at<float>(0, 0) = 0.0;
@@ -774,28 +779,28 @@ void Frame::ComputeImageBounds(const cv::Mat &imLeft)
         mat.at<float>(3, 1) = imLeft.rows;
 
         mat = mat.reshape(2);
-        cv::undistortPoints(mat, mat, mK, mDistCoef, cv::Mat(), mK);
+        cv::undistortPoints(mat, mat, calibration_matrix, distortion_coefficients, cv::Mat(), calibration_matrix);
         mat = mat.reshape(1);
 
         // Undistort corners
-        mnMinX = min(mat.at<float>(0, 0), mat.at<float>(2, 0));
-        mnMaxX = max(mat.at<float>(1, 0), mat.at<float>(3, 0));
-        mnMinY = min(mat.at<float>(0, 1), mat.at<float>(1, 1));
-        mnMaxY = max(mat.at<float>(2, 1), mat.at<float>(3, 1));
+        min_x = min(mat.at<float>(0, 0), mat.at<float>(2, 0));
+        max_x = max(mat.at<float>(1, 0), mat.at<float>(3, 0));
+        min_y = min(mat.at<float>(0, 1), mat.at<float>(1, 1));
+        max_y = max(mat.at<float>(2, 1), mat.at<float>(3, 1));
     }
     else
     {
-        mnMinX = 0.0f;
-        mnMaxX = imLeft.cols;
-        mnMinY = 0.0f;
-        mnMaxY = imLeft.rows;
+        min_x = 0.0f;
+        max_x = imLeft.cols;
+        min_y = 0.0f;
+        max_y = imLeft.rows;
     }
 }
 
-void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid)
+void frame::compute_stereo_matches(const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid)
 {
-    mvuRight = vector<float>(N, -1.0f);
-    mvDepth  = vector<float>(N, -1.0f);
+    right_coordinates = vector<float>(feature_count, -1.0f);
+    depths            = vector<float>(feature_count, -1.0f);
 
     const int descriptor_threshold = (descriptor_matcher::high_distance_threshold + descriptor_matcher::low_distance_threshold) / 2;
 
@@ -809,13 +814,13 @@ void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const
         vRowIndices[i].reserve(200);
     }
 
-    const int Nr = mvKeysRight.size();
+    const int Nr = right_keypoints.size();
 
     for (int iR = 0; iR < Nr; iR++)
     {
-        const cv::KeyPoint &kp   = mvKeysRight[iR];
+        const cv::KeyPoint &kp   = right_keypoints[iR];
         const float        &kpY  = kp.pt.y;
-        const float         r    = 2.0f * mvScaleFactors[mvKeysRight[iR].octave];
+        const float         r    = 2.0f * scale_factors[right_keypoints[iR].octave];
         const int           maxr = ceil(kpY + r);
         const int           minr = floor(kpY - r);
 
@@ -826,17 +831,17 @@ void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const
     }
 
     // Set limits for search
-    const float minZ = mb;
+    const float minZ = baseline;
     const float minD = 0;
-    const float maxD = mbf / minZ;
+    const float maxD = baseline_fx / minZ;
 
     // For each left keypoint search a match in the right image
     vector<pair<int, int>> vDistIdx;
-    vDistIdx.reserve(N);
+    vDistIdx.reserve(feature_count);
 
-    for (int iL = 0; iL < N; iL++)
+    for (int iL = 0; iL < feature_count; iL++)
     {
-        const cv::KeyPoint &kpL    = mvKeys[iL];
+        const cv::KeyPoint &kpL    = keypoints[iL];
         const int          &levelL = kpL.octave;
         const float        &vL     = kpL.pt.y;
         const float        &uL     = kpL.pt.x;
@@ -859,13 +864,13 @@ void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const
         float  bestDist = descriptor_matcher::high_distance_threshold;
         size_t bestIdxR = 0;
 
-        const cv::Mat &dL = mvKeys[iL].descriptor;
+        const cv::Mat &dL = keypoints[iL].descriptor;
 
         // Compare descriptor to right keypoints
-        const auto ranked_candidates = descriptor_matcher::rank_candidates(dL, mvKeysRight, vCandidates);
+        const auto ranked_candidates = descriptor_matcher::rank_candidates(dL, right_keypoints, vCandidates);
         for (const auto iR : ranked_candidates)
         {
-            const cv::KeyPoint &kpR = mvKeysRight[iR];
+            const cv::KeyPoint &kpR = right_keypoints[iR];
 
             if (kpR.octave < levelL - 1 || kpR.octave > levelL + 1)
             {
@@ -876,7 +881,7 @@ void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const
 
             if (uR >= minU && uR <= maxU)
             {
-                const cv::Mat &dR   = mvKeysRight[iR].descriptor;
+                const cv::Mat &dR   = right_keypoints[iR].descriptor;
                 const float    dist = descriptor_matcher::descriptor_distance(dL, dR);
 
                 if (dist < bestDist)
@@ -891,8 +896,8 @@ void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const
         if (bestDist < descriptor_threshold)
         {
             // coordinates in image pyramid at keypoint scale
-            const float uR0         = mvKeysRight[bestIdxR].pt.x;
-            const float scaleFactor = mvInvScaleFactors[kpL.octave];
+            const float uR0         = right_keypoints[bestIdxR].pt.x;
+            const float scaleFactor = inverse_scale_factors[kpL.octave];
             const float scaleduL    = round(kpL.pt.x * scaleFactor);
             const float scaledvL    = round(kpL.pt.y * scaleFactor);
             const float scaleduR0   = round(uR0 * scaleFactor);
@@ -946,7 +951,7 @@ void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const
             }
 
             // Re-scaled coordinate
-            float bestuR = mvScaleFactors[kpL.octave] * ((float)scaleduR0 + (float)bestincR + deltaR);
+            float bestuR = scale_factors[kpL.octave] * ((float)scaleduR0 + (float)bestincR + deltaR);
 
             float disparity = (uL - bestuR);
 
@@ -957,8 +962,8 @@ void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const
                     disparity = 0.01;
                     bestuR    = uL - 0.01;
                 }
-                mvDepth[iL]  = mbf / disparity;
-                mvuRight[iL] = bestuR;
+                depths[iL]            = baseline_fx / disparity;
+                right_coordinates[iL] = bestuR;
                 vDistIdx.push_back(pair<int, int>(bestDist, iL));
             }
         }
@@ -976,20 +981,20 @@ void Frame::ComputeStereoMatches(const std::vector<cv::Mat> &left_pyramid, const
         }
         else
         {
-            mvuRight[vDistIdx[i].second] = -1;
-            mvDepth[vDistIdx[i].second]  = -1;
+            right_coordinates[vDistIdx[i].second] = -1;
+            depths[vDistIdx[i].second]            = -1;
         }
     }
 }
 
-void Frame::ComputeStereoFromRGBD(const cv::Mat &imDepth)
+void frame::compute_stereo_from_rgbd(const cv::Mat &imDepth)
 {
-    mvuRight = vector<float>(N, -1);
-    mvDepth  = vector<float>(N, -1);
+    right_coordinates = vector<float>(feature_count, -1);
+    depths            = vector<float>(feature_count, -1);
 
-    for (int i = 0; i < N; i++)
+    for (int i = 0; i < feature_count; i++)
     {
-        const auto &kp = mvKeys[i];
+        const auto &kp = keypoints[i];
 
         const float &v = kp.pt.y;
         const float &u = kp.pt.x;
@@ -998,23 +1003,23 @@ void Frame::ComputeStereoFromRGBD(const cv::Mat &imDepth)
 
         if (d > 0)
         {
-            mvDepth[i]  = d;
-            mvuRight[i] = kp.pt_undistorted.x - mbf / d;
+            depths[i]            = d;
+            right_coordinates[i] = kp.pt_undistorted.x - baseline_fx / d;
         }
     }
 }
 
-bool Frame::UnprojectStereo(const int &i, Eigen::Vector3f &x3D)
+bool frame::unproject_stereo(const int &i, Eigen::Vector3f &x3D)
 {
-    const float z = mvDepth[i];
+    const float z = depths[i];
     if (z > 0)
     {
-        const float     u = mvKeys[i].pt_undistorted.x;
-        const float     v = mvKeys[i].pt_undistorted.y;
+        const float     u = keypoints[i].pt_undistorted.x;
+        const float     v = keypoints[i].pt_undistorted.y;
         const float     x = (u - cx) * z * invfx;
         const float     y = (v - cy) * z * invfy;
         Eigen::Vector3f x3Dc(x, y, z);
-        x3D = mRwc * x3Dc + mOw;
+        x3D = _world_from_camera_rotation * x3Dc + _camera_origin;
         return true;
     }
     else
@@ -1023,29 +1028,29 @@ bool Frame::UnprojectStereo(const int &i, Eigen::Vector3f &x3D)
     }
 }
 
-bool Frame::imuIsPreintegrated() const
+bool frame::imu_is_preintegrated() const
 {
-    unique_lock<std::mutex> lock(*mpMutexImu);
-    return mbImuPreintegrated;
+    unique_lock<std::mutex> lock(*_imu_mutex);
+    return _imu_preintegrated;
 }
 
-void Frame::setIntegrated()
+void frame::set_integrated()
 {
-    unique_lock<std::mutex> lock(*mpMutexImu);
-    mbImuPreintegrated = true;
+    unique_lock<std::mutex> lock(*_imu_mutex);
+    _imu_preintegrated = true;
 }
 
-void Frame::ComputeStereoFishEyeMatches(const camera_vector &cameras)
+void frame::compute_stereo_fisheye_matches(const camera_vector &cameras)
 {
-    cv::Mat stereoDescLeft  = descriptor_matrix(mvKeys, monoLeft);
-    cv::Mat stereoDescRight = descriptor_matrix(mvKeysRight, monoRight);
+    cv::Mat stereoDescLeft  = descriptor_matrix(keypoints, mono_left);
+    cv::Mat stereoDescRight = descriptor_matrix(right_keypoints, mono_right);
 
-    mvLeftToRightMatch = vector<int>(mvKeys.size(), -1);
-    mvRightToLeftMatch = vector<int>(mvKeysRight.size(), -1);
-    mvDepth            = vector<float>(mvKeys.size(), -1.0f);
-    mvuRight           = vector<float>(mvKeys.size(), -1);
-    mvStereo3Dpoints   = vector<Eigen::Vector3f>(mvKeys.size());
-    mnCloseMPs         = 0;
+    left_to_right_matches = vector<int>(keypoints.size(), -1);
+    right_to_left_matches = vector<int>(right_keypoints.size(), -1);
+    depths                = vector<float>(keypoints.size(), -1.0f);
+    right_coordinates     = vector<float>(keypoints.size(), -1);
+    stereo_3d_points      = vector<Eigen::Vector3f>(keypoints.size());
+    close_map_point_count = 0;
 
     // Perform a brute force between Keypoint in the left and right image
     vector<vector<cv::DMatch>> matches;
@@ -1063,18 +1068,20 @@ void Frame::ComputeStereoFishEyeMatches(const camera_vector &cameras)
                 {
                     continue;
                 }
-                const auto      left_index  = neighbors[0].queryIdx + monoLeft;
-                const auto      right_index = neighbors[0].trainIdx + monoRight;
-                const auto      sigma_left  = mvLevelSigma2[mvKeys[left_index].octave];
-                const auto      sigma_right = mvLevelSigma2[mvKeysRight[right_index].octave];
+                const auto      left_index  = neighbors[0].queryIdx + mono_left;
+                const auto      right_index = neighbors[0].trainIdx + mono_right;
+                const auto      sigma_left  = level_sigma_squared[keypoints[left_index].octave];
+                const auto      sigma_right = level_sigma_squared[right_keypoints[right_index].octave];
                 Eigen::Vector3f point;
                 const auto      depth =
-                    static_cast<KannalaBrandt8 &>(*cameras[0]).TriangulateMatches(*cameras[1], mvKeys[left_index], mvKeysRight[right_index], mRlr, mtlr, sigma_left, sigma_right, point);
+                    static_cast<KannalaBrandt8 &>(*cameras[0])
+                        .TriangulateMatches(
+                            *cameras[1], keypoints[left_index], right_keypoints[right_index], _left_to_right_rotation, _left_to_right_translation, sigma_left, sigma_right, point);
                 if (depth > 0.0001f)
                 {
-                    mvLeftToRightMatch[left_index] = right_index;
-                    mvStereo3Dpoints[left_index]   = point;
-                    mvDepth[left_index]            = depth;
+                    left_to_right_matches[left_index] = right_index;
+                    stereo_3d_points[left_index]      = point;
+                    depths[left_index]                = depth;
                 }
             }
         },
@@ -1083,17 +1090,17 @@ void Frame::ComputeStereoFishEyeMatches(const camera_vector &cameras)
     {
         if (!neighbors.empty())
         {
-            const auto left_index  = neighbors[0].queryIdx + monoLeft;
-            const auto right_index = mvLeftToRightMatch[left_index];
+            const auto left_index  = neighbors[0].queryIdx + mono_left;
+            const auto right_index = left_to_right_matches[left_index];
             if (right_index >= 0)
             {
-                mvRightToLeftMatch[right_index] = left_index;
+                right_to_left_matches[right_index] = left_index;
             }
         }
     }
 }
 
-bool Frame::isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight)
+bool frame::is_in_frustum_checks(MapPoint *pMP, float viewingCosLimit, GeometricCamera &camera, bool bRight)
 {
     // 3D in absolute coordinates
     Eigen::Vector3f P = pMP->GetWorldPos();
@@ -1102,17 +1109,17 @@ bool Frame::isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCam
     Eigen::Vector3f mt, twc;
     if (bRight)
     {
-        Eigen::Matrix3f Rrl = mTrl.rotationMatrix();
-        Eigen::Vector3f trl = mTrl.translation();
-        mR                  = Rrl * mRcw;
-        mt                  = Rrl * mtcw + trl;
-        twc                 = mRwc * mTlr.translation() + mOw;
+        Eigen::Matrix3f Rrl = _right_to_left.rotationMatrix();
+        Eigen::Vector3f trl = _right_to_left.translation();
+        mR                  = Rrl * _world_to_camera_rotation;
+        mt                  = Rrl * _world_to_camera_translation + trl;
+        twc                 = _world_from_camera_rotation * _left_to_right.translation() + _camera_origin;
     }
     else
     {
-        mR  = mRcw;
-        mt  = mtcw;
-        twc = mOw;
+        mR  = _world_to_camera_rotation;
+        mt  = _world_to_camera_translation;
+        twc = _camera_origin;
     }
 
     // 3D in camera coordinates
@@ -1130,11 +1137,11 @@ bool Frame::isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCam
     Eigen::Vector2f uv;
     uv = camera.project(Pc);
 
-    if (uv(0) < mnMinX || uv(0) > mnMaxX)
+    if (uv(0) < min_x || uv(0) > max_x)
     {
         return false;
     }
-    if (uv(1) < mnMinY || uv(1) > mnMaxY)
+    if (uv(1) < min_y || uv(1) > max_y)
     {
         return false;
     }
@@ -1183,6 +1190,6 @@ bool Frame::isInFrustumChecks(MapPoint *pMP, float viewingCosLimit, GeometricCam
     return true;
 }
 
-Eigen::Vector3f Frame::UnprojectStereoFishEye(const int &i) { return mRwc * mvStereo3Dpoints[i] + mOw; }
+Eigen::Vector3f frame::unproject_stereo_fisheye(const int &i) { return _world_from_camera_rotation * stereo_3d_points[i] + _camera_origin; }
 
 } // namespace ORB_SLAM3

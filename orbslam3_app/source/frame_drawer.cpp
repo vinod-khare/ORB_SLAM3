@@ -33,7 +33,7 @@ namespace ORB_SLAM3
 
 frame_drawer::frame_drawer(atlas &atlas) : _both(false), _atlas(atlas)
 {
-    auto initial_frame               = std::make_shared<Frame>();
+    auto initial_frame               = std::make_shared<frame>();
     initial_frame->color_image       = cv::Mat(480, 640, CV_8UC3, cv::Scalar(0, 0, 0));
     initial_frame->color_image_right = initial_frame->color_image.clone();
     _current_frame                   = std::move(initial_frame);
@@ -44,7 +44,7 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
 {
     _update_requested = true;
     cv::Mat                                im;
-    std::shared_ptr<const Frame>           frame;
+    std::shared_ptr<const frame>           frame;
     vector<keypoint>                       vIniKeys;
     vector<int>                            vMatches;
     vector<pair<cv::Point2f, cv::Point2f>> vTracks;
@@ -70,7 +70,7 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
             vTracks  = _tracks;
         }
     }
-    const auto &current_keys = frame->mvKeys;
+    const auto &current_keys = frame->keypoints;
     im                       = frame->color_image.clone();
 
     if (image_scale != 1.f)
@@ -130,8 +130,8 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
         int                  n = current_keys.size();
         for (int i = 0; i < n; i++)
         {
-            auto *map_point = frame->mvpMapPoints[i];
-            if (map_point && !frame->mvbOutlier[i])
+            auto *map_point = frame->map_points[i];
+            if (map_point && !frame->outliers[i])
             {
                 auto key  = current_keys[i].display;
                 key.pt   /= image_scale;
@@ -165,7 +165,7 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
 {
     _update_requested = true;
     cv::Mat                      im;
-    std::shared_ptr<const Frame> frame;
+    std::shared_ptr<const frame> frame;
     vector<keypoint>             vIniKeys;
     vector<int>                  vMatches;
     int                          state;
@@ -186,8 +186,8 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
             vMatches = _initial_matches;
         }
     } // destroy scoped mutex -> release mutex
-    const auto &current_keys   = frame->mvKeysRight;
-    const auto  left_key_count = frame->mvKeys.size();
+    const auto &current_keys   = frame->right_keypoints;
+    const auto  left_key_count = frame->keypoints.size();
     im                         = frame->color_image_right.clone();
 
     if (image_scale != 1.f)
@@ -234,8 +234,8 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
         for (std::size_t i = 0; i < current_keys.size(); i++)
         {
             const auto index     = i + left_key_count;
-            auto      *map_point = frame->mvpMapPoints[index];
-            if (map_point && !frame->mvbOutlier[index])
+            auto      *map_point = frame->map_points[index];
+            if (map_point && !frame->outliers[index])
             {
                 auto key  = current_keys[i].display;
                 key.pt   /= image_scale;
@@ -358,13 +358,13 @@ bool frame_drawer::update(Tracking &tracker)
     {
         return false;
     }
-    _current_frame = std::make_shared<Frame>(tracker.mCurrentFrame);
+    _current_frame = std::make_shared<frame>(tracker.mCurrentFrame);
 
     _localization_only = tracker.mbOnlyTracking;
 
     if (tracker.mLastProcessedState == Tracking::NOT_INITIALIZED)
     {
-        _initial_keys    = tracker.mInitialFrame.mvKeys;
+        _initial_keys    = tracker.mInitialFrame.keypoints;
         _initial_matches = tracker.mvIniMatches;
     }
     _state = static_cast<int>(tracker.mLastProcessedState);

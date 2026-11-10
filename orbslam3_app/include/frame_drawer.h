@@ -34,7 +34,7 @@
 namespace ORB_SLAM3
 {
 
-class Frame;
+class frame;
 class Tracking;
 
 class frame_drawer
@@ -58,7 +58,7 @@ class frame_drawer
     void draw_text_info(cv::Mat &image, int state, cv::Mat &image_with_info);
 
     // Info of the frame to be drawn
-    std::shared_ptr<const Frame> _current_frame;
+    std::shared_ptr<const frame> _current_frame;
     std::atomic<bool>            _localization_only{false};
     int                          _tracked_count{};
     int                          _tracked_odometry_count{};

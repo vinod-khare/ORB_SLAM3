@@ -131,9 +131,9 @@ std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, co
     return rank_candidates(query, indices, [&train](size_t index) -> const cv::Mat & { return train[index].descriptor; });
 }
 
-std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, const Frame &train, const std::vector<size_t> &indices, bool right)
+std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, const frame &train, const std::vector<size_t> &indices, bool right)
 {
-    return rank_candidates(query, indices, [&train, right](size_t index) -> const cv::Mat & { return right ? train.mvKeysRight[index].descriptor : train.descriptor(index); });
+    return rank_candidates(query, indices, [&train, right](size_t index) -> const cv::Mat & { return right ? train.right_keypoints[index].descriptor : train.descriptor(index); });
 }
 
 std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, const KeyFrame &train, const std::vector<size_t> &indices, bool right)
@@ -141,7 +141,7 @@ std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, co
     return rank_candidates(query, indices, [&train, right](size_t index) -> const cv::Mat & { return right ? train.mvKeysRight[index].descriptor : train.descriptor(index); });
 }
 
-int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> &vpMapPoints, const float th, const bool bFarPoints, const float thFarPoints)
+int descriptor_matcher::search_by_projection(frame &F, const vector<MapPoint *> &vpMapPoints, const float th, const bool bFarPoints, const float thFarPoints)
 {
     int nmatches = 0, left = 0, right = 0;
 
@@ -177,8 +177,8 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                 r *= th;
             }
 
-            const auto vIndices =
-                rank_candidates(pMP->GetDescriptor(), F, F.GetFeaturesInArea(pMP->mTrackProjX, pMP->mTrackProjY, r * F.mvScaleFactors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel));
+            const auto vIndices = rank_candidates(
+                pMP->GetDescriptor(), F, F.get_features_in_area(pMP->mTrackProjX, pMP->mTrackProjY, r * F.scale_factors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel));
 
             if (!vIndices.empty())
             {
@@ -195,18 +195,18 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                 {
                     const size_t idx = *vit;
 
-                    if (F.mvpMapPoints[idx])
+                    if (F.map_points[idx])
                     {
-                        if (F.mvpMapPoints[idx]->Observations() > 0)
+                        if (F.map_points[idx]->Observations() > 0)
                         {
                             continue;
                         }
                     }
 
-                    if (!F.is_fisheye_stereo && F.mvuRight[idx] > 0)
+                    if (!F.is_fisheye_stereo && F.right_coordinates[idx] > 0)
                     {
-                        const float er = fabs(pMP->mTrackProjXR - F.mvuRight[idx]);
-                        if (er > r * F.mvScaleFactors[nPredictedLevel])
+                        const float er = fabs(pMP->mTrackProjXR - F.right_coordinates[idx]);
+                        if (er > r * F.scale_factors[nPredictedLevel])
                         {
                             continue;
                         }
@@ -221,12 +221,12 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                         bestDist2  = bestDist;
                         bestDist   = dist;
                         bestLevel2 = bestLevel;
-                        bestLevel  = (!F.is_fisheye_stereo || std::cmp_less(idx, F.mvKeys.size())) ? F.mvKeys[idx].octave : F.mvKeysRight[idx - F.mvKeys.size()].octave;
+                        bestLevel  = (!F.is_fisheye_stereo || std::cmp_less(idx, F.keypoints.size())) ? F.keypoints[idx].octave : F.right_keypoints[idx - F.keypoints.size()].octave;
                         bestIdx    = idx;
                     }
                     else if (dist < bestDist2)
                     {
-                        bestLevel2 = (!F.is_fisheye_stereo || std::cmp_less(idx, F.mvKeys.size())) ? F.mvKeys[idx].octave : F.mvKeysRight[idx - F.mvKeys.size()].octave;
+                        bestLevel2 = (!F.is_fisheye_stereo || std::cmp_less(idx, F.keypoints.size())) ? F.keypoints[idx].octave : F.right_keypoints[idx - F.keypoints.size()].octave;
                         bestDist2  = dist;
                     }
                 }
@@ -241,11 +241,11 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
 
                     if (bestLevel != bestLevel2 || bestDist <= _nearest_neighbor_ratio * bestDist2)
                     {
-                        F.mvpMapPoints[bestIdx] = pMP;
+                        F.map_points[bestIdx] = pMP;
 
-                        if (F.is_fisheye_stereo && F.mvLeftToRightMatch[bestIdx] != -1)
+                        if (F.is_fisheye_stereo && F.left_to_right_matches[bestIdx] != -1)
                         { // Also match with the stereo observation at right camera
-                            F.mvpMapPoints[F.mvLeftToRightMatch[bestIdx] + F.mvKeys.size()] = pMP;
+                            F.map_points[F.left_to_right_matches[bestIdx] + F.keypoints.size()] = pMP;
                             nmatches++;
                             right++;
                         }
@@ -267,7 +267,7 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                 const auto vIndices =
                     rank_candidates(pMP->GetDescriptor(),
                                     F,
-                                    F.GetFeaturesInArea(pMP->mTrackProjXR, pMP->mTrackProjYR, r * F.mvScaleFactors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel, true),
+                                    F.get_features_in_area(pMP->mTrackProjXR, pMP->mTrackProjYR, r * F.scale_factors[nPredictedLevel], nPredictedLevel - 1, nPredictedLevel, true),
                                     true);
 
                 if (vIndices.empty())
@@ -288,15 +288,15 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                 {
                     const size_t idx = *vit;
 
-                    if (F.mvpMapPoints[idx + F.mvKeys.size()])
+                    if (F.map_points[idx + F.keypoints.size()])
                     {
-                        if (F.mvpMapPoints[idx + F.mvKeys.size()]->Observations() > 0)
+                        if (F.map_points[idx + F.keypoints.size()]->Observations() > 0)
                         {
                             continue;
                         }
                     }
 
-                    const cv::Mat &d = F.descriptor(idx + F.mvKeys.size());
+                    const cv::Mat &d = F.descriptor(idx + F.keypoints.size());
 
                     const float dist = descriptor_distance(MPdescriptor, d);
 
@@ -305,12 +305,12 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                         bestDist2  = bestDist;
                         bestDist   = dist;
                         bestLevel2 = bestLevel;
-                        bestLevel  = F.mvKeysRight[idx].octave;
+                        bestLevel  = F.right_keypoints[idx].octave;
                         bestIdx    = idx;
                     }
                     else if (dist < bestDist2)
                     {
-                        bestLevel2 = F.mvKeysRight[idx].octave;
+                        bestLevel2 = F.right_keypoints[idx].octave;
                         bestDist2  = dist;
                     }
                 }
@@ -323,14 +323,14 @@ int descriptor_matcher::search_by_projection(Frame &F, const vector<MapPoint *> 
                         continue;
                     }
 
-                    if (F.is_fisheye_stereo && F.mvRightToLeftMatch[bestIdx] != -1)
+                    if (F.is_fisheye_stereo && F.right_to_left_matches[bestIdx] != -1)
                     { // Also match with the stereo observation at right camera
-                        F.mvpMapPoints[F.mvRightToLeftMatch[bestIdx]] = pMP;
+                        F.map_points[F.right_to_left_matches[bestIdx]] = pMP;
                         nmatches++;
                         left++;
                     }
 
-                    F.mvpMapPoints[bestIdx + F.mvKeys.size()] = pMP;
+                    F.map_points[bestIdx + F.keypoints.size()] = pMP;
                     nmatches++;
                     right++;
                 }
@@ -352,11 +352,11 @@ float descriptor_matcher::radius_by_viewing_cos(const float &viewCos)
     }
 }
 
-int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<MapPoint *> &vpMapPointMatches)
+int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<MapPoint *> &vpMapPointMatches)
 {
     const vector<MapPoint *> vpMapPointsKF = pKF->GetMapPointMatches();
 
-    vpMapPointMatches = vector<MapPoint *>(F.N, static_cast<MapPoint *>(NULL));
+    vpMapPointMatches = vector<MapPoint *>(F.feature_count, static_cast<MapPoint *>(NULL));
 
     const DBoW2::FeatureVector &vFeatVecKF = pKF->mFeatVec;
 
@@ -371,9 +371,9 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
 
     // We perform the matching over ORB that belong to the same vocabulary node (at a certain level)
     DBoW2::FeatureVector::const_iterator KFit  = vFeatVecKF.begin();
-    DBoW2::FeatureVector::const_iterator Fit   = F.mFeatVec.begin();
+    DBoW2::FeatureVector::const_iterator Fit   = F.feature_vector.begin();
     DBoW2::FeatureVector::const_iterator KFend = vFeatVecKF.end();
-    DBoW2::FeatureVector::const_iterator Fend  = F.mFeatVec.end();
+    DBoW2::FeatureVector::const_iterator Fend  = F.feature_vector.end();
 
     while (KFit != KFend && Fit != Fend)
     {
@@ -448,24 +448,24 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
 
                         const float dist = descriptor_distance(dKF, dF);
 
-                        if (std::cmp_less(realIdxF, F.mvKeys.size()) && dist < bestDist1)
+                        if (std::cmp_less(realIdxF, F.keypoints.size()) && dist < bestDist1)
                         {
                             bestDist2 = bestDist1;
                             bestDist1 = dist;
                             bestIdxF  = realIdxF;
                         }
-                        else if (std::cmp_less(realIdxF, F.mvKeys.size()) && dist < bestDist2)
+                        else if (std::cmp_less(realIdxF, F.keypoints.size()) && dist < bestDist2)
                         {
                             bestDist2 = dist;
                         }
 
-                        if (std::cmp_greater_equal(realIdxF, F.mvKeys.size()) && dist < bestDist1R)
+                        if (std::cmp_greater_equal(realIdxF, F.keypoints.size()) && dist < bestDist1R)
                         {
                             bestDist2R = bestDist1R;
                             bestDist1R = dist;
                             bestIdxFR  = realIdxF;
                         }
-                        else if (std::cmp_greater_equal(realIdxF, F.mvKeys.size()) && dist < bestDist2R)
+                        else if (std::cmp_greater_equal(realIdxF, F.keypoints.size()) && dist < bestDist2R)
                         {
                             bestDist2R = dist;
                         }
@@ -485,9 +485,9 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
 
                         if (_check_orientation)
                         {
-                            cv::KeyPoint &Fkp = (!is_fisheye_stereo(pKF->cameras) || !F.is_fisheye_stereo) ? F.mvKeys[bestIdxF]
-                                                : std::cmp_greater_equal(bestIdxF, F.mvKeys.size())        ? F.mvKeysRight[bestIdxF - F.mvKeys.size()]
-                                                                                                           : F.mvKeys[bestIdxF];
+                            cv::KeyPoint &Fkp = (!is_fisheye_stereo(pKF->cameras) || !F.is_fisheye_stereo) ? F.keypoints[bestIdxF]
+                                                : std::cmp_greater_equal(bestIdxF, F.keypoints.size())     ? F.right_keypoints[bestIdxF - F.keypoints.size()]
+                                                                                                           : F.keypoints[bestIdxF];
 
                             float rot = kp.angle - Fkp.angle;
                             if (rot < 0.0)
@@ -518,9 +518,9 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
 
                             if (_check_orientation)
                             {
-                                cv::KeyPoint &Fkp = (!F.is_fisheye_stereo)                               ? F.mvKeys[bestIdxFR]
-                                                    : std::cmp_greater_equal(bestIdxFR, F.mvKeys.size()) ? F.mvKeysRight[bestIdxFR - F.mvKeys.size()]
-                                                                                                         : F.mvKeys[bestIdxFR];
+                                cv::KeyPoint &Fkp = (!F.is_fisheye_stereo)                                  ? F.keypoints[bestIdxFR]
+                                                    : std::cmp_greater_equal(bestIdxFR, F.keypoints.size()) ? F.right_keypoints[bestIdxFR - F.keypoints.size()]
+                                                                                                            : F.keypoints[bestIdxFR];
 
                                 float rot = kp.angle - Fkp.angle;
                                 if (rot < 0.0)
@@ -550,7 +550,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, Frame &F, vector<Map
         }
         else
         {
-            Fit = F.mFeatVec.lower_bound(KFit->first);
+            Fit = F.feature_vector.lower_bound(KFit->first);
         }
     }
 
@@ -835,10 +835,10 @@ int descriptor_matcher::search_by_projection(KeyFrame                      *pKF,
     return nmatches;
 }
 
-int descriptor_matcher::search_for_initialization(Frame &F1, Frame &F2, vector<cv::Point2f> &vbPrevMatched, vector<int> &vnMatches12, int windowSize)
+int descriptor_matcher::search_for_initialization(frame &F1, frame &F2, vector<cv::Point2f> &vbPrevMatched, vector<int> &vnMatches12, int windowSize)
 {
     int nmatches = 0;
-    vnMatches12  = vector<int>(F1.mvKeys.size(), -1);
+    vnMatches12  = vector<int>(F1.keypoints.size(), -1);
 
     vector<int> rotHist[orientation_histogram_bins];
     for (int i = 0; i < orientation_histogram_bins; i++)
@@ -847,26 +847,26 @@ int descriptor_matcher::search_for_initialization(Frame &F1, Frame &F2, vector<c
     }
     const float factor = 1.0f / orientation_histogram_bins;
 
-    vector<float> vMatchedDistance(F2.mvKeys.size(), INT_MAX);
-    vector<int>   vnMatches21(F2.mvKeys.size(), -1);
+    vector<float> vMatchedDistance(F2.keypoints.size(), INT_MAX);
+    vector<int>   vnMatches21(F2.keypoints.size(), -1);
 
-    for (size_t i1 = 0, iend1 = F1.mvKeys.size(); i1 < iend1; i1++)
+    for (size_t i1 = 0, iend1 = F1.keypoints.size(); i1 < iend1; i1++)
     {
-        cv::KeyPoint kp1    = F1.mvKeys[i1].undistorted();
+        cv::KeyPoint kp1    = F1.keypoints[i1].undistorted();
         int          level1 = kp1.octave;
         if (level1 > 0)
         {
             continue;
         }
 
-        auto vIndices2 = rank_candidates(F1.mvKeys[i1].descriptor, F2, F2.GetFeaturesInArea(vbPrevMatched[i1].x, vbPrevMatched[i1].y, windowSize, level1, level1));
+        auto vIndices2 = rank_candidates(F1.keypoints[i1].descriptor, F2, F2.get_features_in_area(vbPrevMatched[i1].x, vbPrevMatched[i1].y, windowSize, level1, level1));
 
         if (vIndices2.empty())
         {
             continue;
         }
 
-        const cv::Mat &d1 = F1.mvKeys[i1].descriptor;
+        const cv::Mat &d1 = F1.keypoints[i1].descriptor;
 
         float bestDist  = INT_MAX;
         float bestDist2 = INT_MAX;
@@ -876,7 +876,7 @@ int descriptor_matcher::search_for_initialization(Frame &F1, Frame &F2, vector<c
         {
             size_t i2 = *vit;
 
-            const cv::Mat &d2 = F2.mvKeys[i2].descriptor;
+            const cv::Mat &d2 = F2.keypoints[i2].descriptor;
 
             float dist = descriptor_distance(d1, d2);
 
@@ -913,7 +913,7 @@ int descriptor_matcher::search_for_initialization(Frame &F1, Frame &F2, vector<c
 
                 if (_check_orientation)
                 {
-                    float rot = F1.mvKeys[i1].angle - F2.mvKeys[bestIdx2].angle;
+                    float rot = F1.keypoints[i1].angle - F2.keypoints[bestIdx2].angle;
                     if (rot < 0.0)
                     {
                         rot += 360.0f;
@@ -961,7 +961,7 @@ int descriptor_matcher::search_for_initialization(Frame &F1, Frame &F2, vector<c
     {
         if (vnMatches12[i1] >= 0)
         {
-            vbPrevMatched[i1] = F2.mvKeys[vnMatches12[i1]].pt_undistorted;
+            vbPrevMatched[i1] = F2.keypoints[vnMatches12[i1]].pt_undistorted;
         }
     }
 
@@ -1988,7 +1988,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
     return nFound;
 }
 
-int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono, const camera_vector &cameras)
+int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &LastFrame, const float th, const bool bMono, const camera_vector &cameras)
 {
     int nmatches = 0;
 
@@ -2000,21 +2000,21 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
     }
     const float factor = 1.0f / orientation_histogram_bins;
 
-    const Sophus::SE3f    Tcw = CurrentFrame.GetPose();
+    const Sophus::SE3f    Tcw = CurrentFrame.get_pose();
     const Eigen::Vector3f twc = Tcw.inverse().translation();
 
-    const Sophus::SE3f    Tlw = LastFrame.GetPose();
+    const Sophus::SE3f    Tlw = LastFrame.get_pose();
     const Eigen::Vector3f tlc = Tlw * twc;
 
-    const bool bForward  = tlc(2) > CurrentFrame.mb && !bMono;
-    const bool bBackward = -tlc(2) > CurrentFrame.mb && !bMono;
+    const bool bForward  = tlc(2) > CurrentFrame.baseline && !bMono;
+    const bool bBackward = -tlc(2) > CurrentFrame.baseline && !bMono;
 
-    for (int i = 0; i < LastFrame.N; i++)
+    for (int i = 0; i < LastFrame.feature_count; i++)
     {
-        MapPoint *pMP = LastFrame.mvpMapPoints[i];
+        MapPoint *pMP = LastFrame.map_points[i];
         if (pMP)
         {
-            if (!LastFrame.mvbOutlier[i])
+            if (!LastFrame.outliers[i])
             {
                 // Project
                 Eigen::Vector3f x3Dw = pMP->GetWorldPos();
@@ -2031,34 +2031,34 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
 
                 Eigen::Vector2f uv = cameras[0]->project(x3Dc);
 
-                if (uv(0) < CurrentFrame.mnMinX || uv(0) > CurrentFrame.mnMaxX)
+                if (uv(0) < CurrentFrame.min_x || uv(0) > CurrentFrame.max_x)
                 {
                     continue;
                 }
-                if (uv(1) < CurrentFrame.mnMinY || uv(1) > CurrentFrame.mnMaxY)
+                if (uv(1) < CurrentFrame.min_y || uv(1) > CurrentFrame.max_y)
                 {
                     continue;
                 }
 
-                int nLastOctave =
-                    (!LastFrame.is_fisheye_stereo || std::cmp_less(i, LastFrame.mvKeys.size())) ? LastFrame.mvKeys[i].octave : LastFrame.mvKeysRight[i - LastFrame.mvKeys.size()].octave;
+                int nLastOctave = (!LastFrame.is_fisheye_stereo || std::cmp_less(i, LastFrame.keypoints.size())) ? LastFrame.keypoints[i].octave
+                                                                                                                 : LastFrame.right_keypoints[i - LastFrame.keypoints.size()].octave;
 
                 // Search in a window. Size depends on scale
-                float radius = th * CurrentFrame.mvScaleFactors[nLastOctave];
+                float radius = th * CurrentFrame.scale_factors[nLastOctave];
 
                 vector<size_t> vIndices2;
 
                 if (bForward)
                 {
-                    vIndices2 = CurrentFrame.GetFeaturesInArea(uv(0), uv(1), radius, nLastOctave);
+                    vIndices2 = CurrentFrame.get_features_in_area(uv(0), uv(1), radius, nLastOctave);
                 }
                 else if (bBackward)
                 {
-                    vIndices2 = CurrentFrame.GetFeaturesInArea(uv(0), uv(1), radius, 0, nLastOctave);
+                    vIndices2 = CurrentFrame.get_features_in_area(uv(0), uv(1), radius, 0, nLastOctave);
                 }
                 else
                 {
-                    vIndices2 = CurrentFrame.GetFeaturesInArea(uv(0), uv(1), radius, nLastOctave - 1, nLastOctave + 1);
+                    vIndices2 = CurrentFrame.get_features_in_area(uv(0), uv(1), radius, nLastOctave - 1, nLastOctave + 1);
                 }
 
                 if (vIndices2.empty())
@@ -2076,18 +2076,18 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
                 {
                     const size_t i2 = *vit;
 
-                    if (CurrentFrame.mvpMapPoints[i2])
+                    if (CurrentFrame.map_points[i2])
                     {
-                        if (CurrentFrame.mvpMapPoints[i2]->Observations() > 0)
+                        if (CurrentFrame.map_points[i2]->Observations() > 0)
                         {
                             continue;
                         }
                     }
 
-                    if (!CurrentFrame.is_fisheye_stereo && CurrentFrame.mvuRight[i2] > 0)
+                    if (!CurrentFrame.is_fisheye_stereo && CurrentFrame.right_coordinates[i2] > 0)
                     {
-                        const float ur = uv(0) - CurrentFrame.mbf * invzc;
-                        const float er = fabs(ur - CurrentFrame.mvuRight[i2]);
+                        const float ur = uv(0) - CurrentFrame.baseline_fx * invzc;
+                        const float er = fabs(ur - CurrentFrame.right_coordinates[i2]);
                         if (er > radius)
                         {
                             continue;
@@ -2107,19 +2107,19 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
 
                 if (bestDist <= high_distance_threshold)
                 {
-                    CurrentFrame.mvpMapPoints[bestIdx2] = pMP;
+                    CurrentFrame.map_points[bestIdx2] = pMP;
                     nmatches++;
 
                     if (_check_orientation)
                     {
-                        cv::KeyPoint kpLF = ((!LastFrame.is_fisheye_stereo)              ? LastFrame.mvKeys[i]
-                                             : std::cmp_less(i, LastFrame.mvKeys.size()) ? LastFrame.mvKeys[i]
-                                                                                         : LastFrame.mvKeysRight[i - LastFrame.mvKeys.size()])
+                        cv::KeyPoint kpLF = ((!LastFrame.is_fisheye_stereo)                 ? LastFrame.keypoints[i]
+                                             : std::cmp_less(i, LastFrame.keypoints.size()) ? LastFrame.keypoints[i]
+                                                                                            : LastFrame.right_keypoints[i - LastFrame.keypoints.size()])
                                                 .undistorted();
 
-                        cv::KeyPoint kpCF = ((!CurrentFrame.is_fisheye_stereo)                     ? CurrentFrame.mvKeys[bestIdx2]
-                                             : std::cmp_less(bestIdx2, CurrentFrame.mvKeys.size()) ? CurrentFrame.mvKeys[bestIdx2]
-                                                                                                   : CurrentFrame.mvKeysRight[bestIdx2 - CurrentFrame.mvKeys.size()])
+                        cv::KeyPoint kpCF = ((!CurrentFrame.is_fisheye_stereo)                        ? CurrentFrame.keypoints[bestIdx2]
+                                             : std::cmp_less(bestIdx2, CurrentFrame.keypoints.size()) ? CurrentFrame.keypoints[bestIdx2]
+                                                                                                      : CurrentFrame.right_keypoints[bestIdx2 - CurrentFrame.keypoints.size()])
                                                 .undistorted();
                         float rot = kpLF.angle - kpCF.angle;
                         if (rot < 0.0)
@@ -2137,28 +2137,28 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
                 }
                 if (CurrentFrame.is_fisheye_stereo)
                 {
-                    Eigen::Vector3f x3Dr = CurrentFrame.GetRelativePoseTrl() * x3Dc;
+                    Eigen::Vector3f x3Dr = CurrentFrame.get_relative_pose_trl() * x3Dc;
                     Eigen::Vector2f uv   = cameras[0]->project(x3Dr);
 
-                    int nLastOctave =
-                        (!LastFrame.is_fisheye_stereo || std::cmp_less(i, LastFrame.mvKeys.size())) ? LastFrame.mvKeys[i].octave : LastFrame.mvKeysRight[i - LastFrame.mvKeys.size()].octave;
+                    int nLastOctave = (!LastFrame.is_fisheye_stereo || std::cmp_less(i, LastFrame.keypoints.size())) ? LastFrame.keypoints[i].octave
+                                                                                                                     : LastFrame.right_keypoints[i - LastFrame.keypoints.size()].octave;
 
                     // Search in a window. Size depends on scale
-                    float radius = th * CurrentFrame.mvScaleFactors[nLastOctave];
+                    float radius = th * CurrentFrame.scale_factors[nLastOctave];
 
                     vector<size_t> vIndices2;
 
                     if (bForward)
                     {
-                        vIndices2 = CurrentFrame.GetFeaturesInArea(uv(0), uv(1), radius, nLastOctave, -1, true);
+                        vIndices2 = CurrentFrame.get_features_in_area(uv(0), uv(1), radius, nLastOctave, -1, true);
                     }
                     else if (bBackward)
                     {
-                        vIndices2 = CurrentFrame.GetFeaturesInArea(uv(0), uv(1), radius, 0, nLastOctave, true);
+                        vIndices2 = CurrentFrame.get_features_in_area(uv(0), uv(1), radius, 0, nLastOctave, true);
                     }
                     else
                     {
-                        vIndices2 = CurrentFrame.GetFeaturesInArea(uv(0), uv(1), radius, nLastOctave - 1, nLastOctave + 1, true);
+                        vIndices2 = CurrentFrame.get_features_in_area(uv(0), uv(1), radius, nLastOctave - 1, nLastOctave + 1, true);
                     }
 
                     const cv::Mat dMP = pMP->GetDescriptor();
@@ -2170,15 +2170,15 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
                     for (vector<size_t>::const_iterator vit = vIndices2.begin(), vend = vIndices2.end(); vit != vend; vit++)
                     {
                         const size_t i2 = *vit;
-                        if (CurrentFrame.mvpMapPoints[i2 + CurrentFrame.mvKeys.size()])
+                        if (CurrentFrame.map_points[i2 + CurrentFrame.keypoints.size()])
                         {
-                            if (CurrentFrame.mvpMapPoints[i2 + CurrentFrame.mvKeys.size()]->Observations() > 0)
+                            if (CurrentFrame.map_points[i2 + CurrentFrame.keypoints.size()]->Observations() > 0)
                             {
                                 continue;
                             }
                         }
 
-                        const cv::Mat &d = CurrentFrame.descriptor(i2 + CurrentFrame.mvKeys.size());
+                        const cv::Mat &d = CurrentFrame.descriptor(i2 + CurrentFrame.keypoints.size());
 
                         const float dist = descriptor_distance(dMP, d);
 
@@ -2191,16 +2191,16 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
 
                     if (bestDist <= high_distance_threshold)
                     {
-                        CurrentFrame.mvpMapPoints[bestIdx2 + CurrentFrame.mvKeys.size()] = pMP;
+                        CurrentFrame.map_points[bestIdx2 + CurrentFrame.keypoints.size()] = pMP;
                         nmatches++;
                         if (_check_orientation)
                         {
-                            cv::KeyPoint kpLF = ((!LastFrame.is_fisheye_stereo)              ? LastFrame.mvKeys[i]
-                                                 : std::cmp_less(i, LastFrame.mvKeys.size()) ? LastFrame.mvKeys[i]
-                                                                                             : LastFrame.mvKeysRight[i - LastFrame.mvKeys.size()])
+                            cv::KeyPoint kpLF = ((!LastFrame.is_fisheye_stereo)                 ? LastFrame.keypoints[i]
+                                                 : std::cmp_less(i, LastFrame.keypoints.size()) ? LastFrame.keypoints[i]
+                                                                                                : LastFrame.right_keypoints[i - LastFrame.keypoints.size()])
                                                     .undistorted();
 
-                            cv::KeyPoint kpCF = CurrentFrame.mvKeysRight[bestIdx2];
+                            cv::KeyPoint kpCF = CurrentFrame.right_keypoints[bestIdx2];
 
                             float rot = kpLF.angle - kpCF.angle;
                             if (rot < 0.0)
@@ -2213,7 +2213,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
                                 bin = 0;
                             }
                             assert(bin >= 0 && bin < orientation_histogram_bins);
-                            rotHist[bin].push_back(bestIdx2 + CurrentFrame.mvKeys.size());
+                            rotHist[bin].push_back(bestIdx2 + CurrentFrame.keypoints.size());
                         }
                     }
                 }
@@ -2236,7 +2236,7 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
             {
                 for (size_t j = 0, jend = rotHist[i].size(); j < jend; j++)
                 {
-                    CurrentFrame.mvpMapPoints[rotHist[i][j]] = static_cast<MapPoint *>(NULL);
+                    CurrentFrame.map_points[rotHist[i][j]] = static_cast<MapPoint *>(NULL);
                     nmatches--;
                 }
             }
@@ -2247,11 +2247,11 @@ int descriptor_matcher::search_by_projection(Frame &CurrentFrame, const Frame &L
 }
 
 int descriptor_matcher::search_by_projection(
-    Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras)
+    frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras)
 {
     int nmatches = 0;
 
-    const Sophus::SE3f Tcw = CurrentFrame.GetPose();
+    const Sophus::SE3f Tcw = CurrentFrame.get_pose();
     Eigen::Vector3f    Ow  = Tcw.inverse().translation();
 
     // Rotation Histogram (to check rotation consistency)
@@ -2278,11 +2278,11 @@ int descriptor_matcher::search_by_projection(
 
                 const Eigen::Vector2f uv = cameras[0]->project(x3Dc);
 
-                if (uv(0) < CurrentFrame.mnMinX || uv(0) > CurrentFrame.mnMaxX)
+                if (uv(0) < CurrentFrame.min_x || uv(0) > CurrentFrame.max_x)
                 {
                     continue;
                 }
-                if (uv(1) < CurrentFrame.mnMinY || uv(1) > CurrentFrame.mnMaxY)
+                if (uv(1) < CurrentFrame.min_y || uv(1) > CurrentFrame.max_y)
                 {
                     continue;
                 }
@@ -2303,9 +2303,9 @@ int descriptor_matcher::search_by_projection(
                 int nPredictedLevel = pMP->PredictScale(dist3D, &CurrentFrame);
 
                 // Search in a window
-                const float radius = th * CurrentFrame.mvScaleFactors[nPredictedLevel];
+                const float radius = th * CurrentFrame.scale_factors[nPredictedLevel];
 
-                const auto vIndices2 = rank_candidates(pMP->GetDescriptor(), CurrentFrame, CurrentFrame.GetFeaturesInArea(uv(0), uv(1), radius, nPredictedLevel - 1, nPredictedLevel + 1));
+                const auto vIndices2 = rank_candidates(pMP->GetDescriptor(), CurrentFrame, CurrentFrame.get_features_in_area(uv(0), uv(1), radius, nPredictedLevel - 1, nPredictedLevel + 1));
 
                 if (vIndices2.empty())
                 {
@@ -2320,7 +2320,7 @@ int descriptor_matcher::search_by_projection(
                 for (vector<size_t>::const_iterator vit = vIndices2.begin(); vit != vIndices2.end(); vit++)
                 {
                     const size_t i2 = *vit;
-                    if (CurrentFrame.mvpMapPoints[i2])
+                    if (CurrentFrame.map_points[i2])
                     {
                         continue;
                     }
@@ -2338,7 +2338,7 @@ int descriptor_matcher::search_by_projection(
 
                 if (bestDist <= descriptor_threshold)
                 {
-                    CurrentFrame.mvpMapPoints[bestIdx2] = pMP;
+                    CurrentFrame.map_points[bestIdx2] = pMP;
                     nmatches++;
 
                     if (_check_orientation)
@@ -2347,7 +2347,7 @@ int descriptor_matcher::search_by_projection(
                         const auto angle_of = [](const std::vector<keypoint> &left, const std::vector<keypoint> &right, bool fisheye_stereo, size_t idx)
                         { return (!fisheye_stereo || idx < left.size()) ? left[idx].angle : right[idx - left.size()].angle; };
                         float rot = angle_of(pKF->mvKeys, pKF->mvKeysRight, is_fisheye_stereo(pKF->cameras), i) -
-                                    angle_of(CurrentFrame.mvKeys, CurrentFrame.mvKeysRight, CurrentFrame.is_fisheye_stereo, bestIdx2);
+                                    angle_of(CurrentFrame.keypoints, CurrentFrame.right_keypoints, CurrentFrame.is_fisheye_stereo, bestIdx2);
                         if (rot < 0.0)
                         {
                             rot += 360.0f;
@@ -2379,7 +2379,7 @@ int descriptor_matcher::search_by_projection(
             {
                 for (size_t j = 0, jend = rotHist[i].size(); j < jend; j++)
                 {
-                    CurrentFrame.mvpMapPoints[rotHist[i][j]] = NULL;
+                    CurrentFrame.map_points[rotHist[i][j]] = NULL;
                     nmatches--;
                 }
             }

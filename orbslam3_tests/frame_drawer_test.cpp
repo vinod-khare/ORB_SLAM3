@@ -25,24 +25,24 @@ class frame_drawer_fixture : public ORB_SLAM3::frame_drawer
         _state             = ORB_SLAM3::Tracking::OK;
         _localization_only = false;
 
-        ORB_SLAM3::Frame frame(0.0, nullptr, cv::Mat::eye(3, 3, CV_32F), cv::Mat::zeros(4, 1, CV_32F), 10.f, 40.f);
+        ORB_SLAM3::frame frame(0.0, nullptr, cv::Mat::eye(3, 3, CV_32F), cv::Mat::zeros(4, 1, CV_32F), 10.f, 40.f);
         frame.color_image       = cv::Mat::zeros(160, 240, image_type);
         frame.color_image_right = frame.color_image.clone();
-        frame.mvKeys            = right ? std::vector<ORB_SLAM3::keypoint>(2) : std::vector<ORB_SLAM3::keypoint>{};
-        frame.mvKeysRight       = {};
+        frame.keypoints         = right ? std::vector<ORB_SLAM3::keypoint>(2) : std::vector<ORB_SLAM3::keypoint>{};
+        frame.right_keypoints   = {};
         for (const auto &key : keys)
         {
-            (right ? frame.mvKeysRight : frame.mvKeys).emplace_back(key);
+            (right ? frame.right_keypoints : frame.keypoints).emplace_back(key);
         }
-        const auto offset = right ? frame.mvKeys.size() : 0;
-        frame.N           = static_cast<int>(offset + frame.mvKeysRight.size());
-        frame.mvpMapPoints.assign(frame.N, nullptr);
-        frame.mvbOutlier.assign(frame.N, false);
-        _map_match.nObs                = 1;
-        frame.mvpMapPoints[offset]     = &_map_match;
-        frame.mvpMapPoints[offset + 1] = &_odometry_match;
-        frame.mvpMapPoints[offset + 3] = &_map_match;
-        _current_frame                 = std::make_shared<ORB_SLAM3::Frame>(frame);
+        const auto offset   = right ? frame.keypoints.size() : 0;
+        frame.feature_count = static_cast<int>(offset + frame.right_keypoints.size());
+        frame.map_points.assign(frame.feature_count, nullptr);
+        frame.outliers.assign(frame.feature_count, false);
+        _map_match.nObs              = 1;
+        frame.map_points[offset]     = &_map_match;
+        frame.map_points[offset + 1] = &_odometry_match;
+        frame.map_points[offset + 3] = &_map_match;
+        _current_frame               = std::make_shared<ORB_SLAM3::frame>(frame);
     }
 
     using frame_drawer::_current_frame;
@@ -125,17 +125,17 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
     ORB_SLAM3::camera_vector      cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{100, 100, 64, 64}));
-    cv::Mat distortion                      = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::Frame::mbInitialComputations = true;
-    ORB_SLAM3::Frame frame(0.0, nullptr, cameras[0]->toK(), distortion, 10.f, 40.f);
+    cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::frame::initial_computations = true;
+    ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->toK(), distortion, 10.f, 40.f);
     ORB_SLAM3::Tracking::extract_features(frame, extractor, input, cameras);
-    REQUIRE(frame.N >= 2);
-    frame.SetPose(Sophus::SE3f{});
-    frame.mnDataset   = 0;
+    REQUIRE(frame.feature_count >= 2);
+    frame.set_pose(Sophus::SE3f{});
+    frame.dataset     = 0;
     frame.color_image = cv::Mat(128, 128, CV_8UC3, cv::Scalar(0, 0, 0));
     for (int index = 0; index < 2; ++index)
     {
-        const auto &position                                                      = frame.mvKeys[index].pt;
+        const auto &position                                                      = frame.keypoints[index].pt;
         frame.color_image.at<cv::Vec3b>(cvRound(position.y), cvRound(position.x)) = index == 0 ? cv::Vec3b(0, 0, 255) : cv::Vec3b(255, 0, 0);
     }
     ORB_SLAM3::KeyFrame keyframe(frame, &map, nullptr, cameras);

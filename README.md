@@ -74,7 +74,7 @@ Monocular initialization uses OpenCV RANSAC homography/fundamental fitting, moti
 
 Detection, description, and matching are independently selectable. Descriptors are computed by OpenCV.
 
-`Tracking` owns the extractors and supplies keypoints, descriptors, and scale metadata to `Frame` for all sensor modes, including deferred optical-flow recovery. Frame construction initializes calibration and state only. Stereo extraction runs concurrently, and its image pyramids are passed explicitly for stereo depth computation; frames retain no extractor references.
+`Tracking` owns the extractors and supplies keypoints, descriptors, and scale metadata to `frame` for all sensor modes, including deferred optical-flow recovery. Frame construction initializes calibration and state only. Stereo extraction runs concurrently, and its image pyramids are passed explicitly for stereo depth computation; frames retain no extractor references.
 
 Each `keypoint` stores original image coordinates in `pt` and geometry coordinates in `pt_undistorted`, without a separate undistorted keypoint vector in frames or keyframes. Rectified and native fisheye observations use the original coordinates for both fields. `GetTrackedKeyPointsUn()` continues to return undistorted coordinates in `pt`.
 

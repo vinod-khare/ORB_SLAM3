@@ -1,4 +1,4 @@
-#include "Frame.h"
+#include "frame.h"
 #include "frame_prefetcher.h"
 
 #include <chrono>
@@ -147,14 +147,14 @@ TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
         REQUIRE(cv::norm(prepared.color, expected_color, cv::NORM_INF) == 0);
         if (precompute_optical_flow)
         {
-            const auto expected_pyramid = ORB_SLAM3::Frame::build_optical_flow_pyramid(expected_gray);
+            const auto expected_pyramid = ORB_SLAM3::frame::build_optical_flow_pyramid(expected_gray);
             REQUIRE(prepared.optical_flow_pyramid.size() == expected_pyramid.size());
             for (std::size_t level = 0; level < expected_pyramid.size(); ++level)
             {
                 REQUIRE(cv::norm(prepared.optical_flow_pyramid[level], expected_pyramid[level], cv::NORM_INF) == 0);
             }
             REQUIRE(prepared.optical_flow_pyramid.front().data != prepared.image.data);
-            ORB_SLAM3::Frame tracking_frame;
+            ORB_SLAM3::frame tracking_frame;
             tracking_frame.optical_flow_pyramid = prepared.optical_flow_pyramid;
             REQUIRE(tracking_frame.get_optical_flow_pyramid(prepared.image).front().data == prepared.optical_flow_pyramid.front().data);
         }
