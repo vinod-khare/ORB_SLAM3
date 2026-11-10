@@ -19,8 +19,8 @@
 #pragma once
 
 #include "KeyFrame.h"
-#include "Map.h"
 #include "MapPoint.h"
+#include "map.h"
 
 #include <map>
 #include <mutex>
@@ -40,7 +40,7 @@ class atlas
     ~atlas();
 
     void create_new_map();
-    void change_map(Map *map);
+    void change_map(map *map);
 
     unsigned long int get_last_init_kf_id();
 
@@ -58,7 +58,7 @@ class atlas
     std::vector<MapPoint *> get_all_map_points();
     std::vector<MapPoint *> get_reference_map_points();
 
-    std::vector<Map *> get_all_maps();
+    std::vector<map *> get_all_maps();
 
     int count_maps();
 
@@ -66,9 +66,9 @@ class atlas
 
     void clear_atlas();
 
-    Map *get_current_map();
+    map *get_current_map();
 
-    void set_map_bad(Map *map);
+    void set_map_bad(map *map);
 
     bool is_inertial();
     void set_inertial_sensor();
@@ -84,10 +84,10 @@ class atlas
   protected:
     void create_new_map_locked();
 
-    std::set<Map *> _maps;
+    std::set<map *> _maps;
     // Retain maps removed from the active set while SLAM objects may still reference them.
-    std::set<Map *> _owned_maps;
-    Map            *_current_map{nullptr};
+    std::set<map *> _owned_maps;
+    map            *_current_map{nullptr};
 
     unsigned long int _last_init_kf_id_map{0};
 

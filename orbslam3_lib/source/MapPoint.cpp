@@ -37,9 +37,9 @@ MapPoint::MapPoint()
     mpReplaced = static_cast<MapPoint *>(NULL);
 }
 
-MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map *pMap)
+MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, map *pMap)
     : mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0),
-      mnCorrectedByKF(0), mnCorrectedReference(0), mnBAGlobalForKF(0), mnOriginMapId(pMap->GetId()), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false), mpReplaced(nullptr),
+      mnCorrectedByKF(0), mnCorrectedReference(0), mnBAGlobalForKF(0), mnOriginMapId(pMap->get_id()), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false), mpReplaced(nullptr),
       mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
 {
     SetWorldPos(Pos);
@@ -50,13 +50,13 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map *pMap)
     mbTrackInView  = false;
 
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
-    unique_lock<mutex> lock(mpMap->mMutexPointCreation);
+    unique_lock<mutex> lock(mpMap->point_creation_mutex);
     mnId = nNextId++;
 }
 
-MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame *pRefKF, KeyFrame *pHostKF, Map *pMap)
+MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame *pRefKF, KeyFrame *pHostKF, map *pMap)
     : mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0),
-      mnCorrectedByKF(0), mnCorrectedReference(0), mnBAGlobalForKF(0), mnOriginMapId(pMap->GetId()), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false), mpReplaced(nullptr),
+      mnCorrectedByKF(0), mnCorrectedReference(0), mnBAGlobalForKF(0), mnOriginMapId(pMap->get_id()), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false), mpReplaced(nullptr),
       mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
 {
     mInvDepth = invDepth;
@@ -68,13 +68,13 @@ MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame *pRefKF,
 
     // Worldpos is not set
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
-    unique_lock<mutex> lock(mpMap->mMutexPointCreation);
+    unique_lock<mutex> lock(mpMap->point_creation_mutex);
     mnId = nNextId++;
 }
 
-MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, frame *pFrame, const int &idxF)
+MapPoint::MapPoint(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const int &idxF)
     : mnFirstKFid(-1), mnFirstFrame(pFrame->id), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
-      mnCorrectedReference(0), mnBAGlobalForKF(0), mnOriginMapId(pMap->GetId()), mpRefKF(nullptr), mnVisible(1), mnFound(1), mbBad(false), mpReplaced(nullptr), mpMap(pMap)
+      mnCorrectedReference(0), mnBAGlobalForKF(0), mnOriginMapId(pMap->get_id()), mpRefKF(nullptr), mnVisible(1), mnFound(1), mbBad(false), mpReplaced(nullptr), mpMap(pMap)
 {
     SetWorldPos(Pos);
 
@@ -109,7 +109,7 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map *pMap, frame *pFrame, const i
     _has_color = !(pFrame->is_fisheye_stereo && std::cmp_greater_equal(idxF, pFrame->keypoints.size()) ? pFrame->color_image_right : pFrame->color_image).empty();
 
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
-    unique_lock<mutex> lock(mpMap->mMutexPointCreation);
+    unique_lock<mutex> lock(mpMap->point_creation_mutex);
     mnId = nNextId++;
 }
 
@@ -248,7 +248,7 @@ int MapPoint::Observations()
 
 void MapPoint::SetBadFlag()
 {
-    map<KeyFrame *, tuple<int, int>> obs;
+    std::map<KeyFrame *, tuple<int, int>> obs;
     {
         unique_lock<mutex> lock1(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPos);
@@ -256,7 +256,7 @@ void MapPoint::SetBadFlag()
         obs   = mObservations;
         mObservations.clear();
     }
-    for (map<KeyFrame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
+    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
     {
         KeyFrame *pKF       = mit->first;
         int       leftIndex = get<0>(mit->second), rightIndex = get<1>(mit->second);
@@ -270,7 +270,7 @@ void MapPoint::SetBadFlag()
         }
     }
 
-    mpMap->EraseMapPoint(this);
+    mpMap->erase_map_point(this);
 }
 
 MapPoint *MapPoint::GetReplaced()
@@ -287,8 +287,8 @@ void MapPoint::Replace(MapPoint *pMP)
         return;
     }
 
-    int                              nvisible, nfound;
-    map<KeyFrame *, tuple<int, int>> obs;
+    int                                   nvisible, nfound;
+    std::map<KeyFrame *, tuple<int, int>> obs;
     {
         unique_lock<mutex> lock1(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPos);
@@ -300,7 +300,7 @@ void MapPoint::Replace(MapPoint *pMP)
         mpReplaced = pMP;
     }
 
-    for (map<KeyFrame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
+    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
     {
         // Replace measurement in keyframe
         KeyFrame *pKF = mit->first;
@@ -337,7 +337,7 @@ void MapPoint::Replace(MapPoint *pMP)
     pMP->IncreaseVisible(nvisible);
     pMP->ComputeDistinctiveDescriptors();
 
-    mpMap->EraseMapPoint(this);
+    mpMap->erase_map_point(this);
 }
 
 bool MapPoint::isBad()
@@ -372,7 +372,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
     // Retrieve all observed descriptors
     vector<cv::Mat> vDescriptors;
 
-    map<KeyFrame *, tuple<int, int>> observations;
+    std::map<KeyFrame *, tuple<int, int>> observations;
 
     {
         unique_lock<mutex> lock1(mMutexFeatures);
@@ -390,7 +390,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
 
     vDescriptors.reserve(observations.size());
 
-    for (map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
     {
         KeyFrame *pKF = mit->first;
 
@@ -479,9 +479,9 @@ bool MapPoint::IsInKeyFrame(KeyFrame *pKF)
 
 void MapPoint::UpdateNormalAndDepth()
 {
-    map<KeyFrame *, tuple<int, int>> observations;
-    KeyFrame                        *pRefKF;
-    Eigen::Vector3f                  Pos;
+    std::map<KeyFrame *, tuple<int, int>> observations;
+    KeyFrame                             *pRefKF;
+    Eigen::Vector3f                       Pos;
     {
         unique_lock<mutex> lock1(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPos);
@@ -502,7 +502,7 @@ void MapPoint::UpdateNormalAndDepth()
     Eigen::Vector3f normal;
     normal.setZero();
     int n = 0;
-    for (map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
     {
         KeyFrame *pKF = mit->first;
 
@@ -618,22 +618,22 @@ int MapPoint::PredictScale(const float &currentDist, frame *pF)
 void MapPoint::PrintObservations()
 {
     spdlog::debug("Observations for map point {}", mnId);
-    for (map<KeyFrame *, tuple<int, int>>::iterator mit = mObservations.begin(), mend = mObservations.end(); mit != mend; mit++)
+    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = mObservations.begin(), mend = mObservations.end(); mit != mend; mit++)
     {
         KeyFrame            *pKFi      = mit->first;
         tuple<int, int>      indexes   = mit->second;
         [[maybe_unused]] int leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
-        spdlog::debug("Observed in keyframe {} in map {}", pKFi->mnId, pKFi->GetMap()->GetId());
+        spdlog::debug("Observed in keyframe {} in map {}", pKFi->mnId, pKFi->GetMap()->get_id());
     }
 }
 
-Map *MapPoint::GetMap()
+map *MapPoint::GetMap()
 {
     unique_lock<mutex> lock(mMutexMap);
     return mpMap;
 }
 
-void MapPoint::UpdateMap(Map *pMap)
+void MapPoint::UpdateMap(map *pMap)
 {
     unique_lock<mutex> lock(mMutexMap);
     mpMap = pMap;

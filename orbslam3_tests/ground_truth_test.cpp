@@ -178,7 +178,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
         const Eigen::Vector3f position = trajectory.pose_at(timestamp)->translation().cast<float>();
         frame.set_pose(Sophus::SE3f(Eigen::Quaternionf::Identity(), -position));
         keyframes.push_back(std::make_unique<ORB_SLAM3::KeyFrame>(frame, map, nullptr, cameras));
-        map->AddKeyFrame(keyframes.back().get());
+        map->add_key_frame(keyframes.back().get());
     }
     ORB_SLAM3::map_drawer drawer(atlas, settings);
     std::array<bool, 7>   layers{false, false, false, false, false, false, false};
@@ -196,7 +196,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     REQUIRE(cv::norm(visible, drawer.render(640, 480, layers), cv::NORM_INF) == 0);
     for (const auto &keyframe : keyframes)
     {
-        map->EraseKeyFrame(keyframe.get());
+        map->erase_key_frame(keyframe.get());
     }
     REQUIRE(cv::norm(visible, drawer.render(640, 480, layers), cv::NORM_INF) == 0);
     for (const double timestamp : {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0})
@@ -218,7 +218,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     drawer.release();
     for (const auto &keyframe : keyframes)
     {
-        map->EraseKeyFrame(keyframe.get());
+        map->erase_key_frame(keyframe.get());
     }
 }
 

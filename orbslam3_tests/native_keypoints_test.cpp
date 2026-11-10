@@ -156,7 +156,7 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     REQUIRE(point.y() == Catch::Approx((position.y - 128.f) * 2.f / 200.f));
     REQUIRE(point.z() == 2.f);
 
-    ORB_SLAM3::Map         map;
+    ORB_SLAM3::map         map;
     ORB_SLAM3::KeyFrame    keyframe(frame, &map, nullptr, cameras);
     const ORB_SLAM3::frame copied(frame);
     REQUIRE(keyframe.mvKeys.front().pt == key.pt);
@@ -230,7 +230,7 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     frame.set_pose(Sophus::SE3f{});
     frame.dataset     = 0;
     frame.color_image = cv::Mat(128, 128, CV_8UC3, cv::Scalar(10, 30, 200));
-    ORB_SLAM3::Map map;
+    ORB_SLAM3::map map;
     const auto     second_keypoint                                                          = frame.keypoints[1].pt;
     frame.color_image.at<cv::Vec3b>(cvRound(second_keypoint.y), cvRound(second_keypoint.x)) = cv::Vec3b(220, 40, 10);
     ORB_SLAM3::KeyFrame colored_keyframe(frame, &map, nullptr, cameras);

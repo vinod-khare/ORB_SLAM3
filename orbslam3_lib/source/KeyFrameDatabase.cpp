@@ -69,7 +69,7 @@ void KeyFrameDatabase::clear()
     mvInvertedFile.resize(mpVoc->size());
 }
 
-void KeyFrameDatabase::clearMap(Map *pMap)
+void KeyFrameDatabase::clearMap(map *pMap)
 {
     unique_lock<mutex> lock(mMutex);
 
@@ -260,7 +260,7 @@ void KeyFrameDatabase::DetectCandidates(KeyFrame *pKF, float minScore, vector<Ke
                     }
                     pKFi->mnLoopWords++;
                 }
-                else if (!pKFi->GetMap()->IsBad())
+                else if (!pKFi->GetMap()->is_bad())
                 {
                     if (pKFi->mnMergeQuery != pKF->mnId)
                     {
@@ -749,7 +749,7 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &
             {
                 vpLoopCand.push_back(pKFi);
             }
-            else if (pKF->GetMap() != pKFi->GetMap() && std::cmp_less(vpMergeCand.size(), nNumCandidates) && !pKFi->GetMap()->IsBad())
+            else if (pKF->GetMap() != pKFi->GetMap() && std::cmp_less(vpMergeCand.size(), nNumCandidates) && !pKFi->GetMap()->is_bad())
             {
                 vpMergeCand.push_back(pKFi);
             }
@@ -760,7 +760,7 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &
     }
 }
 
-vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(frame *F, Map *pMap)
+vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(frame *F, map *pMap)
 {
     list<KeyFrame *> lKFsSharingWords;
 

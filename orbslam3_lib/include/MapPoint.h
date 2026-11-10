@@ -19,11 +19,12 @@
 #ifndef MAPPOINT_H
 #define MAPPOINT_H
 
-#include "frame.h"
 #include "KeyFrame.h"
-#include "Map.h"
 #include "converter.h"
+#include "frame.h"
+#include "map.h"
 
+#include <map>
 #include <mutex>
 
 #include <opencv2/core/core.hpp>
@@ -32,7 +33,7 @@ namespace ORB_SLAM3
 {
 
 class KeyFrame;
-class Map;
+class map;
 class frame;
 
 class MapPoint
@@ -42,9 +43,9 @@ class MapPoint
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     MapPoint();
 
-    MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map *pMap);
-    MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame *pRefKF, KeyFrame *pHostKF, Map *pMap);
-    MapPoint(const Eigen::Vector3f &Pos, Map *pMap, frame *pFrame, const int &idxF);
+    MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, map *pMap);
+    MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame *pRefKF, KeyFrame *pHostKF, map *pMap);
+    MapPoint(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const int &idxF);
 
     void            SetWorldPos(const Eigen::Vector3f &Pos);
     Eigen::Vector3f GetWorldPos();
@@ -86,8 +87,8 @@ class MapPoint
     int   PredictScale(const float &currentDist, KeyFrame *pKF);
     int   PredictScale(const float &currentDist, frame *pF);
 
-    Map *GetMap();
-    void UpdateMap(Map *pMap);
+    map *GetMap();
+    void UpdateMap(map *pMap);
 
     void PrintObservations();
 
@@ -169,7 +170,7 @@ class MapPoint
     float mfMinDistance;
     float mfMaxDistance;
 
-    Map *mpMap;
+    map *mpMap;
 
     // Mutex
     std::mutex mMutexPos;

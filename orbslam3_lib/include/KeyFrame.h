@@ -19,14 +19,15 @@
 #ifndef KEYFRAME_H
 #define KEYFRAME_H
 
-#include "frame.h"
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
 #include "KeyFrameDatabase.h"
 #include "MapPoint.h"
+#include "frame.h"
 #include "keypoint_extractor.h"
 #include "place_vocabulary.h"
 
+#include <map>
 #include <memory>
 #include <mutex>
 
@@ -37,7 +38,7 @@
 namespace ORB_SLAM3
 {
 
-class Map;
+class map;
 class MapPoint;
 class frame;
 class KeyFrameDatabase;
@@ -48,7 +49,7 @@ class KeyFrame
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    KeyFrame(frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras);
+    KeyFrame(frame &F, map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras);
 
     // Pose functions
     void SetPose(const Sophus::SE3f &Tcw);
@@ -132,8 +133,8 @@ class KeyFrame
 
     static bool lId(KeyFrame *pKF1, KeyFrame *pKF2) { return pKF1->mnId < pKF2->mnId; }
 
-    Map *GetMap();
-    void UpdateMap(Map *pMap);
+    map *GetMap();
+    void UpdateMap(map *pMap);
 
     void            SetNewBias(const IMU::Bias &b);
     Eigen::Vector3f GetGyroBias();
@@ -317,7 +318,7 @@ class KeyFrame
 
     float mHalfBaseline; // Only for visualization
 
-    Map *mpMap;
+    map *mpMap;
 
     // Calibration
     Eigen::Matrix3f mK_;

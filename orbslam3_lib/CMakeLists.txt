@@ -39,7 +39,7 @@ add_library(ORB_SLAM3 SHARED
         source/MapPoint.cpp
         source/KeyFrame.cpp
         source/atlas.cpp
-        source/Map.cpp
+        source/map.cpp
         source/Optimizer.cpp
         source/frame.cpp
         source/KeyFrameDatabase.cpp

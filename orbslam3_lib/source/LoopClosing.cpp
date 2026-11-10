@@ -78,7 +78,7 @@ void LoopClosing::Run()
                 if (mbMergeDetected)
                 {
                     if ((mpTracker->mSensor == System::IMU_MONOCULAR || mpTracker->mSensor == System::IMU_STEREO || mpTracker->mSensor == System::IMU_RGBD) &&
-                        (!mpCurrentKF->GetMap()->isImuInitialized()))
+                        (!mpCurrentKF->GetMap()->is_imu_initialized()))
                     {
                         spdlog::warn("IMU is not initialized; aborting merge");
                     }
@@ -93,7 +93,7 @@ void LoopClosing::Run()
 
                         mSold_new = (gSw2c * gScw1);
 
-                        if (mpCurrentKF->GetMap()->IsInertial() && mpMergeMatchedKF->GetMap()->IsInertial())
+                        if (mpCurrentKF->GetMap()->is_inertial() && mpMergeMatchedKF->GetMap()->is_inertial())
                         {
                             spdlog::debug("Checking merge transformation with IMU");
                             if (mSold_new.scale() < 0.90 || mSold_new.scale() > 1.1)
@@ -110,7 +110,7 @@ void LoopClosing::Run()
                             }
                             // If inertial, force only yaw
                             if ((mpTracker->mSensor == System::IMU_MONOCULAR || mpTracker->mSensor == System::IMU_STEREO || mpTracker->mSensor == System::IMU_RGBD) &&
-                                mpCurrentKF->GetMap()->GetIniertialBA1())
+                                mpCurrentKF->GetMap()->get_inertial_ba1())
                             {
                                 Eigen::Vector3d phi = LogSO3(mSold_new.rotation().toRotationMatrix());
                                 phi(0)              = 0;
@@ -176,7 +176,7 @@ void LoopClosing::Run()
                     spdlog::info("*Loop detected");
 
                     mg2oLoopScw = mg2oLoopSlw; //*mvg2oSim3LoopTcw[nCurrentIndex];
-                    if (mpCurrentKF->GetMap()->IsInertial())
+                    if (mpCurrentKF->GetMap()->is_inertial())
                     {
                         Sophus::SE3d Twc = mpCurrentKF->GetPoseInverse().cast<double>();
                         g2o::Sim3    g2oTwc(Twc.unit_quaternion(), Twc.translation(), 1.0);
@@ -188,11 +188,11 @@ void LoopClosing::Run()
                         spdlog::debug("Loop rotation phi = {}", phi_output.str());
                         if (fabs(phi(0)) < 0.008f && fabs(phi(1)) < 0.008f && fabs(phi(2)) < 0.349f)
                         {
-                            if (mpCurrentKF->GetMap()->IsInertial())
+                            if (mpCurrentKF->GetMap()->is_inertial())
                             {
                                 // If inertial, force only yaw
                                 if ((mpTracker->mSensor == System::IMU_MONOCULAR || mpTracker->mSensor == System::IMU_STEREO || mpTracker->mSensor == System::IMU_RGBD) &&
-                                    mpCurrentKF->GetMap()->GetIniertialBA2())
+                                    mpCurrentKF->GetMap()->get_inertial_ba2())
                                 {
                                     phi(0)      = 0;
                                     phi(1)      = 0;
@@ -278,21 +278,21 @@ bool LoopClosing::NewDetectCommonRegions()
         mpLastMap = mpCurrentKF->GetMap();
     }
 
-    if (mpLastMap->IsInertial() && !mpLastMap->GetIniertialBA2())
+    if (mpLastMap->is_inertial() && !mpLastMap->get_inertial_ba2())
     {
         mpKeyFrameDB->add(mpCurrentKF);
         mpCurrentKF->SetErase();
         return false;
     }
 
-    if (mpTracker->mSensor == System::STEREO && mpLastMap->GetAllKeyFrames().size() < 5) // 12
+    if (mpTracker->mSensor == System::STEREO && mpLastMap->get_all_key_frames().size() < 5) // 12
     {
         mpKeyFrameDB->add(mpCurrentKF);
         mpCurrentKF->SetErase();
         return false;
     }
 
-    if (mpLastMap->GetAllKeyFrames().size() < 12)
+    if (mpLastMap->get_all_key_frames().size() < 12)
     {
         mpKeyFrameDB->add(mpCurrentKF);
         mpCurrentKF->SetErase();
@@ -452,7 +452,7 @@ bool LoopClosing::DetectAndReffineSim3FromLastKF(
         Eigen::Matrix<double, 7, 7> mHessian7x7;
 
         bool bFixedScale = mbFixScale; // TODO CHECK; Solo para el monocular inertial
-        if (mpTracker->mSensor == System::IMU_MONOCULAR && !pCurrentKF->GetMap()->GetIniertialBA2())
+        if (mpTracker->mSensor == System::IMU_MONOCULAR && !pCurrentKF->GetMap()->get_inertial_ba2())
         {
             bFixedScale = false;
         }
@@ -598,7 +598,7 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
         {
             // Geometric validation
             bool bFixedScale = mbFixScale;
-            if (mpTracker->mSensor == System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->GetIniertialBA2())
+            if (mpTracker->mSensor == System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->get_inertial_ba2())
             {
                 bFixedScale = false;
             }
@@ -663,7 +663,7 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
                     Eigen::Matrix<double, 7, 7> mHessian7x7;
 
                     [[maybe_unused]] bool bFixedScale = mbFixScale;
-                    if (mpTracker->mSensor == System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->GetIniertialBA2())
+                    if (mpTracker->mSensor == System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->get_inertial_ba2())
                     {
                         bFixedScale = false;
                     }
@@ -905,13 +905,13 @@ void LoopClosing::CorrectLoop()
     Sophus::SE3d correctedTcw(mg2oLoopScw.rotation(), mg2oLoopScw.translation() / mg2oLoopScw.scale());
     mpCurrentKF->SetPose(correctedTcw.cast<float>());
 
-    Map *pLoopMap = mpCurrentKF->GetMap();
+    map *pLoopMap = mpCurrentKF->GetMap();
 
     {
         // Get Map Mutex
-        unique_lock<mutex> lock(pLoopMap->mMutexMapUpdate);
+        unique_lock<mutex> lock(pLoopMap->map_update_mutex);
 
-        const bool bImuInit = pLoopMap->isImuInitialized();
+        const bool bImuInit = pLoopMap->is_imu_initialized();
 
         for (vector<KeyFrame *>::iterator vit = mvpCurrentConnectedKFs.begin(), vend = mvpCurrentConnectedKFs.end(); vit != vend; vit++)
         {
@@ -985,7 +985,7 @@ void LoopClosing::CorrectLoop()
             pKFi->UpdateConnections();
         }
         // TODO Check this index increasement
-        mpAtlas->get_current_map()->IncreaseChangeIndex();
+        mpAtlas->get_current_map()->increase_change_index();
 
         // Start Loop Fusion
         // Update matched map points and replace if duplicated
@@ -1015,7 +1015,7 @@ void LoopClosing::CorrectLoop()
     SearchAndFuse(CorrectedSim3, mvpLoopMapPoints);
 
     // After the MapPoint fusion, new links in the covisibility graph will appear attaching both sides of the loop
-    map<KeyFrame *, set<KeyFrame *>> LoopConnections;
+    std::map<KeyFrame *, set<KeyFrame *>> LoopConnections;
 
     for (vector<KeyFrame *>::iterator vit = mvpCurrentConnectedKFs.begin(), vend = mvpCurrentConnectedKFs.end(); vit != vend; vit++)
     {
@@ -1038,12 +1038,12 @@ void LoopClosing::CorrectLoop()
     // Optimize graph
     bool bFixedScale = mbFixScale;
     // TODO CHECK; Solo para el monocular inertial
-    if (mpTracker->mSensor == System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->GetIniertialBA2())
+    if (mpTracker->mSensor == System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->get_inertial_ba2())
     {
         bFixedScale = false;
     }
 
-    if (pLoopMap->IsInertial() && pLoopMap->isImuInitialized())
+    if (pLoopMap->is_inertial() && pLoopMap->is_imu_initialized())
     {
         Optimizer::OptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
     }
@@ -1059,7 +1059,7 @@ void LoopClosing::CorrectLoop()
     mpCurrentKF->AddLoopEdge(mpLoopMatchedKF);
 
     // Launch a new thread to perform Global Bundle Adjustment (Only if few keyframes, if not it would take too much time)
-    if (!pLoopMap->isImuInitialized() || (pLoopMap->KeyFramesInMap() < 200 && mpAtlas->count_maps() == 1))
+    if (!pLoopMap->is_imu_initialized() || (pLoopMap->key_frame_count() < 200 && mpAtlas->count_maps() == 1))
     {
         stop_global_bundle_adjustment();
         mbRunningGBA    = true;
@@ -1108,8 +1108,8 @@ void LoopClosing::MergeLocal()
 
     // Merge map will become in the new active map with the local window of KFs and MPs from the current map.
     // Later, the elements of the current map will be transform to the new active map reference, in order to keep real time tracking
-    Map *pCurrentMap = mpCurrentKF->GetMap();
-    Map *pMergeMap   = mpMergeMatchedKF->GetMap();
+    map *pCurrentMap = mpCurrentKF->GetMap();
+    map *pMergeMap   = mpMergeMatchedKF->GetMap();
 
     // Ensure current keyframe is updated
     mpCurrentKF->UpdateConnections();
@@ -1118,7 +1118,7 @@ void LoopClosing::MergeLocal()
     set<KeyFrame *> spLocalWindowKFs;
     // Get MPs in the welding area from the current map
     set<MapPoint *> spLocalWindowMPs;
-    if (pCurrentMap->IsInertial() && pMergeMap->IsInertial()) // TODO Check the correct initialization
+    if (pCurrentMap->is_inertial() && pMergeMap->is_inertial()) // TODO Check the correct initialization
     {
         KeyFrame *pKFi      = mpCurrentKF;
         int       nInserted = 0;
@@ -1185,7 +1185,7 @@ void LoopClosing::MergeLocal()
     }
 
     set<KeyFrame *> spMergeConnectedKFs;
-    if (pCurrentMap->IsInertial() && pMergeMap->IsInertial()) // TODO Check the correct initialization
+    if (pCurrentMap->is_inertial() && pMergeMap->is_inertial()) // TODO Check the correct initialization
     {
         KeyFrame *pKFi      = mpMergeMatchedKF;
         int       nInserted = 0;
@@ -1291,7 +1291,7 @@ void LoopClosing::MergeLocal()
 
         pKFi->mTcwMerge = correctedTiw.cast<float>();
 
-        if (pCurrentMap->isImuInitialized())
+        if (pCurrentMap->is_imu_initialized())
         {
             Eigen::Quaternionf Rcor = (g2oCorrectedSiw.rotation().inverse() * vNonCorrectedSim3[pKFi].rotation()).cast<float>();
             pKFi->mVwbMerge         = Rcor * pKFi->GetVelocity();
@@ -1335,8 +1335,8 @@ void LoopClosing::MergeLocal()
     }
 
     {
-        unique_lock<mutex> currentLock(pCurrentMap->mMutexMapUpdate); // We update the current map with the Merge information
-        unique_lock<mutex> mergeLock(pMergeMap->mMutexMapUpdate);     // We remove the Kfs and MPs in the merged area from the old map
+        unique_lock<mutex> currentLock(pCurrentMap->map_update_mutex); // We update the current map with the Merge information
+        unique_lock<mutex> mergeLock(pMergeMap->map_update_mutex);     // We remove the Kfs and MPs in the merged area from the old map
 
         for (KeyFrame *pKFi : spLocalWindowKFs)
         {
@@ -1352,10 +1352,10 @@ void LoopClosing::MergeLocal()
             // Make sure connections are updated
             pKFi->UpdateMap(pMergeMap);
             pKFi->mnMergeCorrectedForKF = mpCurrentKF->mnId;
-            pMergeMap->AddKeyFrame(pKFi);
-            pCurrentMap->EraseKeyFrame(pKFi);
+            pMergeMap->add_key_frame(pKFi);
+            pCurrentMap->erase_key_frame(pKFi);
 
-            if (pCurrentMap->isImuInitialized())
+            if (pCurrentMap->is_imu_initialized())
             {
                 pKFi->SetVelocity(pKFi->mVwbMerge);
             }
@@ -1371,19 +1371,19 @@ void LoopClosing::MergeLocal()
             pMPi->SetWorldPos(pMPi->mPosMerge);
             pMPi->SetNormalVector(pMPi->mNormalVectorMerge);
             pMPi->UpdateMap(pMergeMap);
-            pMergeMap->AddMapPoint(pMPi);
-            pCurrentMap->EraseMapPoint(pMPi);
+            pMergeMap->add_map_point(pMPi);
+            pCurrentMap->erase_map_point(pMPi);
         }
 
         mpAtlas->change_map(pMergeMap);
         mpAtlas->set_map_bad(pCurrentMap);
-        pMergeMap->IncreaseChangeIndex();
+        pMergeMap->increase_change_index();
         // TODO for debug
-        pMergeMap->ChangeId(pCurrentMap->GetId());
+        pMergeMap->change_id(pCurrentMap->get_id());
     }
 
     // Rebuild the essential graph in the local window
-    pCurrentMap->GetOriginKF()->SetFirstConnection(false);
+    pCurrentMap->get_origin_key_frame()->SetFirstConnection(false);
     pNewChild  = mpCurrentKF->GetParent(); // Old parent, it will be the new child of this KF
     pNewParent = mpCurrentKF;              // Old child, now it will be the parent of its own parent(we need eliminate this KF from children list in its old parent)
     mpCurrentKF->ChangeParent(mpMergeMatchedKF);
@@ -1447,8 +1447,8 @@ void LoopClosing::MergeLocal()
     mpLocalMapper->Release();
 
     // Update the non critical area from the current map to the merged map
-    vector<KeyFrame *> vpCurrentMapKFs = pCurrentMap->GetAllKeyFrames();
-    vector<MapPoint *> vpCurrentMapMPs = pCurrentMap->GetAllMapPoints();
+    vector<KeyFrame *> vpCurrentMapKFs = pCurrentMap->get_all_key_frames();
+    vector<MapPoint *> vpCurrentMapMPs = pCurrentMap->get_all_map_points();
 
     if (vpCurrentMapKFs.size() == 0)
     {
@@ -1457,7 +1457,7 @@ void LoopClosing::MergeLocal()
     {
         if (mpTracker->mSensor == System::MONOCULAR)
         {
-            unique_lock<mutex> currentLock(pCurrentMap->mMutexMapUpdate); // We update the current map with the Merge information
+            unique_lock<mutex> currentLock(pCurrentMap->map_update_mutex); // We update the current map with the Merge information
 
             for (KeyFrame *pKFi : vpCurrentMapKFs)
             {
@@ -1490,7 +1490,7 @@ void LoopClosing::MergeLocal()
 
                 pKFi->SetPose(correctedTiw.cast<float>());
 
-                if (pCurrentMap->isImuInitialized())
+                if (pCurrentMap->is_imu_initialized())
                 {
                     Eigen::Quaternionf Rcor = (g2oCorrectedSiw.rotation().inverse() * vNonCorrectedSim3[pKFi].rotation()).cast<float>();
                     pKFi->SetVelocity(Rcor * pKFi->GetVelocity()); // TODO: should add here scale s
@@ -1531,8 +1531,8 @@ void LoopClosing::MergeLocal()
 
         {
             // Get Merge Map Mutex
-            unique_lock<mutex> currentLock(pCurrentMap->mMutexMapUpdate); // We update the current map with the Merge information
-            unique_lock<mutex> mergeLock(pMergeMap->mMutexMapUpdate);     // We remove the Kfs and MPs in the merged area from the old map
+            unique_lock<mutex> currentLock(pCurrentMap->map_update_mutex); // We update the current map with the Merge information
+            unique_lock<mutex> mergeLock(pMergeMap->map_update_mutex);     // We remove the Kfs and MPs in the merged area from the old map
 
             for (KeyFrame *pKFi : vpCurrentMapKFs)
             {
@@ -1543,8 +1543,8 @@ void LoopClosing::MergeLocal()
 
                 // Make sure connections are updated
                 pKFi->UpdateMap(pMergeMap);
-                pMergeMap->AddKeyFrame(pKFi);
-                pCurrentMap->EraseKeyFrame(pKFi);
+                pMergeMap->add_key_frame(pKFi);
+                pCurrentMap->erase_key_frame(pKFi);
             }
 
             for (MapPoint *pMPi : vpCurrentMapMPs)
@@ -1555,15 +1555,15 @@ void LoopClosing::MergeLocal()
                 }
 
                 pMPi->UpdateMap(pMergeMap);
-                pMergeMap->AddMapPoint(pMPi);
-                pCurrentMap->EraseMapPoint(pMPi);
+                pMergeMap->add_map_point(pMPi);
+                pCurrentMap->erase_map_point(pMPi);
             }
         }
     }
 
     mpLocalMapper->Release();
 
-    if (bRelaunchBA && (!pCurrentMap->isImuInitialized() || (pCurrentMap->KeyFramesInMap() < 200 && mpAtlas->count_maps() == 1)))
+    if (bRelaunchBA && (!pCurrentMap->is_imu_initialized() || (pCurrentMap->key_frame_count() < 200 && mpAtlas->count_maps() == 1)))
     {
         // Launch a new thread to perform Global Bundle Adjustment
         stop_global_bundle_adjustment();
@@ -1576,8 +1576,8 @@ void LoopClosing::MergeLocal()
     mpMergeMatchedKF->AddMergeEdge(mpCurrentKF);
     mpCurrentKF->AddMergeEdge(mpMergeMatchedKF);
 
-    pCurrentMap->IncreaseChangeIndex();
-    pMergeMap->IncreaseChangeIndex();
+    pCurrentMap->increase_change_index();
+    pMergeMap->increase_change_index();
 }
 
 void LoopClosing::MergeLocal2()
@@ -1612,14 +1612,14 @@ void LoopClosing::MergeLocal2()
         usleep(1000);
     }
 
-    Map *pCurrentMap = mpCurrentKF->GetMap();
-    Map *pMergeMap   = mpMergeMatchedKF->GetMap();
+    map *pCurrentMap = mpCurrentKF->GetMap();
+    map *pMergeMap   = mpMergeMatchedKF->GetMap();
 
     {
         float        s_on = mSold_new.scale();
         Sophus::SE3f T_on(mSold_new.rotation().cast<float>(), mSold_new.translation().cast<float>());
 
-        unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
+        unique_lock<mutex> lock(mpAtlas->get_current_map()->map_update_mutex);
 
         mpLocalMapper->EmptyQueue();
 
@@ -1628,13 +1628,13 @@ void LoopClosing::MergeLocal2()
         {
             bScaleVel = true;
         }
-        mpAtlas->get_current_map()->ApplyScaledRotation(T_on, s_on, bScaleVel);
+        mpAtlas->get_current_map()->apply_scaled_rotation(T_on, s_on, bScaleVel);
         mpTracker->UpdateFrameIMU(s_on, mpCurrentKF->GetImuBias(), mpTracker->GetLastKeyFrame());
     }
 
-    const int numKFnew = pCurrentMap->KeyFramesInMap();
+    const int numKFnew = pCurrentMap->key_frame_count();
 
-    if ((mpTracker->mSensor == System::IMU_MONOCULAR || mpTracker->mSensor == System::IMU_STEREO || mpTracker->mSensor == System::IMU_RGBD) && !pCurrentMap->GetIniertialBA2())
+    if ((mpTracker->mSensor == System::IMU_MONOCULAR || mpTracker->mSensor == System::IMU_STEREO || mpTracker->mSensor == System::IMU_RGBD) && !pCurrentMap->get_inertial_ba2())
     {
         // Map is not completly initialized
         Eigen::Vector3d bg, ba;
@@ -1642,23 +1642,23 @@ void LoopClosing::MergeLocal2()
         ba << 0., 0., 0.;
         Optimizer::InertialOptimization(pCurrentMap, bg, ba);
         IMU::Bias          b(ba[0], ba[1], ba[2], bg[0], bg[1], bg[2]);
-        unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
+        unique_lock<mutex> lock(mpAtlas->get_current_map()->map_update_mutex);
         mpTracker->UpdateFrameIMU(1.0f, b, mpTracker->GetLastKeyFrame());
 
         // Set map initialized
-        pCurrentMap->SetIniertialBA2();
-        pCurrentMap->SetIniertialBA1();
-        pCurrentMap->SetImuInitialized();
+        pCurrentMap->set_inertial_ba2();
+        pCurrentMap->set_inertial_ba1();
+        pCurrentMap->set_imu_initialized();
     }
 
     // Load KFs and MPs from merge map
     {
         // Get Merge Map Mutex (This section stops tracking!!)
-        unique_lock<mutex> currentLock(pCurrentMap->mMutexMapUpdate); // We update the current map with the Merge information
-        unique_lock<mutex> mergeLock(pMergeMap->mMutexMapUpdate);     // We remove the Kfs and MPs in the merged area from the old map
+        unique_lock<mutex> currentLock(pCurrentMap->map_update_mutex); // We update the current map with the Merge information
+        unique_lock<mutex> mergeLock(pMergeMap->map_update_mutex);     // We remove the Kfs and MPs in the merged area from the old map
 
-        vector<KeyFrame *> vpMergeMapKFs = pMergeMap->GetAllKeyFrames();
-        vector<MapPoint *> vpMergeMapMPs = pMergeMap->GetAllMapPoints();
+        vector<KeyFrame *> vpMergeMapKFs = pMergeMap->get_all_key_frames();
+        vector<MapPoint *> vpMergeMapMPs = pMergeMap->get_all_map_points();
 
         for (KeyFrame *pKFi : vpMergeMapKFs)
         {
@@ -1669,8 +1669,8 @@ void LoopClosing::MergeLocal2()
 
             // Make sure connections are updated
             pKFi->UpdateMap(pCurrentMap);
-            pCurrentMap->AddKeyFrame(pKFi);
-            pMergeMap->EraseKeyFrame(pKFi);
+            pCurrentMap->add_key_frame(pKFi);
+            pMergeMap->erase_key_frame(pKFi);
         }
 
         for (MapPoint *pMPi : vpMergeMapMPs)
@@ -1681,12 +1681,12 @@ void LoopClosing::MergeLocal2()
             }
 
             pMPi->UpdateMap(pCurrentMap);
-            pCurrentMap->AddMapPoint(pMPi);
-            pMergeMap->EraseMapPoint(pMPi);
+            pCurrentMap->add_map_point(pMPi);
+            pMergeMap->erase_map_point(pMPi);
         }
 
         // Save non corrected poses (already merged maps)
-        vector<KeyFrame *> vpKFs = pCurrentMap->GetAllKeyFrames();
+        vector<KeyFrame *> vpKFs = pCurrentMap->get_all_key_frames();
         for (KeyFrame *pKFi : vpKFs)
         {
             Sophus::SE3d Tiw = (pKFi->GetPose()).cast<double>();
@@ -1697,7 +1697,7 @@ void LoopClosing::MergeLocal2()
 
     // Critical zone
 
-    pMergeMap->GetOriginKF()->SetFirstConnection(false);
+    pMergeMap->get_origin_key_frame()->SetFirstConnection(false);
     pNewChild  = mpMergeMatchedKF->GetParent(); // Old parent, it will be the new child of this KF
     pNewParent = mpMergeMatchedKF;              // Old child, now it will be the parent of its own parent(we need eliminate this KF from children list in its old parent)
     mpMergeMatchedKF->ChangeParent(mpCurrentKF);
@@ -1788,8 +1788,8 @@ void LoopClosing::CheckObservations(set<KeyFrame *> &spKFsMap1, set<KeyFrame *> 
     spdlog::debug("----------------------");
     for (KeyFrame *pKFi1 : spKFsMap1)
     {
-        map<KeyFrame *, int> mMatchedMP;
-        set<MapPoint *>      spMPs = pKFi1->GetMapPoints();
+        std::map<KeyFrame *, int> mMatchedMP;
+        set<MapPoint *>           spMPs = pKFi1->GetMapPoints();
 
         for (MapPoint *pMPij : spMPs)
         {
@@ -1798,7 +1798,7 @@ void LoopClosing::CheckObservations(set<KeyFrame *> &spKFsMap1, set<KeyFrame *> 
                 continue;
             }
 
-            map<KeyFrame *, tuple<int, int>> mMPijObs = pMPij->GetObservations();
+            std::map<KeyFrame *, tuple<int, int>> mMPijObs = pMPij->GetObservations();
             for (KeyFrame *pKFi2 : spKFsMap2)
             {
                 if (mMPijObs.find(pKFi2) != mMPijObs.end())
@@ -1841,7 +1841,7 @@ void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector
     {
         int       num_replaces = 0;
         KeyFrame *pKFi         = mit->first;
-        Map      *pMap         = pKFi->GetMap();
+        map      *pMap         = pKFi->GetMap();
 
         g2o::Sim3     g2oScw = mit->second;
         Sophus::Sim3f Scw    = converter::to_sophus(g2oScw);
@@ -1850,7 +1850,7 @@ void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector
         [[maybe_unused]] int numFused = matcher.Fuse(pKFi, Scw, vpMapPoints, 4, vpReplacePoints);
 
         // Get Map Mutex
-        unique_lock<mutex> lock(pMap->mMutexMapUpdate);
+        unique_lock<mutex> lock(pMap->map_update_mutex);
         const int          nLP = vpMapPoints.size();
         for (int i = 0; i < nLP; i++)
         {
@@ -1877,7 +1877,7 @@ void LoopClosing::SearchAndFuse(const vector<KeyFrame *> &vConectedKFs, vector<M
     {
         int           num_replaces = 0;
         KeyFrame     *pKF          = (*mit);
-        Map          *pMap         = pKF->GetMap();
+        map          *pMap         = pKF->GetMap();
         Sophus::SE3f  Tcw          = pKF->GetPose();
         Sophus::Sim3f Scw(Tcw.unit_quaternion(), Tcw.translation());
         Scw.setScale(1.f);
@@ -1885,7 +1885,7 @@ void LoopClosing::SearchAndFuse(const vector<KeyFrame *> &vConectedKFs, vector<M
         matcher.Fuse(pKF, Scw, vpMapPoints, 4, vpReplacePoints);
 
         // Get Map Mutex
-        unique_lock<mutex> lock(pMap->mMutexMapUpdate);
+        unique_lock<mutex> lock(pMap->map_update_mutex);
         const int          nLP = vpMapPoints.size();
         for (int i = 0; i < nLP; i++)
         {
@@ -1919,7 +1919,7 @@ void LoopClosing::RequestReset()
     }
 }
 
-void LoopClosing::RequestResetActiveMap(Map *pMap)
+void LoopClosing::RequestResetActiveMap(map *pMap)
 {
     {
         unique_lock<mutex> lock(mMutexReset);
@@ -1972,12 +1972,12 @@ void LoopClosing::ResetIfRequested()
     }
 }
 
-void LoopClosing::RunGlobalBundleAdjustment(Map *pActiveMap, unsigned long nLoopKF)
+void LoopClosing::RunGlobalBundleAdjustment(map *pActiveMap, unsigned long nLoopKF)
 {
     const processing_statistics::backend_timer statistics_timer(_statistics, processing_statistics::backend_stage::GLOBAL_BUNDLE_ADJUSTMENT);
     spdlog::debug("Starting Global Bundle Adjustment");
 
-    const bool bImuInit = pActiveMap->isImuInitialized();
+    const bool bImuInit = pActiveMap->is_imu_initialized();
 
     if (!bImuInit)
     {
@@ -2001,7 +2001,7 @@ void LoopClosing::RunGlobalBundleAdjustment(Map *pActiveMap, unsigned long nLoop
             return;
         }
 
-        if (!bImuInit && pActiveMap->isImuInitialized())
+        if (!bImuInit && pActiveMap->is_imu_initialized())
         {
             return;
         }
@@ -2020,10 +2020,10 @@ void LoopClosing::RunGlobalBundleAdjustment(Map *pActiveMap, unsigned long nLoop
             }
 
             // Get Map Mutex
-            unique_lock<mutex> lock(pActiveMap->mMutexMapUpdate);
+            unique_lock<mutex> lock(pActiveMap->map_update_mutex);
 
             //  Correct keyframes starting at map first keyframe
-            list<KeyFrame *> lpKFtoCheck(pActiveMap->mvpKeyFrameOrigins.begin(), pActiveMap->mvpKeyFrameOrigins.end());
+            list<KeyFrame *> lpKFtoCheck(pActiveMap->key_frame_origins.begin(), pActiveMap->key_frame_origins.end());
 
             while (!lpKFtoCheck.empty())
             {
@@ -2075,7 +2075,7 @@ void LoopClosing::RunGlobalBundleAdjustment(Map *pActiveMap, unsigned long nLoop
             }
 
             //  Correct MapPoints
-            const vector<MapPoint *> vpMPs = pActiveMap->GetAllMapPoints();
+            const vector<MapPoint *> vpMPs = pActiveMap->get_all_map_points();
 
             for (size_t i = 0; std::cmp_less(i, vpMPs.size()); i++)
             {
@@ -2111,8 +2111,8 @@ void LoopClosing::RunGlobalBundleAdjustment(Map *pActiveMap, unsigned long nLoop
                 }
             }
 
-            pActiveMap->InformNewBigChange();
-            pActiveMap->IncreaseChangeIndex();
+            pActiveMap->inform_new_big_change();
+            pActiveMap->increase_change_index();
 
             // TODO Check this update
 

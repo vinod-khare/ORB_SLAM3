@@ -143,9 +143,9 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     ORB_SLAM3::MapPoint blue(Eigen::Vector3f(0.2f, 0.f, 0.f), &keyframe, &map);
     red.AddObservation(&keyframe, 0);
     blue.AddObservation(&keyframe, 1);
-    map.AddMapPoint(&red);
-    map.AddMapPoint(&blue);
-    map.SetReferenceMapPoints({&blue});
+    map.add_map_point(&red);
+    map.add_map_point(&blue);
+    map.set_reference_map_points({&blue});
     const ORB_SLAM3::viewer_settings settings{0.05f, 1.f, 1.f, 12.f, 0.08f, 3.f, 0.f, 0.f, -1.8f, 500.f, 1.f};
     ORB_SLAM3::map_drawer            drawer(atlas, settings);
     const std::array<bool, 7>        layers{true, false, false, false, false, false, false};

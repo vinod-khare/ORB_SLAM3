@@ -30,7 +30,7 @@ atlas::atlas(int initial_key_frame_id) : _last_init_kf_id_map(initial_key_frame_
 
 atlas::~atlas()
 {
-    for (Map *map : _owned_maps)
+    for (map *map : _owned_maps)
     {
         delete map;
     }
@@ -46,22 +46,22 @@ void atlas::create_new_map_locked()
 {
     if (_current_map)
     {
-        if (!_maps.empty() && _last_init_kf_id_map < _current_map->GetMaxKFid())
+        if (!_maps.empty() && _last_init_kf_id_map < _current_map->get_max_key_frame_id())
         {
-            _last_init_kf_id_map = _current_map->GetMaxKFid() + 1; // The init KF is the next of current maximum
+            _last_init_kf_id_map = _current_map->get_max_key_frame_id() + 1; // The init KF is the next of current maximum
         }
 
-        _current_map->SetStoredMap();
+        _current_map->set_stored_map();
     }
 
-    _current_map = new Map(_last_init_kf_id_map);
+    _current_map = new map(_last_init_kf_id_map);
     _owned_maps.insert(_current_map);
-    _current_map->SetCurrentMap();
+    _current_map->set_current_map();
     _maps.insert(_current_map);
-    spdlog::info("Created map {}", _current_map->GetId());
+    spdlog::info("Created map {}", _current_map->get_id());
 }
 
-void atlas::change_map(Map *map)
+void atlas::change_map(map *map)
 {
     if (!map)
     {
@@ -69,19 +69,19 @@ void atlas::change_map(Map *map)
     }
 
     std::lock_guard<std::mutex> lock(_mutex);
-    if (!_maps.contains(map) || map->IsBad())
+    if (!_maps.contains(map) || map->is_bad())
     {
         throw std::invalid_argument("Cannot change to a map that is not active in this atlas");
     }
 
     if (_current_map)
     {
-        _current_map->SetStoredMap();
+        _current_map->set_stored_map();
     }
 
     _current_map = map;
-    _current_map->SetCurrentMap();
-    spdlog::info("Changed to map {}", _current_map->GetId());
+    _current_map->set_current_map();
+    spdlog::info("Changed to map {}", _current_map->get_id());
 }
 
 unsigned long int atlas::get_last_init_kf_id()
@@ -92,69 +92,69 @@ unsigned long int atlas::get_last_init_kf_id()
 
 void atlas::add_key_frame(KeyFrame *key_frame)
 {
-    Map *map = key_frame->GetMap();
-    map->AddKeyFrame(key_frame);
+    map *map = key_frame->GetMap();
+    map->add_key_frame(key_frame);
 }
 
 void atlas::add_map_point(MapPoint *map_point)
 {
-    Map *map = map_point->GetMap();
-    map->AddMapPoint(map_point);
+    map *map = map_point->GetMap();
+    map->add_map_point(map_point);
 }
 
 void atlas::set_reference_map_points(const std::vector<MapPoint *> &map_points)
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    _current_map->SetReferenceMapPoints(map_points);
+    _current_map->set_reference_map_points(map_points);
 }
 
 void atlas::inform_new_big_change()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    _current_map->InformNewBigChange();
+    _current_map->inform_new_big_change();
 }
 
 int atlas::get_last_big_change_index()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    return _current_map->GetLastBigChangeIdx();
+    return _current_map->get_last_big_change_index();
 }
 
 long unsigned int atlas::map_points_in_map()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    return _current_map->MapPointsInMap();
+    return _current_map->map_point_count();
 }
 
 long unsigned atlas::key_frames_in_map()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    return _current_map->KeyFramesInMap();
+    return _current_map->key_frame_count();
 }
 
 std::vector<KeyFrame *> atlas::get_all_key_frames()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    return _current_map->GetAllKeyFrames();
+    return _current_map->get_all_key_frames();
 }
 
 std::vector<MapPoint *> atlas::get_all_map_points()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    return _current_map->GetAllMapPoints();
+    return _current_map->get_all_map_points();
 }
 
 std::vector<MapPoint *> atlas::get_reference_map_points()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    return _current_map->GetReferenceMapPoints();
+    return _current_map->get_reference_map_points();
 }
 
-std::vector<Map *> atlas::get_all_maps()
+std::vector<map *> atlas::get_all_maps()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    std::vector<Map *>          maps(_maps.begin(), _maps.end());
-    std::sort(maps.begin(), maps.end(), [](Map *left, Map *right) { return left->GetId() < right->GetId(); });
+    std::vector<map *>          maps(_maps.begin(), _maps.end());
+    std::sort(maps.begin(), maps.end(), [](map *left, map *right) { return left->get_id() < right->get_id(); });
     return maps;
 }
 
@@ -181,10 +181,10 @@ void atlas::clear_atlas()
     _last_init_kf_id_map = 0;
 }
 
-Map *atlas::get_current_map()
+map *atlas::get_current_map()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    if (!_current_map || _current_map->IsBad())
+    if (!_current_map || _current_map->is_bad())
     {
         create_new_map_locked();
     }
@@ -192,7 +192,7 @@ Map *atlas::get_current_map()
     return _current_map;
 }
 
-void atlas::set_map_bad(Map *map)
+void atlas::set_map_bad(map *map)
 {
     if (!map)
     {
@@ -202,40 +202,40 @@ void atlas::set_map_bad(Map *map)
     std::lock_guard<std::mutex> lock(_mutex);
     _owned_maps.insert(map);
     _maps.erase(map);
-    map->SetBad();
+    map->set_bad();
 }
 
 bool atlas::is_inertial()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    return _current_map->IsInertial();
+    return _current_map->is_inertial();
 }
 
 void atlas::set_inertial_sensor()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    _current_map->SetInertialSensor();
+    _current_map->set_inertial_sensor();
 }
 
 void atlas::set_imu_initialized()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    _current_map->SetImuInitialized();
+    _current_map->set_imu_initialized();
 }
 
 bool atlas::is_imu_initialized()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    return _current_map->isImuInitialized();
+    return _current_map->is_imu_initialized();
 }
 
 long unsigned int atlas::get_num_lived_key_frames()
 {
     std::lock_guard<std::mutex> lock(_mutex);
     long unsigned int           num = 0;
-    for (Map *map : _maps)
+    for (map *map : _maps)
     {
-        num += map->GetAllKeyFrames().size();
+        num += map->get_all_key_frames().size();
     }
 
     return num;
@@ -245,9 +245,9 @@ long unsigned int atlas::get_num_lived_map_points()
 {
     std::lock_guard<std::mutex> lock(_mutex);
     long unsigned int           num = 0;
-    for (Map *map : _maps)
+    for (map *map : _maps)
     {
-        num += map->GetAllMapPoints().size();
+        num += map->get_all_map_points().size();
     }
 
     return num;
@@ -257,9 +257,9 @@ std::map<long unsigned int, KeyFrame *> atlas::get_atlas_key_frames()
 {
     std::lock_guard<std::mutex>             lock(_mutex);
     std::map<long unsigned int, KeyFrame *> key_frames_by_id;
-    for (Map *map : _maps)
+    for (map *map : _maps)
     {
-        std::vector<KeyFrame *> key_frames = map->GetAllKeyFrames();
+        std::vector<KeyFrame *> key_frames = map->get_all_key_frames();
 
         for (KeyFrame *key_frame : key_frames)
         {

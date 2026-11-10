@@ -42,7 +42,7 @@ using std::string;
 using std::vector;
 
 class KeyFrameDatabase;
-class Map;
+class map;
 class MapPoint;
 class place_vocabulary;
 class Tracking;
@@ -132,8 +132,8 @@ class System
     void SaveTrajectoryEuRoC(const string &filename);
     void SaveKeyFrameTrajectoryEuRoC(const string &filename);
 
-    void SaveTrajectoryEuRoC(const string &filename, Map *pMap);
-    void SaveKeyFrameTrajectoryEuRoC(const string &filename, Map *pMap);
+    void SaveTrajectoryEuRoC(const string &filename, map *pMap);
+    void SaveKeyFrameTrajectoryEuRoC(const string &filename, map *pMap);
 
     // Export a COLMAP-compatible sparse model (cameras.txt, images.txt, points3D.txt)
     // plus a debug CSV (poses_debug.csv) into strDir.

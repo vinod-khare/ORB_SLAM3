@@ -27,6 +27,7 @@
 #include "place_vocabulary.h"
 #include "processing_statistics.h"
 
+#include <map>
 #include <mutex>
 #include <thread>
 
@@ -40,13 +41,13 @@ namespace ORB_SLAM3
 class Tracking;
 class LocalMapping;
 class KeyFrameDatabase;
-class Map;
+class map;
 
 class LoopClosing
 {
   public:
-    typedef pair<set<KeyFrame *>, int>                                                                                         ConsistentGroup;
-    typedef map<KeyFrame *, g2o::Sim3, std::less<KeyFrame *>, Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3>>> KeyFrameAndPose;
+    typedef pair<set<KeyFrame *>, int>                                                                                              ConsistentGroup;
+    typedef std::map<KeyFrame *, g2o::Sim3, std::less<KeyFrame *>, Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3>>> KeyFrameAndPose;
 
   public:
     LoopClosing(processing_statistics &statistics, atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
@@ -62,10 +63,10 @@ class LoopClosing
     void InsertKeyFrame(KeyFrame *pKF);
 
     void RequestReset();
-    void RequestResetActiveMap(Map *pMap);
+    void RequestResetActiveMap(map *pMap);
 
     // This function will run in a separate thread
-    void RunGlobalBundleAdjustment(Map *pActiveMap, unsigned long nLoopKF);
+    void RunGlobalBundleAdjustment(map *pActiveMap, unsigned long nLoopKF);
 
     bool isRunningGBA()
     {
@@ -120,7 +121,7 @@ class LoopClosing
     void       ResetIfRequested();
     bool       mbResetRequested;
     bool       mbResetActiveMapRequested;
-    Map       *mpMapToReset;
+    map       *mpMapToReset;
     std::mutex mMutexReset;
 
     bool       CheckFinish();
@@ -157,7 +158,7 @@ class LoopClosing
     g2o::Sim3                    mg2oScw;
 
     //-------
-    Map *mpLastMap;
+    map *mpLastMap;
 
     bool                    mbLoopDetected;
     int                     mnLoopNumCoincidences;

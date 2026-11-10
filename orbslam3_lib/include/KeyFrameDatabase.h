@@ -19,9 +19,9 @@
 #ifndef KEYFRAMEDATABASE_H
 #define KEYFRAMEDATABASE_H
 
-#include "frame.h"
 #include "KeyFrame.h"
-#include "Map.h"
+#include "frame.h"
+#include "map.h"
 #include "place_vocabulary.h"
 
 #include <list>
@@ -34,7 +34,7 @@ namespace ORB_SLAM3
 
 class KeyFrame;
 class frame;
-class Map;
+class map;
 
 class KeyFrameDatabase
 {
@@ -49,7 +49,7 @@ class KeyFrameDatabase
     void erase(KeyFrame *pKF);
 
     void clear();
-    void clearMap(Map *pMap);
+    void clearMap(map *pMap);
 
     // Loop Detection(DEPRECATED)
     std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame *pKF, float minScore);
@@ -60,7 +60,7 @@ class KeyFrameDatabase
     void DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nNumCandidates);
 
     // Relocalization
-    std::vector<KeyFrame *> DetectRelocalizationCandidates(frame *F, Map *pMap);
+    std::vector<KeyFrame *> DetectRelocalizationCandidates(frame *F, map *pMap);
 
   protected:
     // Associated vocabulary

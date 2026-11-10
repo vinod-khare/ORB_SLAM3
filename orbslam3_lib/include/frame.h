@@ -27,6 +27,7 @@
 #include "sophus/se3.hpp"
 
 #include <array>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -294,8 +295,8 @@ class frame
 
     static bool initial_computations;
 
-    map<long unsigned int, cv::Point2f> projected_points;
-    map<long unsigned int, cv::Point2f> matched_in_image;
+    std::map<long unsigned int, cv::Point2f> projected_points;
+    std::map<long unsigned int, cv::Point2f> matched_in_image;
 
     string name_file;
 

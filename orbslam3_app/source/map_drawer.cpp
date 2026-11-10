@@ -268,15 +268,15 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
             std::unique_lock lock(active_map->viewer_mutex, std::try_to_lock);
             if (lock.owns_lock())
             {
-                optimized_keyframes = active_map->msOptKFs;
-                fixed_keyframes     = active_map->msFixedKFs;
+                optimized_keyframes = active_map->optimized_key_frames;
+                fixed_keyframes     = active_map->fixed_key_frames;
             }
         }
         if (layers[0])
         {
-            const auto                 references = active_map->GetReferenceMapPoints();
+            const auto                 references = active_map->get_reference_map_points();
             const std::set<MapPoint *> reference_set(references.begin(), references.end());
-            for (auto *point : active_map->GetAllMapPoints())
+            for (auto *point : active_map->get_all_map_points())
             {
                 if (!point || point->isBad())
                 {
@@ -292,7 +292,7 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
         }
         for (auto *map : _atlas.get_all_maps())
         {
-            for (auto *keyframe : map->GetAllKeyFrames())
+            for (auto *keyframe : map->get_all_key_frames())
             {
                 if (!keyframe || keyframe->isBad())
                 {
@@ -348,7 +348,7 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
                         }
                     }
                 }
-                if (layers[3] && active_map->isImuInitialized())
+                if (layers[3] && active_map->is_imu_initialized())
                 {
                     if (auto *next = keyframe->mNextKF; next && !next->isBad())
                     {

@@ -19,7 +19,6 @@
 #ifndef TRACKING_H
 #define TRACKING_H
 
-#include "frame.h"
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
 #include "KeyFrameDatabase.h"
@@ -28,6 +27,7 @@
 #include "Settings.h"
 #include "System.h"
 #include "atlas.h"
+#include "frame.h"
 #include "keypoint_extractor.h"
 #include "place_vocabulary.h"
 
@@ -97,7 +97,7 @@ class Tracking
 
     // DEBUG
     void SaveSubTrajectory(string strNameFile_frames, string strNameFile_kf, string strFolder = "");
-    void SaveSubTrajectory(string strNameFile_frames, string strNameFile_kf, Map *pMap);
+    void SaveSubTrajectory(string strNameFile_frames, string strNameFile_kf, map *pMap);
 
     float GetImageScale();
     void  report_flow_statistics() const;

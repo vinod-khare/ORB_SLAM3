@@ -92,7 +92,7 @@ void LocalMapping::Run()
                 if (mpAtlas->key_frames_in_map() > 2)
                 {
 
-                    if (mbInertial && mpCurrentKeyFrame->GetMap()->isImuInitialized())
+                    if (mbInertial && mpCurrentKeyFrame->GetMap()->is_imu_initialized())
                     {
                         float dist = (mpCurrentKeyFrame->mPrevKF->GetCameraCenter() - mpCurrentKeyFrame->GetCameraCenter()).norm() +
                                      (mpCurrentKeyFrame->mPrevKF->mPrevKF->GetCameraCenter() - mpCurrentKeyFrame->mPrevKF->GetCameraCenter()).norm();
@@ -101,7 +101,7 @@ void LocalMapping::Run()
                         {
                             mTinit += mpCurrentKeyFrame->mTimeStamp - mpCurrentKeyFrame->mPrevKF->mTimeStamp;
                         }
-                        if (!mpCurrentKeyFrame->GetMap()->GetIniertialBA2())
+                        if (!mpCurrentKeyFrame->GetMap()->get_inertial_ba2())
                         {
                             if ((mTinit < 10.f) && (dist < 0.02))
                             {
@@ -122,7 +122,7 @@ void LocalMapping::Run()
                                                    num_MPs_BA,
                                                    num_edges_BA,
                                                    bLarge,
-                                                   !mpCurrentKeyFrame->GetMap()->GetIniertialBA2());
+                                                   !mpCurrentKeyFrame->GetMap()->get_inertial_ba2());
                         b_doneLBA = true;
                     }
                     else
@@ -133,7 +133,7 @@ void LocalMapping::Run()
                 }
 
                 // Initialize IMU here
-                if (!mpCurrentKeyFrame->GetMap()->isImuInitialized() && mbInertial)
+                if (!mpCurrentKeyFrame->GetMap()->is_imu_initialized() && mbInertial)
                 {
                     if (mbMonocular)
                     {
@@ -150,14 +150,14 @@ void LocalMapping::Run()
 
                 if ((mTinit < 50.0f) && mbInertial)
                 {
-                    if (mpCurrentKeyFrame->GetMap()->isImuInitialized() && mpTracker->mState == Tracking::OK) // Enter here everytime local-mapping is called
+                    if (mpCurrentKeyFrame->GetMap()->is_imu_initialized() && mpTracker->mState == Tracking::OK) // Enter here everytime local-mapping is called
                     {
-                        if (!mpCurrentKeyFrame->GetMap()->GetIniertialBA1())
+                        if (!mpCurrentKeyFrame->GetMap()->get_inertial_ba1())
                         {
                             if (mTinit > 5.0f)
                             {
                                 spdlog::info("Starting VIBA stage 1");
-                                mpCurrentKeyFrame->GetMap()->SetIniertialBA1();
+                                mpCurrentKeyFrame->GetMap()->set_inertial_ba1();
                                 if (mbMonocular)
                                 {
                                     InitializeIMU(1.f, 1e5, true);
@@ -170,12 +170,12 @@ void LocalMapping::Run()
                                 spdlog::info("Finished VIBA stage 1");
                             }
                         }
-                        else if (!mpCurrentKeyFrame->GetMap()->GetIniertialBA2())
+                        else if (!mpCurrentKeyFrame->GetMap()->get_inertial_ba2())
                         {
                             if (mTinit > 15.0f)
                             {
                                 spdlog::info("Starting VIBA stage 2");
-                                mpCurrentKeyFrame->GetMap()->SetIniertialBA2();
+                                mpCurrentKeyFrame->GetMap()->set_inertial_ba2();
                                 if (mbMonocular)
                                 {
                                     InitializeIMU(0.f, 0.f, true);
@@ -432,7 +432,7 @@ void LocalMapping::CreateNewMapPoints()
 
         // Search matches that fullfil epipolar constraint
         vector<pair<size_t, size_t>> vMatchedIndices;
-        bool                         bCoarse = mbInertial && mpTracker->mState == Tracking::RECENTLY_LOST && mpCurrentKeyFrame->GetMap()->GetIniertialBA2();
+        bool                         bCoarse = mbInertial && mpTracker->mState == Tracking::RECENTLY_LOST && mpCurrentKeyFrame->GetMap()->get_inertial_ba2();
 
         matcher.search_for_triangulation(mpCurrentKeyFrame, pKF2, vMatchedIndices, false, bCoarse);
 
@@ -973,7 +973,7 @@ void LocalMapping::KeyFrameCulling()
         count++;
         KeyFrame *pKF = *vit;
 
-        if ((pKF->mnId == pKF->GetMap()->GetInitKFid()) || pKF->isBad())
+        if ((pKF->mnId == pKF->GetMap()->get_initial_key_frame_id()) || pKF->isBad())
         {
             continue;
         }
@@ -1001,12 +1001,12 @@ void LocalMapping::KeyFrameCulling()
                     nMPs++;
                     if (pMP->Observations() > thObs)
                     {
-                        const int                             &scaleLevel   = (!is_fisheye_stereo(pKF->cameras))     ? pKF->mvKeys[i].octave
-                                                                              : std::cmp_less(i, pKF->mvKeys.size()) ? pKF->mvKeys[i].octave
-                                                                                                                     : pKF->mvKeysRight[i - pKF->mvKeys.size()].octave;
-                        const map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
-                        int                                    nObs         = 0;
-                        for (map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+                        const int                                  &scaleLevel   = (!is_fisheye_stereo(pKF->cameras))     ? pKF->mvKeys[i].octave
+                                                                                   : std::cmp_less(i, pKF->mvKeys.size()) ? pKF->mvKeys[i].octave
+                                                                                                                          : pKF->mvKeysRight[i - pKF->mvKeys.size()].octave;
+                        const std::map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
+                        int                                         nObs         = 0;
+                        for (std::map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
                         {
                             KeyFrame *pKFi = mit->first;
                             if (pKFi == pKF)
@@ -1078,7 +1078,7 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mPrevKF          = NULL;
                         pKF->SetBadFlag();
                     }
-                    else if (!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && ((pKF->GetImuPosition() - pKF->mPrevKF->GetImuPosition()).norm() < 0.02) && (t < 3))
+                    else if (!mpCurrentKeyFrame->GetMap()->get_inertial_ba2() && ((pKF->GetImuPosition() - pKF->mPrevKF->GetImuPosition()).norm() < 0.02) && (t < 3))
                     {
                         pKF->mNextKF->mpImuPreintegrated->MergePrevious(pKF->mpImuPreintegrated);
                         pKF->mNextKF->mPrevKF = pKF->mPrevKF;
@@ -1124,7 +1124,7 @@ void LocalMapping::RequestReset()
     spdlog::debug("Local mapping map reset completed");
 }
 
-void LocalMapping::RequestResetActiveMap(Map *pMap)
+void LocalMapping::RequestResetActiveMap(map *pMap)
 {
     {
         unique_lock<mutex> lock(mMutexReset);
@@ -1284,7 +1284,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     IMU::Bias b(0, 0, 0, 0, 0, 0);
 
     // Compute and KF velocities mRwg estimation
-    if (!mpCurrentKeyFrame->GetMap()->isImuInitialized())
+    if (!mpCurrentKeyFrame->GetMap()->is_imu_initialized())
     {
         Eigen::Matrix3f Rwg;
         Eigen::Vector3f dirG;
@@ -1339,11 +1339,11 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
 
     // Before this line we are not changing the map
     {
-        unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
+        unique_lock<mutex> lock(mpAtlas->get_current_map()->map_update_mutex);
         if ((fabs(mScale - 1.f) > 0.00001) || !mbMonocular)
         {
             Sophus::SE3f Twg(mRwg.cast<float>().transpose(), Eigen::Vector3f::Zero());
-            mpAtlas->get_current_map()->ApplyScaledRotation(Twg, mScale, true);
+            mpAtlas->get_current_map()->apply_scaled_rotation(Twg, mScale, true);
             mpTracker->UpdateFrameIMU(mScale, vpKF[0]->GetImuBias(), mpCurrentKeyFrame);
         }
 
@@ -1381,7 +1381,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     spdlog::debug("Global Bundle Adjustment finished\nUpdating map ...");
 
     // Get Map Mutex
-    unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
+    unique_lock<mutex> lock(mpAtlas->get_current_map()->map_update_mutex);
 
     unsigned long GBAid = mpCurrentKeyFrame->mnId;
 
@@ -1394,7 +1394,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     }
 
     // Correct keyframes starting at map first keyframe
-    list<KeyFrame *> lpKFtoCheck(mpAtlas->get_current_map()->mvpKeyFrameOrigins.begin(), mpAtlas->get_current_map()->mvpKeyFrameOrigins.end());
+    list<KeyFrame *> lpKFtoCheck(mpAtlas->get_current_map()->key_frame_origins.begin(), mpAtlas->get_current_map()->key_frame_origins.end());
 
     while (!lpKFtoCheck.empty())
     {
@@ -1448,7 +1448,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     }
 
     // Correct MapPoints
-    const vector<MapPoint *> vpMPs = mpAtlas->get_current_map()->GetAllMapPoints();
+    const vector<MapPoint *> vpMPs = mpAtlas->get_current_map()->get_all_map_points();
 
     for (size_t i = 0; i < vpMPs.size(); i++)
     {
@@ -1497,7 +1497,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     mpTracker->mState = Tracking::OK;
     bInitializing     = false;
 
-    mpCurrentKeyFrame->GetMap()->IncreaseChangeIndex();
+    mpCurrentKeyFrame->GetMap()->increase_change_index();
 
     return;
 }
@@ -1543,11 +1543,11 @@ void LocalMapping::ScaleRefinement()
 
     Sophus::SO3d so3wg(mRwg);
     // Before this line we are not changing the map
-    unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
+    unique_lock<mutex> lock(mpAtlas->get_current_map()->map_update_mutex);
     if ((fabs(mScale - 1.f) > 0.002) || !mbMonocular)
     {
         Sophus::SE3f Tgw(mRwg.cast<float>().transpose(), Eigen::Vector3f::Zero());
-        mpAtlas->get_current_map()->ApplyScaledRotation(Tgw, mScale, true);
+        mpAtlas->get_current_map()->apply_scaled_rotation(Tgw, mScale, true);
         mpTracker->UpdateFrameIMU(mScale, mpCurrentKeyFrame->GetImuBias(), mpCurrentKeyFrame);
     }
 
@@ -1559,7 +1559,7 @@ void LocalMapping::ScaleRefinement()
     mlNewKeyFrames.clear();
 
     // To perform pose-inertial opt w.r.t. last keyframe
-    mpCurrentKeyFrame->GetMap()->IncreaseChangeIndex();
+    mpCurrentKeyFrame->GetMap()->increase_change_index();
 
     return;
 }

@@ -46,8 +46,8 @@ std::vector<keypoint> keypoints_with_color(frame &frame, const std::vector<keypo
 
 long unsigned int KeyFrame::nNextId = 0;
 
-KeyFrame::KeyFrame(frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras)
-    : bImu(pMap->isImuInitialized()), mnFrameId(F.id), mTimeStamp(F.timestamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS), mfGridElementWidthInv(F.grid_element_width_inverse),
+KeyFrame::KeyFrame(frame &F, map *pMap, KeyFrameDatabase *pKFDB, const camera_vector &cameras)
+    : bImu(pMap->is_imu_initialized()), mnFrameId(F.id), mTimeStamp(F.timestamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS), mfGridElementWidthInv(F.grid_element_width_inverse),
       mfGridElementHeightInv(F.grid_element_height_inverse), mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0), mnNumberOfOpt(0), mnLoopQuery(0),
       mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), mnPlaceRecognitionQuery(0), mnPlaceRecognitionWords(0), mPlaceRecognitionScore(0), mbCurrentPlaceRecognition(false), mnBAGlobalForKF(0),
       mnMergeCorrectedForKF(0), mnBALocalForMerge(0), fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy), mbf(F.baseline_fx), mb(F.baseline), mThDepth(F.depth_threshold),
@@ -96,7 +96,7 @@ KeyFrame::KeyFrame(frame &F, Map *pMap, KeyFrameDatabase *pKFDB, const camera_ve
     mImuBias = F.imu_bias;
     SetPose(F.get_pose());
 
-    mnOriginMapId = pMap->GetId();
+    mnOriginMapId = pMap->get_id();
 }
 
 void KeyFrame::ComputeBoW()
@@ -220,7 +220,7 @@ void KeyFrame::UpdateBestCovisibles()
     unique_lock<mutex>            lock(mMutexConnections);
     vector<pair<int, KeyFrame *>> vPairs;
     vPairs.reserve(mConnectedKeyFrameWeights.size());
-    for (map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(), mend = mConnectedKeyFrameWeights.end(); mit != mend; mit++)
+    for (std::map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(), mend = mConnectedKeyFrameWeights.end(); mit != mend; mit++)
     {
         vPairs.push_back(make_pair(mit->second, mit->first));
     }
@@ -245,7 +245,7 @@ set<KeyFrame *> KeyFrame::GetConnectedKeyFrames()
 {
     unique_lock<mutex> lock(mMutexConnections);
     set<KeyFrame *>    s;
-    for (map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(); mit != mConnectedKeyFrameWeights.end(); mit++)
+    for (std::map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(); mit != mConnectedKeyFrameWeights.end(); mit++)
     {
         s.insert(mit->first);
     }
@@ -414,7 +414,7 @@ MapPoint *KeyFrame::GetMapPoint(const size_t &idx)
 
 void KeyFrame::UpdateConnections(bool upParent)
 {
-    map<KeyFrame *, int> KFcounter;
+    std::map<KeyFrame *, int> KFcounter;
 
     vector<MapPoint *> vpMP;
 
@@ -439,9 +439,9 @@ void KeyFrame::UpdateConnections(bool upParent)
             continue;
         }
 
-        map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
+        std::map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
 
-        for (map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+        for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
         {
             if (mit->first->mnId == mnId || mit->first->isBad() || mit->first->GetMap() != mpMap)
             {
@@ -471,7 +471,7 @@ void KeyFrame::UpdateConnections(bool upParent)
     }
 
     // TODO: use modern iterators
-    for (map<KeyFrame *, int>::iterator mit = KFcounter.begin(), mend = KFcounter.end(); mit != mend; mit++)
+    for (std::map<KeyFrame *, int>::iterator mit = KFcounter.begin(), mend = KFcounter.end(); mit != mend; mit++)
     {
         if (!upParent)
         {
@@ -511,7 +511,7 @@ void KeyFrame::UpdateConnections(bool upParent)
         mvpOrderedConnectedKeyFrames = vector<KeyFrame *>(lKFs.begin(), lKFs.end());
         mvOrderedWeights             = vector<int>(lWs.begin(), lWs.end());
 
-        if (mbFirstConnection && mnId != mpMap->GetInitKFid())
+        if (mbFirstConnection && mnId != mpMap->get_initial_key_frame_id())
         {
             mpParent = mvpOrderedConnectedKeyFrames.front();
             mpParent->AddChild(this);
@@ -621,7 +621,7 @@ void KeyFrame::SetBadFlag()
 {
     {
         unique_lock<mutex> lock(mMutexConnections);
-        if (mnId == mpMap->GetInitKFid())
+        if (mnId == mpMap->get_initial_key_frame_id())
         {
             return;
         }
@@ -632,7 +632,7 @@ void KeyFrame::SetBadFlag()
         }
     }
 
-    for (map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(), mend = mConnectedKeyFrameWeights.end(); mit != mend; mit++)
+    for (std::map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(), mend = mConnectedKeyFrameWeights.end(); mit != mend; mit++)
     {
         mit->first->EraseConnection(this);
     }
@@ -727,7 +727,7 @@ void KeyFrame::SetBadFlag()
         mbBad = true;
     }
 
-    mpMap->EraseKeyFrame(this);
+    mpMap->erase_key_frame(this);
     mpKeyFrameDB->erase(this);
 }
 
@@ -898,13 +898,13 @@ IMU::Bias KeyFrame::GetImuBias()
     return mImuBias;
 }
 
-Map *KeyFrame::GetMap()
+map *KeyFrame::GetMap()
 {
     unique_lock<mutex> lock(mMutexMap);
     return mpMap;
 }
 
-void KeyFrame::UpdateMap(Map *pMap)
+void KeyFrame::UpdateMap(map *pMap)
 {
     unique_lock<mutex> lock(mMutexMap);
     mpMap = pMap;

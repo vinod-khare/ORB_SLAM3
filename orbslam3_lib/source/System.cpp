@@ -181,8 +181,8 @@ void System::record_frame_statistics(double preprocessing_ms, double frontend_ms
 
     if (auto *map = mpAtlas->get_current_map())
     {
-        sample.map_id           = map->GetId();
-        sample.map_change_index = map->GetLastBigChangeIdx();
+        sample.map_id           = map->get_id();
+        sample.map_change_index = map->get_last_big_change_index();
     }
 
     if (mpTracker->mState == Tracking::OK)
@@ -684,16 +684,16 @@ void System::SaveTrajectoryEuRoC(const string &filename)
 
     spdlog::info("Saving trajectory to {}", filename);
 
-    vector<Map *> vpMaps     = mpAtlas->get_all_maps();
+    vector<map *> vpMaps     = mpAtlas->get_all_maps();
     size_t        numMaxKFs  = 0;
-    Map          *pBiggerMap = nullptr;
+    map          *pBiggerMap = nullptr;
     spdlog::debug("There are {} maps in the atlas", vpMaps.size());
-    for (Map *pMap : vpMaps)
+    for (map *pMap : vpMaps)
     {
-        spdlog::debug("Map {} has {} keyframes", pMap->GetId(), pMap->GetAllKeyFrames().size());
-        if (pMap->GetAllKeyFrames().size() > numMaxKFs)
+        spdlog::debug("Map {} has {} keyframes", pMap->get_id(), pMap->get_all_key_frames().size());
+        if (pMap->get_all_key_frames().size() > numMaxKFs)
         {
-            numMaxKFs  = pMap->GetAllKeyFrames().size();
+            numMaxKFs  = pMap->get_all_key_frames().size();
             pBiggerMap = pMap;
         }
     }
@@ -704,7 +704,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
         return;
     }
 
-    vector<KeyFrame *> vpKFs = pBiggerMap->GetAllKeyFrames();
+    vector<KeyFrame *> vpKFs = pBiggerMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -782,12 +782,12 @@ void System::SaveTrajectoryEuRoC(const string &filename)
     spdlog::info("Finished saving trajectory to {}", filename);
 }
 
-void System::SaveTrajectoryEuRoC(const string &filename, Map *pMap)
+void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
 {
 
-    spdlog::info("Saving trajectory of map {} to {}", pMap->GetId(), filename);
+    spdlog::info("Saving trajectory of map {} to {}", pMap->get_id(), filename);
 
-    vector<KeyFrame *> vpKFs = pMap->GetAllKeyFrames();
+    vector<KeyFrame *> vpKFs = pMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -869,14 +869,14 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
 {
     spdlog::info("Saving keyframe trajectory to {}", filename);
 
-    vector<Map *> vpMaps     = mpAtlas->get_all_maps();
-    Map          *pBiggerMap = nullptr;
+    vector<map *> vpMaps     = mpAtlas->get_all_maps();
+    map          *pBiggerMap = nullptr;
     size_t        numMaxKFs  = 0;
-    for (Map *pMap : vpMaps)
+    for (map *pMap : vpMaps)
     {
-        if (pMap && pMap->GetAllKeyFrames().size() > numMaxKFs)
+        if (pMap && pMap->get_all_key_frames().size() > numMaxKFs)
         {
-            numMaxKFs  = pMap->GetAllKeyFrames().size();
+            numMaxKFs  = pMap->get_all_key_frames().size();
             pBiggerMap = pMap;
         }
     }
@@ -887,7 +887,7 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
         return;
     }
 
-    vector<KeyFrame *> vpKFs = pBiggerMap->GetAllKeyFrames();
+    vector<KeyFrame *> vpKFs = pBiggerMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -924,11 +924,11 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
     f.close();
 }
 
-void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, Map *pMap)
+void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, map *pMap)
 {
-    spdlog::info("Saving keyframe trajectory of map {} to {}", pMap->GetId(), filename);
+    spdlog::info("Saving keyframe trajectory of map {} to {}", pMap->get_id(), filename);
 
-    vector<KeyFrame *> vpKFs = pMap->GetAllKeyFrames();
+    vector<KeyFrame *> vpKFs = pMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -972,14 +972,14 @@ void System::SaveCOLMAP(const string &strDir)
     spdlog::debug("📁 [SaveCOLMAP] Output directory: " + strDir);
 
     // Locate the largest map (same logic as SaveTrajectoryEuRoC)
-    vector<Map *> vpMaps     = mpAtlas->get_all_maps();
-    Map          *pBiggerMap = nullptr;
+    vector<map *> vpMaps     = mpAtlas->get_all_maps();
+    map          *pBiggerMap = nullptr;
     int           numMaxKFs  = 0;
-    for (Map *pMap : vpMaps)
+    for (map *pMap : vpMaps)
     {
-        if ((int)pMap->GetAllKeyFrames().size() > numMaxKFs)
+        if ((int)pMap->get_all_key_frames().size() > numMaxKFs)
         {
-            numMaxKFs  = pMap->GetAllKeyFrames().size();
+            numMaxKFs  = pMap->get_all_key_frames().size();
             pBiggerMap = pMap;
         }
     }
@@ -991,7 +991,7 @@ void System::SaveCOLMAP(const string &strDir)
 
     std::filesystem::create_directories(strDir);
 
-    vector<KeyFrame *> vpKFs = pBiggerMap->GetAllKeyFrames();
+    vector<KeyFrame *> vpKFs = pBiggerMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
     // World origin anchored at the first KF (monocular)
     Sophus::SE3f Twb = vpKFs[0]->GetPoseInverse();
@@ -1193,12 +1193,12 @@ void System::SavePointCloudPLY(const string &filename)
         std::filesystem::create_directories(out_dir);
     }
 
-    vector<Map *> vpMapsAll = mpAtlas->get_all_maps();
-    vector<Map *> vpMaps;
+    vector<map *> vpMapsAll = mpAtlas->get_all_maps();
+    vector<map *> vpMaps;
     vpMaps.reserve(vpMapsAll.size());
-    for (Map *pMap : vpMapsAll)
+    for (map *pMap : vpMapsAll)
     {
-        if (pMap && !pMap->IsBad())
+        if (pMap && !pMap->is_bad())
         {
             vpMaps.push_back(pMap);
         }
@@ -1211,13 +1211,13 @@ void System::SavePointCloudPLY(const string &filename)
     }
 
     const bool multi_map = vpMaps.size() > 1;
-    for (Map *pMap : vpMaps)
+    for (map *pMap : vpMaps)
     {
         std::filesystem::path out_file;
         if (multi_map)
         {
             std::ostringstream oss;
-            oss << stem << "_map" << pMap->GetId() << ext;
+            oss << stem << "_map" << pMap->get_id() << ext;
             out_file = out_dir.empty() ? std::filesystem::path(oss.str()) : (out_dir / oss.str());
         }
         else
@@ -1225,7 +1225,7 @@ void System::SavePointCloudPLY(const string &filename)
             out_file = out_dir.empty() ? std::filesystem::path(stem + ext) : (out_dir / (stem + ext));
         }
 
-        vector<MapPoint *> vpMPs = pMap->GetAllMapPoints();
+        vector<MapPoint *> vpMPs = pMap->get_all_map_points();
         struct ColoredPoint
         {
             Eigen::Vector3f pos;
@@ -1264,7 +1264,7 @@ void System::SavePointCloudPLY(const string &filename)
         fply << "ply\n";
         fply << "format ascii 1.0\n";
         fply << "comment ORB_SLAM3 map point cloud\n";
-        fply << "comment map_id " << pMap->GetId() << "\n";
+        fply << "comment map_id " << pMap->get_id() << "\n";
         fply << "element vertex " << points.size() << "\n";
         fply << "property float x\n";
         fply << "property float y\n";
@@ -1463,7 +1463,7 @@ bool System::isFinished() { return (GetTimeFromIMUInit() > 0.1); }
 
 void System::ChangeDataset()
 {
-    if (mpAtlas->get_current_map()->KeyFramesInMap() < 12)
+    if (mpAtlas->get_current_map()->key_frame_count() < 12)
     {
         mpTracker->ResetActiveMap();
     }

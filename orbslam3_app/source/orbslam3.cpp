@@ -276,7 +276,7 @@ int main(int argc, char **argv)
 
                     if (tracker->mCurrentFrame.is_set() && tracker->mState == ORB_SLAM3::Tracking::OK)
                     {
-                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.get_pose(), SLAM.GetAtlas()->get_current_map()->GetId());
+                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.get_pose(), SLAM.GetAtlas()->get_current_map()->get_id());
                     }
                     else
                     {
