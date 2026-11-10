@@ -16,7 +16,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "TwoViewReconstruction.h"
+#include "two_view_reconstruction.h"
 
 #include <algorithm>
 #include <cmath>
@@ -30,27 +30,27 @@
 
 namespace ORB_SLAM3
 {
-TwoViewReconstruction::TwoViewReconstruction(const Eigen::Matrix3f &k, float sigma, int iterations) : sigma_{sigma}, max_iterations_{iterations}
+two_view_reconstruction::two_view_reconstruction(const Eigen::Matrix3f &k, float sigma, int iterations) : _sigma{sigma}, _max_iterations{iterations}
 {
     if (!k.allFinite() || k(0, 0) <= 0 || k(1, 1) <= 0 || k.determinant() == 0 || !std::isfinite(sigma) || sigma <= 0 || iterations <= 0)
     {
         throw std::invalid_argument("Two-view reconstruction requires valid calibration, positive sigma and iterations");
     }
-    cv::eigen2cv(k, calibration_);
-    calibration_.convertTo(calibration_, CV_64F);
+    cv::eigen2cv(k, _calibration);
+    _calibration.convertTo(_calibration, CV_64F);
 }
 
-bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint> &keys1,
-                                        const std::vector<cv::KeyPoint> &keys2,
-                                        const std::vector<int>          &matches12,
-                                        Sophus::SE3f                    &pose21,
-                                        std::vector<cv::Point3f>        &points3d,
-                                        std::vector<bool>               &triangulated)
+bool two_view_reconstruction::reconstruct(const std::vector<cv::KeyPoint> &keys1,
+                                          const std::vector<cv::KeyPoint> &keys2,
+                                          const std::vector<int>          &matches12,
+                                          Sophus::SE3f                    &pose21,
+                                          std::vector<cv::Point3f>        &points3d,
+                                          std::vector<bool>               &triangulated)
 {
-    reference_size_ = keys1.size();
-    matched_points1_.clear();
-    matched_points2_.clear();
-    reference_indices_.clear();
+    _reference_size = keys1.size();
+    _matched_points1.clear();
+    _matched_points2.clear();
+    _reference_indices.clear();
 
     if (matches12.size() > keys1.size())
     {
@@ -82,24 +82,24 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint> &keys1,
             return false;
         }
 
-        matched_points1_.push_back(point1);
-        matched_points2_.push_back(point2);
-        reference_indices_.push_back(index);
+        _matched_points1.push_back(point1);
+        _matched_points2.push_back(point2);
+        _reference_indices.push_back(index);
     }
 
-    if (matched_points1_.size() < 8)
+    if (_matched_points1.size() < 8)
     {
         spdlog::debug("Two-view reconstruction: fewer than eight matches");
         return false;
     }
 
     auto homography_task =
-        std::async(std::launch::async, [this] { return cv::findHomography(matched_points1_, matched_points2_, cv::RANSAC, std::sqrt(5.991) * sigma_, cv::noArray(), max_iterations_, 0.99); });
-    const auto fundamental = cv::findFundamentalMat(matched_points1_, matched_points2_, cv::FM_RANSAC, std::sqrt(3.841) * sigma_, 0.99, max_iterations_, cv::noArray());
+        std::async(std::launch::async, [this] { return cv::findHomography(_matched_points1, _matched_points2, cv::RANSAC, std::sqrt(5.991) * _sigma, cv::noArray(), _max_iterations, 0.99); });
+    const auto fundamental = cv::findFundamentalMat(_matched_points1, _matched_points2, cv::FM_RANSAC, std::sqrt(3.841) * _sigma, 0.99, _max_iterations, cv::noArray());
     const auto homography  = homography_task.get();
 
-    std::vector<bool> homography_inliers(matched_points1_.size(), false);
-    std::vector<bool> fundamental_inliers(matched_points1_.size(), false);
+    std::vector<bool> homography_inliers(_matched_points1.size(), false);
+    std::vector<bool> fundamental_inliers(_matched_points1.size(), false);
 
     const auto homography_score  = score_homography(homography, homography_inliers);
     const auto fundamental_score = score_fundamental(fundamental, fundamental_inliers);
@@ -125,7 +125,7 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint> &keys1,
            (homography_score > 0 && reconstruct_model(homography, true, homography_inliers, pose21, points3d, triangulated));
 }
 
-bool TwoViewReconstruction::reconstruct_model(
+bool two_view_reconstruction::reconstruct_model(
     const cv::Mat &model, bool use_homography, const std::vector<bool> &inliers, Sophus::SE3f &pose21, std::vector<cv::Point3f> &points3d, std::vector<bool> &triangulated) const
 {
     const auto inlier_count = std::count(inliers.begin(), inliers.end(), true);
@@ -136,11 +136,11 @@ bool TwoViewReconstruction::reconstruct_model(
     if (use_homography)
     {
         std::vector<cv::Mat> normals;
-        cv::decomposeHomographyMat(model, calibration_, rotations, translations, normals);
+        cv::decomposeHomographyMat(model, _calibration, rotations, translations, normals);
     }
     else
     {
-        const cv::Mat essential = calibration_.t() * model * calibration_;
+        const cv::Mat essential = _calibration.t() * model * _calibration;
 
         cv::Mat rotation1;
         cv::Mat rotation2;
@@ -214,7 +214,7 @@ bool TwoViewReconstruction::reconstruct_model(
     return true;
 }
 
-float TwoViewReconstruction::score_homography(const cv::Mat &homography, std::vector<bool> &inliers) const
+float two_view_reconstruction::score_homography(const cv::Mat &homography, std::vector<bool> &inliers) const
 {
     if (homography.empty() || !cv::checkRange(homography))
     {
@@ -230,16 +230,16 @@ float TwoViewReconstruction::score_homography(const cv::Mat &homography, std::ve
 
     std::vector<cv::Point2f> projected1;
     std::vector<cv::Point2f> projected2;
-    cv::perspectiveTransform(matched_points2_, projected1, inverse);
-    cv::perspectiveTransform(matched_points1_, projected2, homography);
+    cv::perspectiveTransform(_matched_points2, projected1, inverse);
+    cv::perspectiveTransform(_matched_points1, projected2, homography);
 
     float      score    = 0;
-    const auto variance = sigma_ * sigma_;
+    const auto variance = _sigma * _sigma;
 
     for (std::size_t index = 0; index < inliers.size(); ++index)
     {
-        const auto error1  = matched_points1_[index] - projected1[index];
-        const auto error2  = matched_points2_[index] - projected2[index];
+        const auto error1  = _matched_points1[index] - projected1[index];
+        const auto error2  = _matched_points2[index] - projected2[index];
         const auto chi1    = error1.dot(error1) / variance;
         const auto chi2    = error2.dot(error2) / variance;
         const auto good1   = std::isfinite(chi1) && chi1 <= 5.991f;
@@ -252,7 +252,7 @@ float TwoViewReconstruction::score_homography(const cv::Mat &homography, std::ve
     return score;
 }
 
-float TwoViewReconstruction::score_fundamental(const cv::Mat &fundamental, std::vector<bool> &inliers) const
+float two_view_reconstruction::score_fundamental(const cv::Mat &fundamental, std::vector<bool> &inliers) const
 {
     if (fundamental.rows != 3 || fundamental.cols != 3 || !cv::checkRange(fundamental))
     {
@@ -261,16 +261,16 @@ float TwoViewReconstruction::score_fundamental(const cv::Mat &fundamental, std::
 
     std::vector<cv::Vec3f> lines1;
     std::vector<cv::Vec3f> lines2;
-    cv::computeCorrespondEpilines(matched_points2_, 2, fundamental, lines1);
-    cv::computeCorrespondEpilines(matched_points1_, 1, fundamental, lines2);
+    cv::computeCorrespondEpilines(_matched_points2, 2, fundamental, lines1);
+    cv::computeCorrespondEpilines(_matched_points1, 1, fundamental, lines2);
 
     float      score    = 0;
-    const auto variance = sigma_ * sigma_;
+    const auto variance = _sigma * _sigma;
 
     for (std::size_t index = 0; index < inliers.size(); ++index)
     {
-        const auto &point1     = matched_points1_[index];
-        const auto &point2     = matched_points2_[index];
+        const auto &point1     = _matched_points1[index];
+        const auto &point2     = _matched_points2[index];
         const auto &line1      = lines1[index];
         const auto &line2      = lines2[index];
         const auto  distance1  = line1[0] * point1.x + line1[1] * point1.y + line1[2];
@@ -287,15 +287,15 @@ float TwoViewReconstruction::score_fundamental(const cv::Mat &fundamental, std::
     return score;
 }
 
-int TwoViewReconstruction::check_motion(const Eigen::Matrix3f    &rotation,
-                                        const Eigen::Vector3f    &translation,
-                                        const std::vector<bool>  &inliers,
-                                        std::vector<cv::Point3f> &points3d,
-                                        std::vector<bool>        &triangulated,
-                                        float                    &parallax) const
+int two_view_reconstruction::check_motion(const Eigen::Matrix3f    &rotation,
+                                          const Eigen::Vector3f    &translation,
+                                          const std::vector<bool>  &inliers,
+                                          std::vector<cv::Point3f> &points3d,
+                                          std::vector<bool>        &triangulated,
+                                          float                    &parallax) const
 {
-    points3d.assign(reference_size_, cv::Point3f{});
-    triangulated.assign(reference_size_, false);
+    points3d.assign(_reference_size, cv::Point3f{});
+    triangulated.assign(_reference_size, false);
     parallax = 0;
     std::vector<cv::Point2f> points1;
     std::vector<cv::Point2f> points2;
@@ -305,9 +305,9 @@ int TwoViewReconstruction::check_motion(const Eigen::Matrix3f    &rotation,
     {
         if (inliers[index])
         {
-            points1.push_back(matched_points1_[index]);
-            points2.push_back(matched_points2_[index]);
-            indices.push_back(reference_indices_[index]);
+            points1.push_back(_matched_points1[index]);
+            points2.push_back(_matched_points2[index]);
+            indices.push_back(_reference_indices[index]);
         }
     }
 
@@ -315,7 +315,7 @@ int TwoViewReconstruction::check_motion(const Eigen::Matrix3f    &rotation,
     {
         return 0;
     }
-    
+
     cv::Mat rotation_cv;
     cv::Mat translation_cv;
     cv::eigen2cv(rotation, rotation_cv);
@@ -323,11 +323,11 @@ int TwoViewReconstruction::check_motion(const Eigen::Matrix3f    &rotation,
     rotation_cv.convertTo(rotation_cv, CV_64F);
     translation_cv.convertTo(translation_cv, CV_64F);
     cv::Mat projection1 = cv::Mat::zeros(3, 4, CV_64F);
-    calibration_.copyTo(projection1.colRange(0, 3));
+    _calibration.copyTo(projection1.colRange(0, 3));
     cv::Mat extrinsic2 = cv::Mat::zeros(3, 4, CV_64F);
     rotation_cv.copyTo(extrinsic2.colRange(0, 3));
     translation_cv.copyTo(extrinsic2.col(3));
-    const cv::Mat projection2 = calibration_ * extrinsic2;
+    const cv::Mat projection2 = _calibration * extrinsic2;
     cv::Mat       homogeneous;
     cv::triangulatePoints(projection1, projection2, points1, points2, homogeneous);
     std::vector<cv::Point3f> candidate_points;
@@ -339,7 +339,7 @@ int TwoViewReconstruction::check_motion(const Eigen::Matrix3f    &rotation,
     cv::perspectiveTransform(candidate_points, projected2, projection2);
 
     const Eigen::Vector3f center2   = -rotation.transpose() * translation;
-    const auto            max_error = 4.0f * sigma_ * sigma_;
+    const auto            max_error = 4.0f * _sigma * _sigma;
     std::vector<float>    cos_parallaxes;
     for (std::size_t index = 0; index < points1.size(); ++index)
     {

@@ -50,7 +50,7 @@ add_library(ORB_SLAM3 SHARED
         source/CameraModels/KannalaBrandt8.cpp
         source/OptimizableTypes.cpp
         source/GeometricTools.cpp
-        source/TwoViewReconstruction.cpp
+        source/two_view_reconstruction.cpp
         source/Settings.cpp
         source/DUtils/Random.cpp
         source/DUtils/Timestamp.cpp)

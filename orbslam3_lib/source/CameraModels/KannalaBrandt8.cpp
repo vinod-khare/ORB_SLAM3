@@ -153,13 +153,17 @@ Eigen::Matrix<double, 2, 3> KannalaBrandt8::projectJac(const Eigen::Vector3d &v3
     return JacGood;
 }
 
-bool KannalaBrandt8::ReconstructWithTwoViews(const std::vector<cv::KeyPoint> &vKeys1, const std::vector<cv::KeyPoint> &vKeys2, const std::vector<int> &vMatches12, Sophus::SE3f &T21,
-                                             std::vector<cv::Point3f> &vP3D, std::vector<bool> &vbTriangulated)
+bool KannalaBrandt8::ReconstructWithTwoViews(const std::vector<cv::KeyPoint> &vKeys1,
+                                             const std::vector<cv::KeyPoint> &vKeys2,
+                                             const std::vector<int>          &vMatches12,
+                                             Sophus::SE3f                    &T21,
+                                             std::vector<cv::Point3f>        &vP3D,
+                                             std::vector<bool>               &vbTriangulated)
 {
     if (!tvr)
     {
         Eigen::Matrix3f K = this->toK_();
-        tvr               = new TwoViewReconstruction(K);
+        tvr               = new two_view_reconstruction(K);
     }
 
     // Correct FishEye distortion
@@ -190,7 +194,7 @@ bool KannalaBrandt8::ReconstructWithTwoViews(const std::vector<cv::KeyPoint> &vK
         vKeysUn2[i].pt = vPts2[i];
     }
 
-    return tvr->Reconstruct(vKeysUn1, vKeysUn2, vMatches12, T21, vP3D, vbTriangulated);
+    return tvr->reconstruct(vKeysUn1, vKeysUn2, vMatches12, T21, vP3D, vbTriangulated);
 }
 
 cv::Mat KannalaBrandt8::toK()
@@ -205,15 +209,21 @@ Eigen::Matrix3f KannalaBrandt8::toK_()
     return K;
 }
 
-bool KannalaBrandt8::epipolarConstrain(GeometricCamera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12,
-                                       const float sigmaLevel, const float unc)
+bool KannalaBrandt8::epipolarConstrain(
+    GeometricCamera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel, const float unc)
 {
     Eigen::Vector3f p3D;
     return this->TriangulateMatches(pCamera2, kp1, kp2, R12, t12, sigmaLevel, unc, p3D) > 0.0001f;
 }
 
-bool KannalaBrandt8::matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, GeometricCamera &pOther, Sophus::SE3f &Tcw1, Sophus::SE3f &Tcw2, const float sigmaLevel1,
-                                         const float sigmaLevel2, Eigen::Vector3f &x3Dtriangulated)
+bool KannalaBrandt8::matchAndtriangulate(const cv::KeyPoint &kp1,
+                                         const cv::KeyPoint &kp2,
+                                         GeometricCamera    &pOther,
+                                         Sophus::SE3f       &Tcw1,
+                                         Sophus::SE3f       &Tcw2,
+                                         const float         sigmaLevel1,
+                                         const float         sigmaLevel2,
+                                         Eigen::Vector3f    &x3Dtriangulated)
 {
     Eigen::Matrix<float, 3, 4> eigTcw1 = Tcw1.matrix3x4();
     Eigen::Matrix3f            Rcw1    = eigTcw1.block<3, 3>(0, 0);
@@ -299,8 +309,14 @@ bool KannalaBrandt8::matchAndtriangulate(const cv::KeyPoint &kp1, const cv::KeyP
     return true;
 }
 
-float KannalaBrandt8::TriangulateMatches(GeometricCamera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12,
-                                         const float sigmaLevel, const float unc, Eigen::Vector3f &p3D)
+float KannalaBrandt8::TriangulateMatches(GeometricCamera       &pCamera2,
+                                         const cv::KeyPoint    &kp1,
+                                         const cv::KeyPoint    &kp2,
+                                         const Eigen::Matrix3f &R12,
+                                         const Eigen::Vector3f &t12,
+                                         const float            sigmaLevel,
+                                         const float            unc,
+                                         Eigen::Vector3f       &p3D)
 {
 
     Eigen::Vector3f r1 = this->unprojectEig(kp1.pt);

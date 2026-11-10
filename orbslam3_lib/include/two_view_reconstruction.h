@@ -30,17 +30,17 @@ namespace ORB_SLAM3
 {
 
 /** OpenCV two-view geometry with SLAM-specific model and motion acceptance checks. */
-class TwoViewReconstruction
+class two_view_reconstruction
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    TwoViewReconstruction(const Eigen::Matrix3f &k, float sigma = 1.0, int iterations = 200);
+    two_view_reconstruction(const Eigen::Matrix3f &k, float sigma = 1.0, int iterations = 200);
 
     /**
      * Recover a unit-baseline pose and points indexed by the first view's keypoints.
      * @return False for insufficient, degenerate, or ambiguous geometry; outputs are unchanged on failure.
      */
-    bool Reconstruct(const std::vector<cv::KeyPoint> &keys1,
+    bool reconstruct(const std::vector<cv::KeyPoint> &keys1,
                      const std::vector<cv::KeyPoint> &keys2,
                      const std::vector<int>          &matches12,
                      Sophus::SE3f                    &pose21,
@@ -60,13 +60,14 @@ class TwoViewReconstruction
                      std::vector<bool>        &triangulated,
                      float                    &parallax) const;
 
-    cv::Mat                  calibration_;
-    float                    sigma_;
-    int                      max_iterations_;
-    std::size_t              reference_size_{};
-    std::vector<cv::Point2f> matched_points1_;
-    std::vector<cv::Point2f> matched_points2_;
-    std::vector<std::size_t> reference_indices_;
+    cv::Mat _calibration;
+    float   _sigma;
+    int     _max_iterations;
+
+    std::size_t              _reference_size{};
+    std::vector<cv::Point2f> _matched_points1;
+    std::vector<cv::Point2f> _matched_points2;
+    std::vector<std::size_t> _reference_indices;
 };
 
 } // namespace ORB_SLAM3
