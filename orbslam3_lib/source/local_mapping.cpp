@@ -787,10 +787,10 @@ void local_mapping::search_in_neighbors()
     {
         key_frame *pKFi = *vit;
 
-        matcher.Fuse(pKFi, vpMapPointMatches);
+        matcher.fuse(pKFi, vpMapPointMatches);
         if (is_fisheye_stereo(pKFi->cameras))
         {
-            matcher.Fuse(pKFi, vpMapPointMatches, true);
+            matcher.fuse(pKFi, vpMapPointMatches, true);
         }
     }
 
@@ -825,10 +825,10 @@ void local_mapping::search_in_neighbors()
         }
     }
 
-    matcher.Fuse(current_key_frame, vpFuseCandidates);
+    matcher.fuse(current_key_frame, vpFuseCandidates);
     if (is_fisheye_stereo(current_key_frame->cameras))
     {
-        matcher.Fuse(current_key_frame, vpFuseCandidates, true);
+        matcher.fuse(current_key_frame, vpFuseCandidates, true);
     }
 
     // Update points

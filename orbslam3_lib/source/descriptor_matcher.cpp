@@ -1401,7 +1401,7 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
     return nmatches;
 }
 
-int descriptor_matcher::Fuse(key_frame *pKF, const vector<map_point *> &vpMapPoints, const float th, const bool bRight)
+int descriptor_matcher::fuse(key_frame *pKF, const vector<map_point *> &vpMapPoints, const float th, const bool bRight)
 {
     auto           &selected_camera = *pKF->cameras[bRight ? 1 : 0];
     Sophus::SE3f    Tcw;
@@ -1606,7 +1606,7 @@ int descriptor_matcher::Fuse(key_frame *pKF, const vector<map_point *> &vpMapPoi
     return nFused;
 }
 
-int descriptor_matcher::Fuse(key_frame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint)
+int descriptor_matcher::fuse(key_frame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint)
 {
     // Get Calibration Parameters for later projection
     [[maybe_unused]] const float &fx = pKF->fx;

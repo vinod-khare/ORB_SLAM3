@@ -1850,7 +1850,7 @@ void loop_closing::search_and_fuse(const key_frame_and_pose &CorrectedPosesMap, 
         Sophus::Sim3f Scw    = converter::to_sophus(g2oScw);
 
         vector<map_point *>  vpReplacePoints(vpMapPoints.size(), static_cast<map_point *>(NULL));
-        [[maybe_unused]] int numFused = matcher.Fuse(pKFi, Scw, vpMapPoints, 4, vpReplacePoints);
+        [[maybe_unused]] int numFused = matcher.fuse(pKFi, Scw, vpMapPoints, 4, vpReplacePoints);
 
         // Get Map Mutex
         unique_lock<mutex> lock(pMap->map_update_mutex);
@@ -1885,7 +1885,7 @@ void loop_closing::search_and_fuse(const vector<key_frame *> &vConectedKFs, vect
         Sophus::Sim3f Scw(Tcw.unit_quaternion(), Tcw.translation());
         Scw.setScale(1.f);
         vector<map_point *> vpReplacePoints(vpMapPoints.size(), static_cast<map_point *>(NULL));
-        matcher.Fuse(pKF, Scw, vpMapPoints, 4, vpReplacePoints);
+        matcher.fuse(pKF, Scw, vpMapPoints, 4, vpReplacePoints);
 
         // Get Map Mutex
         unique_lock<mutex> lock(pMap->map_update_mutex);

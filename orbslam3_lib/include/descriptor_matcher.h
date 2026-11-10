@@ -16,12 +16,11 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DESCRIPTOR_MATCHER_H
-#define DESCRIPTOR_MATCHER_H
+#pragma once
 
-#include "key_frame.h"
 #include "descriptor_matcher_type.h"
 #include "frame.h"
+#include "key_frame.h"
 #include "map_point.h"
 #include "sophus/sim3.hpp"
 
@@ -69,12 +68,12 @@ class descriptor_matcher
 
     // Project MapPoints using a Similarity Transformation and search matches.
     // Used in Place Recognition (Loop Closing and Merging)
-    int search_by_projection(key_frame                       *pKF,
+    int search_by_projection(key_frame                      *pKF,
                              Sophus::Sim3<float>            &Scw,
                              const std::vector<map_point *> &vpPoints,
-                             const std::vector<key_frame *>  &vpPointsKFs,
+                             const std::vector<key_frame *> &vpPointsKFs,
                              std::vector<map_point *>       &vpMatched,
-                             std::vector<key_frame *>        &vpMatchedKF,
+                             std::vector<key_frame *>       &vpMatchedKF,
                              int                             th,
                              float                           distance_multiplier = 1.0);
 
@@ -94,10 +93,10 @@ class descriptor_matcher
     int search_by_sim3(key_frame *pKF1, key_frame *pKF2, std::vector<map_point *> &vpMatches12, const Sophus::Sim3f &S12, const float th);
 
     // Project MapPoints into key_frame and search for duplicated MapPoints.
-    int Fuse(key_frame *pKF, const vector<map_point *> &vpMapPoints, const float th = 3.0, const bool bRight = false);
+    int fuse(key_frame *pKF, const vector<map_point *> &vpMapPoints, const float th = 3.0, const bool bRight = false);
 
     // Project MapPoints into key_frame using a given Sim3 and search for duplicated MapPoints.
-    int Fuse(key_frame *pKF, Sophus::Sim3f &Scw, const std::vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint);
+    int fuse(key_frame *pKF, Sophus::Sim3f &Scw, const std::vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint);
 
   public:
     static const int low_distance_threshold;
@@ -114,5 +113,3 @@ class descriptor_matcher
 };
 
 } // namespace ORB_SLAM3
-
-#endif // DESCRIPTOR_MATCHER_H
