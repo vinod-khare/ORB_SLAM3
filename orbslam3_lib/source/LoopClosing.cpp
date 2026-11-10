@@ -50,7 +50,7 @@ LoopClosing::~LoopClosing() { stop_global_bundle_adjustment(); }
 
 void LoopClosing::SetTracker(Tracking *pTracker) { mpTracker = pTracker; }
 
-void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper) { mpLocalMapper = pLocalMapper; }
+void LoopClosing::SetLocalMapper(local_mapping *pLocalMapper) { mpLocalMapper = pLocalMapper; }
 
 void LoopClosing::Run()
 {
@@ -878,11 +878,11 @@ void LoopClosing::CorrectLoop()
         spdlog::info("Global bundle adjustment stopped");
     }
 
-    mpLocalMapper->RequestStop();
-    mpLocalMapper->EmptyQueue();
+    mpLocalMapper->request_stop();
+    mpLocalMapper->empty_queue();
 
     // Wait until Local Mapping has effectively stopped
-    while (!mpLocalMapper->isStopped())
+    while (!mpLocalMapper->is_stopped())
     {
         usleep(1000);
     }
@@ -1071,7 +1071,7 @@ void LoopClosing::CorrectLoop()
     }
 
     // Loop closed. Release Local Mapping.
-    mpLocalMapper->Release();
+    mpLocalMapper->release();
 
     mLastLoopKFid = mpCurrentKF->id; // TODO old varible, it is not use in the new algorithm
 }
@@ -1097,14 +1097,14 @@ void LoopClosing::MergeLocal()
         bRelaunchBA = true;
     }
 
-    mpLocalMapper->RequestStop();
+    mpLocalMapper->request_stop();
     // Wait until Local Mapping has effectively stopped
-    while (!mpLocalMapper->isStopped())
+    while (!mpLocalMapper->is_stopped())
     {
         usleep(1000);
     }
 
-    mpLocalMapper->EmptyQueue();
+    mpLocalMapper->empty_queue();
 
     // Merge map will become in the new active map with the local window of KFs and MPs from the current map.
     // Later, the elements of the current map will be transform to the new active map reference, in order to keep real time tracking
@@ -1444,7 +1444,7 @@ void LoopClosing::MergeLocal()
     }
 
     // Loop closed. Release Local Mapping.
-    mpLocalMapper->Release();
+    mpLocalMapper->release();
 
     // Update the non critical area from the current map to the merged map
     vector<key_frame *>  vpCurrentMapKFs = pCurrentMap->get_all_key_frames();
@@ -1516,9 +1516,9 @@ void LoopClosing::MergeLocal()
             }
         }
 
-        mpLocalMapper->RequestStop();
+        mpLocalMapper->request_stop();
         // Wait until Local Mapping has effectively stopped
-        while (!mpLocalMapper->isStopped())
+        while (!mpLocalMapper->is_stopped())
         {
             usleep(1000);
         }
@@ -1561,7 +1561,7 @@ void LoopClosing::MergeLocal()
         }
     }
 
-    mpLocalMapper->Release();
+    mpLocalMapper->release();
 
     if (bRelaunchBA && (!pCurrentMap->is_imu_initialized() || (pCurrentMap->key_frame_count() < 200 && mpAtlas->count_maps() == 1)))
     {
@@ -1605,9 +1605,9 @@ void LoopClosing::MergeLocal2()
         bRelaunchBA = true;
     }
 
-    mpLocalMapper->RequestStop();
+    mpLocalMapper->request_stop();
     // Wait until Local Mapping has effectively stopped
-    while (!mpLocalMapper->isStopped())
+    while (!mpLocalMapper->is_stopped())
     {
         usleep(1000);
     }
@@ -1621,7 +1621,7 @@ void LoopClosing::MergeLocal2()
 
         unique_lock<mutex> lock(mpAtlas->get_current_map()->map_update_mutex);
 
-        mpLocalMapper->EmptyQueue();
+        mpLocalMapper->empty_queue();
 
         bool bScaleVel = false;
         if (s_on != 1)
@@ -1768,7 +1768,7 @@ void LoopClosing::MergeLocal2()
     // TODO Check: If new map is too small, we suppose that not informaiton can be propagated from new to old map
     if (numKFnew < 10)
     {
-        mpLocalMapper->Release();
+        mpLocalMapper->release();
         return;
     }
 
@@ -1778,7 +1778,7 @@ void LoopClosing::MergeLocal2()
     Optimizer::MergeInertialBA(pCurrKF, mpMergeMatchedKF, &bStopFlag, pCurrentMap, CorrectedSim3);
 
     // Release Local Mapping.
-    mpLocalMapper->Release();
+    mpLocalMapper->release();
 
     return;
 }
@@ -2011,10 +2011,10 @@ void LoopClosing::RunGlobalBundleAdjustment(map *pActiveMap, unsigned long nLoop
             spdlog::debug("Global Bundle Adjustment finished");
             spdlog::debug("Updating map ...");
 
-            mpLocalMapper->RequestStop();
+            mpLocalMapper->request_stop();
             // Wait until Local Mapping has effectively stopped
 
-            while (!mpLocalMapper->isStopped() && !mpLocalMapper->isFinished())
+            while (!mpLocalMapper->is_stopped() && !mpLocalMapper->is_finished())
             {
                 usleep(1000);
             }
@@ -2116,7 +2116,7 @@ void LoopClosing::RunGlobalBundleAdjustment(map *pActiveMap, unsigned long nLoop
 
             // TODO Check this update
 
-            mpLocalMapper->Release();
+            mpLocalMapper->release();
 
             spdlog::debug("Map updated!");
         }

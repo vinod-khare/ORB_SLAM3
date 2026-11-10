@@ -18,7 +18,7 @@
 
 #include "system.h"
 
-#include "LocalMapping.h"
+#include "local_mapping.h"
 #include "LoopClosing.h"
 #include "settings.h"
 #include "Tracking.h"
@@ -114,18 +114,18 @@ system::system(const string &strVocFile, const string &strSettingsFile, const se
     _tracker = std::make_unique<Tracking>(this, _vocabulary.get(), _atlas.get(), _key_frame_database.get(), _sensor, _settings.get(), _cameras, strSequence);
 
     // Initialize the Local Mapping thread and launch
-    _local_mapper = std::make_unique<LocalMapping>(
+    _local_mapper = std::make_unique<local_mapping>(
         _statistics, this, _atlas.get(), _sensor == monocular || _sensor == imu_monocular, _sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd, strSequence);
-    _local_mapper->mInitFr      = initFr;
-    _local_mapper->mThFarPoints = _settings->far_point_threshold();
-    if (_local_mapper->mThFarPoints != 0)
+    _local_mapper->initial_frame      = initFr;
+    _local_mapper->far_point_threshold = _settings->far_point_threshold();
+    if (_local_mapper->far_point_threshold != 0)
     {
-        spdlog::info("Discarding points farther than {} m from the current camera", _local_mapper->mThFarPoints);
-        _local_mapper->mbFarPoints = true;
+        spdlog::info("Discarding points farther than {} m from the current camera", _local_mapper->far_point_threshold);
+        _local_mapper->far_points_enabled = true;
     }
     else
     {
-        _local_mapper->mbFarPoints = false;
+        _local_mapper->far_points_enabled = false;
     }
 
     // Initialize the Loop Closing thread and launch
@@ -135,15 +135,15 @@ system::system(const string &strVocFile, const string &strSettingsFile, const se
     _tracker->SetLocalMapper(_local_mapper.get());
     _tracker->SetLoopClosing(_loop_closer.get());
 
-    _local_mapper->SetTracker(_tracker.get());
-    _local_mapper->SetLoopCloser(_loop_closer.get());
+    _local_mapper->set_tracker(_tracker.get());
+    _local_mapper->set_loop_closer(_loop_closer.get());
 
     _loop_closer->SetTracker(_tracker.get());
     _loop_closer->SetLocalMapper(_local_mapper.get());
 
     try
     {
-        _local_mapping_thread = std::jthread(&LocalMapping::Run, _local_mapper.get());
+        _local_mapping_thread = std::jthread(&local_mapping::run, _local_mapper.get());
         _loop_closing_thread  = std::jthread(&LoopClosing::Run, _loop_closer.get());
     }
     catch (...)
@@ -251,10 +251,10 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
         unique_lock<mutex> lock(_mode_mutex);
         if (_localization_mode_activation_requested)
         {
-            _local_mapper->RequestStop();
+            _local_mapper->request_stop();
 
             // Wait until Local Mapping has effectively stopped
-            while (!_local_mapper->isStopped())
+            while (!_local_mapper->is_stopped())
             {
                 usleep(1000);
             }
@@ -265,7 +265,7 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
         if (_localization_mode_deactivation_requested)
         {
             _tracker->InformOnlyTracking(false);
-            _local_mapper->Release();
+            _local_mapper->release();
             _localization_mode_deactivation_requested = false;
         }
     }
@@ -329,10 +329,10 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
         unique_lock<mutex> lock(_mode_mutex);
         if (_localization_mode_activation_requested)
         {
-            _local_mapper->RequestStop();
+            _local_mapper->request_stop();
 
             // Wait until Local Mapping has effectively stopped
-            while (!_local_mapper->isStopped())
+            while (!_local_mapper->is_stopped())
             {
                 usleep(1000);
             }
@@ -343,7 +343,7 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
         if (_localization_mode_deactivation_requested)
         {
             _tracker->InformOnlyTracking(false);
-            _local_mapper->Release();
+            _local_mapper->release();
             _localization_mode_deactivation_requested = false;
         }
     }
@@ -455,10 +455,10 @@ Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp,
         unique_lock<mutex> lock(_mode_mutex);
         if (_localization_mode_activation_requested)
         {
-            _local_mapper->RequestStop();
+            _local_mapper->request_stop();
 
             // Wait until Local Mapping has effectively stopped
-            while (!_local_mapper->isStopped())
+            while (!_local_mapper->is_stopped())
             {
                 usleep(1000);
             }
@@ -469,7 +469,7 @@ Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp,
         if (_localization_mode_deactivation_requested)
         {
             _tracker->InformOnlyTracking(false);
-            _local_mapper->Release();
+            _local_mapper->release();
             _localization_mode_deactivation_requested = false;
         }
     }
@@ -557,7 +557,7 @@ void system::stop_workers()
         _loop_closing_thread.join();
     }
     _loop_closer->stop_global_bundle_adjustment();
-    _local_mapper->RequestFinish();
+    _local_mapper->request_finish();
     if (_local_mapping_thread.joinable())
     {
         _local_mapping_thread.join();
@@ -1350,57 +1350,57 @@ void system::save_trajectory_kitti(const string &filename)
 void system::save_debug_data(const int &initIdx)
 {
     // 0. Save initialization trajectory
-    save_trajectory_euroc("init_FrameTrajectoy_" + to_string(_local_mapper->mInitSect) + "_" + to_string(initIdx) + ".txt");
+    save_trajectory_euroc("init_FrameTrajectoy_" + to_string(_local_mapper->initialization_section) + "_" + to_string(initIdx) + ".txt");
 
     // 1. Save scale
     ofstream f;
-    f.open("init_Scale_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_Scale_" + to_string(_local_mapper->initialization_section) + ".txt", ios_base::app);
     f << fixed;
-    f << _local_mapper->mScale << endl;
+    f << _local_mapper->scale << endl;
     f.close();
 
     // 2. Save gravity direction
-    f.open("init_GDir_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_GDir_" + to_string(_local_mapper->initialization_section) + ".txt", ios_base::app);
     f << fixed;
-    f << _local_mapper->mRwg(0, 0) << "," << _local_mapper->mRwg(0, 1) << "," << _local_mapper->mRwg(0, 2) << endl;
-    f << _local_mapper->mRwg(1, 0) << "," << _local_mapper->mRwg(1, 1) << "," << _local_mapper->mRwg(1, 2) << endl;
-    f << _local_mapper->mRwg(2, 0) << "," << _local_mapper->mRwg(2, 1) << "," << _local_mapper->mRwg(2, 2) << endl;
+    f << _local_mapper->imu_world_rotation(0, 0) << "," << _local_mapper->imu_world_rotation(0, 1) << "," << _local_mapper->imu_world_rotation(0, 2) << endl;
+    f << _local_mapper->imu_world_rotation(1, 0) << "," << _local_mapper->imu_world_rotation(1, 1) << "," << _local_mapper->imu_world_rotation(1, 2) << endl;
+    f << _local_mapper->imu_world_rotation(2, 0) << "," << _local_mapper->imu_world_rotation(2, 1) << "," << _local_mapper->imu_world_rotation(2, 2) << endl;
     f.close();
 
     // 3. Save computational cost
-    f.open("init_CompCost_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_CompCost_" + to_string(_local_mapper->initialization_section) + ".txt", ios_base::app);
     f << fixed;
-    f << _local_mapper->mCostTime << endl;
+    f << _local_mapper->initialization_cost_time << endl;
     f.close();
 
     // 4. Save biases
-    f.open("init_Biases_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_Biases_" + to_string(_local_mapper->initialization_section) + ".txt", ios_base::app);
     f << fixed;
-    f << _local_mapper->mbg(0) << "," << _local_mapper->mbg(1) << "," << _local_mapper->mbg(2) << endl;
-    f << _local_mapper->mba(0) << "," << _local_mapper->mba(1) << "," << _local_mapper->mba(2) << endl;
+    f << _local_mapper->gyro_bias(0) << "," << _local_mapper->gyro_bias(1) << "," << _local_mapper->gyro_bias(2) << endl;
+    f << _local_mapper->accelerometer_bias(0) << "," << _local_mapper->accelerometer_bias(1) << "," << _local_mapper->accelerometer_bias(2) << endl;
     f.close();
 
     // 5. Save covariance matrix
-    f.open("init_CovMatrix_" + to_string(_local_mapper->mInitSect) + "_" + to_string(initIdx) + ".txt", ios_base::app);
+    f.open("init_CovMatrix_" + to_string(_local_mapper->initialization_section) + "_" + to_string(initIdx) + ".txt", ios_base::app);
     f << fixed;
-    for (int i = 0; i < _local_mapper->mcovInertial.rows(); i++)
+    for (int i = 0; i < _local_mapper->inertial_covariance.rows(); i++)
     {
-        for (int j = 0; j < _local_mapper->mcovInertial.cols(); j++)
+        for (int j = 0; j < _local_mapper->inertial_covariance.cols(); j++)
         {
             if (j != 0)
             {
                 f << ",";
             }
-            f << setprecision(15) << _local_mapper->mcovInertial(i, j);
+            f << setprecision(15) << _local_mapper->inertial_covariance(i, j);
         }
         f << endl;
     }
     f.close();
 
     // 6. Save initialization time
-    f.open("init_Time_" + to_string(_local_mapper->mInitSect) + ".txt", ios_base::app);
+    f.open("init_Time_" + to_string(_local_mapper->initialization_section) + ".txt", ios_base::app);
     f << fixed;
-    f << _local_mapper->mInitTime << endl;
+    f << _local_mapper->initialization_time << endl;
     f.close();
 }
 
@@ -1429,10 +1429,10 @@ vector<keypoint> system::get_tracked_keypoints_undistorted()
 
 double system::get_time_from_imu_init()
 {
-    double aux = _local_mapper->GetCurrKFTime() - _local_mapper->mFirstTs;
+    double aux = _local_mapper->get_current_key_frame_time() - _local_mapper->first_timestamp;
     if ((aux > 0.) && _atlas->is_imu_initialized())
     {
-        return _local_mapper->GetCurrKFTime() - _local_mapper->mFirstTs;
+        return _local_mapper->get_current_key_frame_time() - _local_mapper->first_timestamp;
     }
     else
     {

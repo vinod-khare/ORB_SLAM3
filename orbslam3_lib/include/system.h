@@ -46,7 +46,7 @@ class map;
 class map_point;
 class place_vocabulary;
 class Tracking;
-class LocalMapping;
+class local_mapping;
 class LoopClosing;
 class settings;
 
@@ -213,7 +213,7 @@ class system
     std::unique_ptr<Tracking> _tracker;
 
     // Local Mapper. It manages the local map and performs local bundle adjustment.
-    std::unique_ptr<LocalMapping> _local_mapper;
+    std::unique_ptr<local_mapping> _local_mapper;
 
     // Loop Closer. It searches loops with every new keyframe. If there is a loop it performs
     // a pose graph optimization and full bundle adjustment (in a new thread) afterwards.

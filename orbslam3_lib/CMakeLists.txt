@@ -31,7 +31,7 @@ add_library(ORB_SLAM3 SHARED
         source/dbow3_vocabulary.cpp
         source/system.cpp
         source/Tracking.cpp
-        source/LocalMapping.cpp
+        source/local_mapping.cpp
         source/LoopClosing.cpp
         source/keypoint_extractor.cpp
         source/descriptor_matcher.cpp

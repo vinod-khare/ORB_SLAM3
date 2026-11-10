@@ -20,7 +20,7 @@
 #define LOOPCLOSING_H
 
 #include "key_frame.h"
-#include "LocalMapping.h"
+#include "local_mapping.h"
 #include "Tracking.h"
 #include "atlas.h"
 #include "key_frame_database.h"
@@ -39,7 +39,7 @@ namespace ORB_SLAM3
 {
 
 class Tracking;
-class LocalMapping;
+class local_mapping;
 class key_frame_database;
 class map;
 
@@ -55,7 +55,7 @@ class LoopClosing
 
     void SetTracker(Tracking *pTracker);
 
-    void SetLocalMapper(LocalMapping *pLocalMapper);
+    void SetLocalMapper(local_mapping *pLocalMapper);
 
     // Main function
     void Run();
@@ -136,7 +136,7 @@ class LoopClosing
     key_frame_database *mpKeyFrameDB;
     place_vocabulary   *place_vocabulary_ptr;
 
-    LocalMapping *mpLocalMapper;
+    local_mapping *mpLocalMapper;
 
     std::list<key_frame *> mlpLoopKeyFrameQueue;
 

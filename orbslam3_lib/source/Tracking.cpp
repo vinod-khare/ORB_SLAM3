@@ -175,7 +175,7 @@ void Tracking::load_parameters(settings *settings)
     mpImuPreintegratedFromLastKF = new IMU::Preintegrated(IMU::Bias(), *mpImuCalib);
 }
 
-void Tracking::SetLocalMapper(LocalMapping *pLocalMapper) { mpLocalMapper = pLocalMapper; }
+void Tracking::SetLocalMapper(local_mapping *pLocalMapper) { mpLocalMapper = pLocalMapper; }
 
 void Tracking::SetLoopClosing(LoopClosing *pLoopClosing) { mpLoopClosing = pLoopClosing; }
 
@@ -603,7 +603,7 @@ void Tracking::Track()
         mbStep = false;
     }
 
-    if (mpLocalMapper->mbBadImu)
+    if (mpLocalMapper->bad_imu)
     {
         spdlog::warn("Resetting map because local mapper set the bad IMU flag");
         mpSystem->reset_active_map();
@@ -1207,7 +1207,7 @@ void Tracking::StereoInitialization()
 
         spdlog::info("New Map created with {} points", mpAtlas->map_points_in_map());
 
-        mpLocalMapper->InsertKeyFrame(pKFini);
+        mpLocalMapper->insert_key_frame(pKFini);
 
         mLastFrame       = frame(mCurrentFrame);
         mnLastKeyFrameId = mCurrentFrame.id;
@@ -1407,9 +1407,9 @@ void Tracking::CreateInitialMapMonocular()
         mpImuPreintegratedFromLastKF = new IMU::Preintegrated(pKFcur->imu_preintegrated->GetUpdatedBias(), pKFcur->imu_calibration);
     }
 
-    mpLocalMapper->InsertKeyFrame(pKFini);
-    mpLocalMapper->InsertKeyFrame(pKFcur);
-    mpLocalMapper->mFirstTs = pKFcur->timestamp;
+    mpLocalMapper->insert_key_frame(pKFini);
+    mpLocalMapper->insert_key_frame(pKFcur);
+    mpLocalMapper->first_timestamp = pKFcur->timestamp;
 
     mCurrentFrame.set_pose(pKFcur->get_pose());
     mnLastKeyFrameId = mCurrentFrame.id;
@@ -2122,7 +2122,7 @@ bool Tracking::TrackLocalMap()
 
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
-    mpLocalMapper->mnMatchesInliers = mnMatchesInliers;
+    mpLocalMapper->inlier_match_count = mnMatchesInliers;
     if (mCurrentFrame.flow_only && !mCurrentFrame.reliable_flow_inliers(mImGray.size()))
     {
         return false;
@@ -2196,7 +2196,7 @@ bool Tracking::NeedNewKeyFrame()
     }
 
     // If Local Mapping is freezed by a Loop Closure do not insert keyframes
-    if (mpLocalMapper->isStopped() || mpLocalMapper->stopRequested())
+    if (mpLocalMapper->is_stopped() || mpLocalMapper->stop_requested())
     {
         /*if(mSensor == system::monocular)
         {
@@ -2227,7 +2227,7 @@ bool Tracking::NeedNewKeyFrame()
     }
 
     // Local Mapping accept keyframes?
-    bool bLocalMappingIdle = mpLocalMapper->AcceptKeyFrames();
+    bool bLocalMappingIdle = mpLocalMapper->accept_key_frames();
 
     // Check how many "close" points are being tracked and how many could be potentially created.
     int nNonTrackedClose = 0;
@@ -2336,16 +2336,16 @@ bool Tracking::NeedNewKeyFrame()
     {
         // If the mapping accepts keyframes, insert keyframe.
         // Otherwise send a signal to interrupt BA
-        if (bLocalMappingIdle || mpLocalMapper->IsInitializing())
+        if (bLocalMappingIdle || mpLocalMapper->is_initializing())
         {
             return true;
         }
         else
         {
-            mpLocalMapper->InterruptBA();
+            mpLocalMapper->interrupt_bundle_adjustment();
             if (mSensor != system::monocular && mSensor != system::imu_monocular)
             {
-                if (mpLocalMapper->KeyframesInQueue() < 3)
+                if (mpLocalMapper->key_frames_in_queue() < 3)
                 {
                     return true;
                 }
@@ -2368,7 +2368,7 @@ bool Tracking::NeedNewKeyFrame()
 
 void Tracking::CreateNewKeyFrame()
 {
-    if (mpLocalMapper->IsInitializing() && !mpAtlas->is_imu_initialized())
+    if (mpLocalMapper->is_initializing() && !mpAtlas->is_imu_initialized())
     {
         return;
     }
@@ -2394,7 +2394,7 @@ void Tracking::CreateNewKeyFrame()
         }
     }
 
-    if (!mpLocalMapper->SetNotStop(true))
+    if (!mpLocalMapper->set_not_stop(true))
     {
         return;
     }
@@ -2518,9 +2518,9 @@ void Tracking::CreateNewKeyFrame()
         }
     }
 
-    mpLocalMapper->InsertKeyFrame(pKF);
+    mpLocalMapper->insert_key_frame(pKF);
 
-    mpLocalMapper->SetNotStop(false);
+    mpLocalMapper->set_not_stop(false);
 
     mnLastKeyFrameId = mCurrentFrame.id;
     mpLastKeyFrame   = pKF;
@@ -2615,7 +2615,7 @@ void Tracking::SearchLocalPoints()
             th = 15; // 15
         }
 
-        matcher.search_by_projection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->mbFarPoints, mpLocalMapper->mThFarPoints);
+        matcher.search_by_projection(mCurrentFrame, mvpLocalMapPoints, th, mpLocalMapper->far_points_enabled, mpLocalMapper->far_point_threshold);
     }
 }
 
@@ -3017,7 +3017,7 @@ void Tracking::Reset(bool bLocMap)
     if (!bLocMap)
     {
         spdlog::debug("Reseting Local Mapper...");
-        mpLocalMapper->RequestReset();
+        mpLocalMapper->request_reset();
         spdlog::debug("done");
     }
 
@@ -3079,7 +3079,7 @@ void Tracking::ResetActiveMap(bool bLocMap)
     if (!bLocMap)
     {
         spdlog::debug("Reseting Local Mapper...");
-        mpLocalMapper->RequestResetActiveMap(pMap);
+        mpLocalMapper->request_reset_active_map(pMap);
         spdlog::trace("done");
     }
 
