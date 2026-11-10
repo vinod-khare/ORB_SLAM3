@@ -1,7 +1,7 @@
-#include "Atlas.h"
 #include "MapPoint.h"
 #include "Pinhole.h"
 #include "Tracking.h"
+#include "atlas.h"
 #include "frame_drawer.h"
 #include "keypoint_extractor.h"
 #include "map_drawer.h"
@@ -20,7 +20,7 @@ namespace
 class frame_drawer_fixture : public ORB_SLAM3::frame_drawer
 {
   public:
-    frame_drawer_fixture(ORB_SLAM3::Atlas &atlas, const std::vector<cv::KeyPoint> &keys, bool right, int image_type) : frame_drawer(atlas)
+    frame_drawer_fixture(ORB_SLAM3::atlas &atlas, const std::vector<cv::KeyPoint> &keys, bool right, int image_type) : frame_drawer(atlas)
     {
         _state             = ORB_SLAM3::Tracking::OK;
         _localization_only = false;
@@ -63,7 +63,7 @@ TEST_CASE("Frame drawer renders tracked keypoint sizes and orientations in both 
     const int   image_type  = GENERATE(CV_8UC1, CV_8UC3);
     CAPTURE(right, image_scale, image_type);
 
-    ORB_SLAM3::Atlas                atlas(0);
+    ORB_SLAM3::atlas                atlas(0);
     const std::vector<cv::KeyPoint> keys{
         cv::KeyPoint(40.f, 40.f, 24.f, 0.f), cv::KeyPoint(100.f, 40.f, 32.f, 90.f), cv::KeyPoint(160.f, 40.f, 20.f, 180.f), cv::KeyPoint(40.f, 100.f, 16.f, -1.f)};
     frame_drawer_fixture drawer(atlas, keys, right, image_type);
@@ -95,7 +95,7 @@ static_assert(std::is_same_v<decltype(&ORB_SLAM3::frame_drawer::update), bool (O
 
 TEST_CASE("Off-screen map rendering survives pane resizing and navigation", "[.viewer_render]")
 {
-    ORB_SLAM3::Atlas                 atlas(0);
+    ORB_SLAM3::atlas                 atlas(0);
     const ORB_SLAM3::viewer_settings settings{0.05f, 1.f, 1.f, 2.f, 0.08f, 3.f, 0.f, -0.7f, -1.8f, 500.f, 1.f};
     ORB_SLAM3::map_drawer            drawer(atlas, settings);
     const std::array<bool, 7>        layers{true, true, true, true, false, false, false};
@@ -117,8 +117,8 @@ TEST_CASE("Off-screen map rendering survives pane resizing and navigation", "[.v
 
 TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[.viewer_render][point_color_render]")
 {
-    ORB_SLAM3::Atlas atlas(0);
-    auto            &map = *atlas.GetCurrentMap();
+    ORB_SLAM3::atlas atlas(0);
+    auto            &map = *atlas.get_current_map();
     cv::Mat          input(128, 128, CV_8UC1);
     cv::RNG          random(42);
     random.fill(input, cv::RNG::UNIFORM, 0, 256);

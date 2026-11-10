@@ -18,9 +18,9 @@
 
 #include "map_drawer.h"
 
-#include "Atlas.h"
 #include "KeyFrame.h"
 #include "MapPoint.h"
+#include "atlas.h"
 
 #include <vtkActor.h>
 #include <vtkCamera.h>
@@ -45,7 +45,7 @@
 
 namespace ORB_SLAM3
 {
-map_drawer::map_drawer(Atlas &atlas, const viewer_settings &settings) : _atlas(atlas), _settings(settings), _ground_truth(settings.ground_truth_path, settings.ground_truth_body_to_camera) {}
+map_drawer::map_drawer(atlas &atlas, const viewer_settings &settings) : _atlas(atlas), _settings(settings), _ground_truth(settings.ground_truth_path, settings.ground_truth_body_to_camera) {}
 map_drawer::~map_drawer() = default;
 
 void map_drawer::set_current_camera_pose(const Sophus::SE3f &camera_pose, unsigned long map_id)
@@ -258,7 +258,7 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
     };
     add_camera(7, camera_pose(), _settings.camera_size);
     trajectory_samples estimated_trajectory;
-    auto              *active_map = _atlas.GetCurrentMap();
+    auto              *active_map = _atlas.get_current_map();
     if (active_map)
     {
         std::set<unsigned long> optimized_keyframes;
@@ -290,7 +290,7 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
                 point_colors[group]->InsertNextTypedTuple(color.data());
             }
         }
-        for (auto *map : _atlas.GetAllMaps())
+        for (auto *map : _atlas.get_all_maps())
         {
             for (auto *keyframe : map->GetAllKeyFrames())
             {

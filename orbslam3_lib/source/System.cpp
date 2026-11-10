@@ -18,13 +18,13 @@
 
 #include "System.h"
 
-#include "Atlas.h"
 #include "Converter.h"
 #include "KeyFrameDatabase.h"
 #include "LocalMapping.h"
 #include "LoopClosing.h"
 #include "Settings.h"
 #include "Tracking.h"
+#include "atlas.h"
 #include "place_vocabulary.h"
 
 #include <cmath>
@@ -101,11 +101,11 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpKeyFrameDatabase     = std::make_unique<KeyFrameDatabase>(*mpVocabulary);
 
     spdlog::info("Initialization of Atlas from scratch");
-    mpAtlas = std::make_unique<Atlas>(0);
+    mpAtlas = std::make_unique<atlas>(0);
 
     if (mSensor == IMU_STEREO || mSensor == IMU_MONOCULAR || mSensor == IMU_RGBD)
     {
-        mpAtlas->SetInertialSensor();
+        mpAtlas->set_inertial_sensor();
     }
 
     // Initialize the Tracking thread
@@ -179,7 +179,7 @@ void System::record_frame_statistics(double preprocessing_ms, double frontend_ms
     sample.features_extracted  = !frame.flow_only;
     sample.tracking_state      = mpTracker->mState;
 
-    if (auto *map = mpAtlas->GetCurrentMap())
+    if (auto *map = mpAtlas->get_current_map())
     {
         sample.map_id           = map->GetId();
         sample.map_change_index = map->GetLastBigChangeIdx();
@@ -525,7 +525,7 @@ void System::DeactivateLocalizationMode()
 bool System::MapChanged()
 {
     static int n    = 0;
-    int        curn = mpAtlas->GetLastBigChangeIdx();
+    int        curn = mpAtlas->get_last_big_change_index();
     if (n < curn)
     {
         n = curn;
@@ -597,7 +597,7 @@ void System::SaveTrajectoryTUM(const string &filename)
         return;
     }
 
-    vector<KeyFrame *> vpKFs = mpAtlas->GetAllKeyFrames();
+    vector<KeyFrame *> vpKFs = mpAtlas->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -652,7 +652,7 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
 {
     spdlog::info("Saving keyframe trajectory to {}", filename);
 
-    vector<KeyFrame *> vpKFs = mpAtlas->GetAllKeyFrames();
+    vector<KeyFrame *> vpKFs = mpAtlas->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -684,7 +684,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
 
     spdlog::info("Saving trajectory to {}", filename);
 
-    vector<Map *> vpMaps     = mpAtlas->GetAllMaps();
+    vector<Map *> vpMaps     = mpAtlas->get_all_maps();
     size_t        numMaxKFs  = 0;
     Map          *pBiggerMap = nullptr;
     spdlog::debug("There are {} maps in the atlas", vpMaps.size());
@@ -869,7 +869,7 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
 {
     spdlog::info("Saving keyframe trajectory to {}", filename);
 
-    vector<Map *> vpMaps     = mpAtlas->GetAllMaps();
+    vector<Map *> vpMaps     = mpAtlas->get_all_maps();
     Map          *pBiggerMap = nullptr;
     size_t        numMaxKFs  = 0;
     for (Map *pMap : vpMaps)
@@ -972,7 +972,7 @@ void System::SaveCOLMAP(const string &strDir)
     spdlog::debug("📁 [SaveCOLMAP] Output directory: " + strDir);
 
     // Locate the largest map (same logic as SaveTrajectoryEuRoC)
-    vector<Map *> vpMaps     = mpAtlas->GetAllMaps();
+    vector<Map *> vpMaps     = mpAtlas->get_all_maps();
     Map          *pBiggerMap = nullptr;
     int           numMaxKFs  = 0;
     for (Map *pMap : vpMaps)
@@ -1193,7 +1193,7 @@ void System::SavePointCloudPLY(const string &filename)
         std::filesystem::create_directories(out_dir);
     }
 
-    vector<Map *> vpMapsAll = mpAtlas->GetAllMaps();
+    vector<Map *> vpMapsAll = mpAtlas->get_all_maps();
     vector<Map *> vpMaps;
     vpMaps.reserve(vpMapsAll.size());
     for (Map *pMap : vpMapsAll)
@@ -1298,7 +1298,7 @@ void System::SaveTrajectoryKITTI(const string &filename)
         return;
     }
 
-    vector<KeyFrame *> vpKFs = mpAtlas->GetAllKeyFrames();
+    vector<KeyFrame *> vpKFs = mpAtlas->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -1430,7 +1430,7 @@ vector<keypoint> System::GetTrackedKeyPointsUn()
 double System::GetTimeFromIMUInit()
 {
     double aux = mpLocalMapper->GetCurrKFTime() - mpLocalMapper->mFirstTs;
-    if ((aux > 0.) && mpAtlas->isImuInitialized())
+    if ((aux > 0.) && mpAtlas->is_imu_initialized())
     {
         return mpLocalMapper->GetCurrKFTime() - mpLocalMapper->mFirstTs;
     }
@@ -1442,7 +1442,7 @@ double System::GetTimeFromIMUInit()
 
 bool System::isLost()
 {
-    if (!mpAtlas->isImuInitialized())
+    if (!mpAtlas->is_imu_initialized())
     {
         return false;
     }
@@ -1463,7 +1463,7 @@ bool System::isFinished() { return (GetTimeFromIMUInit() > 0.1); }
 
 void System::ChangeDataset()
 {
-    if (mpAtlas->GetCurrentMap()->KeyFramesInMap() < 12)
+    if (mpAtlas->get_current_map()->KeyFramesInMap() < 12)
     {
         mpTracker->ResetActiveMap();
     }
@@ -1477,7 +1477,7 @@ void System::ChangeDataset()
 
 float System::GetImageScale() { return mpTracker->GetImageScale(); }
 
-Atlas *System::GetAtlas() const { return mpAtlas.get(); }
+atlas *System::GetAtlas() const { return mpAtlas.get(); }
 
 Tracking *System::GetTracker() const { return mpTracker.get(); }
 

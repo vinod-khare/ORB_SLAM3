@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "atlas.h"
 #include "keypoint.h"
 
 #include <atomic>
@@ -33,14 +34,13 @@
 namespace ORB_SLAM3
 {
 
-class Atlas;
 class Frame;
 class Tracking;
 
 class frame_drawer
 {
   public:
-    explicit frame_drawer(Atlas &atlas);
+    explicit frame_drawer(atlas &atlas);
 
     // Update info from the last processed frame.
     bool update(Tracking &tracker);
@@ -66,7 +66,7 @@ class frame_drawer
     std::vector<int>             _initial_matches;
     int                          _state;
 
-    Atlas &_atlas;
+    atlas &_atlas;
 
     std::mutex                                       _mutex;
     std::vector<std::pair<cv::Point2f, cv::Point2f>> _tracks;

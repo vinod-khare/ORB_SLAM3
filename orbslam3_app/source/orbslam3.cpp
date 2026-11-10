@@ -19,10 +19,10 @@
  * ORB-SLAM3. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "Atlas.h"
 #include "Converter.h"
 #include "System.h"
 #include "Tracking.h"
+#include "atlas.h"
 #include "command_line_options.h"
 #include "frame_drawer.h"
 #include "frame_prefetcher.h"
@@ -276,7 +276,7 @@ int main(int argc, char **argv)
 
                     if (tracker->mCurrentFrame.isSet() && tracker->mState == ORB_SLAM3::Tracking::OK)
                     {
-                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.GetPose(), SLAM.GetAtlas()->GetCurrentMap()->GetId());
+                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.GetPose(), SLAM.GetAtlas()->get_current_map()->GetId());
                     }
                     else
                     {

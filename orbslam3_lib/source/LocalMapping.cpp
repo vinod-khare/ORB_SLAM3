@@ -32,7 +32,7 @@
 namespace ORB_SLAM3
 {
 
-LocalMapping::LocalMapping(processing_statistics &statistics, System *pSys, Atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName)
+LocalMapping::LocalMapping(processing_statistics &statistics, System *pSys, atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName)
     : mScale(1.0), mInitSect(0), mIdxInit(0), mIdxIteration(0), mbNotBA1(true), mbNotBA2(true), _statistics(statistics), mpSystem(pSys), mbMonocular(bMonocular), mbInertial(bInertial),
       mbResetRequested(false), mbResetRequestedActiveMap(false), mbFinishRequested(false), mbFinished(true), mpAtlas(pAtlas), mbAbortBA(false), mbStopped(false), mbStopRequested(false),
       mbNotStop(false), mbAcceptKeyFrames(true), bInitializing(false), infoInertial(Eigen::MatrixXd::Zero(9, 9))
@@ -89,7 +89,7 @@ void LocalMapping::Run()
 
             if (!CheckNewKeyFrames() && !stopRequested())
             {
-                if (mpAtlas->KeyFramesInMap() > 2)
+                if (mpAtlas->key_frames_in_map() > 2)
                 {
 
                     if (mbInertial && mpCurrentKeyFrame->GetMap()->isImuInitialized())
@@ -190,8 +190,8 @@ void LocalMapping::Run()
                         }
 
                         // scale refinement
-                        if (((mpAtlas->KeyFramesInMap()) <= 200) && ((mTinit > 25.0f && mTinit < 25.5f) || (mTinit > 35.0f && mTinit < 35.5f) || (mTinit > 45.0f && mTinit < 45.5f) ||
-                                                                     (mTinit > 55.0f && mTinit < 55.5f) || (mTinit > 65.0f && mTinit < 65.5f) || (mTinit > 75.0f && mTinit < 75.5f)))
+                        if (((mpAtlas->key_frames_in_map()) <= 200) && ((mTinit > 25.0f && mTinit < 25.5f) || (mTinit > 35.0f && mTinit < 35.5f) || (mTinit > 45.0f && mTinit < 45.5f) ||
+                                                                        (mTinit > 55.0f && mTinit < 55.5f) || (mTinit > 65.0f && mTinit < 65.5f) || (mTinit > 75.0f && mTinit < 75.5f)))
                         {
                             if (mbMonocular)
                             {
@@ -285,7 +285,7 @@ void LocalMapping::ProcessNewKeyFrame()
     mpCurrentKeyFrame->UpdateConnections();
 
     // Insert Keyframe in Map
-    mpAtlas->AddKeyFrame(mpCurrentKeyFrame);
+    mpAtlas->add_key_frame(mpCurrentKeyFrame);
 }
 
 void LocalMapping::EmptyQueue()
@@ -696,7 +696,7 @@ void LocalMapping::CreateNewMapPoints()
             }
 
             // Triangulation is succesfull
-            MapPoint *pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
+            MapPoint *pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->get_current_map());
             if (bPointStereo)
             {
                 countStereo++;
@@ -712,7 +712,7 @@ void LocalMapping::CreateNewMapPoints()
 
             pMP->UpdateNormalAndDepth();
 
-            mpAtlas->AddMapPoint(pMP);
+            mpAtlas->add_map_point(pMP);
             mlpRecentAddedMapPoints.push_back(pMP);
         }
     }
@@ -951,7 +951,7 @@ void LocalMapping::KeyFrameCulling()
         redundant_th = 0.5;
     }
 
-    const bool bInitImu = mpAtlas->isImuInitialized();
+    const bool bInitImu = mpAtlas->is_imu_initialized();
     int        count    = 0;
 
     // Compoute last KF from optimizable window:
@@ -1055,7 +1055,7 @@ void LocalMapping::KeyFrameCulling()
         {
             if (mbInertial)
             {
-                if (mpAtlas->KeyFramesInMap() <= Nd)
+                if (mpAtlas->key_frames_in_map() <= Nd)
                 {
                     continue;
                 }
@@ -1244,7 +1244,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
         nMinKF  = 10;
     }
 
-    if (mpAtlas->KeyFramesInMap() < nMinKF)
+    if (mpAtlas->key_frames_in_map() < nMinKF)
     {
         return;
     }
@@ -1328,7 +1328,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
 
     mInitTime = mpTracker->mLastFrame.mTimeStamp - vpKF.front()->mTimeStamp;
 
-    Optimizer::InertialOptimization(mpAtlas->GetCurrentMap(), mRwg, mScale, mbg, mba, mbMonocular, infoInertial, false, false, priorG, priorA);
+    Optimizer::InertialOptimization(mpAtlas->get_current_map(), mRwg, mScale, mbg, mba, mbMonocular, infoInertial, false, false, priorG, priorA);
 
     if (mScale < 1e-1)
     {
@@ -1339,16 +1339,16 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
 
     // Before this line we are not changing the map
     {
-        unique_lock<mutex> lock(mpAtlas->GetCurrentMap()->mMutexMapUpdate);
+        unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
         if ((fabs(mScale - 1.f) > 0.00001) || !mbMonocular)
         {
             Sophus::SE3f Twg(mRwg.cast<float>().transpose(), Eigen::Vector3f::Zero());
-            mpAtlas->GetCurrentMap()->ApplyScaledRotation(Twg, mScale, true);
+            mpAtlas->get_current_map()->ApplyScaledRotation(Twg, mScale, true);
             mpTracker->UpdateFrameIMU(mScale, vpKF[0]->GetImuBias(), mpCurrentKeyFrame);
         }
 
         // Check if initialization OK
-        if (!mpAtlas->isImuInitialized())
+        if (!mpAtlas->is_imu_initialized())
         {
             for (int i = 0; i < N; i++)
             {
@@ -1359,9 +1359,9 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     }
 
     mpTracker->UpdateFrameIMU(1.0, vpKF[0]->GetImuBias(), mpCurrentKeyFrame);
-    if (!mpAtlas->isImuInitialized())
+    if (!mpAtlas->is_imu_initialized())
     {
-        mpAtlas->SetImuInitialized();
+        mpAtlas->set_imu_initialized();
         mpTracker->t0IMU        = mpTracker->mCurrentFrame.mTimeStamp;
         mpCurrentKeyFrame->bImu = true;
     }
@@ -1370,18 +1370,18 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     {
         if (priorA != 0.f)
         {
-            Optimizer::FullInertialBA(mpAtlas->GetCurrentMap(), 100, false, mpCurrentKeyFrame->mnId, NULL, true, priorG, priorA);
+            Optimizer::FullInertialBA(mpAtlas->get_current_map(), 100, false, mpCurrentKeyFrame->mnId, NULL, true, priorG, priorA);
         }
         else
         {
-            Optimizer::FullInertialBA(mpAtlas->GetCurrentMap(), 100, false, mpCurrentKeyFrame->mnId, NULL, false);
+            Optimizer::FullInertialBA(mpAtlas->get_current_map(), 100, false, mpCurrentKeyFrame->mnId, NULL, false);
         }
     }
 
     spdlog::debug("Global Bundle Adjustment finished\nUpdating map ...");
 
     // Get Map Mutex
-    unique_lock<mutex> lock(mpAtlas->GetCurrentMap()->mMutexMapUpdate);
+    unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
 
     unsigned long GBAid = mpCurrentKeyFrame->mnId;
 
@@ -1394,7 +1394,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     }
 
     // Correct keyframes starting at map first keyframe
-    list<KeyFrame *> lpKFtoCheck(mpAtlas->GetCurrentMap()->mvpKeyFrameOrigins.begin(), mpAtlas->GetCurrentMap()->mvpKeyFrameOrigins.end());
+    list<KeyFrame *> lpKFtoCheck(mpAtlas->get_current_map()->mvpKeyFrameOrigins.begin(), mpAtlas->get_current_map()->mvpKeyFrameOrigins.end());
 
     while (!lpKFtoCheck.empty())
     {
@@ -1448,7 +1448,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     }
 
     // Correct MapPoints
-    const vector<MapPoint *> vpMPs = mpAtlas->GetCurrentMap()->GetAllMapPoints();
+    const vector<MapPoint *> vpMPs = mpAtlas->get_current_map()->GetAllMapPoints();
 
     for (size_t i = 0; i < vpMPs.size(); i++)
     {
@@ -1532,7 +1532,7 @@ void LocalMapping::ScaleRefinement()
     mRwg   = Eigen::Matrix3d::Identity();
     mScale = 1.0;
 
-    Optimizer::InertialOptimization(mpAtlas->GetCurrentMap(), mRwg, mScale);
+    Optimizer::InertialOptimization(mpAtlas->get_current_map(), mRwg, mScale);
 
     if (mScale < 1e-1) // 1e-1
     {
@@ -1543,11 +1543,11 @@ void LocalMapping::ScaleRefinement()
 
     Sophus::SO3d so3wg(mRwg);
     // Before this line we are not changing the map
-    unique_lock<mutex> lock(mpAtlas->GetCurrentMap()->mMutexMapUpdate);
+    unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
     if ((fabs(mScale - 1.f) > 0.002) || !mbMonocular)
     {
         Sophus::SE3f Tgw(mRwg.cast<float>().transpose(), Eigen::Vector3f::Zero());
-        mpAtlas->GetCurrentMap()->ApplyScaledRotation(Tgw, mScale, true);
+        mpAtlas->get_current_map()->ApplyScaledRotation(Tgw, mScale, true);
         mpTracker->UpdateFrameIMU(mScale, mpCurrentKeyFrame->GetImuBias(), mpCurrentKeyFrame);
     }
 

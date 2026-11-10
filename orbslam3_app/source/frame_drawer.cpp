@@ -18,9 +18,9 @@
 
 #include "frame_drawer.h"
 
-#include "Atlas.h"
 #include "MapPoint.h"
 #include "Tracking.h"
+#include "atlas.h"
 
 #include <iomanip>
 #include <mutex>
@@ -31,7 +31,7 @@
 namespace ORB_SLAM3
 {
 
-frame_drawer::frame_drawer(Atlas &atlas) : _both(false), _atlas(atlas)
+frame_drawer::frame_drawer(atlas &atlas) : _both(false), _atlas(atlas)
 {
     auto initial_frame               = std::make_shared<Frame>();
     initial_frame->color_image       = cv::Mat(480, 640, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -286,9 +286,9 @@ void frame_drawer::draw_text_info(cv::Mat &image, int state, cv::Mat &image_with
         {
             s << "LOCALIZATION | ";
         }
-        int nMaps = _atlas.CountMaps();
-        int nKFs  = _atlas.KeyFramesInMap();
-        int nMPs  = _atlas.MapPointsInMap();
+        int nMaps = _atlas.count_maps();
+        int nKFs  = _atlas.key_frames_in_map();
+        int nMPs  = _atlas.map_points_in_map();
         s << "Maps: " << nMaps << ", KFs: " << nKFs << ", MPs: " << nMPs << ", Matches: " << _tracked_count;
         if (_tracked_odometry_count > 0)
         {

@@ -19,12 +19,12 @@
 #ifndef LOCALMAPPING_H
 #define LOCALMAPPING_H
 
-#include "Atlas.h"
 #include "KeyFrame.h"
 #include "KeyFrameDatabase.h"
 #include "LoopClosing.h"
 #include "Settings.h"
 #include "Tracking.h"
+#include "atlas.h"
 #include "processing_statistics.h"
 
 #include <mutex>
@@ -35,13 +35,12 @@ namespace ORB_SLAM3
 class System;
 class Tracking;
 class LoopClosing;
-class Atlas;
 
 class LocalMapping
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    LocalMapping(processing_statistics &statistics, System *pSys, Atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName = std::string());
+    LocalMapping(processing_statistics &statistics, System *pSys, atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName = std::string());
 
     void SetLoopCloser(LoopClosing *pLoopCloser);
 
@@ -139,7 +138,7 @@ class LocalMapping
     bool       mbFinished;
     std::mutex mMutexFinish;
 
-    Atlas *mpAtlas;
+    atlas *mpAtlas;
 
     LoopClosing *mpLoopCloser;
     Tracking    *mpTracker;

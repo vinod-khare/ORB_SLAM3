@@ -21,6 +21,7 @@
 
 #include "CameraModels/GeometricCamera.h"
 #include "ImuTypes.h"
+#include "atlas.h"
 #include "feature_overrides.h"
 #include "keypoint.h"
 #include "processing_statistics.h"
@@ -40,7 +41,6 @@ namespace ORB_SLAM3
 using std::string;
 using std::vector;
 
-class Atlas;
 class KeyFrameDatabase;
 class Map;
 class MapPoint;
@@ -67,8 +67,12 @@ class System
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // Initialize the SLAM system. It launches the Local Mapping and Loop Closing threads.
-    System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const int initFr = 0, const string &strSequence = std::string(),
-           const feature_overrides &overrides = {});
+    System(const string            &strVocFile,
+           const string            &strSettingsFile,
+           const eSensor            sensor,
+           const int                initFr      = 0,
+           const string            &strSequence = std::string(),
+           const feature_overrides &overrides   = {});
     ~System();
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
@@ -170,7 +174,7 @@ class System
     void ChangeDataset();
 
     float                GetImageScale();
-    Atlas               *GetAtlas() const;
+    atlas               *GetAtlas() const;
     Tracking            *GetTracker() const;
     float                GetCameraFrameRate() const;
     const camera_vector &cameras() const { return _cameras; }
@@ -201,7 +205,7 @@ class System
 
     // Map structure that stores the pointers to all KeyFrames and MapPoints.
     // Map* mpMap;
-    std::unique_ptr<Atlas> mpAtlas;
+    std::unique_ptr<atlas> mpAtlas;
 
     // Tracker. It receives a frame and computes the associated camera pose.
     // It also decides when to insert a new keyframe, create some new MapPoints and

@@ -34,7 +34,7 @@
 namespace ORB_SLAM3
 {
 
-LoopClosing::LoopClosing(processing_statistics &statistics, Atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC)
+LoopClosing::LoopClosing(processing_statistics &statistics, atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC)
     : _statistics(statistics), mbResetRequested(false), mbResetActiveMapRequested(false), mbFinishRequested(false), mbFinished(true), mpAtlas(pAtlas), mpKeyFrameDB(pDB),
       place_vocabulary_ptr(pVoc), mpMatchedKF(NULL), mbLoopDetected(false), mnLoopNumCoincidences(0), mnLoopNumNotFound(0), mbMergeDetected(false), mnMergeNumCoincidences(0),
       mnMergeNumNotFound(0), mLastLoopKFid(0), mbRunningGBA(false), mbFinishedGBA(true), mbStopGBA(false), mbFixScale(bFixScale), mnFullBAIdx(0), mbActiveLC(bActiveLC)
@@ -985,7 +985,7 @@ void LoopClosing::CorrectLoop()
             pKFi->UpdateConnections();
         }
         // TODO Check this index increasement
-        mpAtlas->GetCurrentMap()->IncreaseChangeIndex();
+        mpAtlas->get_current_map()->IncreaseChangeIndex();
 
         // Start Loop Fusion
         // Update matched map points and replace if duplicated
@@ -1052,14 +1052,14 @@ void LoopClosing::CorrectLoop()
         Optimizer::OptimizeEssentialGraph(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections, bFixedScale);
     }
 
-    mpAtlas->InformNewBigChange();
+    mpAtlas->inform_new_big_change();
 
     // Add loop edge
     mpLoopMatchedKF->AddLoopEdge(mpCurrentKF);
     mpCurrentKF->AddLoopEdge(mpLoopMatchedKF);
 
     // Launch a new thread to perform Global Bundle Adjustment (Only if few keyframes, if not it would take too much time)
-    if (!pLoopMap->isImuInitialized() || (pLoopMap->KeyFramesInMap() < 200 && mpAtlas->CountMaps() == 1))
+    if (!pLoopMap->isImuInitialized() || (pLoopMap->KeyFramesInMap() < 200 && mpAtlas->count_maps() == 1))
     {
         stop_global_bundle_adjustment();
         mbRunningGBA    = true;
@@ -1375,8 +1375,8 @@ void LoopClosing::MergeLocal()
             pCurrentMap->EraseMapPoint(pMPi);
         }
 
-        mpAtlas->ChangeMap(pMergeMap);
-        mpAtlas->SetMapBad(pCurrentMap);
+        mpAtlas->change_map(pMergeMap);
+        mpAtlas->set_map_bad(pCurrentMap);
         pMergeMap->IncreaseChangeIndex();
         // TODO for debug
         pMergeMap->ChangeId(pCurrentMap->GetId());
@@ -1563,7 +1563,7 @@ void LoopClosing::MergeLocal()
 
     mpLocalMapper->Release();
 
-    if (bRelaunchBA && (!pCurrentMap->isImuInitialized() || (pCurrentMap->KeyFramesInMap() < 200 && mpAtlas->CountMaps() == 1)))
+    if (bRelaunchBA && (!pCurrentMap->isImuInitialized() || (pCurrentMap->KeyFramesInMap() < 200 && mpAtlas->count_maps() == 1)))
     {
         // Launch a new thread to perform Global Bundle Adjustment
         stop_global_bundle_adjustment();
@@ -1619,7 +1619,7 @@ void LoopClosing::MergeLocal2()
         float        s_on = mSold_new.scale();
         Sophus::SE3f T_on(mSold_new.rotation().cast<float>(), mSold_new.translation().cast<float>());
 
-        unique_lock<mutex> lock(mpAtlas->GetCurrentMap()->mMutexMapUpdate);
+        unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
 
         mpLocalMapper->EmptyQueue();
 
@@ -1628,7 +1628,7 @@ void LoopClosing::MergeLocal2()
         {
             bScaleVel = true;
         }
-        mpAtlas->GetCurrentMap()->ApplyScaledRotation(T_on, s_on, bScaleVel);
+        mpAtlas->get_current_map()->ApplyScaledRotation(T_on, s_on, bScaleVel);
         mpTracker->UpdateFrameIMU(s_on, mpCurrentKF->GetImuBias(), mpTracker->GetLastKeyFrame());
     }
 
@@ -1642,7 +1642,7 @@ void LoopClosing::MergeLocal2()
         ba << 0., 0., 0.;
         Optimizer::InertialOptimization(pCurrentMap, bg, ba);
         IMU::Bias          b(ba[0], ba[1], ba[2], bg[0], bg[1], bg[2]);
-        unique_lock<mutex> lock(mpAtlas->GetCurrentMap()->mMutexMapUpdate);
+        unique_lock<mutex> lock(mpAtlas->get_current_map()->mMutexMapUpdate);
         mpTracker->UpdateFrameIMU(1.0f, b, mpTracker->GetLastKeyFrame());
 
         // Set map initialized
@@ -1967,7 +1967,7 @@ void LoopClosing::ResetIfRequested()
             }
         }
 
-        mLastLoopKFid             = mpAtlas->GetLastInitKFid(); // TODO old variable, it is not use in the new algorithm
+        mLastLoopKFid             = mpAtlas->get_last_init_kf_id(); // TODO old variable, it is not use in the new algorithm
         mbResetActiveMapRequested = false;
     }
 }

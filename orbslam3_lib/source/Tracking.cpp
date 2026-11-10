@@ -42,7 +42,7 @@ using namespace std;
 namespace ORB_SLAM3
 {
 
-Tracking::Tracking(System *pSys, place_vocabulary *pVoc, Atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings, const camera_vector &cameras, const string &_nameSeq)
+Tracking::Tracking(System *pSys, place_vocabulary *pVoc, atlas *pAtlas, KeyFrameDatabase *pKFDB, const int sensor, Settings *settings, const camera_vector &cameras, const string &_nameSeq)
     : mState(NO_IMAGES_YET), mSensor(sensor), mTrackedFr(0), mbStep(false), mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), place_vocabulary_ptr(pVoc), mpKeyFrameDB(pKFDB),
       mbReadyToInitializate(false), mpSystem(pSys), bStepByStep(false), mpAtlas(pAtlas), mpLastKeyFrame(nullptr), mnLastRelocFrameId(0), time_recently_lost(5.0), mnFirstFrameId(0),
       mnInitialFrameId(0), mbCreatedMap(false), cameras(cameras)
@@ -610,7 +610,7 @@ void Tracking::Track()
         return;
     }
 
-    Map *pCurrentMap = mpAtlas->GetCurrentMap();
+    Map *pCurrentMap = mpAtlas->get_current_map();
     if (!pCurrentMap)
     {
         spdlog::error("There is no active map in the Atlas");
@@ -628,10 +628,10 @@ void Tracking::Track()
         }
         else if (mCurrentFrame.mTimeStamp > mLastFrame.mTimeStamp + 1.0)
         {
-            if (mpAtlas->isInertial())
+            if (mpAtlas->is_inertial())
             {
 
-                if (mpAtlas->isImuInitialized())
+                if (mpAtlas->is_imu_initialized())
                 {
                     spdlog::warn("Timestamp jump detected; setting state to LOST and resetting IMU integration");
                     if (!pCurrentMap->GetIniertialBA2())
@@ -701,7 +701,7 @@ void Tracking::Track()
             return;
         }
 
-        if (mpAtlas->GetAllMaps().size() == 1)
+        if (mpAtlas->get_all_maps().size() == 1)
         {
             mnFirstFrameId = mCurrentFrame.mnId;
         }
@@ -1152,10 +1152,10 @@ void Tracking::StereoInitialization()
         }
 
         // Create KeyFrame
-        KeyFrame *pKFini = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, cameras);
+        KeyFrame *pKFini = new KeyFrame(mCurrentFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
 
         // Insert KeyFrame in the map
-        mpAtlas->AddKeyFrame(pKFini);
+        mpAtlas->add_key_frame(pKFini);
 
         // Create MapPoints and asscoiate to KeyFrame
         if (!is_fisheye_stereo(cameras))
@@ -1167,12 +1167,12 @@ void Tracking::StereoInitialization()
                 {
                     Eigen::Vector3f x3D;
                     mCurrentFrame.UnprojectStereo(i, x3D);
-                    MapPoint *pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
+                    MapPoint *pNewMP = new MapPoint(x3D, pKFini, mpAtlas->get_current_map());
                     pNewMP->AddObservation(pKFini, i);
                     pKFini->AddMapPoint(pNewMP, i);
                     pNewMP->ComputeDistinctiveDescriptors();
                     pNewMP->UpdateNormalAndDepth();
-                    mpAtlas->AddMapPoint(pNewMP);
+                    mpAtlas->add_map_point(pNewMP);
 
                     mCurrentFrame.mvpMapPoints[i] = pNewMP;
                 }
@@ -1187,7 +1187,7 @@ void Tracking::StereoInitialization()
                 {
                     Eigen::Vector3f x3D = mCurrentFrame.mvStereo3Dpoints[i];
 
-                    MapPoint *pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
+                    MapPoint *pNewMP = new MapPoint(x3D, pKFini, mpAtlas->get_current_map());
 
                     pNewMP->AddObservation(pKFini, i);
                     pNewMP->AddObservation(pKFini, rightIndex + static_cast<int>(mCurrentFrame.mvKeys.size()));
@@ -1197,7 +1197,7 @@ void Tracking::StereoInitialization()
 
                     pNewMP->ComputeDistinctiveDescriptors();
                     pNewMP->UpdateNormalAndDepth();
-                    mpAtlas->AddMapPoint(pNewMP);
+                    mpAtlas->add_map_point(pNewMP);
 
                     mCurrentFrame.mvpMapPoints[i]                                                          = pNewMP;
                     mCurrentFrame.mvpMapPoints[rightIndex + static_cast<int>(mCurrentFrame.mvKeys.size())] = pNewMP;
@@ -1205,7 +1205,7 @@ void Tracking::StereoInitialization()
             }
         }
 
-        spdlog::info("New Map created with {} points", mpAtlas->MapPointsInMap());
+        spdlog::info("New Map created with {} points", mpAtlas->map_points_in_map());
 
         mpLocalMapper->InsertKeyFrame(pKFini);
 
@@ -1214,13 +1214,13 @@ void Tracking::StereoInitialization()
         mpLastKeyFrame   = pKFini;
 
         mvpLocalKeyFrames.push_back(pKFini);
-        mvpLocalMapPoints           = mpAtlas->GetAllMapPoints();
+        mvpLocalMapPoints           = mpAtlas->get_all_map_points();
         mpReferenceKF               = pKFini;
         mCurrentFrame.mpReferenceKF = pKFini;
 
-        mpAtlas->SetReferenceMapPoints(mvpLocalMapPoints);
+        mpAtlas->set_reference_map_points(mvpLocalMapPoints);
 
-        mpAtlas->GetCurrentMap()->mvpKeyFrameOrigins.push_back(pKFini);
+        mpAtlas->get_current_map()->mvpKeyFrameOrigins.push_back(pKFini);
 
         mState = OK;
     }
@@ -1308,8 +1308,8 @@ void Tracking::MonocularInitialization()
 void Tracking::CreateInitialMapMonocular()
 {
     // Create KeyFrames
-    KeyFrame *pKFini = new KeyFrame(mInitialFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, cameras);
-    KeyFrame *pKFcur = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, cameras);
+    KeyFrame *pKFini = new KeyFrame(mInitialFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
+    KeyFrame *pKFcur = new KeyFrame(mCurrentFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
 
     if (mSensor == System::IMU_MONOCULAR)
     {
@@ -1320,8 +1320,8 @@ void Tracking::CreateInitialMapMonocular()
     pKFcur->ComputeBoW();
 
     // Insert KFs in the map
-    mpAtlas->AddKeyFrame(pKFini);
-    mpAtlas->AddKeyFrame(pKFcur);
+    mpAtlas->add_key_frame(pKFini);
+    mpAtlas->add_key_frame(pKFcur);
 
     for (size_t i = 0; i < mvIniMatches.size(); i++)
     {
@@ -1333,7 +1333,7 @@ void Tracking::CreateInitialMapMonocular()
         // Create MapPoint.
         Eigen::Vector3f worldPos;
         worldPos << mvIniP3D[i].x, mvIniP3D[i].y, mvIniP3D[i].z;
-        MapPoint *pMP = new MapPoint(worldPos, pKFcur, mpAtlas->GetCurrentMap());
+        MapPoint *pMP = new MapPoint(worldPos, pKFcur, mpAtlas->get_current_map());
 
         pKFini->AddMapPoint(pMP, i);
         pKFcur->AddMapPoint(pMP, mvIniMatches[i]);
@@ -1349,7 +1349,7 @@ void Tracking::CreateInitialMapMonocular()
         mCurrentFrame.mvbOutlier[mvIniMatches[i]]   = false;
 
         // Add to Map
-        mpAtlas->AddMapPoint(pMP);
+        mpAtlas->add_map_point(pMP);
     }
 
     // Update Connections
@@ -1360,8 +1360,8 @@ void Tracking::CreateInitialMapMonocular()
     sMPs = pKFini->GetMapPoints();
 
     // Bundle Adjustment
-    spdlog::info("New Map created with {} points", mpAtlas->MapPointsInMap());
-    Optimizer::GlobalBundleAdjustemnt(mpAtlas->GetCurrentMap(), 20);
+    spdlog::info("New Map created with {} points", mpAtlas->map_points_in_map());
+    Optimizer::GlobalBundleAdjustemnt(mpAtlas->get_current_map(), 20);
 
     float medianDepth = pKFini->ComputeSceneMedianDepth(2);
     float invMedianDepth;
@@ -1417,12 +1417,12 @@ void Tracking::CreateInitialMapMonocular()
 
     mvpLocalKeyFrames.push_back(pKFcur);
     mvpLocalKeyFrames.push_back(pKFini);
-    mvpLocalMapPoints           = mpAtlas->GetAllMapPoints();
+    mvpLocalMapPoints           = mpAtlas->get_all_map_points();
     mpReferenceKF               = pKFcur;
     mCurrentFrame.mpReferenceKF = pKFcur;
 
     // Compute here initial velocity
-    vector<KeyFrame *> vKFs = mpAtlas->GetAllKeyFrames();
+    vector<KeyFrame *> vKFs = mpAtlas->get_all_key_frames();
 
     Sophus::SE3f deltaT = vKFs.back()->GetPose() * vKFs.front()->GetPoseInverse();
     mbVelocity          = false;
@@ -1433,9 +1433,9 @@ void Tracking::CreateInitialMapMonocular()
 
     mLastFrame = Frame(mCurrentFrame);
 
-    mpAtlas->SetReferenceMapPoints(mvpLocalMapPoints);
+    mpAtlas->set_reference_map_points(mvpLocalMapPoints);
 
-    mpAtlas->GetCurrentMap()->mvpKeyFrameOrigins.push_back(pKFini);
+    mpAtlas->get_current_map()->mvpKeyFrameOrigins.push_back(pKFini);
 
     mState = OK;
 
@@ -1445,10 +1445,10 @@ void Tracking::CreateInitialMapMonocular()
 void Tracking::CreateMapInAtlas()
 {
     mnLastInitFrameId = mCurrentFrame.mnId;
-    mpAtlas->CreateNewMap();
+    mpAtlas->create_new_map();
     if (mSensor == System::IMU_STEREO || mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_RGBD)
     {
-        mpAtlas->SetInertialSensor();
+        mpAtlas->set_inertial_sensor();
     }
     mbSetInit = false;
 
@@ -1635,7 +1635,7 @@ void Tracking::UpdateLastFrame()
                 x3D = mLastFrame.UnprojectStereoFishEye(i);
             }
 
-            MapPoint *pNewMP           = new MapPoint(x3D, mpAtlas->GetCurrentMap(), &mLastFrame, i);
+            MapPoint *pNewMP           = new MapPoint(x3D, mpAtlas->get_current_map(), &mLastFrame, i);
             mLastFrame.mvpMapPoints[i] = pNewMP;
 
             mlpTemporalPoints.push_back(pNewMP);
@@ -1661,7 +1661,7 @@ bool Tracking::TrackWithMotionModel()
     // Create "visual odometry" points if in Localization Mode
     UpdateLastFrame();
 
-    const bool imu_prediction = mpAtlas->isImuInitialized() && (mCurrentFrame.mnId > mnLastRelocFrameId + mnFramesToResetIMU);
+    const bool imu_prediction = mpAtlas->is_imu_initialized() && (mCurrentFrame.mnId > mnLastRelocFrameId + mnFramesToResetIMU);
 
     if (imu_prediction)
     {
@@ -2048,7 +2048,7 @@ bool Tracking::TrackLocalMap()
         }
     }
 
-    if (!mpAtlas->isImuInitialized())
+    if (!mpAtlas->is_imu_initialized())
     {
         Optimizer::PoseOptimization(&mCurrentFrame, cameras);
     }
@@ -2138,7 +2138,7 @@ bool Tracking::TrackLocalMap()
 
     if (mSensor == System::IMU_MONOCULAR)
     {
-        if ((mnMatchesInliers < 15 && mpAtlas->isImuInitialized()) || (mnMatchesInliers < 50 && !mpAtlas->isImuInitialized()))
+        if ((mnMatchesInliers < 15 && mpAtlas->is_imu_initialized()) || (mnMatchesInliers < 50 && !mpAtlas->is_imu_initialized()))
         {
             return false;
         }
@@ -2173,7 +2173,7 @@ bool Tracking::TrackLocalMap()
 
 bool Tracking::NeedNewKeyFrame()
 {
-    if ((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && !mpAtlas->GetCurrentMap()->isImuInitialized())
+    if ((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && !mpAtlas->get_current_map()->isImuInitialized())
     {
         if (mSensor == System::IMU_MONOCULAR && (mCurrentFrame.mTimeStamp - mpLastKeyFrame->mTimeStamp) >= 0.25)
         {
@@ -2204,7 +2204,7 @@ bool Tracking::NeedNewKeyFrame()
         return false;
     }
 
-    const int nKFs = mpAtlas->KeyFramesInMap();
+    const int nKFs = mpAtlas->key_frames_in_map();
 
     // Do not insert keyframes if not enough frames have passed from last relocalisation
     if (mCurrentFrame.mnId < mnLastRelocFrameId + mMaxFrames && nKFs > mMaxFrames)
@@ -2367,7 +2367,7 @@ bool Tracking::NeedNewKeyFrame()
 
 void Tracking::CreateNewKeyFrame()
 {
-    if (mpLocalMapper->IsInitializing() && !mpAtlas->isImuInitialized())
+    if (mpLocalMapper->IsInitializing() && !mpAtlas->is_imu_initialized())
     {
         return;
     }
@@ -2398,9 +2398,9 @@ void Tracking::CreateNewKeyFrame()
         return;
     }
 
-    KeyFrame *pKF = new KeyFrame(mCurrentFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB, cameras);
+    KeyFrame *pKF = new KeyFrame(mCurrentFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
 
-    if (mpAtlas->isImuInitialized())
+    if (mpAtlas->is_imu_initialized())
     {
         pKF->bImu = true;
     }
@@ -2484,7 +2484,7 @@ void Tracking::CreateNewKeyFrame()
                         x3D = mCurrentFrame.UnprojectStereoFishEye(i);
                     }
 
-                    MapPoint *pNewMP = new MapPoint(x3D, pKF, mpAtlas->GetCurrentMap());
+                    MapPoint *pNewMP = new MapPoint(x3D, pKF, mpAtlas->get_current_map());
                     pNewMP->AddObservation(pKF, i);
 
                     // Check if it is a stereo observation in order to not
@@ -2499,7 +2499,7 @@ void Tracking::CreateNewKeyFrame()
                     pKF->AddMapPoint(pNewMP, i);
                     pNewMP->ComputeDistinctiveDescriptors();
                     pNewMP->UpdateNormalAndDepth();
-                    mpAtlas->AddMapPoint(pNewMP);
+                    mpAtlas->add_map_point(pNewMP);
 
                     mCurrentFrame.mvpMapPoints[i] = pNewMP;
                     nPoints++;
@@ -2587,9 +2587,9 @@ void Tracking::SearchLocalPoints()
         {
             th = 3;
         }
-        if (mpAtlas->isImuInitialized())
+        if (mpAtlas->is_imu_initialized())
         {
-            if (mpAtlas->GetCurrentMap()->GetIniertialBA2())
+            if (mpAtlas->get_current_map()->GetIniertialBA2())
             {
                 th = 2;
             }
@@ -2598,7 +2598,7 @@ void Tracking::SearchLocalPoints()
                 th = 6;
             }
         }
-        else if (!mpAtlas->isImuInitialized() && (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD))
+        else if (!mpAtlas->is_imu_initialized() && (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD))
         {
             th = 10;
         }
@@ -2621,7 +2621,7 @@ void Tracking::SearchLocalPoints()
 void Tracking::UpdateLocalMap()
 {
     // This is for visualization
-    mpAtlas->SetReferenceMapPoints(mvpLocalMapPoints);
+    mpAtlas->set_reference_map_points(mvpLocalMapPoints);
 
     // Update
     UpdateLocalKeyFrames();
@@ -2665,7 +2665,7 @@ void Tracking::UpdateLocalKeyFrames()
 {
     // Each map point vote for the keyframes in which it has been observed
     map<KeyFrame *, int> keyframeCounter;
-    if (!mpAtlas->isImuInitialized() || (mCurrentFrame.mnId < mnLastRelocFrameId + 2))
+    if (!mpAtlas->is_imu_initialized() || (mCurrentFrame.mnId < mnLastRelocFrameId + 2))
     {
         for (int i = 0; i < mCurrentFrame.N; i++)
         {
@@ -2833,7 +2833,7 @@ bool Tracking::Relocalization()
 
     // Relocalization is performed when tracking is lost
     // Track Lost: Query KeyFrame Database for keyframe candidates for relocalisation
-    vector<KeyFrame *> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame, mpAtlas->GetCurrentMap());
+    vector<KeyFrame *> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame, mpAtlas->get_current_map());
 
     if (vpCandidateKFs.empty())
     {
@@ -3031,11 +3031,11 @@ void Tracking::Reset(bool bLocMap)
     spdlog::debug("done");
 
     // Clear Map (this erase MapPoints and KeyFrames)
-    mpAtlas->clearAtlas();
-    mpAtlas->CreateNewMap();
+    mpAtlas->clear_atlas();
+    mpAtlas->create_new_map();
     if (mSensor == System::IMU_STEREO || mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_RGBD)
     {
-        mpAtlas->SetInertialSensor();
+        mpAtlas->set_inertial_sensor();
     }
     mnInitialFrameId = 0;
 
@@ -3073,7 +3073,7 @@ void Tracking::ResetActiveMap(bool bLocMap)
     {
         mOnResetStart();
     }
-    Map *pMap = mpAtlas->GetCurrentMap();
+    Map *pMap = mpAtlas->get_current_map();
 
     if (!bLocMap)
     {
@@ -3093,9 +3093,9 @@ void Tracking::ResetActiveMap(bool bLocMap)
     spdlog::debug("done");
 
     // Clear Map (this erase MapPoints and KeyFrames)
-    mpAtlas->clearMap();
+    mpAtlas->clear_map();
 
-    // KeyFrame::nNextId = mpAtlas->GetLastInitKFid();
+    // KeyFrame::nNextId = mpAtlas->get_last_init_kf_id();
     // Frame::nNextId = mnLastInitFrameId;
     mnLastInitFrameId = Frame::nNextId;
     mState            = NO_IMAGES_YET; // NOT_INITIALIZED;
@@ -3106,7 +3106,7 @@ void Tracking::ResetActiveMap(bool bLocMap)
     // lbLost.reserve(mlbLost.size());
     unsigned int index = mnFirstFrameId;
     spdlog::debug("First frame ID: {}", mnFirstFrameId);
-    for (Map *pMap : mpAtlas->GetAllMaps())
+    for (Map *pMap : mpAtlas->get_all_maps())
     {
         if (pMap->GetAllKeyFrames().size() > 0)
         {

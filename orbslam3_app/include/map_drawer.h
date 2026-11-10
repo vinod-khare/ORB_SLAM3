@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "atlas.h"
 #include "ground_truth_trajectory.h"
 #include "viewer_settings.h"
 
@@ -40,13 +41,11 @@ class vtkWindowToImageFilter;
 
 namespace ORB_SLAM3
 {
-class Atlas;
-
 class map_drawer
 {
   public:
-    /** Atlas and settings must outlive the map drawer. */
-    map_drawer(Atlas &atlas, const viewer_settings &settings);
+    /** The atlas and settings must outlive the map drawer. */
+    map_drawer(atlas &atlas, const viewer_settings &settings);
     ~map_drawer();
 
     void         set_current_camera_pose(const Sophus::SE3f &camera_pose, unsigned long map_id = 0);
@@ -59,7 +58,7 @@ class map_drawer
     void         release();
 
   private:
-    Atlas                                        &_atlas;
+    atlas                                        &_atlas;
     const viewer_settings                        &_settings;
     ground_truth_trajectory                       _ground_truth;
     std::optional<Eigen::Matrix4d>                _ground_truth_alignment;

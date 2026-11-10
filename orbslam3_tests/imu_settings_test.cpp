@@ -83,7 +83,7 @@ TEST_CASE("Tracking preserves initialization extraction during deferred recovery
     imu_settings files;
     files.write();
     ORB_SLAM3::Settings settings(files.path.string(), sensor);
-    ORB_SLAM3::Atlas    atlas(0);
+    ORB_SLAM3::atlas    atlas(0);
     extraction_tracker  tracker(nullptr, nullptr, &atlas, nullptr, sensor, &settings, settings.cameras());
     REQUIRE(&tracker.cameras == &settings.cameras());
     tracker.mImGray = cv::Mat(512, 512, CV_8UC1);

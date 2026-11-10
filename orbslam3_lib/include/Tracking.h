@@ -19,7 +19,6 @@
 #ifndef TRACKING_H
 #define TRACKING_H
 
-#include "Atlas.h"
 #include "Frame.h"
 #include "GeometricCamera.h"
 #include "ImuTypes.h"
@@ -28,6 +27,7 @@
 #include "LoopClosing.h"
 #include "Settings.h"
 #include "System.h"
+#include "atlas.h"
 #include "keypoint_extractor.h"
 #include "place_vocabulary.h"
 
@@ -44,7 +44,6 @@
 namespace ORB_SLAM3
 {
 
-class Atlas;
 class LocalMapping;
 class LoopClosing;
 class System;
@@ -57,7 +56,7 @@ class Tracking
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Tracking(System              *pSys,
              place_vocabulary    *pVoc,
-             Atlas               *pAtlas,
+             atlas               *pAtlas,
              KeyFrameDatabase    *pKFDB,
              const int            sensor,
              Settings            *settings,
@@ -269,7 +268,7 @@ class Tracking
     std::atomic<bool> bStepByStep;
 
     // Atlas
-    Atlas *mpAtlas;
+    atlas *mpAtlas;
 
     // Calibration matrix
     cv::Mat         mK;

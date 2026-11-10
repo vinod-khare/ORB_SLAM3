@@ -1,8 +1,8 @@
-#include "Atlas.h"
 #include "Frame.h"
 #include "KeyFrame.h"
 #include "Pinhole.h"
 #include "Tracking.h"
+#include "atlas.h"
 #include "ground_truth_trajectory.h"
 #include "map_drawer.h"
 
@@ -158,8 +158,8 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     file.write("1 0 0 0 0 0 0 1\n2 0.3 0 0 0 0 0 1\n3 0.3 0.3 0 0 0 0 1\n4 0 0.3 0 0 0 0 1\n");
     ORB_SLAM3::viewer_settings settings{0.05f, 1.f, 1.f, 2.f, 0.08f, 3.f, 0.f, -0.7f, -1.8f, 500.f, 1.f};
     settings.ground_truth_path = file.path.string();
-    ORB_SLAM3::Atlas              atlas(0);
-    auto                         *map = atlas.GetCurrentMap();
+    ORB_SLAM3::atlas              atlas(0);
+    auto                         *map = atlas.get_current_map();
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
     ORB_SLAM3::camera_vector      cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::Pinhole>(std::vector<float>{200, 200, 128, 128}));
@@ -225,7 +225,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
 TEST_CASE("Camera trail preserves hidden frames without bridging tracking loss or maps", "[.viewer_render][camera_trajectory_render]")
 {
     const ORB_SLAM3::viewer_settings     settings{0.05f, 1.f, 1.f, 2.f, 0.08f, 3.f, 0.f, -0.7f, -1.8f, 500.f, 1.f};
-    ORB_SLAM3::Atlas                     atlas(0);
+    ORB_SLAM3::atlas                     atlas(0);
     ORB_SLAM3::map_drawer                actual(atlas, settings);
     ORB_SLAM3::map_drawer                expected(atlas, settings);
     ORB_SLAM3::map_drawer                continuous(atlas, settings);

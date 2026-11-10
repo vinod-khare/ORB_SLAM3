@@ -19,11 +19,11 @@
 #ifndef LOOPCLOSING_H
 #define LOOPCLOSING_H
 
-#include "Atlas.h"
 #include "KeyFrame.h"
 #include "KeyFrameDatabase.h"
 #include "LocalMapping.h"
 #include "Tracking.h"
+#include "atlas.h"
 #include "place_vocabulary.h"
 #include "processing_statistics.h"
 
@@ -49,7 +49,7 @@ class LoopClosing
     typedef map<KeyFrame *, g2o::Sim3, std::less<KeyFrame *>, Eigen::aligned_allocator<std::pair<KeyFrame *const, g2o::Sim3>>> KeyFrameAndPose;
 
   public:
-    LoopClosing(processing_statistics &statistics, Atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
+    LoopClosing(processing_statistics &statistics, atlas *pAtlas, KeyFrameDatabase *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
     ~LoopClosing();
 
     void SetTracker(Tracking *pTracker);
@@ -93,14 +93,19 @@ class LoopClosing
 
     // Methods to implement the new place recognition algorithm
     bool NewDetectCommonRegions();
-    bool DetectAndReffineSim3FromLastKF(KeyFrame *pCurrentKF, KeyFrame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<MapPoint *> &vpMPs,
-                                        std::vector<MapPoint *> &vpMatchedMPs);
-    bool DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand, KeyFrame *&pMatchedKF, KeyFrame *&pLastCurrentKF, g2o::Sim3 &g2oScw, int &nNumCoincidences,
-                                    std::vector<MapPoint *> &vpMPs, std::vector<MapPoint *> &vpMatchedMPs);
-    bool DetectCommonRegionsFromLastKF(KeyFrame *pCurrentKF, KeyFrame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<MapPoint *> &vpMPs,
-                                       std::vector<MapPoint *> &vpMatchedMPs);
-    int  FindMatchesByProjection(KeyFrame *pCurrentKF, KeyFrame *pMatchedKFw, g2o::Sim3 &g2oScw, set<MapPoint *> &spMatchedMPinOrigin, vector<MapPoint *> &vpMapPoints,
-                                 vector<MapPoint *> &vpMatchedMapPoints);
+    bool
+    DetectAndReffineSim3FromLastKF(KeyFrame *pCurrentKF, KeyFrame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<MapPoint *> &vpMPs, std::vector<MapPoint *> &vpMatchedMPs);
+    bool DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
+                                    KeyFrame               *&pMatchedKF,
+                                    KeyFrame               *&pLastCurrentKF,
+                                    g2o::Sim3               &g2oScw,
+                                    int                     &nNumCoincidences,
+                                    std::vector<MapPoint *> &vpMPs,
+                                    std::vector<MapPoint *> &vpMatchedMPs);
+    bool
+        DetectCommonRegionsFromLastKF(KeyFrame *pCurrentKF, KeyFrame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<MapPoint *> &vpMPs, std::vector<MapPoint *> &vpMatchedMPs);
+    int FindMatchesByProjection(
+        KeyFrame *pCurrentKF, KeyFrame *pMatchedKFw, g2o::Sim3 &g2oScw, set<MapPoint *> &spMatchedMPinOrigin, vector<MapPoint *> &vpMapPoints, vector<MapPoint *> &vpMatchedMapPoints);
 
     void SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector<MapPoint *> &vpMapPoints);
     void SearchAndFuse(const vector<KeyFrame *> &vConectedKFs, vector<MapPoint *> &vpMapPoints);
@@ -124,7 +129,7 @@ class LoopClosing
     bool       mbFinished;
     std::mutex mMutexFinish;
 
-    Atlas    *mpAtlas;
+    atlas    *mpAtlas;
     Tracking *mpTracker;
 
     KeyFrameDatabase *mpKeyFrameDB;
