@@ -48,7 +48,7 @@ add_library(ORB_SLAM3 SHARED
         source/g2o_types.cpp
         source/CameraModels/pinhole.cpp
         source/CameraModels/kannala_brandt8.cpp
-        source/OptimizableTypes.cpp
+        source/optimizable_types.cpp
         source/geometric_tools.cpp
         source/two_view_reconstruction.cpp
         source/settings.cpp

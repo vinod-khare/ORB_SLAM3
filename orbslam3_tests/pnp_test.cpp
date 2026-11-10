@@ -1,8 +1,8 @@
-#include "OptimizableTypes.h"
 #include "frame.h"
 #include "g2o_types.h"
 #include "geometric_tools.h"
 #include "kannala_brandt8.h"
+#include "optimizable_types.h"
 #include "pinhole.h"
 
 #include <algorithm>
@@ -107,11 +107,11 @@ TEST_CASE("Geometric tools preserve triangulation and matrix comparison toleranc
 
 TEST_CASE("Optimizer edges bind their camera reference at construction", "[camera_rig]")
 {
-    static_assert(!std::is_default_constructible_v<ORB_SLAM3::EdgeSE3ProjectXYZOnlyPose>);
-    static_assert(!std::is_default_constructible_v<ORB_SLAM3::EdgeSE3ProjectXYZ>);
+    static_assert(!std::is_default_constructible_v<ORB_SLAM3::edge_se3_project_xyz_only_pose>);
+    static_assert(!std::is_default_constructible_v<ORB_SLAM3::edge_se3_project_xyz>);
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{500, 510, 320, 240}));
-    ORB_SLAM3::EdgeSE3ProjectXYZOnlyPose edge(*cameras[0]);
+    ORB_SLAM3::edge_se3_project_xyz_only_pose edge(*cameras[0]);
     REQUIRE(&edge.camera == cameras[0].get());
     const Eigen::Vector3f point(0, 0, 1);
     REQUIRE(edge.camera.project(point).isApprox(Eigen::Vector2f(320, 240)));
