@@ -18,9 +18,9 @@
 
 #include "viewer.h"
 
-#include "FrameDrawer.h"
 #include "MapDrawer.h"
 #include "Tracking.h"
+#include "frame_drawer.h"
 
 #include <unistd.h>
 
@@ -204,7 +204,7 @@ void show_statistics(const viewer_statistics::snapshot &statistics)
 }
 } // namespace
 
-viewer::viewer(viewer_control &controls, FrameDrawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings)
+viewer::viewer(viewer_control &controls, frame_drawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings)
     : _controls(controls), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _settings(settings), _tracked_image_scale(tracked_image_scale)
 {
     _dbow_version = controls.dbow_version();
@@ -447,7 +447,7 @@ void viewer::run()
             {
                 return;
             }
-            auto image = right ? _frame_drawer.DrawRightFrame(_tracked_image_scale) : _frame_drawer.DrawFrame(_tracked_image_scale);
+            auto image = right ? _frame_drawer.draw_right_frame(_tracked_image_scale) : _frame_drawer.draw_frame(_tracked_image_scale);
             if (image.empty())
             {
                 return;
@@ -462,8 +462,8 @@ void viewer::run()
             texture       = HelloImGui::CreateTextureGpuFromRgbaData(rgba.data, rgba.cols, rgba.rows);
             show_image(texture);
         };
-        params.dockingParams.dockableWindows.emplace_back(_frame_drawer.both ? "Left camera" : "Camera", "Camera", [&] { camera_pane(false); });
-        if (_frame_drawer.both)
+        params.dockingParams.dockableWindows.emplace_back(_frame_drawer._both ? "Left camera" : "Camera", "Camera", [&] { camera_pane(false); });
+        if (_frame_drawer._both)
         {
             params.dockingParams.dockingSplits.emplace_back("Camera", "RightCamera", ImGuiDir_Right, 0.5f);
             params.dockingParams.dockableWindows.emplace_back("Right camera", "RightCamera", [&] { camera_pane(true); });

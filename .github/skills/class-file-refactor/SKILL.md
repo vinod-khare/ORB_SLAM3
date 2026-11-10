@@ -14,6 +14,7 @@ Use this workflow for a class or similar type and its related source/header file
    - Inspect the target declaration, implementation, neighboring types, build files, and all references.
    - Check the worktree first. Preserve unrelated user changes and do not stage them.
    - Follow established repository naming conventions. In this repository, class names use `lower_camel_case`, methods use `lower_snake_case`, and private data members begin with `_` and do not end with `_`.
+   - Audit every data member in every access section, including public configuration/state and protected test seams. Do not stop after renaming private members or only the fields directly involved in the requested change.
 
 2. **Plan the complete refactor**
    - Identify the class declaration, constructor/destructor, definitions, includes, instantiations, qualified names, tests, documentation, and build-system entries that need updates.
@@ -22,6 +23,7 @@ Use this workflow for a class or similar type and its related source/header file
 
 3. **Refactor consistently**
    - Rename the type, constructor, related file names, and all references together when requested.
+   - Rename all members of the target class that do not match the applicable naming convention, and update every declaration, definition, initializer, caller, test, and external access together. If a member is public, update its consumers rather than leaving a convention-breaking compatibility field.
    - Group data members by role (for example dependencies, metadata, lifecycle state, and command state). Sort clearly related members within each group when requested, without obscuring dependencies or changing initialization semantics.
    - Keep declaration and constructor-initializer order consistent.
    - Preserve behavior and public API semantics unless the requested refactor explicitly changes them.
@@ -29,6 +31,7 @@ Use this workflow for a class or similar type and its related source/header file
 
 4. **Validate**
    - Search for stale identifiers and old paths.
+   - Re-scan the complete target class declaration and all references to verify that no out-of-convention member names remain.
    - Format touched files using the repository formatter and run whitespace/diff checks.
    - Run the smallest relevant test, build, or type-check. If unavailable, report the exact environmental blocker without claiming success.
    - Review the final diff to ensure it contains only the requested, coherent refactor and does not include unrelated worktree changes.

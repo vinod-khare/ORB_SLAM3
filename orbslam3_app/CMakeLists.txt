@@ -19,7 +19,7 @@ target_include_directories(orbslam3_input PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 target_link_libraries(orbslam3_input PUBLIC ORB_SLAM3 Threads::Threads PRIVATE rapidcsv::rapidcsv spdlog::spdlog)
 
 add_library(orbslam3_ui STATIC
-    source/FrameDrawer.cpp
+    source/frame_drawer.cpp
     source/ground_truth_trajectory.cpp
     source/MapDrawer.cpp
     source/viewer.cpp

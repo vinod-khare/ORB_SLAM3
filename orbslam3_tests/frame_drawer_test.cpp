@@ -1,14 +1,13 @@
 #include "Atlas.h"
-#include "FrameDrawer.h"
 #include "MapDrawer.h"
 #include "MapPoint.h"
 #include "Pinhole.h"
 #include "Tracking.h"
+#include "frame_drawer.h"
 #include "keypoint_extractor.h"
 
-#include <chrono>
-#include <future>
 #include <memory>
+#include <type_traits>
 
 #include <opencv2/imgproc.hpp>
 
@@ -18,33 +17,41 @@
 namespace
 {
 
-class frame_drawer_fixture : public ORB_SLAM3::FrameDrawer
+class frame_drawer_fixture : public ORB_SLAM3::frame_drawer
 {
   public:
-    frame_drawer_fixture(ORB_SLAM3::Atlas &atlas, const std::vector<cv::KeyPoint> &keys, bool right, int image_type) : FrameDrawer(atlas)
+    frame_drawer_fixture(ORB_SLAM3::Atlas &atlas, const std::vector<cv::KeyPoint> &keys, bool right, int image_type) : frame_drawer(atlas)
     {
-        mState             = ORB_SLAM3::Tracking::OK;
-        mbOnlyTracking     = false;
-        mIm                = cv::Mat::zeros(160, 240, image_type);
-        mImRight           = mIm.clone();
-        mvCurrentKeys      = right ? std::vector<ORB_SLAM3::keypoint>(2) : std::vector<ORB_SLAM3::keypoint>{};
-        mvCurrentKeysRight = right ? std::vector<ORB_SLAM3::keypoint>{} : std::vector<ORB_SLAM3::keypoint>{};
+        _state             = ORB_SLAM3::Tracking::OK;
+        _localization_only = false;
+
+        ORB_SLAM3::Frame frame(0.0, nullptr, cv::Mat::eye(3, 3, CV_32F), cv::Mat::zeros(4, 1, CV_32F), 10.f, 40.f);
+        frame.color_image       = cv::Mat::zeros(160, 240, image_type);
+        frame.color_image_right = frame.color_image.clone();
+        frame.mvKeys            = right ? std::vector<ORB_SLAM3::keypoint>(2) : std::vector<ORB_SLAM3::keypoint>{};
+        frame.mvKeysRight       = {};
         for (const auto &key : keys)
         {
-            (right ? mvCurrentKeysRight : mvCurrentKeys).emplace_back(key);
+            (right ? frame.mvKeysRight : frame.mvKeys).emplace_back(key);
         }
-        const auto offset = right ? mvCurrentKeys.size() : 0;
-        mvbMap.assign(offset + keys.size(), false);
-        mvbVO.assign(offset + keys.size(), false);
-        mvbMap[offset]     = true;
-        mvbVO[offset]      = true;
-        mvbVO[offset + 1]  = true;
-        mvbMap[offset + 3] = true;
+        const auto offset = right ? frame.mvKeys.size() : 0;
+        frame.N           = static_cast<int>(offset + frame.mvKeysRight.size());
+        frame.mvpMapPoints.assign(frame.N, nullptr);
+        frame.mvbOutlier.assign(frame.N, false);
+        _map_match.nObs                = 1;
+        frame.mvpMapPoints[offset]     = &_map_match;
+        frame.mvpMapPoints[offset + 1] = &_odometry_match;
+        frame.mvpMapPoints[offset + 3] = &_map_match;
+        _current_frame                 = std::make_shared<ORB_SLAM3::Frame>(frame);
     }
 
-    using FrameDrawer::mMutex;
-    using FrameDrawer::mnTracked;
-    using FrameDrawer::mnTrackedVO;
+    using frame_drawer::_current_frame;
+    using frame_drawer::_tracked_count;
+    using frame_drawer::_tracked_odometry_count;
+
+  private:
+    ORB_SLAM3::MapPoint _map_match;
+    ORB_SLAM3::MapPoint _odometry_match;
 };
 
 } // namespace
@@ -57,9 +64,9 @@ TEST_CASE("Frame drawer renders tracked keypoint sizes and orientations in both 
     CAPTURE(right, image_scale, image_type);
 
     ORB_SLAM3::Atlas                atlas(0);
-    const std::vector<cv::KeyPoint> keys{cv::KeyPoint(40.f, 40.f, 24.f, 0.f), cv::KeyPoint(100.f, 40.f, 32.f, 90.f), cv::KeyPoint(160.f, 40.f, 20.f, 180.f),
-                                         cv::KeyPoint(40.f, 100.f, 16.f, -1.f)};
-    frame_drawer_fixture            drawer(atlas, keys, right, image_type);
+    const std::vector<cv::KeyPoint> keys{
+        cv::KeyPoint(40.f, 40.f, 24.f, 0.f), cv::KeyPoint(100.f, 40.f, 32.f, 90.f), cv::KeyPoint(160.f, 40.f, 20.f, 180.f), cv::KeyPoint(40.f, 100.f, 16.f, -1.f)};
+    frame_drawer_fixture drawer(atlas, keys, right, image_type);
 
     cv::Mat expected    = cv::Mat::zeros(cv::Size(cvRound(240 / image_scale), cvRound(160 / image_scale)), CV_8UC3);
     auto    scaled_keys = keys;
@@ -74,28 +81,17 @@ TEST_CASE("Frame drawer renders tracked keypoint sizes and orientations in both 
 
     for (int repeat = 0; repeat < 2; ++repeat)
     {
-        const auto rendered = right ? drawer.DrawRightFrame(image_scale) : drawer.DrawFrame(image_scale);
+        const auto rendered = right ? drawer.draw_right_frame(image_scale) : drawer.draw_frame(image_scale);
         REQUIRE(rendered.cols == expected.cols);
         REQUIRE(rendered.rows > expected.rows);
         REQUIRE(rendered.type() == CV_8UC3);
         REQUIRE(cv::norm(rendered.rowRange(0, expected.rows), expected, cv::NORM_INF) == 0);
-        REQUIRE(drawer.mnTracked == 2);
-        REQUIRE(drawer.mnTrackedVO == 1);
+        REQUIRE(drawer._tracked_count == 2);
+        REQUIRE(drawer._tracked_odometry_count == 1);
     }
 }
 
-TEST_CASE("Camera publication drops frames instead of waiting for a busy UI", "[frame_drawer]")
-{
-    ORB_SLAM3::Atlas                atlas(0);
-    const std::vector<cv::KeyPoint> keys{cv::KeyPoint(40, 40, 24), cv::KeyPoint(100, 40, 32), cv::KeyPoint(160, 40, 20), cv::KeyPoint(40, 100, 16)};
-    frame_drawer_fixture            drawer(atlas, keys, false, CV_8UC3);
-    std::unique_lock                lock(drawer.mMutex);
-    auto                            publication = std::async(std::launch::async, [&] { return drawer.Update(nullptr); });
-    const auto                      status      = publication.wait_for(std::chrono::milliseconds(200));
-    lock.unlock();
-    REQUIRE(status == std::future_status::ready);
-    REQUIRE_FALSE(publication.get());
-}
+static_assert(std::is_same_v<decltype(&ORB_SLAM3::frame_drawer::update), bool (ORB_SLAM3::frame_drawer::*)(ORB_SLAM3::Tracking &)>);
 
 TEST_CASE("Off-screen map rendering survives pane resizing and navigation", "[.viewer_render]")
 {

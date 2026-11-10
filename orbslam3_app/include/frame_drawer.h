@@ -16,13 +16,13 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef FRAMEDRAWER_H
-#define FRAMEDRAWER_H
+#pragma once
 
 #include "keypoint.h"
 
 #include <atomic>
 #include <chrono>
+#include <memory>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -30,51 +30,46 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
 
-#include <Eigen/Core>
-
 namespace ORB_SLAM3
 {
 
 class Atlas;
+class Frame;
 class Tracking;
 
-class FrameDrawer
+class frame_drawer
 {
   public:
-    explicit FrameDrawer(Atlas &atlas);
+    explicit frame_drawer(Atlas &atlas);
 
     // Update info from the last processed frame.
-    bool Update(Tracking *tracker);
+    bool update(Tracking &tracker);
 
     // Draw last processed frame.
-    cv::Mat DrawFrame(float imageScale = 1.f);
-    cv::Mat DrawRightFrame(float imageScale = 1.f);
+    cv::Mat draw_frame(float image_scale = 1.f);
+    cv::Mat draw_right_frame(float image_scale = 1.f);
 
     // Smoothed rate at which frames are processed by the tracker.
     float get_tracking_fps();
 
-    bool both;
+    bool _both;
 
   protected:
-    void draw_text_info(cv::Mat &im, int nState, cv::Mat &imText);
+    void draw_text_info(cv::Mat &image, int state, cv::Mat &image_with_info);
 
     // Info of the frame to be drawn
-    cv::Mat               mIm, mImRight;
-    int                   N;
-    std::vector<keypoint> mvCurrentKeys, mvCurrentKeysRight;
-    std::vector<bool>     mvbMap, mvbVO;
-    std::atomic<bool>     mbOnlyTracking{false};
-    int                   mnTracked, mnTrackedVO;
-    std::vector<keypoint> mvIniKeys;
-    std::vector<int>      mvIniMatches;
-    int                   mState;
-    std::vector<float>    mvCurrentDepth;
-    float                 mThDepth;
+    std::shared_ptr<const Frame> _current_frame;
+    std::atomic<bool>            _localization_only{false};
+    int                          _tracked_count{};
+    int                          _tracked_odometry_count{};
+    std::vector<keypoint>        _initial_keys;
+    std::vector<int>             _initial_matches;
+    int                          _state;
 
     Atlas &_atlas;
 
-    std::mutex                                       mMutex;
-    std::vector<std::pair<cv::Point2f, cv::Point2f>> mvTracks;
+    std::mutex                                       _mutex;
+    std::vector<std::pair<cv::Point2f, cv::Point2f>> _tracks;
 
     void update_tracking_fps();
 
@@ -85,5 +80,3 @@ class FrameDrawer
 };
 
 } // namespace ORB_SLAM3
-
-#endif // FRAMEDRAWER_H
