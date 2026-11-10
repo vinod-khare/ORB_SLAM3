@@ -20,7 +20,7 @@
  */
 
 #include "system.h"
-#include "Tracking.h"
+#include "tracking.h"
 #include "atlas.h"
 #include "command_line_options.h"
 #include "converter.h"
@@ -48,10 +48,10 @@ namespace
 class system_viewer_control final : public ORB_SLAM3::viewer_control
 {
   public:
-    system_viewer_control(ORB_SLAM3::system &system, ORB_SLAM3::Tracking &tracker) : _system(system), _tracker(tracker) {}
+    system_viewer_control(ORB_SLAM3::system &system, ORB_SLAM3::tracking &tracker) : _system(system), _tracker(tracker) {}
 
-    void set_step_by_step(bool enabled) override { _tracker.SetStepByStep(enabled); }
-    void process_next_frame() override { _tracker.mbStep = true; }
+    void set_step_by_step(bool enabled) override { _tracker.set_step_by_step(enabled); }
+    void process_next_frame() override { _tracker.step_by_step_enabled = true; }
 
     void set_localization_mode(bool enabled) override
     {
@@ -71,7 +71,7 @@ class system_viewer_control final : public ORB_SLAM3::viewer_control
 
   private:
     ORB_SLAM3::system   &_system;
-    ORB_SLAM3::Tracking &_tracker;
+    ORB_SLAM3::tracking &_tracker;
 };
 
 } // namespace
@@ -189,7 +189,7 @@ int main(int argc, char **argv)
                                              options.input.frames_take),
                                  reader.size());
 
-            SLAM.get_tracker()->SetResetHooks(
+            SLAM.get_tracker()->set_reset_hooks(
                 [&viewer, &map_drawer]
                 {
                     map_drawer->break_camera_trajectory();
@@ -274,9 +274,9 @@ int main(int argc, char **argv)
 
                     frame_drawer->update(*tracker);
 
-                    if (tracker->mCurrentFrame.is_set() && tracker->mState == ORB_SLAM3::Tracking::OK)
+                    if (tracker->current_frame.is_set() && tracker->state == ORB_SLAM3::tracking::OK)
                     {
-                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.get_pose(), SLAM.get_atlas()->get_current_map()->get_id());
+                        map_drawer->set_current_camera_pose(tracker->current_frame.get_pose(), SLAM.get_atlas()->get_current_map()->get_id());
                     }
                     else
                     {
@@ -291,10 +291,10 @@ int main(int argc, char **argv)
 
                 if (viewer)
                 {
-                    const auto &current_frame = SLAM.get_tracker()->mCurrentFrame;
+                    const auto &current_frame = SLAM.get_tracker()->current_frame;
                     viewer->publish_statistics(
                         {.processing      = statistics,
-                         .camera_to_world = current_frame.is_set() && SLAM.get_tracker()->mState == ORB_SLAM3::Tracking::OK ? std::optional{current_frame.get_pose().inverse()} : std::nullopt,
+                         .camera_to_world = current_frame.is_set() && SLAM.get_tracker()->state == ORB_SLAM3::tracking::OK ? std::optional{current_frame.get_pose().inverse()} : std::nullopt,
                          .sequence_frame  = static_cast<std::size_t>(ni + 1),
                          .input_wait_ms   = input_wait_ms,
                          .viewer_publication_ms = viewer_publication_ms});

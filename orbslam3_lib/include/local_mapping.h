@@ -20,7 +20,7 @@
 #define LOCAL_MAPPING_H
 
 #include "loop_closing.h"
-#include "Tracking.h"
+#include "tracking.h"
 #include "atlas.h"
 #include "key_frame.h"
 #include "key_frame_database.h"
@@ -33,7 +33,7 @@ namespace ORB_SLAM3
 {
 
 class system;
-class Tracking;
+class tracking;
 class loop_closing;
 
 class local_mapping
@@ -44,7 +44,7 @@ class local_mapping
 
     void set_loop_closer(loop_closing *pLoopCloser);
 
-    void set_tracker(Tracking *pTracker);
+    void set_tracker(tracking *pTracker);
 
     // Main function
     void run();
@@ -141,7 +141,7 @@ class local_mapping
     atlas *owner_atlas;
 
     loop_closing *loop_closer;
-    Tracking    *tracker;
+    tracking    *tracker;
 
     std::list<key_frame *> new_key_frames;
 

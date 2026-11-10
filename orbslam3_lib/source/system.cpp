@@ -21,7 +21,7 @@
 #include "local_mapping.h"
 #include "loop_closing.h"
 #include "settings.h"
-#include "Tracking.h"
+#include "tracking.h"
 #include "atlas.h"
 #include "converter.h"
 #include "key_frame_database.h"
@@ -111,7 +111,7 @@ system::system(const string &strVocFile, const string &strSettingsFile, const se
     // Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     spdlog::info("Sequence name: {}", strSequence);
-    _tracker = std::make_unique<Tracking>(this, _vocabulary.get(), _atlas.get(), _key_frame_database.get(), _sensor, _settings.get(), _cameras, strSequence);
+    _tracker = std::make_unique<tracking>(this, _vocabulary.get(), _atlas.get(), _key_frame_database.get(), _sensor, _settings.get(), _cameras, strSequence);
 
     // Initialize the Local Mapping thread and launch
     _local_mapper = std::make_unique<local_mapping>(
@@ -132,8 +132,8 @@ system::system(const string &strVocFile, const string &strSettingsFile, const se
     _loop_closer = std::make_unique<loop_closing>(_statistics, _atlas.get(), _key_frame_database.get(), _vocabulary.get(), _sensor != monocular, activeLC);
 
     // Set pointers between threads
-    _tracker->SetLocalMapper(_local_mapper.get());
-    _tracker->SetLoopClosing(_loop_closer.get());
+    _tracker->set_local_mapper(_local_mapper.get());
+    _tracker->set_loop_closing(_loop_closer.get());
 
     _local_mapper->set_tracker(_tracker.get());
     _local_mapper->set_loop_closer(_loop_closer.get());
@@ -160,7 +160,7 @@ void system::set_dbow_version(int version) { _vocabulary->set_version(version); 
 
 void system::record_frame_statistics(double preprocessing_ms, double frontend_ms)
 {
-    const auto                         &frame = _tracker->mCurrentFrame;
+    const auto                         &frame = _tracker->current_frame;
     processing_statistics::frame_sample sample{.frame_id           = frame.id,
                                                .timestamp          = frame.timestamp,
                                                .detected_keypoints = frame.flow_only ? 0 : frame.keypoints.size() + frame.right_keypoints.size(),
@@ -177,7 +177,7 @@ void system::record_frame_statistics(double preprocessing_ms, double frontend_ms
     sample.flow_occupied_cells = frame.flow_occupied_cells;
     sample.flow_only           = frame.flow_only;
     sample.features_extracted  = !frame.flow_only;
-    sample.tracking_state      = _tracker->mState;
+    sample.tracking_state      = _tracker->state;
 
     if (auto *map = _atlas->get_current_map())
     {
@@ -185,7 +185,7 @@ void system::record_frame_statistics(double preprocessing_ms, double frontend_ms
         sample.map_change_index = map->get_last_big_change_index();
     }
 
-    if (_tracker->mState == Tracking::OK)
+    if (_tracker->state == tracking::OK)
     {
         for (std::size_t index = 0; index < frame.map_points.size(); ++index)
         {
@@ -201,7 +201,7 @@ void system::record_frame_statistics(double preprocessing_ms, double frontend_ms
 
 void system::register_frame_filename_for_export(const string &filename)
 {
-    const size_t pose_count = _tracker->mlRelativeFramePoses.size();
+    const size_t pose_count = _tracker->relative_frame_poses.size();
 
     // Handle tracker resets/restarts: trim stale filenames.
     while (_frame_filenames.size() > pose_count)
@@ -259,12 +259,12 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
                 usleep(1000);
             }
 
-            _tracker->InformOnlyTracking(true);
+            _tracker->inform_only_tracking(true);
             _localization_mode_activation_requested = false;
         }
         if (_localization_mode_deactivation_requested)
         {
-            _tracker->InformOnlyTracking(false);
+            _tracker->inform_only_tracking(false);
             _local_mapper->release();
             _localization_mode_deactivation_requested = false;
         }
@@ -275,13 +275,13 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
         unique_lock<mutex> lock(_reset_mutex);
         if (_reset_requested)
         {
-            _tracker->Reset();
+            _tracker->reset();
             _reset_requested          = false;
             _active_map_reset_requested = false;
         }
         else if (_active_map_reset_requested)
         {
-            _tracker->ResetActiveMap();
+            _tracker->reset_active_map();
             _active_map_reset_requested = false;
         }
     }
@@ -290,17 +290,17 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
     {
         for (size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
         {
-            _tracker->GrabImuData(vImuMeas[i_imu]);
+            _tracker->grab_imu_data(vImuMeas[i_imu]);
         }
     }
 
-    Sophus::SE3f Tcw = _tracker->GrabImageStereo(imLeftToFeed, imRightToFeed, timestamp, filename);
+    Sophus::SE3f Tcw = _tracker->grab_image_stereo(imLeftToFeed, imRightToFeed, timestamp, filename);
     register_frame_filename_for_export(filename);
 
     unique_lock<mutex> lock2(_state_mutex);
-    _tracking_state      = _tracker->mState;
-    _tracked_map_points   = _tracker->mCurrentFrame.map_points;
-    _tracked_keypoints_undistorted = _tracker->mCurrentFrame.keypoints;
+    _tracking_state      = _tracker->state;
+    _tracked_map_points   = _tracker->current_frame.map_points;
+    _tracked_keypoints_undistorted = _tracker->current_frame.keypoints;
 
     return Tcw;
 }
@@ -337,12 +337,12 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
                 usleep(1000);
             }
 
-            _tracker->InformOnlyTracking(true);
+            _tracker->inform_only_tracking(true);
             _localization_mode_activation_requested = false;
         }
         if (_localization_mode_deactivation_requested)
         {
-            _tracker->InformOnlyTracking(false);
+            _tracker->inform_only_tracking(false);
             _local_mapper->release();
             _localization_mode_deactivation_requested = false;
         }
@@ -353,13 +353,13 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
         unique_lock<mutex> lock(_reset_mutex);
         if (_reset_requested)
         {
-            _tracker->Reset();
+            _tracker->reset();
             _reset_requested          = false;
             _active_map_reset_requested = false;
         }
         else if (_active_map_reset_requested)
         {
-            _tracker->ResetActiveMap();
+            _tracker->reset_active_map();
             _active_map_reset_requested = false;
         }
     }
@@ -368,17 +368,17 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
     {
         for (size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
         {
-            _tracker->GrabImuData(vImuMeas[i_imu]);
+            _tracker->grab_imu_data(vImuMeas[i_imu]);
         }
     }
 
-    Sophus::SE3f Tcw = _tracker->GrabImageRGBD(imToFeed, imDepthToFeed, timestamp, filename);
+    Sophus::SE3f Tcw = _tracker->grab_image_rgbd(imToFeed, imDepthToFeed, timestamp, filename);
     register_frame_filename_for_export(filename);
 
     unique_lock<mutex> lock2(_state_mutex);
-    _tracking_state      = _tracker->mState;
-    _tracked_map_points   = _tracker->mCurrentFrame.map_points;
-    _tracked_keypoints_undistorted = _tracker->mCurrentFrame.keypoints;
+    _tracking_state      = _tracker->state;
+    _tracked_map_points   = _tracker->current_frame.map_points;
+    _tracked_keypoints_undistorted = _tracker->current_frame.keypoints;
     return Tcw;
 }
 
@@ -405,7 +405,7 @@ void system::set_next_frame_color(const cv::Mat &color_image, const cv::Mat &col
         }
         return prepared;
     };
-    _tracker->mNextFrameColor        = prepare_color(color_image, false);
+    _tracker->next_frame_color        = prepare_color(color_image, false);
     _tracker->next_frame_color_right = prepare_color(color_image_right, true);
 }
 
@@ -463,12 +463,12 @@ Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp,
                 usleep(1000);
             }
 
-            _tracker->InformOnlyTracking(true);
+            _tracker->inform_only_tracking(true);
             _localization_mode_activation_requested = false;
         }
         if (_localization_mode_deactivation_requested)
         {
-            _tracker->InformOnlyTracking(false);
+            _tracker->inform_only_tracking(false);
             _local_mapper->release();
             _localization_mode_deactivation_requested = false;
         }
@@ -479,14 +479,14 @@ Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp,
         unique_lock<mutex> lock(_reset_mutex);
         if (_reset_requested)
         {
-            _tracker->Reset();
+            _tracker->reset();
             _reset_requested          = false;
             _active_map_reset_requested = false;
         }
         else if (_active_map_reset_requested)
         {
             spdlog::info("Resetting active map in monocular case");
-            _tracker->ResetActiveMap();
+            _tracker->reset_active_map();
             _active_map_reset_requested = false;
         }
     }
@@ -495,17 +495,17 @@ Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp,
     {
         for (size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
         {
-            _tracker->GrabImuData(vImuMeas[i_imu]);
+            _tracker->grab_imu_data(vImuMeas[i_imu]);
         }
     }
 
-    Sophus::SE3f Tcw = _tracker->GrabImageMonocular(imToFeed, timestamp, filename);
+    Sophus::SE3f Tcw = _tracker->grab_image_monocular(imToFeed, timestamp, filename);
     register_frame_filename_for_export(filename);
 
     unique_lock<mutex> lock2(_state_mutex);
-    _tracking_state      = _tracker->mState;
-    _tracked_map_points   = _tracker->mCurrentFrame.map_points;
-    _tracked_keypoints_undistorted = _tracker->mCurrentFrame.keypoints;
+    _tracking_state      = _tracker->state;
+    _tracked_map_points   = _tracker->current_frame.map_points;
+    _tracked_keypoints_undistorted = _tracker->current_frame.keypoints;
 
     return Tcw;
 }
@@ -614,10 +614,10 @@ void system::save_trajectory_tum(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
-    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
-    list<bool>::iterator                  lbL  = _tracker->mlbLost.begin();
-    for (list<Sophus::SE3f>::iterator lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
+    list<double>::iterator                lT   = _tracker->frame_times.begin();
+    list<bool>::iterator                  lbL  = _tracker->lost_frames.begin();
+    for (list<Sophus::SE3f>::iterator lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
         if (*lbL)
         {
@@ -729,11 +729,11 @@ void system::save_trajectory_euroc(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
-    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
-    list<bool>::iterator                  lbL  = _tracker->mlbLost.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
+    list<double>::iterator                lT   = _tracker->frame_times.begin();
+    list<bool>::iterator                  lbL  = _tracker->lost_frames.begin();
 
-    for (auto lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
+    for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
         if (*lbL)
         {
@@ -812,11 +812,11 @@ void system::save_trajectory_euroc(const string &filename, map *pMap)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
-    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
-    list<bool>::iterator                  lbL  = _tracker->mlbLost.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
+    list<double>::iterator                lT   = _tracker->frame_times.begin();
+    list<bool>::iterator                  lbL  = _tracker->lost_frames.begin();
 
-    for (auto lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
+    for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
         if (*lbL)
         {
@@ -1075,9 +1075,9 @@ void system::save_colmap(const string &strDir)
     fcsv << "# COLMAP conversion: Tcw = Twc.inverse(); use qw qx qy qz and Tcw.translation()\n";
     fcsv << "image_name,timestamp,tx,ty,tz,qx,qy,qz,qw,pose_convention\n";
 
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
-    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
-    list<bool>::iterator                  lbL  = _tracker->mlbLost.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
+    list<double>::iterator                lT   = _tracker->frame_times.begin();
+    list<bool>::iterator                  lbL  = _tracker->lost_frames.begin();
     list<string>::iterator                lF   = _frame_filenames.begin();
 
     int          image_id = 1;
@@ -1085,7 +1085,7 @@ void system::save_colmap(const string &strDir)
     int          exported = 0;
     Sophus::SE3f last_Tcw = Sophus::SE3f(); // Identity for first frame if needed
 
-    for (auto lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; ++lit, ++lRit, ++lT, ++lbL)
+    for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; ++lit, ++lRit, ++lT, ++lbL)
     {
         // Always try to export this frame
         Sophus::SE3f Tcw;
@@ -1315,9 +1315,9 @@ void system::save_trajectory_kitti(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->mlpReferences.begin();
-    list<double>::iterator                lT   = _tracker->mlFrameTimes.begin();
-    for (list<Sophus::SE3f>::iterator lit = _tracker->mlRelativeFramePoses.begin(), lend = _tracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++)
+    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
+    list<double>::iterator                lT   = _tracker->frame_times.begin();
+    for (list<Sophus::SE3f>::iterator lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++)
     {
         ORB_SLAM3::key_frame *pKF = *lRit;
 
@@ -1448,7 +1448,7 @@ bool system::is_lost()
     }
     else
     {
-        if ((_tracker->mState == Tracking::LOST)) //||(_tracker->mState==Tracking::RECENTLY_LOST))
+        if ((_tracker->state == tracking::LOST)) //||(_tracker->state==tracking::RECENTLY_LOST))
         {
             return true;
         }
@@ -1465,21 +1465,21 @@ void system::change_dataset()
 {
     if (_atlas->get_current_map()->key_frame_count() < 12)
     {
-        _tracker->ResetActiveMap();
+        _tracker->reset_active_map();
     }
     else
     {
-        _tracker->CreateMapInAtlas();
+        _tracker->create_map_in_atlas();
     }
 
-    _tracker->NewDataset();
+    _tracker->new_dataset();
 }
 
-float system::get_image_scale() { return _tracker->GetImageScale(); }
+float system::get_image_scale() { return _tracker->get_image_scale(); }
 
 atlas *system::get_atlas() const { return _atlas.get(); }
 
-Tracking *system::get_tracker() const { return _tracker.get(); }
+tracking *system::get_tracker() const { return _tracker.get(); }
 
 float system::get_camera_frame_rate() const { return _settings->fps(); }
 

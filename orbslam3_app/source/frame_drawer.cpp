@@ -18,7 +18,7 @@
 
 #include "frame_drawer.h"
 
-#include "Tracking.h"
+#include "tracking.h"
 #include "atlas.h"
 #include "map_point.h"
 
@@ -37,7 +37,7 @@ frame_drawer::frame_drawer(atlas &atlas) : _both(false), _atlas(atlas)
     initial_frame->color_image       = cv::Mat(480, 640, CV_8UC3, cv::Scalar(0, 0, 0));
     initial_frame->color_image_right = initial_frame->color_image.clone();
     _current_frame                   = std::move(initial_frame);
-    _state                           = Tracking::SYSTEM_NOT_READY;
+    _state                           = tracking::SYSTEM_NOT_READY;
 }
 
 cv::Mat frame_drawer::draw_frame(float image_scale)
@@ -58,12 +58,12 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
         unique_lock<mutex> lock(_mutex);
         state = _state;
         frame = _current_frame;
-        if (_state == Tracking::SYSTEM_NOT_READY)
+        if (_state == tracking::SYSTEM_NOT_READY)
         {
-            _state = Tracking::NO_IMAGES_YET;
+            _state = tracking::NO_IMAGES_YET;
         }
 
-        if (_state == Tracking::NOT_INITIALIZED)
+        if (_state == tracking::NOT_INITIALIZED)
         {
             vIniKeys = _initial_keys;
             vMatches = _initial_matches;
@@ -86,7 +86,7 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
     }
 
     // Draw
-    if (state == Tracking::NOT_INITIALIZED)
+    if (state == tracking::NOT_INITIALIZED)
     {
         for (unsigned int i = 0; i < vMatches.size(); i++)
         {
@@ -122,7 +122,7 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
             cv::line(im, pt1, pt2, standardColor, 5);
         }
     }
-    else if (state == Tracking::OK) // TRACKING
+    else if (state == tracking::OK) // TRACKING
     {
         _tracked_count          = 0;
         _tracked_odometry_count = 0;
@@ -175,12 +175,12 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
         unique_lock<mutex> lock(_mutex);
         state = _state;
         frame = _current_frame;
-        if (_state == Tracking::SYSTEM_NOT_READY)
+        if (_state == tracking::SYSTEM_NOT_READY)
         {
-            _state = Tracking::NO_IMAGES_YET;
+            _state = tracking::NO_IMAGES_YET;
         }
 
-        if (_state == Tracking::NOT_INITIALIZED)
+        if (_state == tracking::NOT_INITIALIZED)
         {
             vIniKeys = _initial_keys;
             vMatches = _initial_matches;
@@ -203,7 +203,7 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
     }
 
     // Draw
-    if (state == Tracking::NOT_INITIALIZED) // INITIALIZING
+    if (state == tracking::NOT_INITIALIZED) // INITIALIZING
     {
         for (unsigned int i = 0; i < vMatches.size(); i++)
         {
@@ -225,7 +225,7 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
             }
         }
     }
-    else if (state == Tracking::OK) // TRACKING
+    else if (state == tracking::OK) // TRACKING
     {
         _tracked_count          = 0;
         _tracked_odometry_count = 0;
@@ -268,15 +268,15 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
 void frame_drawer::draw_text_info(cv::Mat &image, int state, cv::Mat &image_with_info)
 {
     stringstream s;
-    if (state == Tracking::NO_IMAGES_YET)
+    if (state == tracking::NO_IMAGES_YET)
     {
         s << " WAITING FOR IMAGES";
     }
-    else if (state == Tracking::NOT_INITIALIZED)
+    else if (state == tracking::NOT_INITIALIZED)
     {
         s << " TRYING TO INITIALIZE ";
     }
-    else if (state == Tracking::OK)
+    else if (state == tracking::OK)
     {
         if (!_localization_only)
         {
@@ -295,17 +295,17 @@ void frame_drawer::draw_text_info(cv::Mat &image, int state, cv::Mat &image_with
             s << ", + VO matches: " << _tracked_odometry_count;
         }
     }
-    else if (state == Tracking::LOST)
+    else if (state == tracking::LOST)
     {
         s << " TRACK LOST. TRYING TO RELOCALIZE ";
     }
-    else if (state == Tracking::SYSTEM_NOT_READY)
+    else if (state == tracking::SYSTEM_NOT_READY)
     {
         s << " LOADING ORB VOCABULARY. PLEASE WAIT...";
     }
 
     stringstream s_fps;
-    if (state != Tracking::SYSTEM_NOT_READY && state != Tracking::NO_IMAGES_YET)
+    if (state != tracking::SYSTEM_NOT_READY && state != tracking::NO_IMAGES_YET)
     {
         s_fps << std::fixed << std::setprecision(1) << get_tracking_fps() << " FPS";
     }
@@ -349,7 +349,7 @@ void frame_drawer::update_tracking_fps()
     _has_last_frame_time = true;
 }
 
-bool frame_drawer::update(Tracking &tracker)
+bool frame_drawer::update(tracking &tracker)
 {
     update_tracking_fps();
 
@@ -358,16 +358,16 @@ bool frame_drawer::update(Tracking &tracker)
     {
         return false;
     }
-    _current_frame = std::make_shared<frame>(tracker.mCurrentFrame);
+    _current_frame = std::make_shared<frame>(tracker.current_frame);
 
-    _localization_only = tracker.mbOnlyTracking;
+    _localization_only = tracker.only_tracking;
 
-    if (tracker.mLastProcessedState == Tracking::NOT_INITIALIZED)
+    if (tracker.last_processed_state == tracking::NOT_INITIALIZED)
     {
-        _initial_keys    = tracker.mInitialFrame.keypoints;
-        _initial_matches = tracker.mvIniMatches;
+        _initial_keys    = tracker.initial_frame.keypoints;
+        _initial_matches = tracker.initial_matches;
     }
-    _state = static_cast<int>(tracker.mLastProcessedState);
+    _state = static_cast<int>(tracker.last_processed_state);
     return true;
 }
 

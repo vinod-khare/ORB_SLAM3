@@ -49,7 +49,7 @@ loop_closing::loop_closing(processing_statistics &statistics, atlas *pAtlas, key
 
 loop_closing::~loop_closing() { stop_global_bundle_adjustment(); }
 
-void loop_closing::set_tracker(Tracking *pTracker) { tracker = pTracker; }
+void loop_closing::set_tracker(tracking *pTracker) { tracker = pTracker; }
 
 void loop_closing::set_local_mapper(local_mapping *pLocalMapper) { local_mapper = pLocalMapper; }
 
@@ -78,7 +78,7 @@ void loop_closing::run()
             {
                 if (merge_detected)
                 {
-                    if ((tracker->mSensor == system::imu_monocular || tracker->mSensor == system::imu_stereo || tracker->mSensor == system::imu_rgbd) &&
+                    if ((tracker->sensor == system::imu_monocular || tracker->sensor == system::imu_stereo || tracker->sensor == system::imu_rgbd) &&
                         (!current_key_frame->get_map()->is_imu_initialized()))
                     {
                         spdlog::warn("IMU is not initialized; aborting merge");
@@ -110,7 +110,7 @@ void loop_closing::run()
                                 continue;
                             }
                             // If inertial, force only yaw
-                            if ((tracker->mSensor == system::imu_monocular || tracker->mSensor == system::imu_stereo || tracker->mSensor == system::imu_rgbd) &&
+                            if ((tracker->sensor == system::imu_monocular || tracker->sensor == system::imu_stereo || tracker->sensor == system::imu_rgbd) &&
                                 current_key_frame->get_map()->get_inertial_ba1())
                             {
                                 Eigen::Vector3d phi   = LogSO3(old_to_new_similarity.rotation().toRotationMatrix());
@@ -124,12 +124,12 @@ void loop_closing::run()
 
                         merge_sim3_world_to_camera = merge_sim3_loop_to_world;
 
-                        // tracker->SetStepByStep(true);
+                        // tracker->set_step_by_step(true);
 
                         spdlog::info("Merge detected");
 
                         // TODO UNCOMMENT
-                        if (tracker->mSensor == system::imu_monocular || tracker->mSensor == system::imu_stereo || tracker->mSensor == system::imu_rgbd)
+                        if (tracker->sensor == system::imu_monocular || tracker->sensor == system::imu_stereo || tracker->sensor == system::imu_rgbd)
                         {
                             merge_local_2();
                         }
@@ -192,7 +192,7 @@ void loop_closing::run()
                             if (current_key_frame->get_map()->is_inertial())
                             {
                                 // If inertial, force only yaw
-                                if ((tracker->mSensor == system::imu_monocular || tracker->mSensor == system::imu_stereo || tracker->mSensor == system::imu_rgbd) &&
+                                if ((tracker->sensor == system::imu_monocular || tracker->sensor == system::imu_stereo || tracker->sensor == system::imu_rgbd) &&
                                     current_key_frame->get_map()->get_inertial_ba2())
                                 {
                                     phi(0)                    = 0;
@@ -286,7 +286,7 @@ bool loop_closing::detect_new_common_regions()
         return false;
     }
 
-    if (tracker->mSensor == system::stereo && last_map->get_all_key_frames().size() < 5) // 12
+    if (tracker->sensor == system::stereo && last_map->get_all_key_frames().size() < 5) // 12
     {
         database->add(current_key_frame);
         current_key_frame->set_erase();
@@ -455,7 +455,7 @@ bool loop_closing::detect_and_refine_sim3_from_last_key_frame(
         Eigen::Matrix<double, 7, 7> mHessian7x7;
 
         bool bFixedScale = fix_scale; // TODO CHECK; Solo para el monocular inertial
-        if (tracker->mSensor == system::imu_monocular && !pCurrentKF->get_map()->get_inertial_ba2())
+        if (tracker->sensor == system::imu_monocular && !pCurrentKF->get_map()->get_inertial_ba2())
         {
             bFixedScale = false;
         }
@@ -601,7 +601,7 @@ bool loop_closing::detect_common_regions_from_bow(std::vector<key_frame *> &vpBo
         {
             // Geometric validation
             bool bFixedScale = fix_scale;
-            if (tracker->mSensor == system::imu_monocular && !current_key_frame->get_map()->get_inertial_ba2())
+            if (tracker->sensor == system::imu_monocular && !current_key_frame->get_map()->get_inertial_ba2())
             {
                 bFixedScale = false;
             }
@@ -666,7 +666,7 @@ bool loop_closing::detect_common_regions_from_bow(std::vector<key_frame *> &vpBo
                     Eigen::Matrix<double, 7, 7> mHessian7x7;
 
                     [[maybe_unused]] bool bFixedScale = fix_scale;
-                    if (tracker->mSensor == system::imu_monocular && !current_key_frame->get_map()->get_inertial_ba2())
+                    if (tracker->sensor == system::imu_monocular && !current_key_frame->get_map()->get_inertial_ba2())
                     {
                         bFixedScale = false;
                     }
@@ -1041,7 +1041,7 @@ void loop_closing::correct_loop()
     // Optimize graph
     bool bFixedScale = fix_scale;
     // TODO CHECK; Solo para el monocular inertial
-    if (tracker->mSensor == system::imu_monocular && !current_key_frame->get_map()->get_inertial_ba2())
+    if (tracker->sensor == system::imu_monocular && !current_key_frame->get_map()->get_inertial_ba2())
     {
         bFixedScale = false;
     }
@@ -1437,7 +1437,7 @@ void loop_closing::merge_local()
     vpMergeConnectedKFs.clear();
     std::copy(spLocalWindowKFs.begin(), spLocalWindowKFs.end(), std::back_inserter(vpLocalCurrentWindowKFs));
     std::copy(spMergeConnectedKFs.begin(), spMergeConnectedKFs.end(), std::back_inserter(vpMergeConnectedKFs));
-    if (tracker->mSensor == system::imu_monocular || tracker->mSensor == system::imu_stereo || tracker->mSensor == system::imu_rgbd)
+    if (tracker->sensor == system::imu_monocular || tracker->sensor == system::imu_stereo || tracker->sensor == system::imu_rgbd)
     {
         Optimizer::MergeInertialBA(current_key_frame, merge_matched_key_frame, &bStop, pCurrentMap, vCorrectedSim3);
     }
@@ -1458,7 +1458,7 @@ void loop_closing::merge_local()
     }
     else
     {
-        if (tracker->mSensor == system::monocular)
+        if (tracker->sensor == system::monocular)
         {
             unique_lock<mutex> currentLock(pCurrentMap->map_update_mutex); // We update the current map with the Merge information
 
@@ -1527,7 +1527,7 @@ void loop_closing::merge_local()
         }
 
         // Optimize graph (and update the loop position for each element form the begining to the end)
-        if (tracker->mSensor != system::monocular)
+        if (tracker->sensor != system::monocular)
         {
             Optimizer::OptimizeEssentialGraph(current_key_frame, vpMergeConnectedKFs, vpLocalCurrentWindowKFs, vpCurrentMapKFs, vpCurrentMapMPs);
         }
@@ -1632,12 +1632,12 @@ void loop_closing::merge_local_2()
             bScaleVel = true;
         }
         owner_atlas->get_current_map()->apply_scaled_rotation(T_on, s_on, bScaleVel);
-        tracker->UpdateFrameIMU(s_on, current_key_frame->get_imu_bias(), tracker->GetLastKeyFrame());
+        tracker->update_frame_imu(s_on, current_key_frame->get_imu_bias(), tracker->get_last_key_frame());
     }
 
     const int numKFnew = pCurrentMap->key_frame_count();
 
-    if ((tracker->mSensor == system::imu_monocular || tracker->mSensor == system::imu_stereo || tracker->mSensor == system::imu_rgbd) && !pCurrentMap->get_inertial_ba2())
+    if ((tracker->sensor == system::imu_monocular || tracker->sensor == system::imu_stereo || tracker->sensor == system::imu_rgbd) && !pCurrentMap->get_inertial_ba2())
     {
         // Map is not completly initialized
         Eigen::Vector3d bg, ba;
@@ -1646,7 +1646,7 @@ void loop_closing::merge_local_2()
         Optimizer::InertialOptimization(pCurrentMap, bg, ba);
         IMU::Bias          b(ba[0], ba[1], ba[2], bg[0], bg[1], bg[2]);
         unique_lock<mutex> lock(owner_atlas->get_current_map()->map_update_mutex);
-        tracker->UpdateFrameIMU(1.0f, b, tracker->GetLastKeyFrame());
+        tracker->update_frame_imu(1.0f, b, tracker->get_last_key_frame());
 
         // Set map initialized
         pCurrentMap->set_inertial_ba2();
@@ -1777,7 +1777,7 @@ void loop_closing::merge_local_2()
 
     // Perform BA
     bool       bStopFlag = false;
-    key_frame *pCurrKF   = tracker->GetLastKeyFrame();
+    key_frame *pCurrKF   = tracker->get_last_key_frame();
     Optimizer::MergeInertialBA(pCurrKF, merge_matched_key_frame, &bStopFlag, pCurrentMap, CorrectedSim3);
 
     // Release Local Mapping.

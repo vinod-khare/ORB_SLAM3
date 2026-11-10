@@ -1,5 +1,5 @@
 #include "Pinhole.h"
-#include "Tracking.h"
+#include "tracking.h"
 #include "descriptor_matcher.h"
 #include "frame.h"
 #include "keypoint_extractor.h"
@@ -214,7 +214,7 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::frame::initial_computations = true;
     ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->toK(), distortion, 10.f, 40.f);
-    ORB_SLAM3::Tracking::extract_features(frame, extractor, image, cameras);
+    ORB_SLAM3::tracking::extract_features(frame, extractor, image, cameras);
     REQUIRE(frame.feature_count >= 2);
     REQUIRE(frame.extraction_ms > 0);
     REQUIRE(frame.stereo_matching_ms >= 0);

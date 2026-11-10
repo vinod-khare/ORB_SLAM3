@@ -35,7 +35,7 @@ namespace ORB_SLAM3
 {
 
 class frame;
-class Tracking;
+class tracking;
 
 class frame_drawer
 {
@@ -43,7 +43,7 @@ class frame_drawer
     explicit frame_drawer(atlas &atlas);
 
     // Update info from the last processed frame.
-    bool update(Tracking &tracker);
+    bool update(tracking &tracker);
 
     // Draw last processed frame.
     cv::Mat draw_frame(float image_scale = 1.f);

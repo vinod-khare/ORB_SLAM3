@@ -18,7 +18,7 @@
 
 #include "viewer.h"
 
-#include "Tracking.h"
+#include "tracking.h"
 #include "frame_drawer.h"
 #include "map_drawer.h"
 
@@ -81,19 +81,19 @@ const char *tracking_state_name(int state)
 {
     switch (state)
     {
-    case Tracking::SYSTEM_NOT_READY:
+    case tracking::SYSTEM_NOT_READY:
         return "System not ready";
-    case Tracking::NO_IMAGES_YET:
+    case tracking::NO_IMAGES_YET:
         return "Waiting for images";
-    case Tracking::NOT_INITIALIZED:
+    case tracking::NOT_INITIALIZED:
         return "Initializing";
-    case Tracking::OK:
+    case tracking::OK:
         return "Tracking";
-    case Tracking::RECENTLY_LOST:
+    case tracking::RECENTLY_LOST:
         return "Recently lost";
-    case Tracking::LOST:
+    case tracking::LOST:
         return "Lost";
-    case Tracking::OK_KLT:
+    case tracking::OK_KLT:
         return "KLT tracking";
     default:
         return "Unknown";

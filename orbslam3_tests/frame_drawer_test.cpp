@@ -1,5 +1,5 @@
 #include "Pinhole.h"
-#include "Tracking.h"
+#include "tracking.h"
 #include "atlas.h"
 #include "frame_drawer.h"
 #include "keypoint_extractor.h"
@@ -22,7 +22,7 @@ class frame_drawer_fixture : public ORB_SLAM3::frame_drawer
   public:
     frame_drawer_fixture(ORB_SLAM3::atlas &atlas, const std::vector<cv::KeyPoint> &keys, bool right, int image_type) : frame_drawer(atlas)
     {
-        _state             = ORB_SLAM3::Tracking::OK;
+        _state             = ORB_SLAM3::tracking::OK;
         _localization_only = false;
 
         ORB_SLAM3::frame frame(0.0, nullptr, cv::Mat::eye(3, 3, CV_32F), cv::Mat::zeros(4, 1, CV_32F), 10.f, 40.f);
@@ -91,7 +91,7 @@ TEST_CASE("Frame drawer renders tracked keypoint sizes and orientations in both 
     }
 }
 
-static_assert(std::is_same_v<decltype(&ORB_SLAM3::frame_drawer::update), bool (ORB_SLAM3::frame_drawer::*)(ORB_SLAM3::Tracking &)>);
+static_assert(std::is_same_v<decltype(&ORB_SLAM3::frame_drawer::update), bool (ORB_SLAM3::frame_drawer::*)(ORB_SLAM3::tracking &)>);
 
 TEST_CASE("Off-screen map rendering survives pane resizing and navigation", "[.viewer_render]")
 {
@@ -128,7 +128,7 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::frame::initial_computations = true;
     ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->toK(), distortion, 10.f, 40.f);
-    ORB_SLAM3::Tracking::extract_features(frame, extractor, input, cameras);
+    ORB_SLAM3::tracking::extract_features(frame, extractor, input, cameras);
     REQUIRE(frame.feature_count >= 2);
     frame.set_pose(Sophus::SE3f{});
     frame.dataset     = 0;

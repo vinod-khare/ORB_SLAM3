@@ -1,5 +1,5 @@
 #include "system.h"
-#include "Tracking.h"
+#include "tracking.h"
 #include "settings.h"
 
 #include <chrono>
@@ -16,13 +16,13 @@ void write_vocabulary_fixture(const std::string &filename, int scoring, int weig
 
 namespace
 {
-class extraction_tracker : public ORB_SLAM3::Tracking
+class extraction_tracker : public ORB_SLAM3::tracking
 {
   public:
-    using Tracking::cameras;
-    using Tracking::create_frame;
-    using Tracking::extract_current_features;
-    using Tracking::Tracking;
+    using tracking::cameras;
+    using tracking::create_frame;
+    using tracking::extract_current_features;
+    using tracking::tracking;
 
     ORB_SLAM3::keypoint_extractor &extractor(bool initial) { return initial ? *initial_keypoint_extractor : *left_keypoint_extractor; }
 };
@@ -86,26 +86,26 @@ TEST_CASE("Tracking preserves initialization extraction during deferred recovery
     ORB_SLAM3::atlas    atlas(0);
     extraction_tracker  tracker(nullptr, nullptr, &atlas, nullptr, sensor, &settings, settings.cameras());
     REQUIRE(&tracker.cameras == &settings.cameras());
-    tracker.mImGray = cv::Mat(512, 512, CV_8UC1);
+    tracker.gray_image = cv::Mat(512, 512, CV_8UC1);
     cv::RNG random(17);
-    random.fill(tracker.mImGray, cv::RNG::UNIFORM, 0, 256);
+    random.fill(tracker.gray_image, cv::RNG::UNIFORM, 0, 256);
     ORB_SLAM3::frame::initial_computations = true;
 
     const bool initial = GENERATE(false, true);
     tracker.create_frame(1.0, tracker.extractor(initial));
-    const auto descriptors = descriptor_matrix(tracker.mCurrentFrame.keypoints);
+    const auto descriptors = descriptor_matrix(tracker.current_frame.keypoints);
     REQUIRE(descriptors.rows > 0);
     REQUIRE((descriptors.rows > 250) == initial);
-    REQUIRE(tracker.mCurrentFrame.previous_frame == (sensor == ORB_SLAM3::system::imu_monocular ? &tracker.mLastFrame : nullptr));
-    tracker.mLastFrame    = tracker.mCurrentFrame;
-    tracker.mCurrentFrame = ORB_SLAM3::frame(tracker.mLastFrame, 1.05);
-    REQUIRE(tracker.mCurrentFrame.flow_only);
+    REQUIRE(tracker.current_frame.previous_frame == (sensor == ORB_SLAM3::system::imu_monocular ? &tracker.last_frame : nullptr));
+    tracker.last_frame    = tracker.current_frame;
+    tracker.current_frame = ORB_SLAM3::frame(tracker.last_frame, 1.05);
+    REQUIRE(tracker.current_frame.flow_only);
     tracker.extract_current_features();
-    REQUIRE_FALSE(tracker.mCurrentFrame.flow_only);
-    REQUIRE(tracker.mCurrentFrame.previous_frame == &tracker.mLastFrame);
-    REQUIRE(tracker.mCurrentFrame.timestamp == 1.05);
-    REQUIRE(tracker.mCurrentFrame.feature_count == descriptors.rows);
-    REQUIRE(cv::norm(descriptor_matrix(tracker.mCurrentFrame.keypoints), descriptors, cv::NORM_INF) == 0);
+    REQUIRE_FALSE(tracker.current_frame.flow_only);
+    REQUIRE(tracker.current_frame.previous_frame == &tracker.last_frame);
+    REQUIRE(tracker.current_frame.timestamp == 1.05);
+    REQUIRE(tracker.current_frame.feature_count == descriptors.rows);
+    REQUIRE(cv::norm(descriptor_matrix(tracker.current_frame.keypoints), descriptors, cv::NORM_INF) == 0);
 }
 
 TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shutdown]")

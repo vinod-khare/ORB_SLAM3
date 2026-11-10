@@ -19,7 +19,7 @@
 #ifndef LOOP_CLOSING_H
 #define LOOP_CLOSING_H
 
-#include "Tracking.h"
+#include "tracking.h"
 #include "atlas.h"
 #include "key_frame.h"
 #include "key_frame_database.h"
@@ -38,7 +38,7 @@
 namespace ORB_SLAM3
 {
 
-class Tracking;
+class tracking;
 class local_mapping;
 class key_frame_database;
 class map;
@@ -53,7 +53,7 @@ class loop_closing
     loop_closing(processing_statistics &statistics, atlas *pAtlas, key_frame_database *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
     ~loop_closing();
 
-    void set_tracker(Tracking *pTracker);
+    void set_tracker(tracking *pTracker);
 
     void set_local_mapper(local_mapping *pLocalMapper);
 
@@ -131,7 +131,7 @@ class loop_closing
     std::mutex finish_mutex;
 
     atlas    *owner_atlas;
-    Tracking *tracker;
+    tracking *tracker;
 
     key_frame_database *database;
     place_vocabulary   *place_vocabulary_ptr;

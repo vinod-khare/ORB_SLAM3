@@ -50,7 +50,7 @@ local_mapping::local_mapping(processing_statistics &statistics, system *pSys, at
 
 void local_mapping::set_loop_closer(loop_closing *pLoopCloser) { loop_closer = pLoopCloser; }
 
-void local_mapping::set_tracker(Tracking *pTracker) { tracker = pTracker; }
+void local_mapping::set_tracker(tracking *pTracker) { tracker = pTracker; }
 
 void local_mapping::run()
 {
@@ -114,7 +114,7 @@ void local_mapping::run()
                             }
                         }
 
-                        bool bLarge = ((tracker->GetMatchesInliers() > 75) && monocular) || ((tracker->GetMatchesInliers() > 100) && !monocular);
+                        bool bLarge = ((tracker->get_matches_inliers() > 75) && monocular) || ((tracker->get_matches_inliers() > 100) && !monocular);
                         Optimizer::LocalInertialBA(current_key_frame,
                                                    &bundle_adjustment_aborted,
                                                    current_key_frame->get_map(),
@@ -151,7 +151,7 @@ void local_mapping::run()
 
                 if ((initialization_elapsed_time < 50.0f) && inertial)
                 {
-                    if (current_key_frame->get_map()->is_imu_initialized() && tracker->mState == Tracking::OK) // Enter here everytime local-mapping is called
+                    if (current_key_frame->get_map()->is_imu_initialized() && tracker->state == tracking::OK) // Enter here everytime local-mapping is called
                     {
                         if (!current_key_frame->get_map()->get_inertial_ba1())
                         {
@@ -435,7 +435,7 @@ void local_mapping::create_new_map_points()
 
         // Search matches that fullfil epipolar constraint
         vector<pair<size_t, size_t>> vMatchedIndices;
-        bool                         bCoarse = inertial && tracker->mState == Tracking::RECENTLY_LOST && current_key_frame->get_map()->get_inertial_ba2();
+        bool                         bCoarse = inertial && tracker->state == tracking::RECENTLY_LOST && current_key_frame->get_map()->get_inertial_ba2();
 
         matcher.search_for_triangulation(current_key_frame, pKF2, vMatchedIndices, false, bCoarse);
 
@@ -1329,7 +1329,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
 
     scale = 1.0;
 
-    initialization_time = tracker->mLastFrame.timestamp - vpKF.front()->timestamp;
+    initialization_time = tracker->last_frame.timestamp - vpKF.front()->timestamp;
 
     Optimizer::InertialOptimization(owner_atlas->get_current_map(), imu_world_rotation, scale, gyro_bias, accelerometer_bias, monocular, inertial_information, false, false, priorG, priorA);
 
@@ -1347,7 +1347,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
         {
             Sophus::SE3f Twg(imu_world_rotation.cast<float>().transpose(), Eigen::Vector3f::Zero());
             owner_atlas->get_current_map()->apply_scaled_rotation(Twg, scale, true);
-            tracker->UpdateFrameIMU(scale, vpKF[0]->get_imu_bias(), current_key_frame);
+            tracker->update_frame_imu(scale, vpKF[0]->get_imu_bias(), current_key_frame);
         }
 
         // Check if initialization OK
@@ -1361,11 +1361,11 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
         }
     }
 
-    tracker->UpdateFrameIMU(1.0, vpKF[0]->get_imu_bias(), current_key_frame);
+    tracker->update_frame_imu(1.0, vpKF[0]->get_imu_bias(), current_key_frame);
     if (!owner_atlas->is_imu_initialized())
     {
         owner_atlas->set_imu_initialized();
-        tracker->t0IMU             = tracker->mCurrentFrame.timestamp;
+        tracker->imu_initialization_timestamp             = tracker->current_frame.timestamp;
         current_key_frame->has_imu = true;
     }
 
@@ -1497,7 +1497,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
     }
     new_key_frames.clear();
 
-    tracker->mState = Tracking::OK;
+    tracker->state = tracking::OK;
     initializing    = false;
 
     current_key_frame->get_map()->increase_change_index();
@@ -1551,7 +1551,7 @@ void local_mapping::refine_scale()
     {
         Sophus::SE3f Tgw(imu_world_rotation.cast<float>().transpose(), Eigen::Vector3f::Zero());
         owner_atlas->get_current_map()->apply_scaled_rotation(Tgw, scale, true);
-        tracker->UpdateFrameIMU(scale, current_key_frame->get_imu_bias(), current_key_frame);
+        tracker->update_frame_imu(scale, current_key_frame->get_imu_bias(), current_key_frame);
     }
 
     for (list<key_frame *>::iterator lit = new_key_frames.begin(), lend = new_key_frames.end(); lit != lend; lit++)

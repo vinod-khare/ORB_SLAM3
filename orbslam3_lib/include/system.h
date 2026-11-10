@@ -45,7 +45,7 @@ class key_frame_database;
 class map;
 class map_point;
 class place_vocabulary;
-class Tracking;
+class tracking;
 class local_mapping;
 class loop_closing;
 class settings;
@@ -175,7 +175,7 @@ class system
 
     float                get_image_scale();
     atlas               *get_atlas() const;
-    Tracking            *get_tracker() const;
+    tracking            *get_tracker() const;
     float                get_camera_frame_rate() const;
     const camera_vector &cameras() const { return _cameras; }
 
@@ -210,7 +210,7 @@ class system
     // Tracker. It receives a frame and computes the associated camera pose.
     // It also decides when to insert a new keyframe, create some new MapPoints and
     // performs relocalization if tracking fails.
-    std::unique_ptr<Tracking> _tracker;
+    std::unique_ptr<tracking> _tracker;
 
     // Local Mapper. It manages the local map and performs local bundle adjustment.
     std::unique_ptr<local_mapping> _local_mapper;
@@ -245,7 +245,7 @@ class system
     std::mutex               _state_mutex;
 
     // One filename per tracked frame pose entry (same cardinality as
-    // _tracker->mlRelativeFramePoses when exported).
+    // _tracker->relative_frame_poses when exported).
     std::list<string> _frame_filenames{};
 
     //
