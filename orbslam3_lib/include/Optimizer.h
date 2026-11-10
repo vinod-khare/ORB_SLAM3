@@ -20,7 +20,7 @@
 #define OPTIMIZER_H
 
 #include "G2oCompat.h"
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "LoopClosing.h"
 #include "frame.h"
 #include "map.h"
@@ -49,7 +49,7 @@ class Optimizer
 {
   public:
     void static BundleAdjustment(
-        const std::vector<KeyFrame *> &vpKF, const std::vector<map_point *> &vpMP, int nIterations = 5, bool *pbStopFlag = NULL, const unsigned long nLoopKF = 0, const bool bRobust = true);
+        const std::vector<key_frame *> &vpKF, const std::vector<map_point *> &vpMP, int nIterations = 5, bool *pbStopFlag = NULL, const unsigned long nLoopKF = 0, const bool bRobust = true);
     void static GlobalBundleAdjustemnt(map *pMap, int nIterations = 5, bool *pbStopFlag = NULL, const unsigned long nLoopKF = 0, const bool bRobust = true);
     void static FullInertialBA(map                *pMap,
                                int                 its,
@@ -62,7 +62,7 @@ class Optimizer
                                Eigen::VectorXd    *vSingVal   = NULL,
                                bool               *bHess      = NULL);
 
-    void static LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges);
+    void static LocalBundleAdjustment(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges);
 
     int static PoseOptimization(frame *pFrame, const camera_vector &cameras);
     int static PoseInertialOptimizationLastKeyFrame(frame *pFrame, const camera_vector &cameras, bool bRecInit = false);
@@ -70,26 +70,26 @@ class Optimizer
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
     void static OptimizeEssentialGraph(map                                         *pMap,
-                                       KeyFrame                                    *pLoopKF,
-                                       KeyFrame                                    *pCurKF,
+                                       key_frame                                    *pLoopKF,
+                                       key_frame                                    *pCurKF,
                                        const LoopClosing::KeyFrameAndPose          &NonCorrectedSim3,
                                        const LoopClosing::KeyFrameAndPose          &CorrectedSim3,
-                                       const std::map<KeyFrame *, set<KeyFrame *>> &LoopConnections,
+                                       const std::map<key_frame *, set<key_frame *>> &LoopConnections,
                                        const bool                                  &bFixScale);
     void static OptimizeEssentialGraph(
-        KeyFrame *pCurKF, vector<KeyFrame *> &vpFixedKFs, vector<KeyFrame *> &vpFixedCorrectedKFs, vector<KeyFrame *> &vpNonFixedKFs, vector<map_point *> &vpNonCorrectedMPs);
+        key_frame *pCurKF, vector<key_frame *> &vpFixedKFs, vector<key_frame *> &vpFixedCorrectedKFs, vector<key_frame *> &vpNonFixedKFs, vector<map_point *> &vpNonCorrectedMPs);
 
     // For inertial loopclosing
     void static OptimizeEssentialGraph4DoF(map                                         *pMap,
-                                           KeyFrame                                    *pLoopKF,
-                                           KeyFrame                                    *pCurKF,
+                                           key_frame                                    *pLoopKF,
+                                           key_frame                                    *pCurKF,
                                            const LoopClosing::KeyFrameAndPose          &NonCorrectedSim3,
                                            const LoopClosing::KeyFrameAndPose          &CorrectedSim3,
-                                           const std::map<KeyFrame *, set<KeyFrame *>> &LoopConnections);
+                                           const std::map<key_frame *, set<key_frame *>> &LoopConnections);
 
     // if bFixScale is true, optimize SE3 (stereo,rgbd), Sim3 otherwise (mono) (NEW)
-    static int OptimizeSim3(KeyFrame                    *pKF1,
-                            KeyFrame                    *pKF2,
+    static int OptimizeSim3(key_frame                    *pKF1,
+                            key_frame                    *pKF2,
                             std::vector<map_point *>    &vpMatches1,
                             g2o::Sim3                   &g2oS12,
                             const float                  th2,
@@ -99,11 +99,11 @@ class Optimizer
 
     // For inertial systems
 
-    void static LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges, bool bLarge = false, bool bRecInit = false);
-    void static MergeInertialBA(KeyFrame *pCurrKF, KeyFrame *pMergeKF, bool *pbStopFlag, map *pMap, LoopClosing::KeyFrameAndPose &corrPoses);
+    void static LocalInertialBA(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges, bool bLarge = false, bool bRecInit = false);
+    void static MergeInertialBA(key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, LoopClosing::KeyFrameAndPose &corrPoses);
 
     // Local BA in welding area when two maps are merged
-    void static LocalBundleAdjustment(KeyFrame *pMainKF, vector<KeyFrame *> vpAdjustKF, vector<KeyFrame *> vpFixedKF, bool *pbStopFlag);
+    void static LocalBundleAdjustment(key_frame *pMainKF, vector<key_frame *> vpAdjustKF, vector<key_frame *> vpFixedKF, bool *pbStopFlag);
 
     // Marginalize block element (start:end,start:end). Perform Schur complement.
     // Marginalized elements are filled with zeros.

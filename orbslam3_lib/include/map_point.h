@@ -19,7 +19,7 @@
 #ifndef MAP_POINT_H
 #define MAP_POINT_H
 
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "converter.h"
 #include "frame.h"
 #include "map.h"
@@ -32,7 +32,7 @@
 namespace ORB_SLAM3
 {
 
-class KeyFrame;
+class key_frame;
 class map;
 class frame;
 
@@ -43,8 +43,8 @@ class map_point
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     map_point();
 
-    map_point(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, map *pMap);
-    map_point(const double invDepth, cv::Point2f uv_init, KeyFrame *pRefKF, KeyFrame *pHostKF, map *pMap);
+    map_point(const Eigen::Vector3f &Pos, key_frame *pRefKF, map *pMap);
+    map_point(const double invDepth, cv::Point2f uv_init, key_frame *pRefKF, key_frame *pHostKF, map *pMap);
     map_point(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const int &idxF);
 
     void            set_world_position(const Eigen::Vector3f &Pos);
@@ -53,17 +53,17 @@ class map_point
     Eigen::Vector3f get_normal();
     void            set_normal_vector(const Eigen::Vector3f &normal);
 
-    KeyFrame *get_reference_key_frame();
+    key_frame *get_reference_key_frame();
 
-    std::map<KeyFrame *, std::tuple<int, int>> get_observations();
+    std::map<key_frame *, std::tuple<int, int>> get_observations();
     int                                        get_observation_count();
 
-    void                         add_observation(KeyFrame *pKF, int idx);
+    void                         add_observation(key_frame *pKF, int idx);
     std::array<unsigned char, 3> color();
-    void                         erase_observation(KeyFrame *pKF);
+    void                         erase_observation(key_frame *pKF);
 
-    std::tuple<int, int> get_index_in_key_frame(KeyFrame *pKF);
-    bool                 is_in_key_frame(KeyFrame *pKF);
+    std::tuple<int, int> get_index_in_key_frame(key_frame *pKF);
+    bool                 is_in_key_frame(key_frame *pKF);
 
     void set_bad_flag();
     bool is_bad();
@@ -84,7 +84,7 @@ class map_point
 
     float get_min_distance_invariance();
     float get_max_distance_invariance();
-    int   predict_scale(const float &currentDist, KeyFrame *pKF);
+    int   predict_scale(const float &currentDist, key_frame *pKF);
     int   predict_scale(const float &currentDist, frame *pF);
 
     map *get_map();
@@ -132,7 +132,7 @@ class map_point
     double    inverse_depth;
     double    initial_u;
     double    initial_v;
-    KeyFrame *host_key_frame;
+    key_frame *host_key_frame;
 
     static std::mutex global_mutex;
 
@@ -147,7 +147,7 @@ class map_point
     Eigen::Vector3f world_position;
 
     // Keyframes observing the point and associated index in keyframe
-    std::map<KeyFrame *, std::tuple<int, int>> observations_by_key_frame;
+    std::map<key_frame *, std::tuple<int, int>> observations_by_key_frame;
 
     // Mean viewing direction
     Eigen::Vector3f normal_vector;
@@ -155,8 +155,8 @@ class map_point
     // Best descriptor to fast matching
     cv::Mat descriptor;
 
-    // Reference KeyFrame
-    KeyFrame *reference_key_frame;
+    // Reference key_frame
+    key_frame *reference_key_frame;
 
     // Tracking counters
     int visible;

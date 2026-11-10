@@ -45,7 +45,7 @@ namespace ORB_SLAM3
 #define FRAME_GRID_COLS 64
 
 class map_point;
-class KeyFrame;
+class key_frame;
 class ConstraintPoseImu;
 class GeometricCamera;
 
@@ -265,7 +265,7 @@ class frame
 
     // Imu preintegration from last keyframe
     IMU::Preintegrated *imu_preintegrated;
-    KeyFrame           *last_key_frame;
+    key_frame           *last_key_frame;
 
     // Pointer to previous frame
     frame              *previous_frame;
@@ -276,7 +276,7 @@ class frame
     long unsigned int        id;
 
     // Reference Keyframe.
-    KeyFrame *reference_key_frame;
+    key_frame *reference_key_frame;
 
     // Scale pyramid info.
     int           scale_levels;

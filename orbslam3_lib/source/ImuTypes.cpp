@@ -264,7 +264,7 @@ void Preintegrated::MergePrevious(Preintegrated *pPrev)
     }
 }
 
-void Preintegrated::SetNewBias(const Bias &bu_)
+void Preintegrated::set_new_bias(const Bias &bu_)
 {
     std::unique_lock<std::mutex> lock(mMutex);
     bu = bu_;

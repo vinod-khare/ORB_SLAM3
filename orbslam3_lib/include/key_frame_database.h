@@ -19,7 +19,7 @@
 #ifndef KEY_FRAME_DATABASE_H
 #define KEY_FRAME_DATABASE_H
 
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "frame.h"
 #include "map.h"
 #include "place_vocabulary.h"
@@ -32,7 +32,7 @@
 namespace ORB_SLAM3
 {
 
-class KeyFrame;
+class key_frame;
 class frame;
 class map;
 
@@ -44,30 +44,30 @@ class key_frame_database
     key_frame_database() {}
     key_frame_database(const place_vocabulary &voc);
 
-    void add(KeyFrame *pKF);
+    void add(key_frame *pKF);
 
-    void erase(KeyFrame *pKF);
+    void erase(key_frame *pKF);
 
     void clear();
     void clear_map(map *pMap);
 
     // Loop Detection(DEPRECATED)
-    std::vector<KeyFrame *> detect_loop_candidates(KeyFrame *pKF, float minScore);
+    std::vector<key_frame *> detect_loop_candidates(key_frame *pKF, float minScore);
 
     // Loop and Merge Detection
-    void detect_candidates(KeyFrame *pKF, float minScore, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand);
-    void detect_best_candidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nMinWords);
-    void detect_n_best_candidates(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nNumCandidates);
+    void detect_candidates(key_frame *pKF, float minScore, vector<key_frame *> &vpLoopCand, vector<key_frame *> &vpMergeCand);
+    void detect_best_candidates(key_frame *pKF, vector<key_frame *> &vpLoopCand, vector<key_frame *> &vpMergeCand, int nMinWords);
+    void detect_n_best_candidates(key_frame *pKF, vector<key_frame *> &vpLoopCand, vector<key_frame *> &vpMergeCand, int nNumCandidates);
 
     // Relocalization
-    std::vector<KeyFrame *> detect_relocalization_candidates(frame *F, map *pMap);
+    std::vector<key_frame *> detect_relocalization_candidates(frame *F, map *pMap);
 
   protected:
     // Associated vocabulary
     const place_vocabulary *vocabulary;
 
     // Inverted file
-    std::vector<list<KeyFrame *>> inverted_file;
+    std::vector<list<key_frame *>> inverted_file;
 
     // Mutex
     std::mutex database_mutex;

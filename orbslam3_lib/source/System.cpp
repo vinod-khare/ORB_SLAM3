@@ -597,12 +597,12 @@ void System::SaveTrajectoryTUM(const string &filename)
         return;
     }
 
-    vector<KeyFrame *> vpKFs = mpAtlas->get_all_key_frames();
-    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    vector<key_frame *> vpKFs = mpAtlas->get_all_key_frames();
+    sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
-    Sophus::SE3f Two = vpKFs[0]->GetPoseInverse();
+    Sophus::SE3f Two = vpKFs[0]->get_pose_inverse();
 
     ofstream f;
     f.open(filename.c_str());
@@ -614,7 +614,7 @@ void System::SaveTrajectoryTUM(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::KeyFrame *>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
     list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
     list<bool>::iterator                  lbL  = mpTracker->mlbLost.begin();
     for (list<Sophus::SE3f>::iterator lit = mpTracker->mlRelativeFramePoses.begin(), lend = mpTracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
@@ -624,18 +624,18 @@ void System::SaveTrajectoryTUM(const string &filename)
             continue;
         }
 
-        KeyFrame *pKF = *lRit;
+        key_frame *pKF = *lRit;
 
         Sophus::SE3f Trw;
 
         // If the reference keyframe was culled, traverse the spanning tree to get a suitable keyframe.
-        while (pKF->isBad())
+        while (pKF->is_bad())
         {
-            Trw = Trw * pKF->mTcp;
-            pKF = pKF->GetParent();
+            Trw = Trw * pKF->pose_relative_to_parent;
+            pKF = pKF->get_parent();
         }
 
-        Trw = Trw * pKF->GetPose() * Two;
+        Trw = Trw * pKF->get_pose() * Two;
 
         Sophus::SE3f Tcw = (*lit) * Trw;
         Sophus::SE3f Twc = Tcw.inverse();
@@ -652,8 +652,8 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
 {
     spdlog::info("Saving keyframe trajectory to {}", filename);
 
-    vector<KeyFrame *> vpKFs = mpAtlas->get_all_key_frames();
-    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    vector<key_frame *> vpKFs = mpAtlas->get_all_key_frames();
+    sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
@@ -663,17 +663,17 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
 
     for (size_t i = 0; i < vpKFs.size(); i++)
     {
-        KeyFrame *pKF = vpKFs[i];
+        key_frame *pKF = vpKFs[i];
 
-        if (pKF->isBad())
+        if (pKF->is_bad())
         {
             continue;
         }
 
-        Sophus::SE3f       Twc = pKF->GetPoseInverse();
+        Sophus::SE3f       Twc = pKF->get_pose_inverse();
         Eigen::Quaternionf q   = Twc.unit_quaternion();
         Eigen::Vector3f    t   = Twc.translation();
-        f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+        f << setprecision(6) << pKF->timestamp << setprecision(7) << " " << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
     }
 
     f.close();
@@ -704,19 +704,19 @@ void System::SaveTrajectoryEuRoC(const string &filename)
         return;
     }
 
-    vector<KeyFrame *> vpKFs = pBiggerMap->get_all_key_frames();
-    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    vector<key_frame *> vpKFs = pBiggerMap->get_all_key_frames();
+    sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
     Sophus::SE3f Twb; // Can be word to cam0 or world to b depending on IMU or not.
     if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
     {
-        Twb = vpKFs[0]->GetImuPose();
+        Twb = vpKFs[0]->get_imu_pose();
     }
     else
     {
-        Twb = vpKFs[0]->GetPoseInverse();
+        Twb = vpKFs[0]->get_pose_inverse();
     }
 
     ofstream f;
@@ -729,7 +729,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::KeyFrame *>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
     list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
     list<bool>::iterator                  lbL  = mpTracker->mlbLost.begin();
 
@@ -740,7 +740,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
             continue;
         }
 
-        KeyFrame *pKF = *lRit;
+        key_frame *pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -750,22 +750,22 @@ void System::SaveTrajectoryEuRoC(const string &filename)
             continue;
         }
 
-        while (pKF->isBad())
+        while (pKF->is_bad())
         {
-            Trw = Trw * pKF->mTcp;
-            pKF = pKF->GetParent();
+            Trw = Trw * pKF->pose_relative_to_parent;
+            pKF = pKF->get_parent();
         }
 
-        if (!pKF || pKF->GetMap() != pBiggerMap)
+        if (!pKF || pKF->get_map() != pBiggerMap)
         {
             continue;
         }
 
-        Trw = Trw * pKF->GetPose() * Twb; // Tcp*Tpw*Twb0=Tcb0 where b0 is the new world reference
+        Trw = Trw * pKF->get_pose() * Twb; // Tcp*Tpw*Twb0=Tcb0 where b0 is the new world reference
 
         if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
         {
-            Sophus::SE3f       Twb = (pKF->mImuCalib.mTbc * (*lit) * Trw).inverse();
+            Sophus::SE3f       Twb = (pKF->imu_calibration.mTbc * (*lit) * Trw).inverse();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
             Eigen::Vector3f    twb = Twb.translation();
             f << setprecision(6) << 1e9 * (*lT) << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
@@ -787,19 +787,19 @@ void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
 
     spdlog::info("Saving trajectory of map {} to {}", pMap->get_id(), filename);
 
-    vector<KeyFrame *> vpKFs = pMap->get_all_key_frames();
-    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    vector<key_frame *> vpKFs = pMap->get_all_key_frames();
+    sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
     Sophus::SE3f Twb; // Can be word to cam0 or world to b dependingo on IMU or not.
     if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
     {
-        Twb = vpKFs[0]->GetImuPose();
+        Twb = vpKFs[0]->get_imu_pose();
     }
     else
     {
-        Twb = vpKFs[0]->GetPoseInverse();
+        Twb = vpKFs[0]->get_pose_inverse();
     }
 
     ofstream f;
@@ -812,7 +812,7 @@ void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::KeyFrame *>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
     list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
     list<bool>::iterator                  lbL  = mpTracker->mlbLost.begin();
 
@@ -823,7 +823,7 @@ void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
             continue;
         }
 
-        KeyFrame *pKF = *lRit;
+        key_frame *pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -833,22 +833,22 @@ void System::SaveTrajectoryEuRoC(const string &filename, map *pMap)
             continue;
         }
 
-        while (pKF->isBad())
+        while (pKF->is_bad())
         {
-            Trw = Trw * pKF->mTcp;
-            pKF = pKF->GetParent();
+            Trw = Trw * pKF->pose_relative_to_parent;
+            pKF = pKF->get_parent();
         }
 
-        if (!pKF || pKF->GetMap() != pMap)
+        if (!pKF || pKF->get_map() != pMap)
         {
             continue;
         }
 
-        Trw = Trw * pKF->GetPose() * Twb; // Tcp*Tpw*Twb0=Tcb0 where b0 is the new world reference
+        Trw = Trw * pKF->get_pose() * Twb; // Tcp*Tpw*Twb0=Tcb0 where b0 is the new world reference
 
         if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
         {
-            Sophus::SE3f       Twb = (pKF->mImuCalib.mTbc * (*lit) * Trw).inverse();
+            Sophus::SE3f       Twb = (pKF->imu_calibration.mTbc * (*lit) * Trw).inverse();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
             Eigen::Vector3f    twb = Twb.translation();
             f << setprecision(6) << 1e9 * (*lT) << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
@@ -887,8 +887,8 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
         return;
     }
 
-    vector<KeyFrame *> vpKFs = pBiggerMap->get_all_key_frames();
-    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    vector<key_frame *> vpKFs = pBiggerMap->get_all_key_frames();
+    sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
@@ -898,26 +898,26 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
 
     for (size_t i = 0; i < vpKFs.size(); i++)
     {
-        KeyFrame *pKF = vpKFs[i];
+        key_frame *pKF = vpKFs[i];
 
-        if (!pKF || pKF->isBad())
+        if (!pKF || pKF->is_bad())
         {
             continue;
         }
         if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
         {
-            Sophus::SE3f       Twb = pKF->GetImuPose();
+            Sophus::SE3f       Twb = pKF->get_imu_pose();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
             Eigen::Vector3f    twb = Twb.translation();
-            f << setprecision(6) << 1e9 * pKF->mTimeStamp << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
+            f << setprecision(6) << 1e9 * pKF->timestamp << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
               << endl;
         }
         else
         {
-            Sophus::SE3f       Twc = pKF->GetPoseInverse();
+            Sophus::SE3f       Twc = pKF->get_pose_inverse();
             Eigen::Quaternionf q   = Twc.unit_quaternion();
             Eigen::Vector3f    t   = Twc.translation();
-            f << setprecision(6) << 1e9 * pKF->mTimeStamp << " " << setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
+            f << setprecision(6) << 1e9 * pKF->timestamp << " " << setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
               << endl;
         }
     }
@@ -928,8 +928,8 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, map *pMap)
 {
     spdlog::info("Saving keyframe trajectory of map {} to {}", pMap->get_id(), filename);
 
-    vector<KeyFrame *> vpKFs = pMap->get_all_key_frames();
-    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    vector<key_frame *> vpKFs = pMap->get_all_key_frames();
+    sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
@@ -939,26 +939,26 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename, map *pMap)
 
     for (size_t i = 0; i < vpKFs.size(); i++)
     {
-        KeyFrame *pKF = vpKFs[i];
+        key_frame *pKF = vpKFs[i];
 
-        if (!pKF || pKF->isBad())
+        if (!pKF || pKF->is_bad())
         {
             continue;
         }
         if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD)
         {
-            Sophus::SE3f       Twb = pKF->GetImuPose();
+            Sophus::SE3f       Twb = pKF->get_imu_pose();
             Eigen::Quaternionf q   = Twb.unit_quaternion();
             Eigen::Vector3f    twb = Twb.translation();
-            f << setprecision(6) << 1e9 * pKF->mTimeStamp << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
+            f << setprecision(6) << 1e9 * pKF->timestamp << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
               << endl;
         }
         else
         {
-            Sophus::SE3f       Twc = pKF->GetPoseInverse();
+            Sophus::SE3f       Twc = pKF->get_pose_inverse();
             Eigen::Quaternionf q   = Twc.unit_quaternion();
             Eigen::Vector3f    t   = Twc.translation();
-            f << setprecision(6) << 1e9 * pKF->mTimeStamp << " " << setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
+            f << setprecision(6) << 1e9 * pKF->timestamp << " " << setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
               << endl;
         }
     }
@@ -991,10 +991,10 @@ void System::SaveCOLMAP(const string &strDir)
 
     std::filesystem::create_directories(strDir);
 
-    vector<KeyFrame *> vpKFs = pBiggerMap->get_all_key_frames();
-    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    vector<key_frame *> vpKFs = pBiggerMap->get_all_key_frames();
+    sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
     // World origin anchored at the first KF (monocular)
-    Sophus::SE3f Twb = vpKFs[0]->GetPoseInverse();
+    Sophus::SE3f Twb = vpKFs[0]->get_pose_inverse();
 
     // ------------------------------------------------------------------
     // cameras.txt
@@ -1075,7 +1075,7 @@ void System::SaveCOLMAP(const string &strDir)
     fcsv << "# COLMAP conversion: Tcw = Twc.inverse(); use qw qx qy qz and Tcw.translation()\n";
     fcsv << "image_name,timestamp,tx,ty,tz,qx,qy,qz,qw,pose_convention\n";
 
-    list<ORB_SLAM3::KeyFrame *>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
     list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
     list<bool>::iterator                  lbL  = mpTracker->mlbLost.begin();
     list<string>::iterator                lF   = mlFrameFilenames.begin();
@@ -1093,16 +1093,16 @@ void System::SaveCOLMAP(const string &strDir)
 
         if (!*lbL && *lRit)
         {
-            KeyFrame    *pKF = *lRit;
+            key_frame    *pKF = *lRit;
             Sophus::SE3f Trw;
-            while (pKF->isBad())
+            while (pKF->is_bad())
             {
-                Trw = Trw * pKF->mTcp;
-                pKF = pKF->GetParent();
+                Trw = Trw * pKF->pose_relative_to_parent;
+                pKF = pKF->get_parent();
             }
-            if (pKF && pKF->GetMap() == pBiggerMap)
+            if (pKF && pKF->get_map() == pBiggerMap)
             {
-                Trw      = Trw * pKF->GetPose() * Twb;
+                Trw      = Trw * pKF->get_pose() * Twb;
                 Tcw      = (*lit) * Trw; // world-to-camera
                 last_Tcw = Tcw;
                 has_pose = true;
@@ -1298,12 +1298,12 @@ void System::SaveTrajectoryKITTI(const string &filename)
         return;
     }
 
-    vector<KeyFrame *> vpKFs = mpAtlas->get_all_key_frames();
-    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    vector<key_frame *> vpKFs = mpAtlas->get_all_key_frames();
+    sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
-    Sophus::SE3f Tow = vpKFs[0]->GetPoseInverse();
+    Sophus::SE3f Tow = vpKFs[0]->get_pose_inverse();
 
     ofstream f;
     f.open(filename.c_str());
@@ -1315,11 +1315,11 @@ void System::SaveTrajectoryKITTI(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::KeyFrame *>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = mpTracker->mlpReferences.begin();
     list<double>::iterator                lT   = mpTracker->mlFrameTimes.begin();
     for (list<Sophus::SE3f>::iterator lit = mpTracker->mlRelativeFramePoses.begin(), lend = mpTracker->mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lT++)
     {
-        ORB_SLAM3::KeyFrame *pKF = *lRit;
+        ORB_SLAM3::key_frame *pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -1328,13 +1328,13 @@ void System::SaveTrajectoryKITTI(const string &filename)
             continue;
         }
 
-        while (pKF->isBad())
+        while (pKF->is_bad())
         {
-            Trw = Trw * pKF->mTcp;
-            pKF = pKF->GetParent();
+            Trw = Trw * pKF->pose_relative_to_parent;
+            pKF = pKF->get_parent();
         }
 
-        Trw = Trw * pKF->GetPose() * Tow;
+        Trw = Trw * pKF->get_pose() * Tow;
 
         Sophus::SE3f    Tcw = (*lit) * Trw;
         Sophus::SE3f    Twc = Tcw.inverse();

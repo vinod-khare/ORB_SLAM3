@@ -19,7 +19,7 @@
 #ifndef MAP_H
 #define MAP_H
 
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "map_point.h"
 
 #include <mutex>
@@ -29,7 +29,7 @@ namespace ORB_SLAM3
 {
 
 class map_point;
-class KeyFrame;
+class key_frame;
 class key_frame_database;
 
 class map
@@ -40,15 +40,15 @@ class map
     map(int initKFid);
     ~map();
 
-    void add_key_frame(KeyFrame *pKF);
+    void add_key_frame(key_frame *pKF);
     void add_map_point(map_point *pMP);
     void erase_map_point(map_point *pMP);
-    void erase_key_frame(KeyFrame *pKF);
+    void erase_key_frame(key_frame *pKF);
     void set_reference_map_points(const std::vector<map_point *> &vpMPs);
     void inform_new_big_change();
     int  get_last_big_change_index();
 
-    std::vector<KeyFrame *>  get_all_key_frames();
+    std::vector<key_frame *>  get_all_key_frames();
     std::vector<map_point *> get_all_map_points();
     std::vector<map_point *> get_reference_map_points();
 
@@ -61,7 +61,7 @@ class map
     void              set_initial_key_frame_id(long unsigned int initKFif);
     long unsigned int get_max_key_frame_id();
 
-    KeyFrame *get_origin_key_frame();
+    key_frame *get_origin_key_frame();
 
     void set_current_map();
     void set_stored_map();
@@ -96,10 +96,10 @@ class map
 
     unsigned int get_lowest_key_frame_id();
 
-    void print_reprojection_error(list<KeyFrame *> &lpLocalWindowKFs, KeyFrame *mpCurrentKF, string &name, string &name_folder);
+    void print_reprojection_error(list<key_frame *> &lpLocalWindowKFs, key_frame *mpCurrentKF, string &name, string &name_folder);
 
-    vector<KeyFrame *> key_frame_origins;
-    KeyFrame          *first_region_key_frame;
+    vector<key_frame *> key_frame_origins;
+    key_frame          *first_region_key_frame;
     std::mutex         map_update_mutex;
 
     // This avoid that two points are created simultaneously in separate threads (id conflict)
@@ -122,10 +122,10 @@ class map
     long unsigned int id;
 
     std::set<map_point *> map_points;
-    std::set<KeyFrame *>  key_frames;
+    std::set<key_frame *>  key_frames;
 
-    KeyFrame *initial_key_frame;
-    KeyFrame *lowest_id_key_frame;
+    key_frame *initial_key_frame;
+    key_frame *lowest_id_key_frame;
 
     std::vector<map_point *> reference_map_points;
 

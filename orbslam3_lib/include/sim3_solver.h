@@ -19,7 +19,7 @@
 #ifndef SIM3_SOLVER_H
 #define SIM3_SOLVER_H
 
-#include "KeyFrame.h"
+#include "key_frame.h"
 
 #include <memory>
 #include <vector>
@@ -33,11 +33,11 @@ class sim3_solver
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    sim3_solver(KeyFrame                       *first_key_frame,
-                KeyFrame                       *second_key_frame,
+    sim3_solver(key_frame                       *first_key_frame,
+                key_frame                       *second_key_frame,
                 const std::vector<map_point *> &matched_map_points,
                 const bool                      fixed_scale        = true,
-                const vector<KeyFrame *>        matched_key_frames = vector<KeyFrame *>());
+                const vector<key_frame *>        matched_key_frames = vector<key_frame *>());
 
     void set_ransac_parameters(double probability = 0.99, int minimum_inliers = 6, int maximum_iterations = 300);
 
@@ -63,8 +63,8 @@ class sim3_solver
 
   protected:
     // KeyFrames and matches
-    KeyFrame *key_frame_1;
-    KeyFrame *key_frame_2;
+    key_frame *key_frame_1;
+    key_frame *key_frame_2;
 
     std::vector<Eigen::Vector3f> camera_points_1;
     std::vector<Eigen::Vector3f> camera_points_2;

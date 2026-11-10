@@ -37,7 +37,7 @@ add_library(ORB_SLAM3 SHARED
         source/descriptor_matcher.cpp
         source/converter.cpp
         source/map_point.cpp
-        source/KeyFrame.cpp
+        source/key_frame.cpp
         source/atlas.cpp
         source/map.cpp
         source/Optimizer.cpp

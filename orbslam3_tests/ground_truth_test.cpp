@@ -1,4 +1,4 @@
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "Pinhole.h"
 #include "Tracking.h"
 #include "atlas.h"
@@ -169,7 +169,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
     ORB_SLAM3::frame::initial_computations = true;
     const ORB_SLAM3::ground_truth_trajectory          trajectory(file.path.string());
-    std::vector<std::unique_ptr<ORB_SLAM3::KeyFrame>> keyframes;
+    std::vector<std::unique_ptr<ORB_SLAM3::key_frame>> keyframes;
     for (const double timestamp : {1.25, 2.25, 3.25})
     {
         ORB_SLAM3::frame frame(timestamp, nullptr, cameras[0]->toK(), distortion, 0, 40);
@@ -177,7 +177,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
         frame.dataset                  = 0;
         const Eigen::Vector3f position = trajectory.pose_at(timestamp)->translation().cast<float>();
         frame.set_pose(Sophus::SE3f(Eigen::Quaternionf::Identity(), -position));
-        keyframes.push_back(std::make_unique<ORB_SLAM3::KeyFrame>(frame, map, nullptr, cameras));
+        keyframes.push_back(std::make_unique<ORB_SLAM3::key_frame>(frame, map, nullptr, cameras));
         map->add_key_frame(keyframes.back().get());
     }
     ORB_SLAM3::map_drawer drawer(atlas, settings);
@@ -191,7 +191,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     REQUIRE(cv::norm(hidden, visible, cv::NORM_L1) > 0);
     for (const auto &keyframe : keyframes)
     {
-        keyframe->SetPose(Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(1, 2, 0)));
+        keyframe->set_pose(Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(1, 2, 0)));
     }
     REQUIRE(cv::norm(visible, drawer.render(640, 480, layers), cv::NORM_INF) == 0);
     for (const auto &keyframe : keyframes)

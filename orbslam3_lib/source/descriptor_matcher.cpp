@@ -136,9 +136,9 @@ std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, co
     return rank_candidates(query, indices, [&train, right](size_t index) -> const cv::Mat & { return right ? train.right_keypoints[index].descriptor : train.descriptor(index); });
 }
 
-std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, const KeyFrame &train, const std::vector<size_t> &indices, bool right)
+std::vector<size_t> descriptor_matcher::rank_candidates(const cv::Mat &query, const key_frame &train, const std::vector<size_t> &indices, bool right)
 {
-    return rank_candidates(query, indices, [&train, right](size_t index) -> const cv::Mat & { return right ? train.mvKeysRight[index].descriptor : train.descriptor(index); });
+    return rank_candidates(query, indices, [&train, right](size_t index) -> const cv::Mat & { return right ? train.right_keypoints[index].descriptor : train.descriptor(index); });
 }
 
 int descriptor_matcher::search_by_projection(frame &F, const vector<map_point *> &vpMapPoints, const float th, const bool bFarPoints, const float thFarPoints)
@@ -352,13 +352,13 @@ float descriptor_matcher::radius_by_viewing_cos(const float &viewCos)
     }
 }
 
-int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<map_point *> &vpMapPointMatches)
+int descriptor_matcher::search_by_vocabulary(key_frame *pKF, frame &F, vector<map_point *> &vpMapPointMatches)
 {
-    const vector<map_point *> vpMapPointsKF = pKF->GetMapPointMatches();
+    const vector<map_point *> vpMapPointsKF = pKF->get_map_point_matches();
 
     vpMapPointMatches = vector<map_point *>(F.feature_count, static_cast<map_point *>(NULL));
 
-    const DBoW2::FeatureVector &vFeatVecKF = pKF->mFeatVec;
+    const DBoW2::FeatureVector &vFeatVecKF = pKF->feature_vector;
 
     int nmatches = 0;
 
@@ -478,9 +478,9 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<map
                     {
                         vpMapPointMatches[bestIdxF] = pMP;
 
-                        const cv::KeyPoint &kp = ((!is_fisheye_stereo(pKF->cameras))                        ? pKF->mvKeys[realIdxKF]
-                                                  : (std::cmp_greater_equal(realIdxKF, pKF->mvKeys.size())) ? pKF->mvKeysRight[realIdxKF - pKF->mvKeys.size()]
-                                                                                                            : pKF->mvKeys[realIdxKF])
+                        const cv::KeyPoint &kp = ((!is_fisheye_stereo(pKF->cameras))                        ? pKF->keypoints[realIdxKF]
+                                                  : (std::cmp_greater_equal(realIdxKF, pKF->keypoints.size())) ? pKF->right_keypoints[realIdxKF - pKF->keypoints.size()]
+                                                                                                            : pKF->keypoints[realIdxKF])
                                                      .undistorted();
 
                         if (_check_orientation)
@@ -511,9 +511,9 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<map
                         {
                             vpMapPointMatches[bestIdxFR] = pMP;
 
-                            const cv::KeyPoint &kp = ((!is_fisheye_stereo(pKF->cameras))                        ? pKF->mvKeys[realIdxKF]
-                                                      : (std::cmp_greater_equal(realIdxKF, pKF->mvKeys.size())) ? pKF->mvKeysRight[realIdxKF - pKF->mvKeys.size()]
-                                                                                                                : pKF->mvKeys[realIdxKF])
+                            const cv::KeyPoint &kp = ((!is_fisheye_stereo(pKF->cameras))                        ? pKF->keypoints[realIdxKF]
+                                                      : (std::cmp_greater_equal(realIdxKF, pKF->keypoints.size())) ? pKF->right_keypoints[realIdxKF - pKF->keypoints.size()]
+                                                                                                                : pKF->keypoints[realIdxKF])
                                                          .undistorted();
 
                             if (_check_orientation)
@@ -579,7 +579,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF, frame &F, vector<map
     return nmatches;
 }
 
-int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, vector<map_point *> &vpMatched, int th, float distance_multiplier)
+int descriptor_matcher::search_by_projection(key_frame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, vector<map_point *> &vpMatched, int th, float distance_multiplier)
 {
     // Get Calibration Parameters for later projection
     [[maybe_unused]] const float &fx = pKF->fx;
@@ -590,7 +590,7 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
     Sophus::SE3f    Tcw = Sophus::SE3f(Scw.rotationMatrix(), Scw.translation() / Scw.scale());
     Eigen::Vector3f Ow  = Tcw.inverse().translation();
 
-    // Set of MapPoints already found in the KeyFrame
+    // Set of MapPoints already found in the key_frame
     set<map_point *> spAlreadyFound(vpMatched.begin(), vpMatched.end());
     spAlreadyFound.erase(static_cast<map_point *>(NULL));
 
@@ -623,7 +623,7 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
         const Eigen::Vector2f uv = pKF->cameras[0]->project(p3Dc);
 
         // Point must be inside the image
-        if (!pKF->IsInImage(uv(0), uv(1)))
+        if (!pKF->is_in_image(uv(0), uv(1)))
         {
             continue;
         }
@@ -650,9 +650,9 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
         int nPredictedLevel = pMP->predict_scale(dist, pKF);
 
         // Search in a radius
-        const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
+        const float radius = th * pKF->scale_factors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->get_features_in_area(uv(0), uv(1), radius));
 
         if (vIndices.empty())
         {
@@ -672,7 +672,7 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
                 continue;
             }
 
-            const int &kpLevel = pKF->mvKeys[idx].octave;
+            const int &kpLevel = pKF->keypoints[idx].octave;
 
             if (kpLevel < nPredictedLevel - 1 || kpLevel > nPredictedLevel)
             {
@@ -700,12 +700,12 @@ int descriptor_matcher::search_by_projection(KeyFrame *pKF, Sophus::Sim3f &Scw, 
     return nmatches;
 }
 
-int descriptor_matcher::search_by_projection(KeyFrame                       *pKF,
+int descriptor_matcher::search_by_projection(key_frame                       *pKF,
                                              Sophus::Sim3<float>            &Scw,
                                              const std::vector<map_point *> &vpPoints,
-                                             const std::vector<KeyFrame *>  &vpPointsKFs,
+                                             const std::vector<key_frame *>  &vpPointsKFs,
                                              std::vector<map_point *>       &vpMatched,
-                                             std::vector<KeyFrame *>        &vpMatchedKF,
+                                             std::vector<key_frame *>        &vpMatchedKF,
                                              int                             th,
                                              float                           distance_multiplier)
 {
@@ -718,7 +718,7 @@ int descriptor_matcher::search_by_projection(KeyFrame                       *pKF
     Sophus::SE3f    Tcw = Sophus::SE3f(Scw.rotationMatrix(), Scw.translation() / Scw.scale());
     Eigen::Vector3f Ow  = Tcw.inverse().translation();
 
-    // Set of MapPoints already found in the KeyFrame
+    // Set of MapPoints already found in the key_frame
     set<map_point *> spAlreadyFound(vpMatched.begin(), vpMatched.end());
     spAlreadyFound.erase(static_cast<map_point *>(NULL));
 
@@ -728,7 +728,7 @@ int descriptor_matcher::search_by_projection(KeyFrame                       *pKF
     for (int iMP = 0, iendMP = vpPoints.size(); iMP < iendMP; iMP++)
     {
         map_point *pMP  = vpPoints[iMP];
-        KeyFrame  *pKFi = vpPointsKFs[iMP];
+        key_frame  *pKFi = vpPointsKFs[iMP];
 
         // Discard Bad MapPoints and already found
         if (pMP->is_bad() || spAlreadyFound.count(pMP))
@@ -757,7 +757,7 @@ int descriptor_matcher::search_by_projection(KeyFrame                       *pKF
         const float v = fy * y + cy;
 
         // Point must be inside the image
-        if (!pKF->IsInImage(u, v))
+        if (!pKF->is_in_image(u, v))
         {
             continue;
         }
@@ -784,9 +784,9 @@ int descriptor_matcher::search_by_projection(KeyFrame                       *pKF
         int nPredictedLevel = pMP->predict_scale(dist, pKF);
 
         // Search in a radius
-        const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
+        const float radius = th * pKF->scale_factors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->GetFeaturesInArea(u, v, radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->get_features_in_area(u, v, radius));
 
         if (vIndices.empty())
         {
@@ -806,7 +806,7 @@ int descriptor_matcher::search_by_projection(KeyFrame                       *pKF
                 continue;
             }
 
-            const int &kpLevel = pKF->mvKeys[idx].octave;
+            const int &kpLevel = pKF->keypoints[idx].octave;
 
             if (kpLevel < nPredictedLevel - 1 || kpLevel > nPredictedLevel)
             {
@@ -968,15 +968,15 @@ int descriptor_matcher::search_for_initialization(frame &F1, frame &F2, vector<c
     return nmatches;
 }
 
-int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vector<map_point *> &vpMatches12)
+int descriptor_matcher::search_by_vocabulary(key_frame *pKF1, key_frame *pKF2, vector<map_point *> &vpMatches12)
 {
-    const vector<keypoint>     &vKeysUn1     = pKF1->mvKeys;
-    const DBoW2::FeatureVector &vFeatVec1    = pKF1->mFeatVec;
-    const vector<map_point *>   vpMapPoints1 = pKF1->GetMapPointMatches();
+    const vector<keypoint>     &vKeysUn1     = pKF1->keypoints;
+    const DBoW2::FeatureVector &vFeatVec1    = pKF1->feature_vector;
+    const vector<map_point *>   vpMapPoints1 = pKF1->get_map_point_matches();
 
-    const vector<keypoint>     &vKeysUn2     = pKF2->mvKeys;
-    const DBoW2::FeatureVector &vFeatVec2    = pKF2->mFeatVec;
-    const vector<map_point *>   vpMapPoints2 = pKF2->GetMapPointMatches();
+    const vector<keypoint>     &vKeysUn2     = pKF2->keypoints;
+    const DBoW2::FeatureVector &vFeatVec2    = pKF2->feature_vector;
+    const vector<map_point *>   vpMapPoints2 = pKF2->get_map_point_matches();
 
     vpMatches12 = vector<map_point *>(vpMapPoints1.size(), static_cast<map_point *>(NULL));
     vector<bool> vbMatched2(vpMapPoints2.size(), false);
@@ -1003,7 +1003,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vec
             for (size_t i1 = 0, iend1 = f1it->second.size(); i1 < iend1; i1++)
             {
                 const size_t idx1 = f1it->second[i1];
-                if (is_fisheye_stereo(pKF1->cameras) && idx1 >= pKF1->mvKeys.size())
+                if (is_fisheye_stereo(pKF1->cameras) && idx1 >= pKF1->keypoints.size())
                 {
                     continue;
                 }
@@ -1028,7 +1028,7 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vec
                 for (const auto idx2 : ranked_indices)
                 {
 
-                    if (is_fisheye_stereo(pKF2->cameras) && idx2 >= pKF2->mvKeys.size())
+                    if (is_fisheye_stereo(pKF2->cameras) && idx2 >= pKF2->keypoints.size())
                     {
                         continue;
                     }
@@ -1126,16 +1126,16 @@ int descriptor_matcher::search_by_vocabulary(KeyFrame *pKF1, KeyFrame *pKF2, vec
     return nmatches;
 }
 
-int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2, vector<pair<size_t, size_t>> &vMatchedPairs, const bool bOnlyStereo, const bool bCoarse)
+int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF2, vector<pair<size_t, size_t>> &vMatchedPairs, const bool bOnlyStereo, const bool bCoarse)
 {
-    const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
-    const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
+    const DBoW2::FeatureVector &vFeatVec1 = pKF1->feature_vector;
+    const DBoW2::FeatureVector &vFeatVec2 = pKF2->feature_vector;
 
     // Compute epipole in second image
-    Sophus::SE3f    T1w = pKF1->GetPose();
-    Sophus::SE3f    T2w = pKF2->GetPose();
-    Sophus::SE3f    Tw2 = pKF2->GetPoseInverse(); // for convenience
-    Eigen::Vector3f Cw  = pKF1->GetCameraCenter();
+    Sophus::SE3f    T1w = pKF1->get_pose();
+    Sophus::SE3f    T2w = pKF2->get_pose();
+    Sophus::SE3f    Tw2 = pKF2->get_pose_inverse(); // for convenience
+    Eigen::Vector3f Cw  = pKF1->get_camera_center();
     Eigen::Vector3f C2  = T2w * Cw;
 
     Eigen::Vector2f ep = pKF2->cameras[0]->project(C2);
@@ -1155,8 +1155,8 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
     }
     else
     {
-        Sophus::SE3f Tr1w = pKF1->GetRightPose();
-        Sophus::SE3f Twr2 = pKF2->GetRightPoseInverse();
+        Sophus::SE3f Tr1w = pKF1->get_right_pose();
+        Sophus::SE3f Twr2 = pKF2->get_right_pose_inverse();
         Tll               = T1w * Tw2;
         Tlr               = T1w * Twr2;
         Trl               = Tr1w * Tw2;
@@ -1170,8 +1170,8 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
     // Matching speed-up by ORB Vocabulary
     // Compare only ORB that share the same node
     int          nmatches = 0;
-    vector<bool> vbMatched2(pKF2->N, false);
-    vector<int>  vMatches12(pKF1->N, -1);
+    vector<bool> vbMatched2(pKF2->feature_count, false);
+    vector<int>  vMatches12(pKF1->feature_count, -1);
 
     vector<int> rotHist[orientation_histogram_bins];
     for (int i = 0; i < orientation_histogram_bins; i++)
@@ -1194,7 +1194,7 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
             {
                 const size_t idx1 = f1it->second[i1];
 
-                map_point *pMP1 = pKF1->GetMapPoint(idx1);
+                map_point *pMP1 = pKF1->get_map_point(idx1);
 
                 // If there is already a map_point skip
                 if (pMP1)
@@ -1202,7 +1202,7 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
                     continue;
                 }
 
-                const bool bStereo1 = (!is_fisheye_stereo(pKF1->cameras) && pKF1->mvuRight[idx1] >= 0);
+                const bool bStereo1 = (!is_fisheye_stereo(pKF1->cameras) && pKF1->right_coordinates[idx1] >= 0);
 
                 if (bOnlyStereo)
                 {
@@ -1212,12 +1212,12 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
                     }
                 }
 
-                const cv::KeyPoint &kp1 = ((!is_fisheye_stereo(pKF1->cameras))          ? pKF1->mvKeys[idx1]
-                                           : (std::cmp_less(idx1, pKF1->mvKeys.size())) ? pKF1->mvKeys[idx1]
-                                                                                        : pKF1->mvKeysRight[idx1 - pKF1->mvKeys.size()])
+                const cv::KeyPoint &kp1 = ((!is_fisheye_stereo(pKF1->cameras))          ? pKF1->keypoints[idx1]
+                                           : (std::cmp_less(idx1, pKF1->keypoints.size())) ? pKF1->keypoints[idx1]
+                                                                                        : pKF1->right_keypoints[idx1 - pKF1->keypoints.size()])
                                               .undistorted();
 
-                const bool bRight1 = is_fisheye_stereo(pKF1->cameras) && std::cmp_greater_equal(idx1, pKF1->mvKeys.size());
+                const bool bRight1 = is_fisheye_stereo(pKF1->cameras) && std::cmp_greater_equal(idx1, pKF1->keypoints.size());
 
                 const cv::Mat &d1 = pKF1->descriptor(idx1);
 
@@ -1228,7 +1228,7 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
                 for (auto idx2 : ranked_indices)
                 {
 
-                    map_point *pMP2 = pKF2->GetMapPoint(idx2);
+                    map_point *pMP2 = pKF2->get_map_point(idx2);
 
                     // If we have already matched or there is a map_point skip
                     if (vbMatched2[idx2] || pMP2)
@@ -1236,7 +1236,7 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
                         continue;
                     }
 
-                    const bool bStereo2 = (!is_fisheye_stereo(pKF2->cameras) && pKF2->mvuRight[idx2] >= 0);
+                    const bool bStereo2 = (!is_fisheye_stereo(pKF2->cameras) && pKF2->right_coordinates[idx2] >= 0);
 
                     if (bOnlyStereo)
                     {
@@ -1255,17 +1255,17 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
                         continue;
                     }
 
-                    const cv::KeyPoint &kp2 = ((!is_fisheye_stereo(pKF2->cameras))          ? pKF2->mvKeys[idx2]
-                                               : (std::cmp_less(idx2, pKF2->mvKeys.size())) ? pKF2->mvKeys[idx2]
-                                                                                            : pKF2->mvKeysRight[idx2 - pKF2->mvKeys.size()])
+                    const cv::KeyPoint &kp2 = ((!is_fisheye_stereo(pKF2->cameras))          ? pKF2->keypoints[idx2]
+                                               : (std::cmp_less(idx2, pKF2->keypoints.size())) ? pKF2->keypoints[idx2]
+                                                                                            : pKF2->right_keypoints[idx2 - pKF2->keypoints.size()])
                                                   .undistorted();
-                    const bool bRight2 = is_fisheye_stereo(pKF2->cameras) && std::cmp_greater_equal(idx2, pKF2->mvKeys.size());
+                    const bool bRight2 = is_fisheye_stereo(pKF2->cameras) && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
 
                     if (!bStereo1 && !bStereo2 && !is_fisheye_stereo(pKF1->cameras))
                     {
                         const float distex = ep(0) - kp2.pt.x;
                         const float distey = ep(1) - kp2.pt.y;
-                        if (distex * distex + distey * distey < 100 * pKF2->mvScaleFactors[kp2.octave])
+                        if (distex * distex + distey * distey < 100 * pKF2->scale_factors[kp2.octave])
                         {
                             continue;
                         }
@@ -1316,8 +1316,8 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
                                                                                    kp2,
                                                                                    R12,
                                                                                    t12,
-                                                                                   pKF1->mvLevelSigma2[kp1.octave],
-                                                                                   pKF2->mvLevelSigma2[kp2.octave])) // MODIFICATION_2
+                                                                                   pKF1->level_sigma_squared[kp1.octave],
+                                                                                   pKF2->level_sigma_squared[kp2.octave])) // MODIFICATION_2
                     {
                         bestIdx2 = idx2;
                         bestDist = dist;
@@ -1326,9 +1326,9 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
 
                 if (bestIdx2 >= 0)
                 {
-                    const cv::KeyPoint &kp2 = ((!is_fisheye_stereo(pKF2->cameras))            ? pKF2->mvKeys[bestIdx2]
-                                               : std::cmp_less(bestIdx2, pKF2->mvKeys.size()) ? pKF2->mvKeys[bestIdx2]
-                                                                                              : pKF2->mvKeysRight[bestIdx2 - pKF2->mvKeys.size()])
+                    const cv::KeyPoint &kp2 = ((!is_fisheye_stereo(pKF2->cameras))            ? pKF2->keypoints[bestIdx2]
+                                               : std::cmp_less(bestIdx2, pKF2->keypoints.size()) ? pKF2->keypoints[bestIdx2]
+                                                                                              : pKF2->right_keypoints[bestIdx2 - pKF2->keypoints.size()])
                                                   .undistorted();
                     vMatches12[idx1] = bestIdx2;
                     nmatches++;
@@ -1401,7 +1401,7 @@ int descriptor_matcher::search_for_triangulation(KeyFrame *pKF1, KeyFrame *pKF2,
     return nmatches;
 }
 
-int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoints, const float th, const bool bRight)
+int descriptor_matcher::Fuse(key_frame *pKF, const vector<map_point *> &vpMapPoints, const float th, const bool bRight)
 {
     auto           &selected_camera = *pKF->cameras[bRight ? 1 : 0];
     Sophus::SE3f    Tcw;
@@ -1409,13 +1409,13 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
 
     if (bRight)
     {
-        Tcw = pKF->GetRightPose();
-        Ow  = pKF->GetRightCameraCenter();
+        Tcw = pKF->get_right_pose();
+        Ow  = pKF->get_right_camera_center();
     }
     else
     {
-        Tcw = pKF->GetPose();
-        Ow  = pKF->GetCameraCenter();
+        Tcw = pKF->get_pose();
+        Ow  = pKF->get_camera_center();
     }
 
     [[maybe_unused]] const float &fx = pKF->fx;
@@ -1466,7 +1466,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
         const Eigen::Vector2f uv = selected_camera.project(p3Dc);
 
         // Point must be inside the image
-        if (!pKF->IsInImage(uv(0), uv(1)))
+        if (!pKF->is_in_image(uv(0), uv(1)))
         {
             count_notinim++;
             continue;
@@ -1498,9 +1498,9 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
         int nPredictedLevel = pMP->predict_scale(dist3D, pKF);
 
         // Search in a radius
-        const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
+        const float radius = th * pKF->scale_factors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius, bRight), bRight);
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->get_features_in_area(uv(0), uv(1), radius, bRight), bRight);
 
         if (vIndices.empty())
         {
@@ -1517,7 +1517,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
         for (vector<size_t>::const_iterator vit = vIndices.begin(), vend = vIndices.end(); vit != vend; vit++)
         {
             size_t              idx = *vit;
-            const cv::KeyPoint &kp  = ((!is_fisheye_stereo(pKF->cameras) || !bRight) ? pKF->mvKeys[idx] : pKF->mvKeysRight[idx]).undistorted();
+            const cv::KeyPoint &kp  = ((!is_fisheye_stereo(pKF->cameras) || !bRight) ? pKF->keypoints[idx] : pKF->right_keypoints[idx]).undistorted();
 
             const int &kpLevel = kp.octave;
 
@@ -1526,18 +1526,18 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
                 continue;
             }
 
-            if (pKF->mvuRight[idx] >= 0)
+            if (pKF->right_coordinates[idx] >= 0)
             {
                 // Check reprojection error in stereo
                 const float &kpx = kp.pt.x;
                 const float &kpy = kp.pt.y;
-                const float &kpr = pKF->mvuRight[idx];
+                const float &kpr = pKF->right_coordinates[idx];
                 const float  ex  = uv(0) - kpx;
                 const float  ey  = uv(1) - kpy;
                 const float  er  = ur - kpr;
                 const float  e2  = ex * ex + ey * ey + er * er;
 
-                if (e2 * pKF->mvInvLevelSigma2[kpLevel] > 7.8)
+                if (e2 * pKF->inverse_level_sigma_squared[kpLevel] > 7.8)
                 {
                     continue;
                 }
@@ -1550,7 +1550,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
                 const float  ey  = uv(1) - kpy;
                 const float  e2  = ex * ex + ey * ey;
 
-                if (e2 * pKF->mvInvLevelSigma2[kpLevel] > 5.99)
+                if (e2 * pKF->inverse_level_sigma_squared[kpLevel] > 5.99)
                 {
                     continue;
                 }
@@ -1558,10 +1558,10 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
 
             if (bRight)
             {
-                idx += pKF->mvKeys.size();
+                idx += pKF->keypoints.size();
             }
 
-            const cv::Mat &dKF = pKF->descriptor(bRight ? idx + pKF->mvKeys.size() : idx);
+            const cv::Mat &dKF = pKF->descriptor(bRight ? idx + pKF->keypoints.size() : idx);
 
             const float dist = descriptor_distance(dMP, dKF);
 
@@ -1575,7 +1575,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
         // If there is already a map_point replace otherwise add new measurement
         if (bestDist <= low_distance_threshold)
         {
-            map_point *pMPinKF = pKF->GetMapPoint(bestIdx);
+            map_point *pMPinKF = pKF->get_map_point(bestIdx);
             if (pMPinKF)
             {
                 if (!pMPinKF->is_bad())
@@ -1593,7 +1593,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
             else
             {
                 pMP->add_observation(pKF, bestIdx);
-                pKF->AddMapPoint(pMP, bestIdx);
+                pKF->add_map_point(pMP, bestIdx);
             }
             nFused++;
         }
@@ -1606,7 +1606,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, const vector<map_point *> &vpMapPoin
     return nFused;
 }
 
-int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint)
+int descriptor_matcher::Fuse(key_frame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint)
 {
     // Get Calibration Parameters for later projection
     [[maybe_unused]] const float &fx = pKF->fx;
@@ -1618,8 +1618,8 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map
     Sophus::SE3f    Tcw = Sophus::SE3f(Scw.rotationMatrix(), Scw.translation() / Scw.scale());
     Eigen::Vector3f Ow  = Tcw.inverse().translation();
 
-    // Set of MapPoints already found in the KeyFrame
-    const set<map_point *> spAlreadyFound = pKF->GetMapPoints();
+    // Set of MapPoints already found in the key_frame
+    const set<map_point *> spAlreadyFound = pKF->get_map_points();
 
     int nFused = 0;
 
@@ -1652,7 +1652,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map
         const Eigen::Vector2f uv = pKF->cameras[0]->project(p3Dc);
 
         // Point must be inside the image
-        if (!pKF->IsInImage(uv(0), uv(1)))
+        if (!pKF->is_in_image(uv(0), uv(1)))
         {
             continue;
         }
@@ -1680,9 +1680,9 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map
         const int nPredictedLevel = pMP->predict_scale(dist3D, pKF);
 
         // Search in a radius
-        const float radius = th * pKF->mvScaleFactors[nPredictedLevel];
+        const float radius = th * pKF->scale_factors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->GetFeaturesInArea(uv(0), uv(1), radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF, pKF->get_features_in_area(uv(0), uv(1), radius));
 
         if (vIndices.empty())
         {
@@ -1698,7 +1698,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map
         for (vector<size_t>::const_iterator vit = vIndices.begin(); vit != vIndices.end(); vit++)
         {
             const size_t idx     = *vit;
-            const int   &kpLevel = pKF->mvKeys[idx].octave;
+            const int   &kpLevel = pKF->keypoints[idx].octave;
 
             if (kpLevel < nPredictedLevel - 1 || kpLevel > nPredictedLevel)
             {
@@ -1719,7 +1719,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map
         // If there is already a map_point replace otherwise add new measurement
         if (bestDist <= low_distance_threshold)
         {
-            map_point *pMPinKF = pKF->GetMapPoint(bestIdx);
+            map_point *pMPinKF = pKF->get_map_point(bestIdx);
             if (pMPinKF)
             {
                 if (!pMPinKF->is_bad())
@@ -1730,7 +1730,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map
             else
             {
                 pMP->add_observation(pKF, bestIdx);
-                pKF->AddMapPoint(pMP, bestIdx);
+                pKF->add_map_point(pMP, bestIdx);
             }
             nFused++;
         }
@@ -1739,7 +1739,7 @@ int descriptor_matcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<map
     return nFused;
 }
 
-int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vector<map_point *> &vpMatches12, const Sophus::Sim3f &S12, const float th)
+int descriptor_matcher::search_by_sim3(key_frame *pKF1, key_frame *pKF2, std::vector<map_point *> &vpMatches12, const Sophus::Sim3f &S12, const float th)
 {
     const float &fx = pKF1->fx;
     const float &fy = pKF1->fy;
@@ -1747,16 +1747,16 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
     const float &cy = pKF1->cy;
 
     // Camera 1 & 2 from world
-    Sophus::SE3f T1w = pKF1->GetPose();
-    Sophus::SE3f T2w = pKF2->GetPose();
+    Sophus::SE3f T1w = pKF1->get_pose();
+    Sophus::SE3f T2w = pKF2->get_pose();
 
     // Transformation between cameras
     Sophus::Sim3f S21 = S12.inverse();
 
-    const vector<map_point *> vpMapPoints1 = pKF1->GetMapPointMatches();
+    const vector<map_point *> vpMapPoints1 = pKF1->get_map_point_matches();
     const int                 N1           = vpMapPoints1.size();
 
-    const vector<map_point *> vpMapPoints2 = pKF2->GetMapPointMatches();
+    const vector<map_point *> vpMapPoints2 = pKF2->get_map_point_matches();
     const int                 N2           = vpMapPoints2.size();
 
     vector<bool> vbAlreadyMatched1(N1, false);
@@ -1812,7 +1812,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         const float v = fy * y + cy;
 
         // Point must be inside the image
-        if (!pKF2->IsInImage(u, v))
+        if (!pKF2->is_in_image(u, v))
         {
             continue;
         }
@@ -1831,9 +1831,9 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         const int nPredictedLevel = pMP->predict_scale(dist3D, pKF2);
 
         // Search in a radius
-        const float radius = th * pKF2->mvScaleFactors[nPredictedLevel];
+        const float radius = th * pKF2->scale_factors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF2, pKF2->GetFeaturesInArea(u, v, radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF2, pKF2->get_features_in_area(u, v, radius));
 
         if (vIndices.empty())
         {
@@ -1849,7 +1849,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         {
             const size_t idx = *vit;
 
-            const cv::KeyPoint &kp = pKF2->mvKeys[idx].undistorted();
+            const cv::KeyPoint &kp = pKF2->keypoints[idx].undistorted();
 
             if (kp.octave < nPredictedLevel - 1 || kp.octave > nPredictedLevel)
             {
@@ -1906,7 +1906,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         const float v = fy * y + cy;
 
         // Point must be inside the image
-        if (!pKF1->IsInImage(u, v))
+        if (!pKF1->is_in_image(u, v))
         {
             continue;
         }
@@ -1925,9 +1925,9 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         const int nPredictedLevel = pMP->predict_scale(dist3D, pKF1);
 
         // Search in a radius of 2.5*sigma(ScaleLevel)
-        const float radius = th * pKF1->mvScaleFactors[nPredictedLevel];
+        const float radius = th * pKF1->scale_factors[nPredictedLevel];
 
-        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF1, pKF1->GetFeaturesInArea(u, v, radius));
+        const auto vIndices = rank_candidates(pMP->get_descriptor(), *pKF1, pKF1->get_features_in_area(u, v, radius));
 
         if (vIndices.empty())
         {
@@ -1943,7 +1943,7 @@ int descriptor_matcher::search_by_sim3(KeyFrame *pKF1, KeyFrame *pKF2, std::vect
         {
             const size_t idx = *vit;
 
-            const cv::KeyPoint &kp = pKF1->mvKeys[idx].undistorted();
+            const cv::KeyPoint &kp = pKF1->keypoints[idx].undistorted();
 
             if (kp.octave < nPredictedLevel - 1 || kp.octave > nPredictedLevel)
             {
@@ -2247,7 +2247,7 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
 }
 
 int descriptor_matcher::search_by_projection(
-    frame &CurrentFrame, KeyFrame *pKF, const set<map_point *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras)
+    frame &CurrentFrame, key_frame *pKF, const set<map_point *> &sAlreadyFound, const float th, const int descriptor_threshold, const camera_vector &cameras)
 {
     int nmatches = 0;
 
@@ -2262,7 +2262,7 @@ int descriptor_matcher::search_by_projection(
     }
     const float factor = 1.0f / orientation_histogram_bins;
 
-    const vector<map_point *> vpMPs = pKF->GetMapPointMatches();
+    const vector<map_point *> vpMPs = pKF->get_map_point_matches();
 
     for (size_t i = 0, iend = vpMPs.size(); i < iend; i++)
     {
@@ -2346,7 +2346,7 @@ int descriptor_matcher::search_by_projection(
                         // Fisheye frames index right-camera keypoints after the left ones.
                         const auto angle_of = [](const std::vector<keypoint> &left, const std::vector<keypoint> &right, bool fisheye_stereo, size_t idx)
                         { return (!fisheye_stereo || idx < left.size()) ? left[idx].angle : right[idx - left.size()].angle; };
-                        float rot = angle_of(pKF->mvKeys, pKF->mvKeysRight, is_fisheye_stereo(pKF->cameras), i) -
+                        float rot = angle_of(pKF->keypoints, pKF->right_keypoints, is_fisheye_stereo(pKF->cameras), i) -
                                     angle_of(CurrentFrame.keypoints, CurrentFrame.right_keypoints, CurrentFrame.is_fisheye_stereo, bestIdx2);
                         if (rot < 0.0)
                         {

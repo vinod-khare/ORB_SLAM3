@@ -543,19 +543,19 @@ bool Tracking::PredictStateIMU()
 
     if (mbMapUpdated && mpLastKeyFrame)
     {
-        const Eigen::Vector3f twb1 = mpLastKeyFrame->GetImuPosition();
-        const Eigen::Matrix3f Rwb1 = mpLastKeyFrame->GetImuRotation();
-        const Eigen::Vector3f Vwb1 = mpLastKeyFrame->GetVelocity();
+        const Eigen::Vector3f twb1 = mpLastKeyFrame->get_imu_position();
+        const Eigen::Matrix3f Rwb1 = mpLastKeyFrame->get_imu_rotation();
+        const Eigen::Vector3f Vwb1 = mpLastKeyFrame->get_velocity();
 
         const Eigen::Vector3f Gz(0, 0, -IMU::GRAVITY_VALUE);
         const float           t12 = mpImuPreintegratedFromLastKF->dT;
 
-        Eigen::Matrix3f Rwb2 = IMU::NormalizeRotation(Rwb1 * mpImuPreintegratedFromLastKF->GetDeltaRotation(mpLastKeyFrame->GetImuBias()));
-        Eigen::Vector3f twb2 = twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * mpImuPreintegratedFromLastKF->GetDeltaPosition(mpLastKeyFrame->GetImuBias());
-        Eigen::Vector3f Vwb2 = Vwb1 + t12 * Gz + Rwb1 * mpImuPreintegratedFromLastKF->GetDeltaVelocity(mpLastKeyFrame->GetImuBias());
+        Eigen::Matrix3f Rwb2 = IMU::NormalizeRotation(Rwb1 * mpImuPreintegratedFromLastKF->GetDeltaRotation(mpLastKeyFrame->get_imu_bias()));
+        Eigen::Vector3f twb2 = twb1 + Vwb1 * t12 + 0.5f * t12 * t12 * Gz + Rwb1 * mpImuPreintegratedFromLastKF->GetDeltaPosition(mpLastKeyFrame->get_imu_bias());
+        Eigen::Vector3f Vwb2 = Vwb1 + t12 * Gz + Rwb1 * mpImuPreintegratedFromLastKF->GetDeltaVelocity(mpLastKeyFrame->get_imu_bias());
         mCurrentFrame.set_imu_pose_velocity(Rwb2, twb2, Vwb2);
 
-        mCurrentFrame.imu_bias           = mpLastKeyFrame->GetImuBias();
+        mCurrentFrame.imu_bias           = mpLastKeyFrame->get_imu_bias();
         mCurrentFrame.predicted_imu_bias = mCurrentFrame.imu_bias;
         return true;
     }
@@ -655,7 +655,7 @@ void Tracking::Track()
 
     if ((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && mpLastKeyFrame)
     {
-        mCurrentFrame.set_new_bias(mpLastKeyFrame->GetImuBias());
+        mCurrentFrame.set_new_bias(mpLastKeyFrame->get_imu_bias());
     }
 
     if (mState == NO_IMAGES_YET)
@@ -811,7 +811,7 @@ void Tracking::Track()
 
                     if (mpLastKeyFrame)
                     {
-                        mpLastKeyFrame = static_cast<KeyFrame *>(NULL);
+                        mpLastKeyFrame = static_cast<key_frame *>(NULL);
                     }
 
                     spdlog::debug("done");
@@ -1081,7 +1081,7 @@ void Tracking::Track()
         // Store frame pose information to retrieve the complete camera trajectory afterwards.
         if (mCurrentFrame.is_set())
         {
-            Sophus::SE3f Tcr_ = mCurrentFrame.get_pose() * mCurrentFrame.reference_key_frame->GetPoseInverse();
+            Sophus::SE3f Tcr_ = mCurrentFrame.get_pose() * mCurrentFrame.reference_key_frame->get_pose_inverse();
             mlRelativeFramePoses.push_back(Tcr_);
             mlpReferences.push_back(mCurrentFrame.reference_key_frame);
             mlFrameTimes.push_back(mCurrentFrame.timestamp);
@@ -1151,13 +1151,13 @@ void Tracking::StereoInitialization()
             mCurrentFrame.set_pose(Sophus::SE3f());
         }
 
-        // Create KeyFrame
-        KeyFrame *pKFini = new KeyFrame(mCurrentFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
+        // Create key_frame
+        key_frame *pKFini = new key_frame(mCurrentFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
 
-        // Insert KeyFrame in the map
+        // Insert key_frame in the map
         mpAtlas->add_key_frame(pKFini);
 
-        // Create MapPoints and asscoiate to KeyFrame
+        // Create MapPoints and asscoiate to key_frame
         if (!is_fisheye_stereo(cameras))
         {
             for (int i = 0; i < mCurrentFrame.feature_count; i++)
@@ -1169,7 +1169,7 @@ void Tracking::StereoInitialization()
                     mCurrentFrame.unproject_stereo(i, x3D);
                     map_point *pNewMP = new map_point(x3D, pKFini, mpAtlas->get_current_map());
                     pNewMP->add_observation(pKFini, i);
-                    pKFini->AddMapPoint(pNewMP, i);
+                    pKFini->add_map_point(pNewMP, i);
                     pNewMP->compute_distinctive_descriptors();
                     pNewMP->update_normal_and_depth();
                     mpAtlas->add_map_point(pNewMP);
@@ -1192,8 +1192,8 @@ void Tracking::StereoInitialization()
                     pNewMP->add_observation(pKFini, i);
                     pNewMP->add_observation(pKFini, rightIndex + static_cast<int>(mCurrentFrame.keypoints.size()));
 
-                    pKFini->AddMapPoint(pNewMP, i);
-                    pKFini->AddMapPoint(pNewMP, rightIndex + static_cast<int>(mCurrentFrame.keypoints.size()));
+                    pKFini->add_map_point(pNewMP, i);
+                    pKFini->add_map_point(pNewMP, rightIndex + static_cast<int>(mCurrentFrame.keypoints.size()));
 
                     pNewMP->compute_distinctive_descriptors();
                     pNewMP->update_normal_and_depth();
@@ -1308,16 +1308,16 @@ void Tracking::MonocularInitialization()
 void Tracking::CreateInitialMapMonocular()
 {
     // Create KeyFrames
-    KeyFrame *pKFini = new KeyFrame(mInitialFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
-    KeyFrame *pKFcur = new KeyFrame(mCurrentFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
+    key_frame *pKFini = new key_frame(mInitialFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
+    key_frame *pKFcur = new key_frame(mCurrentFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
 
     if (mSensor == System::IMU_MONOCULAR)
     {
-        pKFini->mpImuPreintegrated = (IMU::Preintegrated *)(NULL);
+        pKFini->imu_preintegrated = (IMU::Preintegrated *)(NULL);
     }
 
-    pKFini->ComputeBoW();
-    pKFcur->ComputeBoW();
+    pKFini->compute_bow();
+    pKFcur->compute_bow();
 
     // Insert KFs in the map
     mpAtlas->add_key_frame(pKFini);
@@ -1335,8 +1335,8 @@ void Tracking::CreateInitialMapMonocular()
         worldPos << mvIniP3D[i].x, mvIniP3D[i].y, mvIniP3D[i].z;
         map_point *pMP = new map_point(worldPos, pKFcur, mpAtlas->get_current_map());
 
-        pKFini->AddMapPoint(pMP, i);
-        pKFcur->AddMapPoint(pMP, mvIniMatches[i]);
+        pKFini->add_map_point(pMP, i);
+        pKFcur->add_map_point(pMP, mvIniMatches[i]);
 
         pMP->add_observation(pKFini, i);
         pMP->add_observation(pKFcur, mvIniMatches[i]);
@@ -1353,17 +1353,17 @@ void Tracking::CreateInitialMapMonocular()
     }
 
     // Update Connections
-    pKFini->UpdateConnections();
-    pKFcur->UpdateConnections();
+    pKFini->update_connections();
+    pKFcur->update_connections();
 
     std::set<map_point *> sMPs;
-    sMPs = pKFini->GetMapPoints();
+    sMPs = pKFini->get_map_points();
 
     // Bundle Adjustment
     spdlog::info("New Map created with {} points", mpAtlas->map_points_in_map());
     Optimizer::GlobalBundleAdjustemnt(mpAtlas->get_current_map(), 20);
 
-    float medianDepth = pKFini->ComputeSceneMedianDepth(2);
+    float medianDepth = pKFini->compute_scene_median_depth(2);
     float invMedianDepth;
     if (mSensor == System::IMU_MONOCULAR)
     {
@@ -1374,7 +1374,7 @@ void Tracking::CreateInitialMapMonocular()
         invMedianDepth = 1.0f / medianDepth;
     }
 
-    if (medianDepth < 0 || pKFcur->TrackedMapPoints(1) < 50) // TODO Check, originally 100 tracks
+    if (medianDepth < 0 || pKFcur->tracked_map_points(1) < 50) // TODO Check, originally 100 tracks
     {
         spdlog::warn("Wrong initialization; resetting");
         mpSystem->ResetActiveMap();
@@ -1382,12 +1382,12 @@ void Tracking::CreateInitialMapMonocular()
     }
 
     // Scale initial baseline
-    Sophus::SE3f Tc2w   = pKFcur->GetPose();
+    Sophus::SE3f Tc2w   = pKFcur->get_pose();
     Tc2w.translation() *= invMedianDepth;
-    pKFcur->SetPose(Tc2w);
+    pKFcur->set_pose(Tc2w);
 
     // Scale points
-    vector<map_point *> vpAllMapPoints = pKFini->GetMapPointMatches();
+    vector<map_point *> vpAllMapPoints = pKFini->get_map_point_matches();
     for (size_t iMP = 0; iMP < vpAllMapPoints.size(); iMP++)
     {
         if (vpAllMapPoints[iMP])
@@ -1400,18 +1400,18 @@ void Tracking::CreateInitialMapMonocular()
 
     if (mSensor == System::IMU_MONOCULAR)
     {
-        pKFcur->mPrevKF            = pKFini;
-        pKFini->mNextKF            = pKFcur;
-        pKFcur->mpImuPreintegrated = mpImuPreintegratedFromLastKF;
+        pKFcur->previous_key_frame = pKFini;
+        pKFini->next_key_frame     = pKFcur;
+        pKFcur->imu_preintegrated  = mpImuPreintegratedFromLastKF;
 
-        mpImuPreintegratedFromLastKF = new IMU::Preintegrated(pKFcur->mpImuPreintegrated->GetUpdatedBias(), pKFcur->mImuCalib);
+        mpImuPreintegratedFromLastKF = new IMU::Preintegrated(pKFcur->imu_preintegrated->GetUpdatedBias(), pKFcur->imu_calibration);
     }
 
     mpLocalMapper->InsertKeyFrame(pKFini);
     mpLocalMapper->InsertKeyFrame(pKFcur);
-    mpLocalMapper->mFirstTs = pKFcur->mTimeStamp;
+    mpLocalMapper->mFirstTs = pKFcur->timestamp;
 
-    mCurrentFrame.set_pose(pKFcur->GetPose());
+    mCurrentFrame.set_pose(pKFcur->get_pose());
     mnLastKeyFrameId = mCurrentFrame.id;
     mpLastKeyFrame   = pKFcur;
 
@@ -1422,9 +1422,9 @@ void Tracking::CreateInitialMapMonocular()
     mCurrentFrame.reference_key_frame = pKFcur;
 
     // Compute here initial velocity
-    vector<KeyFrame *> vKFs = mpAtlas->get_all_key_frames();
+    vector<key_frame *> vKFs = mpAtlas->get_all_key_frames();
 
-    Sophus::SE3f deltaT = vKFs.back()->GetPose() * vKFs.front()->GetPoseInverse();
+    Sophus::SE3f deltaT = vKFs.back()->get_pose() * vKFs.front()->get_pose_inverse();
     mbVelocity          = false;
     Eigen::Vector3f phi = deltaT.so3().log();
 
@@ -1439,7 +1439,7 @@ void Tracking::CreateInitialMapMonocular()
 
     mState = OK;
 
-    initID = pKFcur->mnId;
+    initID = pKFcur->id;
 }
 
 void Tracking::CreateMapInAtlas()
@@ -1472,12 +1472,12 @@ void Tracking::CreateMapInAtlas()
 
     if (mpLastKeyFrame)
     {
-        mpLastKeyFrame = static_cast<KeyFrame *>(NULL);
+        mpLastKeyFrame = static_cast<key_frame *>(NULL);
     }
 
     if (mpReferenceKF)
     {
-        mpReferenceKF = static_cast<KeyFrame *>(NULL);
+        mpReferenceKF = static_cast<key_frame *>(NULL);
     }
 
     mLastFrame    = frame();
@@ -1572,9 +1572,9 @@ bool Tracking::TrackReferenceKeyFrame()
 void Tracking::UpdateLastFrame()
 {
     // Update pose according to reference keyframe
-    KeyFrame    *pRef = mLastFrame.reference_key_frame;
+    key_frame   *pRef = mLastFrame.reference_key_frame;
     Sophus::SE3f Tlr  = mlRelativeFramePoses.back();
-    mLastFrame.set_pose(Tlr * pRef->GetPose());
+    mLastFrame.set_pose(Tlr * pRef->get_pose());
 
     if (mnLastKeyFrameId == mLastFrame.id || mSensor == System::MONOCULAR || mSensor == System::IMU_MONOCULAR || !mbOnlyTracking)
     {
@@ -2176,11 +2176,11 @@ bool Tracking::NeedNewKeyFrame()
 {
     if ((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && !mpAtlas->get_current_map()->is_imu_initialized())
     {
-        if (mSensor == System::IMU_MONOCULAR && (mCurrentFrame.timestamp - mpLastKeyFrame->mTimeStamp) >= 0.25)
+        if (mSensor == System::IMU_MONOCULAR && (mCurrentFrame.timestamp - mpLastKeyFrame->timestamp) >= 0.25)
         {
             return true;
         }
-        else if ((mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && (mCurrentFrame.timestamp - mpLastKeyFrame->mTimeStamp) >= 0.25)
+        else if ((mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && (mCurrentFrame.timestamp - mpLastKeyFrame->timestamp) >= 0.25)
         {
             return true;
         }
@@ -2219,7 +2219,7 @@ bool Tracking::NeedNewKeyFrame()
     {
         nMinObs = 2;
     }
-    int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);
+    int nRefMatches = mpReferenceKF->tracked_map_points(nMinObs);
     // Flow tracks a bounded subset, not the full extracted feature population.
     if (mCurrentFrame.flow_only)
     {
@@ -2308,14 +2308,14 @@ bool Tracking::NeedNewKeyFrame()
     {
         if (mSensor == System::IMU_MONOCULAR)
         {
-            if ((mCurrentFrame.timestamp - mpLastKeyFrame->mTimeStamp) >= 0.5)
+            if ((mCurrentFrame.timestamp - mpLastKeyFrame->timestamp) >= 0.5)
             {
                 c3 = true;
             }
         }
         else if (mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
         {
-            if ((mCurrentFrame.timestamp - mpLastKeyFrame->mTimeStamp) >= 0.5)
+            if ((mCurrentFrame.timestamp - mpLastKeyFrame->timestamp) >= 0.5)
             {
                 c3 = true;
             }
@@ -2399,21 +2399,21 @@ void Tracking::CreateNewKeyFrame()
         return;
     }
 
-    KeyFrame *pKF = new KeyFrame(mCurrentFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
+    key_frame *pKF = new key_frame(mCurrentFrame, mpAtlas->get_current_map(), mpKeyFrameDB, cameras);
 
     if (mpAtlas->is_imu_initialized())
     {
-        pKF->bImu = true;
+        pKF->has_imu = true;
     }
 
-    pKF->SetNewBias(mCurrentFrame.imu_bias);
+    pKF->set_new_bias(mCurrentFrame.imu_bias);
     mpReferenceKF                     = pKF;
     mCurrentFrame.reference_key_frame = pKF;
 
     if (mpLastKeyFrame)
     {
-        pKF->mPrevKF            = mpLastKeyFrame;
-        mpLastKeyFrame->mNextKF = pKF;
+        pKF->previous_key_frame        = mpLastKeyFrame;
+        mpLastKeyFrame->next_key_frame = pKF;
     }
     else
     {
@@ -2423,7 +2423,7 @@ void Tracking::CreateNewKeyFrame()
     // Reset preintegration from last KF (Create new object)
     if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
     {
-        mpImuPreintegratedFromLastKF = new IMU::Preintegrated(pKF->GetImuBias(), pKF->mImuCalib);
+        mpImuPreintegratedFromLastKF = new IMU::Preintegrated(pKF->get_imu_bias(), pKF->imu_calibration);
     }
 
     if (mSensor != System::MONOCULAR && mSensor != System::IMU_MONOCULAR) // TODO check if include imu_stereo
@@ -2494,10 +2494,10 @@ void Tracking::CreateNewKeyFrame()
                     {
                         mCurrentFrame.map_points[static_cast<int>(mCurrentFrame.keypoints.size()) + mCurrentFrame.left_to_right_matches[i]] = pNewMP;
                         pNewMP->add_observation(pKF, static_cast<int>(mCurrentFrame.keypoints.size()) + mCurrentFrame.left_to_right_matches[i]);
-                        pKF->AddMapPoint(pNewMP, static_cast<int>(mCurrentFrame.keypoints.size()) + mCurrentFrame.left_to_right_matches[i]);
+                        pKF->add_map_point(pNewMP, static_cast<int>(mCurrentFrame.keypoints.size()) + mCurrentFrame.left_to_right_matches[i]);
                     }
 
-                    pKF->AddMapPoint(pNewMP, i);
+                    pKF->add_map_point(pNewMP, i);
                     pNewMP->compute_distinctive_descriptors();
                     pNewMP->update_normal_and_depth();
                     mpAtlas->add_map_point(pNewMP);
@@ -2635,10 +2635,10 @@ void Tracking::UpdateLocalPoints()
 
     int count_pts = 0;
 
-    for (vector<KeyFrame *>::const_reverse_iterator itKF = mvpLocalKeyFrames.rbegin(), itEndKF = mvpLocalKeyFrames.rend(); itKF != itEndKF; ++itKF)
+    for (vector<key_frame *>::const_reverse_iterator itKF = mvpLocalKeyFrames.rbegin(), itEndKF = mvpLocalKeyFrames.rend(); itKF != itEndKF; ++itKF)
     {
-        KeyFrame                 *pKF   = *itKF;
-        const vector<map_point *> vpMPs = pKF->GetMapPointMatches();
+        key_frame                *pKF   = *itKF;
+        const vector<map_point *> vpMPs = pKF->get_map_point_matches();
 
         for (vector<map_point *>::const_iterator itMP = vpMPs.begin(), itEndMP = vpMPs.end(); itMP != itEndMP; itMP++)
         {
@@ -2665,7 +2665,7 @@ void Tracking::UpdateLocalPoints()
 void Tracking::UpdateLocalKeyFrames()
 {
     // Each map point vote for the keyframes in which it has been observed
-    std::map<KeyFrame *, int> keyframeCounter;
+    std::map<key_frame *, int> keyframeCounter;
     if (!mpAtlas->is_imu_initialized() || (mCurrentFrame.id < mnLastRelocFrameId + 2))
     {
         for (int i = 0; i < mCurrentFrame.feature_count; i++)
@@ -2675,8 +2675,8 @@ void Tracking::UpdateLocalKeyFrames()
             {
                 if (!pMP->is_bad())
                 {
-                    const std::map<KeyFrame *, tuple<int, int>> observations = pMP->get_observations();
-                    for (std::map<KeyFrame *, tuple<int, int>>::const_iterator it = observations.begin(), itend = observations.end(); it != itend; it++)
+                    const std::map<key_frame *, tuple<int, int>> observations = pMP->get_observations();
+                    for (std::map<key_frame *, tuple<int, int>>::const_iterator it = observations.begin(), itend = observations.end(); it != itend; it++)
                     {
                         keyframeCounter[it->first]++;
                     }
@@ -2702,8 +2702,8 @@ void Tracking::UpdateLocalKeyFrames()
                 }
                 if (!pMP->is_bad())
                 {
-                    const std::map<KeyFrame *, tuple<int, int>> observations = pMP->get_observations();
-                    for (std::map<KeyFrame *, tuple<int, int>>::const_iterator it = observations.begin(), itend = observations.end(); it != itend; it++)
+                    const std::map<key_frame *, tuple<int, int>> observations = pMP->get_observations();
+                    for (std::map<key_frame *, tuple<int, int>>::const_iterator it = observations.begin(), itend = observations.end(); it != itend; it++)
                     {
                         keyframeCounter[it->first]++;
                     }
@@ -2717,18 +2717,18 @@ void Tracking::UpdateLocalKeyFrames()
         }
     }
 
-    int       max    = 0;
-    KeyFrame *pKFmax = static_cast<KeyFrame *>(NULL);
+    int        max    = 0;
+    key_frame *pKFmax = static_cast<key_frame *>(NULL);
 
     mvpLocalKeyFrames.clear();
     mvpLocalKeyFrames.reserve(3 * keyframeCounter.size());
 
     // All keyframes that observe a map point are included in the local map. Also check which keyframe shares most points
-    for (std::map<KeyFrame *, int>::const_iterator it = keyframeCounter.begin(), itEnd = keyframeCounter.end(); it != itEnd; it++)
+    for (std::map<key_frame *, int>::const_iterator it = keyframeCounter.begin(), itEnd = keyframeCounter.end(); it != itEnd; it++)
     {
-        KeyFrame *pKF = it->first;
+        key_frame *pKF = it->first;
 
-        if (pKF->isBad())
+        if (pKF->is_bad())
         {
             continue;
         }
@@ -2740,11 +2740,11 @@ void Tracking::UpdateLocalKeyFrames()
         }
 
         mvpLocalKeyFrames.push_back(pKF);
-        pKF->mnTrackReferenceForFrame = mCurrentFrame.id;
+        pKF->track_reference_for_frame = mCurrentFrame.id;
     }
 
     // Include also some not-already-included keyframes that are neighbors to already-included keyframes
-    for (vector<KeyFrame *>::const_iterator itKF = mvpLocalKeyFrames.begin(), itEndKF = mvpLocalKeyFrames.end(); itKF != itEndKF; itKF++)
+    for (vector<key_frame *>::const_iterator itKF = mvpLocalKeyFrames.begin(), itEndKF = mvpLocalKeyFrames.end(); itKF != itEndKF; itKF++)
     {
         // Limit the number of keyframes
         if (mvpLocalKeyFrames.size() > 80) // 80
@@ -2752,46 +2752,46 @@ void Tracking::UpdateLocalKeyFrames()
             break;
         }
 
-        KeyFrame *pKF = *itKF;
+        key_frame *pKF = *itKF;
 
-        const vector<KeyFrame *> vNeighs = pKF->GetBestCovisibilityKeyFrames(10);
+        const vector<key_frame *> vNeighs = pKF->get_best_covisibility_key_frames(10);
 
-        for (vector<KeyFrame *>::const_iterator itNeighKF = vNeighs.begin(), itEndNeighKF = vNeighs.end(); itNeighKF != itEndNeighKF; itNeighKF++)
+        for (vector<key_frame *>::const_iterator itNeighKF = vNeighs.begin(), itEndNeighKF = vNeighs.end(); itNeighKF != itEndNeighKF; itNeighKF++)
         {
-            KeyFrame *pNeighKF = *itNeighKF;
-            if (!pNeighKF->isBad())
+            key_frame *pNeighKF = *itNeighKF;
+            if (!pNeighKF->is_bad())
             {
-                if (pNeighKF->mnTrackReferenceForFrame != mCurrentFrame.id)
+                if (pNeighKF->track_reference_for_frame != mCurrentFrame.id)
                 {
                     mvpLocalKeyFrames.push_back(pNeighKF);
-                    pNeighKF->mnTrackReferenceForFrame = mCurrentFrame.id;
+                    pNeighKF->track_reference_for_frame = mCurrentFrame.id;
                     break;
                 }
             }
         }
 
-        const set<KeyFrame *> spChilds = pKF->GetChilds();
-        for (set<KeyFrame *>::const_iterator sit = spChilds.begin(), send = spChilds.end(); sit != send; sit++)
+        const set<key_frame *> spChilds = pKF->get_children();
+        for (set<key_frame *>::const_iterator sit = spChilds.begin(), send = spChilds.end(); sit != send; sit++)
         {
-            KeyFrame *pChildKF = *sit;
-            if (!pChildKF->isBad())
+            key_frame *pChildKF = *sit;
+            if (!pChildKF->is_bad())
             {
-                if (pChildKF->mnTrackReferenceForFrame != mCurrentFrame.id)
+                if (pChildKF->track_reference_for_frame != mCurrentFrame.id)
                 {
                     mvpLocalKeyFrames.push_back(pChildKF);
-                    pChildKF->mnTrackReferenceForFrame = mCurrentFrame.id;
+                    pChildKF->track_reference_for_frame = mCurrentFrame.id;
                     break;
                 }
             }
         }
 
-        KeyFrame *pParent = pKF->GetParent();
+        key_frame *pParent = pKF->get_parent();
         if (pParent)
         {
-            if (pParent->mnTrackReferenceForFrame != mCurrentFrame.id)
+            if (pParent->track_reference_for_frame != mCurrentFrame.id)
             {
                 mvpLocalKeyFrames.push_back(pParent);
-                pParent->mnTrackReferenceForFrame = mCurrentFrame.id;
+                pParent->track_reference_for_frame = mCurrentFrame.id;
                 break;
             }
         }
@@ -2800,7 +2800,7 @@ void Tracking::UpdateLocalKeyFrames()
     // Add 10 last temporal KFs (mainly for IMU)
     if ((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && mvpLocalKeyFrames.size() < 80)
     {
-        KeyFrame *tempKeyFrame = mCurrentFrame.last_key_frame;
+        key_frame *tempKeyFrame = mCurrentFrame.last_key_frame;
 
         const int Nd = 20;
         for (int i = 0; i < Nd; i++)
@@ -2809,11 +2809,11 @@ void Tracking::UpdateLocalKeyFrames()
             {
                 break;
             }
-            if (tempKeyFrame->mnTrackReferenceForFrame != mCurrentFrame.id)
+            if (tempKeyFrame->track_reference_for_frame != mCurrentFrame.id)
             {
                 mvpLocalKeyFrames.push_back(tempKeyFrame);
-                tempKeyFrame->mnTrackReferenceForFrame = mCurrentFrame.id;
-                tempKeyFrame                           = tempKeyFrame->mPrevKF;
+                tempKeyFrame->track_reference_for_frame = mCurrentFrame.id;
+                tempKeyFrame                            = tempKeyFrame->previous_key_frame;
             }
         }
     }
@@ -2833,8 +2833,8 @@ bool Tracking::Relocalization()
     mCurrentFrame.compute_bow();
 
     // Relocalization is performed when tracking is lost
-    // Track Lost: Query KeyFrame Database for keyframe candidates for relocalisation
-    vector<KeyFrame *> vpCandidateKFs = mpKeyFrameDB->detect_relocalization_candidates(&mCurrentFrame, mpAtlas->get_current_map());
+    // Track Lost: Query key_frame Database for keyframe candidates for relocalisation
+    vector<key_frame *> vpCandidateKFs = mpKeyFrameDB->detect_relocalization_candidates(&mCurrentFrame, mpAtlas->get_current_map());
 
     if (vpCandidateKFs.empty())
     {
@@ -2856,8 +2856,8 @@ bool Tracking::Relocalization()
 
     for (int i = 0; i < nKFs; i++)
     {
-        KeyFrame *pKF = vpCandidateKFs[i];
-        if (pKF->isBad())
+        key_frame *pKF = vpCandidateKFs[i];
+        if (pKF->is_bad())
         {
             vbDiscarded[i] = true;
         }
@@ -3040,9 +3040,9 @@ void Tracking::Reset(bool bLocMap)
     }
     mnInitialFrameId = 0;
 
-    KeyFrame::nNextId = 0;
-    frame::next_id    = 0;
-    mState            = NO_IMAGES_YET;
+    key_frame::next_id = 0;
+    frame::next_id     = 0;
+    mState             = NO_IMAGES_YET;
 
     mbReadyToInitializate = false;
     mbSetInit             = false;
@@ -3056,8 +3056,8 @@ void Tracking::Reset(bool bLocMap)
     mLastFrame         = frame();
     _previous_gray.release();
     previous_right_gray_.release();
-    mpReferenceKF  = static_cast<KeyFrame *>(NULL);
-    mpLastKeyFrame = static_cast<KeyFrame *>(NULL);
+    mpReferenceKF  = static_cast<key_frame *>(NULL);
+    mpLastKeyFrame = static_cast<key_frame *>(NULL);
     mvIniMatches.clear();
 
     if (mOnResetComplete)
@@ -3096,7 +3096,7 @@ void Tracking::ResetActiveMap(bool bLocMap)
     // Clear Map (this erase MapPoints and KeyFrames)
     mpAtlas->clear_map();
 
-    // KeyFrame::nNextId = mpAtlas->get_last_init_kf_id();
+    // key_frame::nNextId = mpAtlas->get_last_init_kf_id();
     // frame::next_id = mnLastInitFrameId;
     mnLastInitFrameId = frame::next_id;
     mState            = NO_IMAGES_YET; // NOT_INITIALIZED;
@@ -3146,8 +3146,8 @@ void Tracking::ResetActiveMap(bool bLocMap)
     mLastFrame    = frame();
     _previous_gray.release();
     previous_right_gray_.release();
-    mpReferenceKF  = static_cast<KeyFrame *>(NULL);
-    mpLastKeyFrame = static_cast<KeyFrame *>(NULL);
+    mpReferenceKF  = static_cast<key_frame *>(NULL);
+    mpLastKeyFrame = static_cast<key_frame *>(NULL);
     mvIniMatches.clear();
 
     mbVelocity = false;
@@ -3163,11 +3163,11 @@ vector<map_point *> Tracking::GetLocalMapMPS() { return mvpLocalMapPoints; }
 
 void Tracking::InformOnlyTracking(const bool &flag) { mbOnlyTracking = flag; }
 
-void Tracking::UpdateFrameIMU(const float s, const IMU::Bias &b, KeyFrame *pCurrentKeyFrame)
+void Tracking::UpdateFrameIMU(const float s, const IMU::Bias &b, key_frame *pCurrentKeyFrame)
 {
-    map                                  *pMap = pCurrentKeyFrame->GetMap();
-    list<ORB_SLAM3::KeyFrame *>::iterator lRit = mlpReferences.begin();
-    list<bool>::iterator                  lbL  = mlbLost.begin();
+    map                                   *pMap = pCurrentKeyFrame->get_map();
+    list<ORB_SLAM3::key_frame *>::iterator lRit = mlpReferences.begin();
+    list<bool>::iterator                   lbL  = mlbLost.begin();
     for (auto lit = mlRelativeFramePoses.begin(), lend = mlRelativeFramePoses.end(); lit != lend; lit++, lRit++, lbL++)
     {
         if (*lbL)
@@ -3175,14 +3175,14 @@ void Tracking::UpdateFrameIMU(const float s, const IMU::Bias &b, KeyFrame *pCurr
             continue;
         }
 
-        KeyFrame *pKF = *lRit;
+        key_frame *pKF = *lRit;
 
-        while (pKF->isBad())
+        while (pKF->is_bad())
         {
-            pKF = pKF->GetParent();
+            pKF = pKF->get_parent();
         }
 
-        if (pKF->GetMap() == pMap)
+        if (pKF->get_map() == pMap)
         {
             (*lit).translation() *= s;
         }
@@ -3200,16 +3200,16 @@ void Tracking::UpdateFrameIMU(const float s, const IMU::Bias &b, KeyFrame *pCurr
         usleep(500);
     }
 
-    if (mLastFrame.id == mLastFrame.last_key_frame->mnFrameId)
+    if (mLastFrame.id == mLastFrame.last_key_frame->frame_id)
     {
-        mLastFrame.set_imu_pose_velocity(mLastFrame.last_key_frame->GetImuRotation(), mLastFrame.last_key_frame->GetImuPosition(), mLastFrame.last_key_frame->GetVelocity());
+        mLastFrame.set_imu_pose_velocity(mLastFrame.last_key_frame->get_imu_rotation(), mLastFrame.last_key_frame->get_imu_position(), mLastFrame.last_key_frame->get_velocity());
     }
     else
     {
         const Eigen::Vector3f Gz(0, 0, -IMU::GRAVITY_VALUE);
-        const Eigen::Vector3f twb1 = mLastFrame.last_key_frame->GetImuPosition();
-        const Eigen::Matrix3f Rwb1 = mLastFrame.last_key_frame->GetImuRotation();
-        const Eigen::Vector3f Vwb1 = mLastFrame.last_key_frame->GetVelocity();
+        const Eigen::Vector3f twb1 = mLastFrame.last_key_frame->get_imu_position();
+        const Eigen::Matrix3f Rwb1 = mLastFrame.last_key_frame->get_imu_rotation();
+        const Eigen::Vector3f Vwb1 = mLastFrame.last_key_frame->get_velocity();
         float                 t12  = mLastFrame.imu_preintegrated->dT;
 
         mLastFrame.set_imu_pose_velocity(IMU::NormalizeRotation(Rwb1 * mLastFrame.imu_preintegrated->GetUpdatedDeltaRotation()),
@@ -3221,9 +3221,9 @@ void Tracking::UpdateFrameIMU(const float s, const IMU::Bias &b, KeyFrame *pCurr
     {
         const Eigen::Vector3f Gz(0, 0, -IMU::GRAVITY_VALUE);
 
-        const Eigen::Vector3f twb1 = mCurrentFrame.last_key_frame->GetImuPosition();
-        const Eigen::Matrix3f Rwb1 = mCurrentFrame.last_key_frame->GetImuRotation();
-        const Eigen::Vector3f Vwb1 = mCurrentFrame.last_key_frame->GetVelocity();
+        const Eigen::Vector3f twb1 = mCurrentFrame.last_key_frame->get_imu_position();
+        const Eigen::Matrix3f Rwb1 = mCurrentFrame.last_key_frame->get_imu_rotation();
+        const Eigen::Vector3f Vwb1 = mCurrentFrame.last_key_frame->get_velocity();
         float                 t12  = mCurrentFrame.imu_preintegrated->dT;
 
         mCurrentFrame.set_imu_pose_velocity(IMU::NormalizeRotation(Rwb1 * mCurrentFrame.imu_preintegrated->GetUpdatedDeltaRotation()),

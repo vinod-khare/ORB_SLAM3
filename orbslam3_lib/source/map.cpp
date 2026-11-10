@@ -54,22 +54,22 @@ map::~map()
     key_frame_origins.clear();
 }
 
-void map::add_key_frame(KeyFrame *pKF)
+void map::add_key_frame(key_frame *pKF)
 {
     unique_lock<mutex> lock(map_mutex);
     if (key_frames.empty())
     {
-        spdlog::debug("First keyframe: {}; map initial keyframe: {}", pKF->mnId, initial_key_frame_id);
-        initial_key_frame_id = pKF->mnId;
+        spdlog::debug("First keyframe: {}; map initial keyframe: {}", pKF->id, initial_key_frame_id);
+        initial_key_frame_id = pKF->id;
         initial_key_frame    = pKF;
         lowest_id_key_frame  = pKF;
     }
     key_frames.insert(pKF);
-    if (pKF->mnId > max_key_frame_id)
+    if (pKF->id > max_key_frame_id)
     {
-        max_key_frame_id = pKF->mnId;
+        max_key_frame_id = pKF->id;
     }
-    if (pKF->mnId < lowest_id_key_frame->mnId)
+    if (pKF->id < lowest_id_key_frame->id)
     {
         lowest_id_key_frame = pKF;
     }
@@ -102,16 +102,16 @@ void map::erase_map_point(map_point *pMP)
     // Delete the map_point
 }
 
-void map::erase_key_frame(KeyFrame *pKF)
+void map::erase_key_frame(key_frame *pKF)
 {
     unique_lock<mutex> lock(map_mutex);
     key_frames.erase(pKF);
     if (key_frames.size() > 0)
     {
-        if (pKF->mnId == lowest_id_key_frame->mnId)
+        if (pKF->id == lowest_id_key_frame->id)
         {
-            vector<KeyFrame *> vpKFs = vector<KeyFrame *>(key_frames.begin(), key_frames.end());
-            sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+            vector<key_frame *> vpKFs = vector<key_frame *>(key_frames.begin(), key_frames.end());
+            sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
             lowest_id_key_frame = vpKFs[0];
         }
     }
@@ -142,10 +142,10 @@ int map::get_last_big_change_index()
     return big_change_index;
 }
 
-vector<KeyFrame *> map::get_all_key_frames()
+vector<key_frame *> map::get_all_key_frames()
 {
     unique_lock<mutex> lock(map_mutex);
-    return vector<KeyFrame *>(key_frames.begin(), key_frames.end());
+    return vector<key_frame *>(key_frames.begin(), key_frames.end());
 }
 
 vector<map_point *> map::get_all_map_points()
@@ -191,7 +191,7 @@ long unsigned int map::get_max_key_frame_id()
     return max_key_frame_id;
 }
 
-KeyFrame *map::get_origin_key_frame() { return initial_key_frame; }
+key_frame *map::get_origin_key_frame() { return initial_key_frame; }
 
 void map::set_current_map() { in_use = true; }
 
@@ -199,10 +199,10 @@ void map::set_stored_map() { in_use = false; }
 
 void map::clear()
 {
-    for (set<KeyFrame *>::iterator sit = key_frames.begin(), send = key_frames.end(); sit != send; sit++)
+    for (set<key_frame *>::iterator sit = key_frames.begin(), send = key_frames.end(); sit != send; sit++)
     {
-        KeyFrame *pKF = *sit;
-        pKF->UpdateMap(static_cast<map *>(NULL));
+        key_frame *pKF = *sit;
+        pKF->update_map(static_cast<map *>(NULL));
     }
 
     map_points.clear();
@@ -230,22 +230,22 @@ void map::apply_scaled_rotation(const Sophus::SE3f &T, const float s, const bool
     Eigen::Matrix3f Ryw = Tyw.rotationMatrix();
     Eigen::Vector3f tyw = Tyw.translation();
 
-    for (set<KeyFrame *>::iterator sit = key_frames.begin(); sit != key_frames.end(); sit++)
+    for (set<key_frame *>::iterator sit = key_frames.begin(); sit != key_frames.end(); sit++)
     {
-        KeyFrame    *pKF   = *sit;
-        Sophus::SE3f Twc   = pKF->GetPoseInverse();
+        key_frame    *pKF   = *sit;
+        Sophus::SE3f Twc   = pKF->get_pose_inverse();
         Twc.translation() *= s;
         Sophus::SE3f Tyc   = Tyw * Twc;
         Sophus::SE3f Tcy   = Tyc.inverse();
-        pKF->SetPose(Tcy);
-        Eigen::Vector3f Vw = pKF->GetVelocity();
+        pKF->set_pose(Tcy);
+        Eigen::Vector3f Vw = pKF->get_velocity();
         if (!bScaledVel)
         {
-            pKF->SetVelocity(Ryw * Vw);
+            pKF->set_velocity(Ryw * Vw);
         }
         else
         {
-            pKF->SetVelocity(Ryw * Vw * s);
+            pKF->set_velocity(Ryw * Vw * s);
         }
     }
     for (set<map_point *>::iterator sit = map_points.begin(); sit != map_points.end(); sit++)
@@ -300,7 +300,7 @@ unsigned int map::get_lowest_key_frame_id()
     unique_lock<mutex> lock(map_mutex);
     if (lowest_id_key_frame)
     {
-        return lowest_id_key_frame->mnId;
+        return lowest_id_key_frame->id;
     }
     return 0;
 }

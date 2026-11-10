@@ -19,7 +19,7 @@
 #include "sim3_solver.h"
 
 #include "DUtils/Random.h"
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "descriptor_matcher.h"
 
 #include <cmath>
@@ -34,20 +34,20 @@
 namespace ORB_SLAM3
 {
 
-sim3_solver::sim3_solver(KeyFrame *first_key_frame, KeyFrame *second_key_frame, const vector<map_point *> &matched_map_points, const bool fixed_scale, vector<KeyFrame *> matched_key_frames)
+sim3_solver::sim3_solver(key_frame *first_key_frame, key_frame *second_key_frame, const vector<map_point *> &matched_map_points, const bool fixed_scale, vector<key_frame *> matched_key_frames)
     : iterations(0), best_inlier_count(0), fix_scale(fixed_scale), cameras(first_key_frame->cameras)
 {
     bool bDifferentKFs = false;
     if (matched_key_frames.empty())
     {
         bDifferentKFs      = true;
-        matched_key_frames = vector<KeyFrame *>(matched_map_points.size(), second_key_frame);
+        matched_key_frames = vector<key_frame *>(matched_map_points.size(), second_key_frame);
     }
 
     key_frame_1 = first_key_frame;
     key_frame_2 = second_key_frame;
 
-    vector<map_point *> vpKeyFrameMP1 = first_key_frame->GetMapPointMatches();
+    vector<map_point *> vpKeyFrameMP1 = first_key_frame->get_map_point_matches();
 
     initial_match_count = matched_map_points.size();
 
@@ -58,16 +58,16 @@ sim3_solver::sim3_solver(KeyFrame *first_key_frame, KeyFrame *second_key_frame, 
     camera_points_1.reserve(initial_match_count);
     camera_points_2.reserve(initial_match_count);
 
-    Eigen::Matrix3f Rcw1 = first_key_frame->GetRotation();
-    Eigen::Vector3f tcw1 = first_key_frame->GetTranslation();
-    Eigen::Matrix3f Rcw2 = second_key_frame->GetRotation();
-    Eigen::Vector3f tcw2 = second_key_frame->GetTranslation();
+    Eigen::Matrix3f Rcw1 = first_key_frame->get_rotation();
+    Eigen::Vector3f tcw1 = first_key_frame->get_translation();
+    Eigen::Matrix3f Rcw2 = second_key_frame->get_rotation();
+    Eigen::Vector3f tcw2 = second_key_frame->get_translation();
 
     all_indices.reserve(initial_match_count);
 
     size_t idx = 0;
 
-    KeyFrame *pKFm = second_key_frame; // Default variable
+    key_frame *pKFm = second_key_frame; // Default variable
     for (int i1 = 0; i1 < initial_match_count; i1++)
     {
         if (matched_map_points[i1])
@@ -98,11 +98,11 @@ sim3_solver::sim3_solver(KeyFrame *first_key_frame, KeyFrame *second_key_frame, 
                 continue;
             }
 
-            const cv::KeyPoint &kp1 = first_key_frame->mvKeys[indexKF1].undistorted();
-            const cv::KeyPoint &kp2 = pKFm->mvKeys[indexKF2].undistorted();
+            const cv::KeyPoint &kp1 = first_key_frame->keypoints[indexKF1].undistorted();
+            const cv::KeyPoint &kp2 = pKFm->keypoints[indexKF2].undistorted();
 
-            const float sigmaSquare1 = first_key_frame->mvLevelSigma2[kp1.octave];
-            const float sigmaSquare2 = pKFm->mvLevelSigma2[kp2.octave];
+            const float sigmaSquare1 = first_key_frame->level_sigma_squared[kp1.octave];
+            const float sigmaSquare2 = pKFm->level_sigma_squared[kp2.octave];
 
             max_error_1.push_back(9.210 * sigmaSquare1);
             max_error_2.push_back(9.210 * sigmaSquare2);

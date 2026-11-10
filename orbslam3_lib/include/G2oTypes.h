@@ -21,7 +21,7 @@
 
 #include "converter.h"
 
-#include <KeyFrame.h>
+#include <key_frame.h>
 #include <frame.h>
 #include <math.h>
 
@@ -41,7 +41,7 @@
 namespace ORB_SLAM3
 {
 
-class KeyFrame;
+class key_frame;
 class frame;
 class GeometricCamera;
 
@@ -76,9 +76,9 @@ class ImuCamPose
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     ImuCamPose() {}
-    ImuCamPose(KeyFrame *pKF);
+    ImuCamPose(key_frame *pKF);
     ImuCamPose(frame *pF, const camera_vector &cameras);
-    ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF);
+    ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF);
 
     void SetParam(const std::vector<Eigen::Matrix3d> &_Rcw,
                   const std::vector<Eigen::Vector3d> &_tcw,
@@ -117,7 +117,7 @@ class InvDepthPoint
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     InvDepthPoint() {}
-    InvDepthPoint(double _rho, double _u, double _v, KeyFrame *pHostKF);
+    InvDepthPoint(double _rho, double _u, double _v, key_frame *pHostKF);
 
     void Update(const double *pu);
 
@@ -134,7 +134,7 @@ class VertexPose : public g2o::BaseVertex<6, ImuCamPose>
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    VertexPose(KeyFrame *pKF) { setEstimate(ImuCamPose(pKF)); }
+    VertexPose(key_frame *pKF) { setEstimate(ImuCamPose(pKF)); }
     VertexPose(frame *pF, const camera_vector &cameras) { setEstimate(ImuCamPose(pF, cameras)); }
 
     virtual bool read(std::istream &is);
@@ -154,9 +154,9 @@ class VertexPose4DoF : public g2o::BaseVertex<4, ImuCamPose>
     // Translation and yaw are the only optimizable variables
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    VertexPose4DoF(KeyFrame *pKF) { setEstimate(ImuCamPose(pKF)); }
+    VertexPose4DoF(key_frame *pKF) { setEstimate(ImuCamPose(pKF)); }
     VertexPose4DoF(frame *pF, const camera_vector &cameras) { setEstimate(ImuCamPose(pF, cameras)); }
-    VertexPose4DoF(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF) { setEstimate(ImuCamPose(_Rwc, _twc, pKF)); }
+    VertexPose4DoF(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF) { setEstimate(ImuCamPose(_Rwc, _twc, pKF)); }
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -182,7 +182,7 @@ class VertexVelocity : public g2o::BaseVertex<3, Eigen::Vector3d>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     VertexVelocity() {}
-    VertexVelocity(KeyFrame *pKF);
+    VertexVelocity(key_frame *pKF);
     VertexVelocity(frame *pF);
 
     virtual bool read(std::istream &is) { return false; }
@@ -203,7 +203,7 @@ class VertexGyroBias : public g2o::BaseVertex<3, Eigen::Vector3d>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     VertexGyroBias() {}
-    VertexGyroBias(KeyFrame *pKF);
+    VertexGyroBias(key_frame *pKF);
     VertexGyroBias(frame *pF);
 
     virtual bool read(std::istream &is) { return false; }
@@ -224,7 +224,7 @@ class VertexAccBias : public g2o::BaseVertex<3, Eigen::Vector3d>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     VertexAccBias() {}
-    VertexAccBias(KeyFrame *pKF);
+    VertexAccBias(key_frame *pKF);
     VertexAccBias(frame *pF);
 
     virtual bool read(std::istream &is) { return false; }
@@ -297,7 +297,7 @@ class VertexInvDepth : public g2o::BaseVertex<1, InvDepthPoint>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     VertexInvDepth() {}
-    VertexInvDepth(double invDepth, double u, double v, KeyFrame *pHostKF) { setEstimate(InvDepthPoint(invDepth, u, v, pHostKF)); }
+    VertexInvDepth(double invDepth, double u, double v, key_frame *pHostKF) { setEstimate(InvDepthPoint(invDepth, u, v, pHostKF)); }
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }

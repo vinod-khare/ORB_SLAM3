@@ -18,7 +18,7 @@
 
 #include "map_drawer.h"
 
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "atlas.h"
 #include "map_point.h"
 
@@ -294,65 +294,65 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
         {
             for (auto *keyframe : map->get_all_key_frames())
             {
-                if (!keyframe || keyframe->isBad())
+                if (!keyframe || keyframe->is_bad())
                 {
                     continue;
                 }
                 if (layers[1])
                 {
-                    std::size_t group = map == active_map ? 2 : 8 + keyframe->mnOriginMapId % 6;
-                    if (!keyframe->GetParent())
+                    std::size_t group = map == active_map ? 2 : 8 + keyframe->origin_map_id % 6;
+                    if (!keyframe->get_parent())
                     {
                         group = 3;
                     }
                     else if (layers[4] && map == active_map)
                     {
-                        if (optimized_keyframes.contains(keyframe->mnId))
+                        if (optimized_keyframes.contains(keyframe->id))
                         {
                             group = 4;
                         }
-                        else if (fixed_keyframes.contains(keyframe->mnId))
+                        else if (fixed_keyframes.contains(keyframe->id))
                         {
                             group = 3;
                         }
                     }
-                    add_camera(group, keyframe->GetPoseInverse(), _settings.key_frame_size);
+                    add_camera(group, keyframe->get_pose_inverse(), _settings.key_frame_size);
                 }
                 if (map != active_map)
                 {
                     continue;
                 }
-                const auto center = keyframe->GetCameraCenter();
+                const auto center = keyframe->get_camera_center();
                 if (!_ground_truth_alignment && _ground_truth_actor)
                 {
-                    estimated_trajectory.emplace_back(keyframe->mTimeStamp, center.cast<double>());
+                    estimated_trajectory.emplace_back(keyframe->timestamp, center.cast<double>());
                 }
                 if (layers[2])
                 {
-                    for (auto *neighbor : keyframe->GetCovisiblesByWeight(100))
+                    for (auto *neighbor : keyframe->get_covisibles_by_weight(100))
                     {
-                        if (neighbor && !neighbor->isBad() && neighbor->mnId >= keyframe->mnId)
+                        if (neighbor && !neighbor->is_bad() && neighbor->id >= keyframe->id)
                         {
-                            add_line(5, center, neighbor->GetCameraCenter());
+                            add_line(5, center, neighbor->get_camera_center());
                         }
                     }
-                    if (auto *parent = keyframe->GetParent(); parent && !parent->isBad())
+                    if (auto *parent = keyframe->get_parent(); parent && !parent->is_bad())
                     {
-                        add_line(5, center, parent->GetCameraCenter());
+                        add_line(5, center, parent->get_camera_center());
                     }
-                    for (auto *neighbor : keyframe->GetLoopEdges())
+                    for (auto *neighbor : keyframe->get_loop_edges())
                     {
-                        if (neighbor && !neighbor->isBad() && neighbor->mnId >= keyframe->mnId)
+                        if (neighbor && !neighbor->is_bad() && neighbor->id >= keyframe->id)
                         {
-                            add_line(5, center, neighbor->GetCameraCenter());
+                            add_line(5, center, neighbor->get_camera_center());
                         }
                     }
                 }
                 if (layers[3] && active_map->is_imu_initialized())
                 {
-                    if (auto *next = keyframe->mNextKF; next && !next->isBad())
+                    if (auto *next = keyframe->next_key_frame; next && !next->is_bad())
                     {
-                        add_line(6, center, next->GetCameraCenter());
+                        add_line(6, center, next->get_camera_center());
                     }
                 }
             }

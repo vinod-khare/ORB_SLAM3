@@ -19,7 +19,7 @@
 #ifndef LOCALMAPPING_H
 #define LOCALMAPPING_H
 
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "LoopClosing.h"
 #include "Settings.h"
 #include "Tracking.h"
@@ -49,7 +49,7 @@ class LocalMapping
     // Main function
     void Run();
 
-    void InsertKeyFrame(KeyFrame *pKF);
+    void InsertKeyFrame(key_frame *pKF);
     void EmptyQueue();
 
     // Thread Synch
@@ -77,7 +77,7 @@ class LocalMapping
 
     bool      IsInitializing();
     double    GetCurrKFTime();
-    KeyFrame *GetCurrKF();
+    key_frame *GetCurrKF();
 
     std::mutex mMutexImuInit;
 
@@ -143,9 +143,9 @@ class LocalMapping
     LoopClosing *mpLoopCloser;
     Tracking    *mpTracker;
 
-    std::list<KeyFrame *> mlNewKeyFrames;
+    std::list<key_frame *> mlNewKeyFrames;
 
-    KeyFrame *mpCurrentKeyFrame;
+    key_frame *mpCurrentKeyFrame;
 
     std::list<map_point *> mlpRecentAddedMapPoints;
 

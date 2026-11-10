@@ -121,7 +121,7 @@ class Preintegrated
     void      IntegrateNewMeasurement(const Eigen::Vector3f &acceleration, const Eigen::Vector3f &angVel, const float &dt);
     void      Reintegrate();
     void      MergePrevious(Preintegrated *pPrev);
-    void      SetNewBias(const Bias &bu_);
+    void      set_new_bias(const Bias &bu_);
     IMU::Bias GetDeltaBias(const Bias &b_);
 
     Eigen::Matrix3f GetDeltaRotation(const Bias &b_);

@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "map.h"
 #include "map_point.h"
 
@@ -44,7 +44,7 @@ class atlas
 
     unsigned long int get_last_init_kf_id();
 
-    void add_key_frame(KeyFrame *key_frame);
+    void add_key_frame(key_frame *key_frame);
     void add_map_point(map_point *map_point);
 
     void set_reference_map_points(const std::vector<map_point *> &map_points);
@@ -54,7 +54,7 @@ class atlas
     long unsigned int map_points_in_map();
     long unsigned     key_frames_in_map();
 
-    std::vector<KeyFrame *>  get_all_key_frames();
+    std::vector<key_frame *>  get_all_key_frames();
     std::vector<map_point *> get_all_map_points();
     std::vector<map_point *> get_reference_map_points();
 
@@ -75,7 +75,7 @@ class atlas
     void set_imu_initialized();
     bool is_imu_initialized();
 
-    std::map<long unsigned int, KeyFrame *> get_atlas_key_frames();
+    std::map<long unsigned int, key_frame *> get_atlas_key_frames();
 
     long unsigned int get_num_lived_key_frames();
 

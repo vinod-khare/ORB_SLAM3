@@ -23,11 +23,11 @@
 namespace ORB_SLAM3
 {
 
-ImuCamPose::ImuCamPose(KeyFrame *pKF) : cameras(pKF->cameras), its(0)
+ImuCamPose::ImuCamPose(key_frame *pKF) : cameras(pKF->cameras), its(0)
 {
     // Load IMU pose
-    twb = pKF->GetImuPosition().cast<double>();
-    Rwb = pKF->GetImuRotation().cast<double>();
+    twb = pKF->get_imu_position().cast<double>();
+    Rwb = pKF->get_imu_rotation().cast<double>();
 
     // Load camera poses
     int num_cams;
@@ -48,17 +48,17 @@ ImuCamPose::ImuCamPose(KeyFrame *pKF) : cameras(pKF->cameras), its(0)
     tbc.resize(num_cams);
 
     // Left camera
-    tcw[0] = pKF->GetTranslation().cast<double>();
-    Rcw[0] = pKF->GetRotation().cast<double>();
-    tcb[0] = pKF->mImuCalib.mTcb.translation().cast<double>();
-    Rcb[0] = pKF->mImuCalib.mTcb.rotationMatrix().cast<double>();
+    tcw[0] = pKF->get_translation().cast<double>();
+    Rcw[0] = pKF->get_rotation().cast<double>();
+    tcb[0] = pKF->imu_calibration.mTcb.translation().cast<double>();
+    Rcb[0] = pKF->imu_calibration.mTcb.rotationMatrix().cast<double>();
     Rbc[0] = Rcb[0].transpose();
-    tbc[0] = pKF->mImuCalib.mTbc.translation().cast<double>();
+    tbc[0] = pKF->imu_calibration.mTbc.translation().cast<double>();
     bf     = pKF->mbf;
 
     if (num_cams > 1)
     {
-        Eigen::Matrix4d Trl = pKF->GetRelativePoseTrl().matrix().cast<double>();
+        Eigen::Matrix4d Trl = pKF->get_relative_pose_trl().matrix().cast<double>();
         Rcw[1]              = Trl.block<3, 3>(0, 0) * Rcw[0];
         tcw[1]              = Trl.block<3, 3>(0, 0) * tcw[0] + Trl.block<3, 1>(0, 3);
         tcb[1]              = Trl.block<3, 3>(0, 0) * tcb[0] + Trl.block<3, 1>(0, 3);
@@ -121,7 +121,7 @@ ImuCamPose::ImuCamPose(frame *pF, const camera_vector &cameras) : cameras(camera
     DR.setIdentity();
 }
 
-ImuCamPose::ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF) : cameras(pKF->cameras), its(0)
+ImuCamPose::ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF) : cameras(pKF->cameras), its(0)
 {
     // This is only for posegrpah, we do not care about multicamera
     tcw.resize(1);
@@ -131,10 +131,10 @@ ImuCamPose::ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *p
     Rbc.resize(1);
     tbc.resize(1);
 
-    tcb[0] = pKF->mImuCalib.mTcb.translation().cast<double>();
-    Rcb[0] = pKF->mImuCalib.mTcb.rotationMatrix().cast<double>();
+    tcb[0] = pKF->imu_calibration.mTcb.translation().cast<double>();
+    Rcb[0] = pKF->imu_calibration.mTcb.rotationMatrix().cast<double>();
     Rbc[0] = Rcb[0].transpose();
-    tbc[0] = pKF->mImuCalib.mTbc.translation().cast<double>();
+    tbc[0] = pKF->imu_calibration.mTbc.translation().cast<double>();
     twb    = _Rwc * tcb[0] + _twc;
     Rwb    = _Rwc * Rcb[0];
     Rcw[0] = _Rwc.transpose();
@@ -251,7 +251,7 @@ void ImuCamPose::UpdateW(const double *pu)
     }
 }
 
-InvDepthPoint::InvDepthPoint(double _rho, double _u, double _v, KeyFrame *pHostKF)
+InvDepthPoint::InvDepthPoint(double _rho, double _u, double _v, key_frame *pHostKF)
     : rho(_rho), u(_u), v(_v), fx(pHostKF->fx), fy(pHostKF->fy), cx(pHostKF->cx), cy(pHostKF->cy), bf(pHostKF->mbf)
 {
 }
@@ -456,11 +456,11 @@ void EdgeStereoOnlyPose::linearizeOplus()
     _jacobianOplusXi = proj_jac * Rcb * SE3deriv;
 }
 
-VertexVelocity::VertexVelocity(KeyFrame *pKF) { setEstimate(pKF->GetVelocity().cast<double>()); }
+VertexVelocity::VertexVelocity(key_frame *pKF) { setEstimate(pKF->get_velocity().cast<double>()); }
 
 VertexVelocity::VertexVelocity(frame *pF) { setEstimate(pF->get_velocity().cast<double>()); }
 
-VertexGyroBias::VertexGyroBias(KeyFrame *pKF) { setEstimate(pKF->GetGyroBias().cast<double>()); }
+VertexGyroBias::VertexGyroBias(key_frame *pKF) { setEstimate(pKF->get_gyro_bias().cast<double>()); }
 
 VertexGyroBias::VertexGyroBias(frame *pF)
 {
@@ -469,7 +469,7 @@ VertexGyroBias::VertexGyroBias(frame *pF)
     setEstimate(bg);
 }
 
-VertexAccBias::VertexAccBias(KeyFrame *pKF) { setEstimate(pKF->GetAccBias().cast<double>()); }
+VertexAccBias::VertexAccBias(key_frame *pKF) { setEstimate(pKF->get_accelerometer_bias().cast<double>()); }
 
 VertexAccBias::VertexAccBias(frame *pF)
 {

@@ -38,8 +38,8 @@ map_point::map_point()
     replaced = static_cast<map_point *>(NULL);
 }
 
-map_point::map_point(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, map *pMap)
-    : first_key_frame_id(pRefKF->mnId), first_frame_id(pRefKF->mnFrameId), observation_count(0), track_reference_for_frame(0), last_frame_seen(0), local_ba_key_frame_id(0),
+map_point::map_point(const Eigen::Vector3f &Pos, key_frame *pRefKF, map *pMap)
+    : first_key_frame_id(pRefKF->id), first_frame_id(pRefKF->frame_id), observation_count(0), track_reference_for_frame(0), last_frame_seen(0), local_ba_key_frame_id(0),
       fuse_candidate_key_frame_id(0), loop_point_key_frame_id(0), corrected_by_key_frame_id(0), corrected_reference_key_frame_id(0), global_ba_key_frame_id(0), origin_map_id(pMap->get_id()),
       reference_key_frame(pRefKF), visible(1), found(1), bad(false), replaced(nullptr), minimum_distance(0), maximum_distance(0), owner_map(pMap)
 {
@@ -55,8 +55,8 @@ map_point::map_point(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, map *pMap)
     id = next_id++;
 }
 
-map_point::map_point(const double invDepth, cv::Point2f uv_init, KeyFrame *pRefKF, KeyFrame *pHostKF, map *pMap)
-    : first_key_frame_id(pRefKF->mnId), first_frame_id(pRefKF->mnFrameId), observation_count(0), track_reference_for_frame(0), last_frame_seen(0), local_ba_key_frame_id(0),
+map_point::map_point(const double invDepth, cv::Point2f uv_init, key_frame *pRefKF, key_frame *pHostKF, map *pMap)
+    : first_key_frame_id(pRefKF->id), first_frame_id(pRefKF->frame_id), observation_count(0), track_reference_for_frame(0), last_frame_seen(0), local_ba_key_frame_id(0),
       fuse_candidate_key_frame_id(0), loop_point_key_frame_id(0), corrected_by_key_frame_id(0), corrected_reference_key_frame_id(0), global_ba_key_frame_id(0), origin_map_id(pMap->get_id()),
       reference_key_frame(pRefKF), visible(1), found(1), bad(false), replaced(nullptr), minimum_distance(0), maximum_distance(0), owner_map(pMap)
 {
@@ -134,7 +134,7 @@ Eigen::Vector3f map_point::get_normal()
     return normal_vector;
 }
 
-KeyFrame *map_point::get_reference_key_frame()
+key_frame *map_point::get_reference_key_frame()
 {
     unique_lock<mutex> lock(features_mutex);
     return reference_key_frame;
@@ -146,15 +146,15 @@ std::array<unsigned char, 3> map_point::color()
     return _color;
 }
 
-void map_point::add_observation(KeyFrame *pKF, int idx)
+void map_point::add_observation(key_frame *pKF, int idx)
 {
     unique_lock<mutex> lock(features_mutex);
     tuple<int, int>    indexes;
 
-    if (!_has_color && idx >= 0 && static_cast<std::size_t>(idx) < static_cast<std::size_t>(pKF->N))
+    if (!_has_color && idx >= 0 && static_cast<std::size_t>(idx) < static_cast<std::size_t>(pKF->feature_count))
     {
-        const bool  right = is_fisheye_stereo(pKF->cameras) && std::cmp_greater_equal(idx, pKF->mvKeys.size());
-        const auto &key   = right ? pKF->mvKeysRight[idx - pKF->mvKeys.size()] : pKF->mvKeys[idx];
+        const bool  right = is_fisheye_stereo(pKF->cameras) && std::cmp_greater_equal(idx, pKF->keypoints.size());
+        const auto &key   = right ? pKF->right_keypoints[idx - pKF->keypoints.size()] : pKF->keypoints[idx];
         _color            = key.color;
         _has_color        = key.has_color;
     }
@@ -168,7 +168,7 @@ void map_point::add_observation(KeyFrame *pKF, int idx)
         indexes = tuple<int, int>(-1, -1);
     }
 
-    if (is_fisheye_stereo(pKF->cameras) && std::cmp_greater_equal(idx, pKF->mvKeys.size()))
+    if (is_fisheye_stereo(pKF->cameras) && std::cmp_greater_equal(idx, pKF->keypoints.size()))
     {
         get<1>(indexes) = idx;
     }
@@ -179,7 +179,7 @@ void map_point::add_observation(KeyFrame *pKF, int idx)
 
     observations_by_key_frame[pKF] = indexes;
 
-    if (!is_fisheye_stereo(pKF->cameras) && pKF->mvuRight[idx] >= 0)
+    if (!is_fisheye_stereo(pKF->cameras) && pKF->right_coordinates[idx] >= 0)
     {
         observation_count += 2;
     }
@@ -189,7 +189,7 @@ void map_point::add_observation(KeyFrame *pKF, int idx)
     }
 }
 
-void map_point::erase_observation(KeyFrame *pKF)
+void map_point::erase_observation(key_frame *pKF)
 {
     bool bBad = false;
     {
@@ -201,7 +201,7 @@ void map_point::erase_observation(KeyFrame *pKF)
 
             if (leftIndex != -1)
             {
-                if (!is_fisheye_stereo(pKF->cameras) && pKF->mvuRight[leftIndex] >= 0)
+                if (!is_fisheye_stereo(pKF->cameras) && pKF->right_coordinates[leftIndex] >= 0)
                 {
                     observation_count -= 2;
                 }
@@ -236,7 +236,7 @@ void map_point::erase_observation(KeyFrame *pKF)
     }
 }
 
-std::map<KeyFrame *, std::tuple<int, int>> map_point::get_observations()
+std::map<key_frame *, std::tuple<int, int>> map_point::get_observations()
 {
     unique_lock<mutex> lock(features_mutex);
     return observations_by_key_frame;
@@ -250,7 +250,7 @@ int map_point::get_observation_count()
 
 void map_point::set_bad_flag()
 {
-    std::map<KeyFrame *, tuple<int, int>> obs;
+    std::map<key_frame *, tuple<int, int>> obs;
     {
         unique_lock<mutex> lock1(features_mutex);
         unique_lock<mutex> lock2(position_mutex);
@@ -258,17 +258,17 @@ void map_point::set_bad_flag()
         obs = observations_by_key_frame;
         observations_by_key_frame.clear();
     }
-    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
+    for (std::map<key_frame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
     {
-        KeyFrame *pKF       = mit->first;
+        key_frame *pKF       = mit->first;
         int       leftIndex = get<0>(mit->second), rightIndex = get<1>(mit->second);
         if (leftIndex != -1)
         {
-            pKF->EraseMapPointMatch(leftIndex);
+            pKF->erase_map_point_match(leftIndex);
         }
         if (rightIndex != -1)
         {
-            pKF->EraseMapPointMatch(rightIndex);
+            pKF->erase_map_point_match(rightIndex);
         }
     }
 
@@ -290,7 +290,7 @@ void map_point::replace(map_point *pMP)
     }
 
     int                                   nvisible, nfound;
-    std::map<KeyFrame *, tuple<int, int>> obs;
+    std::map<key_frame *, tuple<int, int>> obs;
     {
         unique_lock<mutex> lock1(features_mutex);
         unique_lock<mutex> lock2(position_mutex);
@@ -302,10 +302,10 @@ void map_point::replace(map_point *pMP)
         replaced = pMP;
     }
 
-    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
+    for (std::map<key_frame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
     {
         // replace measurement in keyframe
-        KeyFrame *pKF = mit->first;
+        key_frame *pKF = mit->first;
 
         tuple<int, int> indexes   = mit->second;
         int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
@@ -314,12 +314,12 @@ void map_point::replace(map_point *pMP)
         {
             if (leftIndex != -1)
             {
-                pKF->ReplaceMapPointMatch(leftIndex, pMP);
+                pKF->replace_map_point_match(leftIndex, pMP);
                 pMP->add_observation(pKF, leftIndex);
             }
             if (rightIndex != -1)
             {
-                pKF->ReplaceMapPointMatch(rightIndex, pMP);
+                pKF->replace_map_point_match(rightIndex, pMP);
                 pMP->add_observation(pKF, rightIndex);
             }
         }
@@ -327,11 +327,11 @@ void map_point::replace(map_point *pMP)
         {
             if (leftIndex != -1)
             {
-                pKF->EraseMapPointMatch(leftIndex);
+                pKF->erase_map_point_match(leftIndex);
             }
             if (rightIndex != -1)
             {
-                pKF->EraseMapPointMatch(rightIndex);
+                pKF->erase_map_point_match(rightIndex);
             }
         }
     }
@@ -374,7 +374,7 @@ void map_point::compute_distinctive_descriptors()
     // Retrieve all observed descriptors
     vector<cv::Mat> vDescriptors;
 
-    std::map<KeyFrame *, tuple<int, int>> observations;
+    std::map<key_frame *, tuple<int, int>> observations;
 
     {
         unique_lock<mutex> lock1(features_mutex);
@@ -392,11 +392,11 @@ void map_point::compute_distinctive_descriptors()
 
     vDescriptors.reserve(observations.size());
 
-    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+    for (std::map<key_frame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
     {
-        KeyFrame *pKF = mit->first;
+        key_frame *pKF = mit->first;
 
-        if (!pKF->isBad())
+        if (!pKF->is_bad())
         {
             tuple<int, int> indexes   = mit->second;
             int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
@@ -460,7 +460,7 @@ cv::Mat map_point::get_descriptor()
     return descriptor.clone();
 }
 
-tuple<int, int> map_point::get_index_in_key_frame(KeyFrame *pKF)
+tuple<int, int> map_point::get_index_in_key_frame(key_frame *pKF)
 {
     unique_lock<mutex> lock(features_mutex);
     if (observations_by_key_frame.count(pKF))
@@ -473,7 +473,7 @@ tuple<int, int> map_point::get_index_in_key_frame(KeyFrame *pKF)
     }
 }
 
-bool map_point::is_in_key_frame(KeyFrame *pKF)
+bool map_point::is_in_key_frame(key_frame *pKF)
 {
     unique_lock<mutex> lock(features_mutex);
     return (observations_by_key_frame.count(pKF));
@@ -481,8 +481,8 @@ bool map_point::is_in_key_frame(KeyFrame *pKF)
 
 void map_point::update_normal_and_depth()
 {
-    std::map<KeyFrame *, tuple<int, int>> observations;
-    KeyFrame                             *pRefKF;
+    std::map<key_frame *, tuple<int, int>> observations;
+    key_frame                             *pRefKF;
     Eigen::Vector3f                       Pos;
     {
         unique_lock<mutex> lock1(features_mutex);
@@ -504,30 +504,30 @@ void map_point::update_normal_and_depth()
     Eigen::Vector3f normal;
     normal.setZero();
     int n = 0;
-    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+    for (std::map<key_frame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
     {
-        KeyFrame *pKF = mit->first;
+        key_frame *pKF = mit->first;
 
         tuple<int, int> indexes   = mit->second;
         int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
 
         if (leftIndex != -1)
         {
-            Eigen::Vector3f Owi     = pKF->GetCameraCenter();
+            Eigen::Vector3f Owi     = pKF->get_camera_center();
             Eigen::Vector3f normali = Pos - Owi;
             normal                  = normal + normali / normali.norm();
             n++;
         }
         if (rightIndex != -1)
         {
-            Eigen::Vector3f Owi     = pKF->GetRightCameraCenter();
+            Eigen::Vector3f Owi     = pKF->get_right_camera_center();
             Eigen::Vector3f normali = Pos - Owi;
             normal                  = normal + normali / normali.norm();
             n++;
         }
     }
 
-    Eigen::Vector3f PC   = Pos - pRefKF->GetCameraCenter();
+    Eigen::Vector3f PC   = Pos - pRefKF->get_camera_center();
     const float     dist = PC.norm();
 
     tuple<int, int> indexes   = observations[pRefKF];
@@ -535,24 +535,24 @@ void map_point::update_normal_and_depth()
     int             level;
     if (!is_fisheye_stereo(pRefKF->cameras))
     {
-        level = pRefKF->mvKeys[leftIndex].octave;
+        level = pRefKF->keypoints[leftIndex].octave;
     }
     else if (leftIndex != -1)
     {
-        level = pRefKF->mvKeys[leftIndex].octave;
+        level = pRefKF->keypoints[leftIndex].octave;
     }
     else
     {
-        level = pRefKF->mvKeysRight[rightIndex - pRefKF->mvKeys.size()].octave;
+        level = pRefKF->right_keypoints[rightIndex - pRefKF->keypoints.size()].octave;
     }
 
-    const float levelScaleFactor = pRefKF->mvScaleFactors[level];
-    const int   nLevels          = pRefKF->mnScaleLevels;
+    const float levelScaleFactor = pRefKF->scale_factors[level];
+    const int   nLevels          = pRefKF->scale_levels;
 
     {
         unique_lock<mutex> lock3(position_mutex);
         maximum_distance = dist * levelScaleFactor;
-        minimum_distance = maximum_distance / pRefKF->mvScaleFactors[nLevels - 1];
+        minimum_distance = maximum_distance / pRefKF->scale_factors[nLevels - 1];
         normal_vector    = normal / n;
     }
 }
@@ -575,7 +575,7 @@ float map_point::get_max_distance_invariance()
     return 1.2f * maximum_distance;
 }
 
-int map_point::predict_scale(const float &currentDist, KeyFrame *pKF)
+int map_point::predict_scale(const float &currentDist, key_frame *pKF)
 {
     float ratio;
     {
@@ -583,14 +583,14 @@ int map_point::predict_scale(const float &currentDist, KeyFrame *pKF)
         ratio = maximum_distance / currentDist;
     }
 
-    int nScale = ceil(log(ratio) / pKF->mfLogScaleFactor);
+    int nScale = ceil(log(ratio) / pKF->log_scale_factor);
     if (nScale < 0)
     {
         nScale = 0;
     }
-    else if (nScale >= pKF->mnScaleLevels)
+    else if (nScale >= pKF->scale_levels)
     {
-        nScale = pKF->mnScaleLevels - 1;
+        nScale = pKF->scale_levels - 1;
     }
 
     return nScale;
@@ -620,12 +620,12 @@ int map_point::predict_scale(const float &currentDist, frame *pF)
 void map_point::print_observations()
 {
     spdlog::debug("Observations for map point {}", id);
-    for (std::map<KeyFrame *, tuple<int, int>>::iterator mit = observations_by_key_frame.begin(), mend = observations_by_key_frame.end(); mit != mend; mit++)
+    for (std::map<key_frame *, tuple<int, int>>::iterator mit = observations_by_key_frame.begin(), mend = observations_by_key_frame.end(); mit != mend; mit++)
     {
-        KeyFrame            *pKFi      = mit->first;
+        key_frame            *pKFi      = mit->first;
         tuple<int, int>      indexes   = mit->second;
         [[maybe_unused]] int leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
-        spdlog::debug("Observed in keyframe {} in map {}", pKFi->mnId, pKFi->GetMap()->get_id());
+        spdlog::debug("Observed in keyframe {} in map {}", pKFi->id, pKFi->get_map()->get_id());
     }
 }
 

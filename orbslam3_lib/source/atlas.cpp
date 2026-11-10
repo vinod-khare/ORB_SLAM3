@@ -90,9 +90,9 @@ unsigned long int atlas::get_last_init_kf_id()
     return _last_init_kf_id_map;
 }
 
-void atlas::add_key_frame(KeyFrame *key_frame)
+void atlas::add_key_frame(key_frame *key_frame)
 {
-    map *map = key_frame->GetMap();
+    map *map = key_frame->get_map();
     map->add_key_frame(key_frame);
 }
 
@@ -132,7 +132,7 @@ long unsigned atlas::key_frames_in_map()
     return _current_map->key_frame_count();
 }
 
-std::vector<KeyFrame *> atlas::get_all_key_frames()
+std::vector<key_frame *> atlas::get_all_key_frames()
 {
     std::lock_guard<std::mutex> lock(_mutex);
     return _current_map->get_all_key_frames();
@@ -253,17 +253,17 @@ long unsigned int atlas::get_num_lived_map_points()
     return num;
 }
 
-std::map<long unsigned int, KeyFrame *> atlas::get_atlas_key_frames()
+std::map<long unsigned int, key_frame *> atlas::get_atlas_key_frames()
 {
     std::lock_guard<std::mutex>             lock(_mutex);
-    std::map<long unsigned int, KeyFrame *> key_frames_by_id;
+    std::map<long unsigned int, key_frame *> key_frames_by_id;
     for (map *map : _maps)
     {
-        std::vector<KeyFrame *> key_frames = map->get_all_key_frames();
+        std::vector<key_frame *> key_frames = map->get_all_key_frames();
 
-        for (KeyFrame *key_frame : key_frames)
+        for (key_frame *key_frame : key_frames)
         {
-            key_frames_by_id[key_frame->mnId] = key_frame;
+            key_frames_by_id[key_frame->id] = key_frame;
         }
     }
 

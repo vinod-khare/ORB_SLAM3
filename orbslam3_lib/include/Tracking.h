@@ -85,8 +85,8 @@ class Tracking
     // Use this function if you have deactivated local mapping and you only want to localize the camera.
     void InformOnlyTracking(const bool &flag);
 
-    void      UpdateFrameIMU(const float s, const IMU::Bias &b, KeyFrame *pCurrentKeyFrame);
-    KeyFrame *GetLastKeyFrame() { return mpLastKeyFrame; }
+    void      UpdateFrameIMU(const float s, const IMU::Bias &b, key_frame *pCurrentKeyFrame);
+    key_frame *GetLastKeyFrame() { return mpLastKeyFrame; }
 
     void CreateMapInAtlas();
 
@@ -148,7 +148,7 @@ class Tracking
     // Lists used to recover the full camera trajectory at the end of the execution.
     // Basically we store the reference keyframe for each frame and its relative transformation
     list<Sophus::SE3f> mlRelativeFramePoses;
-    list<KeyFrame *>   mlpReferences;
+    list<key_frame *>   mlpReferences;
     list<double>       mlFrameTimes;
     list<bool>         mlbLost;
 
@@ -256,8 +256,8 @@ class Tracking
     bool mbSetInit;
 
     // Local Map
-    KeyFrame                *mpReferenceKF;
-    std::vector<KeyFrame *>  mvpLocalKeyFrames;
+    key_frame                *mpReferenceKF;
+    std::vector<key_frame *>  mvpLocalKeyFrames;
     std::vector<map_point *> mvpLocalMapPoints;
 
     // System
@@ -281,7 +281,7 @@ class Tracking
     double mImuPer;
     bool   mInsertKFsLost;
 
-    // New KeyFrame rules (according to fps)
+    // New key_frame rules (according to fps)
     int mMinFrames;
     int mMaxFrames;
 
@@ -299,8 +299,8 @@ class Tracking
     // Current matches in frame
     int mnMatchesInliers;
 
-    // Last Frame, KeyFrame and Relocalisation Info
-    KeyFrame    *mpLastKeyFrame;
+    // Last Frame, key_frame and Relocalisation Info
+    key_frame    *mpLastKeyFrame;
     unsigned int mnLastKeyFrameId;
     unsigned int mnLastRelocFrameId;
     double       mTimeStampLost;

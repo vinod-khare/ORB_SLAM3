@@ -30,7 +30,7 @@
 namespace ORB_SLAM3
 {
 
-class KeyFrame;
+class key_frame;
 class GeometricCamera;
 
 /** Shared camera geometry and matrix comparison helpers. */
@@ -48,7 +48,7 @@ class geometric_tools
                                  std::vector<bool>              &inliers);
 
     // Compute the Fundamental matrix between KF1 and KF2
-    static Eigen::Matrix3f compute_f12(KeyFrame *&key_frame1, KeyFrame *&key_frame2);
+    static Eigen::Matrix3f compute_f12(key_frame *&key_frame1, key_frame *&key_frame2);
 
     // Triangulate point with KF1 and KF2
     static bool

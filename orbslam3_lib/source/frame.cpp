@@ -21,7 +21,7 @@
 #include "CameraModels/KannalaBrandt8.h"
 #include "G2oTypes.h"
 #include "GeometricCamera.h"
-#include "KeyFrame.h"
+#include "key_frame.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
 #include "map_point.h"
@@ -424,7 +424,7 @@ void frame::set_new_bias(const IMU::Bias &b)
     imu_bias = b;
     if (imu_preintegrated)
     {
-        imu_preintegrated->SetNewBias(b);
+        imu_preintegrated->set_new_bias(b);
     }
 }
 

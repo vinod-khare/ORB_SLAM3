@@ -19,7 +19,7 @@
 #include "geometric_tools.h"
 
 #include "CameraModels/GeometricCamera.h"
-#include "KeyFrame.h"
+#include "key_frame.h"
 
 #include <algorithm>
 #include <cmath>
@@ -246,13 +246,13 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
     }
 }
 
-Eigen::Matrix3f geometric_tools::compute_f12(KeyFrame *&key_frame1, KeyFrame *&key_frame2)
+Eigen::Matrix3f geometric_tools::compute_f12(key_frame *&key_frame1, key_frame *&key_frame2)
 {
-    Sophus::SE3<float>                    camera1_from_world      = key_frame1->GetPose();
+    Sophus::SE3<float>                    camera1_from_world      = key_frame1->get_pose();
     Sophus::Matrix3<float>                rotation1_from_world    = camera1_from_world.rotationMatrix();
     Sophus::SE3<float>::TranslationMember translation1_from_world = camera1_from_world.translation();
 
-    Sophus::SE3<float>                    camera2_from_world      = key_frame2->GetPose();
+    Sophus::SE3<float>                    camera2_from_world      = key_frame2->get_pose();
     Sophus::Matrix3<float>                rotation2_from_world    = camera2_from_world.rotationMatrix();
     Sophus::SE3<float>::TranslationMember translation2_from_world = camera2_from_world.translation();
 

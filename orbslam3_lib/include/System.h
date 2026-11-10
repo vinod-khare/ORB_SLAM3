@@ -200,7 +200,7 @@ class System
     // ORB vocabulary used for place recognition and feature matching.
     std::unique_ptr<place_vocabulary> mpVocabulary;
 
-    // KeyFrame database for place recognition (relocalization and loop detection).
+    // key_frame database for place recognition (relocalization and loop detection).
     std::unique_ptr<key_frame_database> mpKeyFrameDatabase;
 
     // Map structure that stores the pointers to all KeyFrames and MapPoints.

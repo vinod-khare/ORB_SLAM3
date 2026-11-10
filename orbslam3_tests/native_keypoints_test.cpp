@@ -157,12 +157,12 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     REQUIRE(point.z() == 2.f);
 
     ORB_SLAM3::map         map;
-    ORB_SLAM3::KeyFrame    keyframe(frame, &map, nullptr, cameras);
+    ORB_SLAM3::key_frame    keyframe(frame, &map, nullptr, cameras);
     const ORB_SLAM3::frame copied(frame);
-    REQUIRE(keyframe.mvKeys.front().pt == key.pt);
-    REQUIRE(keyframe.mvKeys.front().pt_undistorted == frame.keypoints.front().pt_undistorted);
+    REQUIRE(keyframe.keypoints.front().pt == key.pt);
+    REQUIRE(keyframe.keypoints.front().pt_undistorted == frame.keypoints.front().pt_undistorted);
     REQUIRE(copied.keypoints.front().pt_undistorted == frame.keypoints.front().pt_undistorted);
-    REQUIRE(keyframe.GetFeaturesInArea(position.x, position.y, 0.01f) == std::vector<std::size_t>{0});
+    REQUIRE(keyframe.get_features_in_area(position.x, position.y, 0.01f) == std::vector<std::size_t>{0});
     REQUIRE(keyframe.descriptor(0).data == frame.descriptor(0).data);
 
     ORB_SLAM3::descriptor_matcher matcher(0.9f, false);
@@ -233,20 +233,20 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     ORB_SLAM3::map map;
     const auto     second_keypoint                                                          = frame.keypoints[1].pt;
     frame.color_image.at<cv::Vec3b>(cvRound(second_keypoint.y), cvRound(second_keypoint.x)) = cv::Vec3b(220, 40, 10);
-    ORB_SLAM3::KeyFrame colored_keyframe(frame, &map, nullptr, cameras);
+    ORB_SLAM3::key_frame colored_keyframe(frame, &map, nullptr, cameras);
     REQUIRE(&colored_keyframe.cameras == &cameras);
     REQUIRE(colored_keyframe.cameras[0]->getParameter(0) == 100);
     REQUIRE(colored_keyframe.cameras.size() == 1);
-    REQUIRE(colored_keyframe.mvKeys[0].color == frame.keypoint_color(0));
+    REQUIRE(colored_keyframe.keypoints[0].color == frame.keypoint_color(0));
     const std::array<unsigned char, 3> second_color{10, 40, 220};
-    REQUIRE(colored_keyframe.mvKeys[1].color == second_color);
+    REQUIRE(colored_keyframe.keypoints[1].color == second_color);
     ORB_SLAM3::map_point               point;
     const std::array<unsigned char, 3> white{255, 255, 255};
     REQUIRE(point.color() == white);
     point.add_observation(&colored_keyframe, 0);
-    REQUIRE(point.color() == colored_keyframe.mvKeys[0].color);
+    REQUIRE(point.color() == colored_keyframe.keypoints[0].color);
     point.add_observation(&colored_keyframe, 1);
-    REQUIRE(point.color() == colored_keyframe.mvKeys[0].color);
+    REQUIRE(point.color() == colored_keyframe.keypoints[0].color);
 }
 
 TEST_CASE("Display keypoints retain detector metadata without changing tracking keypoints", "[native_keypoints]")
