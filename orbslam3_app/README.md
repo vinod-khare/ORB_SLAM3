@@ -81,7 +81,7 @@ The remaining types represent different responsibilities, not successive copies
 of one configuration. `command_line_options` owns resolved application inputs;
 `folder_reader::settings` and `viewer_settings` are its component-specific values.
 The small `feature_overrides` object crosses the UI-independent library boundary.
-Core `ORB_SLAM3::Settings` remains responsible for calibrated camera models,
+Core `ORB_SLAM3::settings` remains responsible for calibrated camera models,
 IMU parameters, feature validation and derived rectification maps; merging it
 with the application options would couple library consumers to UI/CLI concerns.
 

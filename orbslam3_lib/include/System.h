@@ -48,7 +48,7 @@ class place_vocabulary;
 class Tracking;
 class LocalMapping;
 class LoopClosing;
-class Settings;
+class settings;
 
 class System
 {
@@ -193,7 +193,7 @@ class System
     // Input sensor
     eSensor mSensor;
 
-    std::unique_ptr<Settings> settings_;
+    std::unique_ptr<settings> settings_;
     camera_vector             _cameras;
     processing_statistics     _statistics;
 

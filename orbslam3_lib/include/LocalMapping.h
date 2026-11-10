@@ -21,7 +21,7 @@
 
 #include "key_frame.h"
 #include "LoopClosing.h"
-#include "Settings.h"
+#include "settings.h"
 #include "Tracking.h"
 #include "atlas.h"
 #include "key_frame_database.h"

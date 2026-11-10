@@ -42,7 +42,7 @@ using namespace std;
 namespace ORB_SLAM3
 {
 
-Tracking::Tracking(System *pSys, place_vocabulary *pVoc, atlas *pAtlas, key_frame_database *pKFDB, const int sensor, Settings *settings, const camera_vector &cameras, const string &_nameSeq)
+Tracking::Tracking(System *pSys, place_vocabulary *pVoc, atlas *pAtlas, key_frame_database *pKFDB, const int sensor, settings *settings, const camera_vector &cameras, const string &_nameSeq)
     : mState(NO_IMAGES_YET), mSensor(sensor), mTrackedFr(0), mbStep(false), mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), place_vocabulary_ptr(pVoc), mpKeyFrameDB(pKFDB),
       mbReadyToInitializate(false), mpSystem(pSys), bStepByStep(false), mpAtlas(pAtlas), mpLastKeyFrame(nullptr), mnLastRelocFrameId(0), time_recently_lost(5.0), mnFirstFrameId(0),
       mnInitialFrameId(0), mbCreatedMap(false), cameras(cameras)
@@ -72,12 +72,12 @@ Tracking::Tracking(System *pSys, place_vocabulary *pVoc, atlas *pAtlas, key_fram
 Tracking::~Tracking() {}
 
 // TODO: don't use raw pointer
-void Tracking::load_parameters(Settings *settings)
+void Tracking::load_parameters(settings *settings)
 {
 
-    if (settings->needToUndistort())
+    if (settings->need_to_undistort())
     {
-        mDistCoef = settings->camera1DistortionCoef();
+        mDistCoef = settings->camera_1_distortion_coefficients();
     }
     else
     {
@@ -99,21 +99,21 @@ void Tracking::load_parameters(Settings *settings)
     mK_(0, 2) = cameras[0]->getParameter(2);
     mK_(1, 2) = cameras[0]->getParameter(3);
 
-    if ((mSensor == System::STEREO || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && settings->cameraType() == Settings::KannalaBrandt)
+    if ((mSensor == System::STEREO || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && settings->camera_type() == settings::kannala_brandt)
     {
 
-        mTlr = settings->Tlr();
+        mTlr = settings->left_to_right_pose();
     }
 
     if (mSensor == System::STEREO || mSensor == System::RGBD || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
     {
-        mbf      = settings->bf();
-        mThDepth = settings->b() * settings->thDepth();
+        mbf      = settings->baseline_fx();
+        mThDepth = settings->baseline() * settings->depth_threshold();
     }
 
     if (mSensor == System::RGBD || mSensor == System::IMU_RGBD)
     {
-        mDepthMapFactor = settings->depthMapFactor();
+        mDepthMapFactor = settings->depth_map_factor();
         if (fabs(mDepthMapFactor) < 1e-5)
         {
             mDepthMapFactor = 1;
@@ -130,11 +130,11 @@ void Tracking::load_parameters(Settings *settings)
     mbRGB              = settings->rgb();
 
     // ORB parameters
-    int                          nFeatures    = settings->nFeatures();
-    int                          nLevels      = settings->nLevels();
-    int                          fIniThFAST   = settings->initThFAST();
-    int                          fMinThFAST   = settings->minThFAST();
-    float                        fScaleFactor = settings->scaleFactor();
+    int                          nFeatures    = settings->feature_count();
+    int                          nLevels      = settings->level_count();
+    int                          fIniThFAST   = settings->initial_fast_threshold();
+    int                          fMinThFAST   = settings->minimum_fast_threshold();
+    float                        fScaleFactor = settings->scale_factor();
     const keypoint_detector_type detector     = settings->keypoint_detector();
     const auto                   descriptor   = settings->keypoint_descriptor();
     descriptor_matcher::set_backend(settings->matcher_backend());
@@ -160,14 +160,14 @@ void Tracking::load_parameters(Settings *settings)
     }
 
     // IMU parameters
-    Sophus::SE3f Tbc = settings->Tbc();
-    mInsertKFsLost   = settings->insertKFsWhenLost();
-    mImuFreq         = settings->imuFrequency();
+    Sophus::SE3f Tbc = settings->imu_to_camera_pose();
+    mInsertKFsLost   = settings->insert_key_frames_when_lost();
+    mImuFreq         = settings->imu_frequency();
     mImuPer          = 0.001; // TODO: ESTO ESTA BIEN?
-    float Ng         = settings->noiseGyro();
-    float Na         = settings->noiseAcc();
-    float Ngw        = settings->gyroWalk();
-    float Naw        = settings->accWalk();
+    float Ng         = settings->gyroscope_noise();
+    float Na         = settings->accelerometer_noise();
+    float Ngw        = settings->gyroscope_random_walk();
+    float Naw        = settings->accelerometer_random_walk();
 
     const float sf = sqrt(mImuFreq);
     mpImuCalib     = new IMU::Calib(Tbc, Ng * sf, Na * sf, Ngw / sf, Naw / sf);

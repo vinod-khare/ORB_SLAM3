@@ -20,7 +20,7 @@
 
 #include "Eigen/Core"
 #include "ImuTypes.h"
-#include "Settings.h"
+#include "settings.h"
 #include "converter.h"
 #include "keypoint.h"
 #include "place_vocabulary.h"

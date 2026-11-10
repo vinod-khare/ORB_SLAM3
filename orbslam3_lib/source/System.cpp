@@ -20,7 +20,7 @@
 
 #include "LocalMapping.h"
 #include "LoopClosing.h"
-#include "Settings.h"
+#include "settings.h"
 #include "Tracking.h"
 #include "atlas.h"
 #include "converter.h"
@@ -82,7 +82,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         exit(-1);
     }
 
-    settings_ = std::make_unique<Settings>(strSettingsFile, mSensor, overrides);
+    settings_ = std::make_unique<settings>(strSettingsFile, mSensor, overrides);
 
     std::ostringstream settings_output;
     settings_output << *settings_;
@@ -117,7 +117,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLocalMapper = std::make_unique<LocalMapping>(
         _statistics, this, mpAtlas.get(), mSensor == MONOCULAR || mSensor == IMU_MONOCULAR, mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO || mSensor == IMU_RGBD, strSequence);
     mpLocalMapper->mInitFr      = initFr;
-    mpLocalMapper->mThFarPoints = settings_->thFarPoints();
+    mpLocalMapper->mThFarPoints = settings_->far_point_threshold();
     if (mpLocalMapper->mThFarPoints != 0)
     {
         spdlog::info("Discarding points farther than {} m from the current camera", mpLocalMapper->mThFarPoints);
@@ -225,20 +225,20 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
     }
 
     cv::Mat imLeftToFeed, imRightToFeed;
-    if (settings_->needToRectify())
+    if (settings_->need_to_rectify())
     {
-        cv::Mat M1l = settings_->M1l();
-        cv::Mat M2l = settings_->M2l();
-        cv::Mat M1r = settings_->M1r();
-        cv::Mat M2r = settings_->M2r();
+        cv::Mat M1l = settings_->left_rectification_map_x();
+        cv::Mat M2l = settings_->left_rectification_map_y();
+        cv::Mat M1r = settings_->right_rectification_map_x();
+        cv::Mat M2r = settings_->right_rectification_map_y();
 
         cv::remap(imLeft, imLeftToFeed, M1l, M2l, cv::INTER_LINEAR);
         cv::remap(imRight, imRightToFeed, M1r, M2r, cv::INTER_LINEAR);
     }
-    else if (settings_->needToResize())
+    else if (settings_->need_to_resize())
     {
-        cv::resize(imLeft, imLeftToFeed, settings_->newImSize());
-        cv::resize(imRight, imRightToFeed, settings_->newImSize());
+        cv::resize(imLeft, imLeftToFeed, settings_->new_image_size());
+        cv::resize(imRight, imRightToFeed, settings_->new_image_size());
     }
     else
     {
@@ -315,13 +315,13 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
 
     cv::Mat imToFeed      = im.clone();
     cv::Mat imDepthToFeed = depthmap.clone();
-    if (settings_->needToResize())
+    if (settings_->need_to_resize())
     {
         cv::Mat resizedIm;
-        cv::resize(im, resizedIm, settings_->newImSize());
+        cv::resize(im, resizedIm, settings_->new_image_size());
         imToFeed = resizedIm;
 
-        cv::resize(depthmap, imDepthToFeed, settings_->newImSize());
+        cv::resize(depthmap, imDepthToFeed, settings_->new_image_size());
     }
 
     // Check mode change
@@ -391,13 +391,13 @@ void System::SetNextFrameColor(const cv::Mat &color_image, const cv::Mat &color_
         {
             return prepared;
         }
-        if ((mSensor == STEREO || mSensor == IMU_STEREO) && settings_->needToRectify())
+        if ((mSensor == STEREO || mSensor == IMU_STEREO) && settings_->need_to_rectify())
         {
-            cv::remap(image, prepared, right ? settings_->M1r() : settings_->M1l(), right ? settings_->M2r() : settings_->M2l(), cv::INTER_LINEAR);
+            cv::remap(image, prepared, right ? settings_->right_rectification_map_x() : settings_->left_rectification_map_x(), right ? settings_->right_rectification_map_y() : settings_->left_rectification_map_y(), cv::INTER_LINEAR);
         }
-        else if (settings_->needToResize())
+        else if (settings_->need_to_resize())
         {
-            cv::resize(image, prepared, settings_->newImSize());
+            cv::resize(image, prepared, settings_->new_image_size());
         }
         else
         {
@@ -413,7 +413,7 @@ bool System::can_precompute_optical_flow_pyramid() const
 {
     const bool stereo = mSensor == STEREO || mSensor == IMU_STEREO;
     const bool mono   = mSensor == MONOCULAR || mSensor == IMU_MONOCULAR;
-    return settings_->use_optical_flow() && (stereo || mono) && !settings_->needToResize() && (!stereo || !settings_->needToRectify());
+    return settings_->use_optical_flow() && (stereo || mono) && !settings_->need_to_resize() && (!stereo || !settings_->need_to_rectify());
 }
 
 void System::set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid)
@@ -443,10 +443,10 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
     }
 
     cv::Mat imToFeed = im.clone();
-    if (settings_->needToResize())
+    if (settings_->need_to_resize())
     {
         cv::Mat resizedIm;
-        cv::resize(im, resizedIm, settings_->newImSize());
+        cv::resize(im, resizedIm, settings_->new_image_size());
         imToFeed = resizedIm;
     }
 
@@ -1008,8 +1008,8 @@ void System::SaveCOLMAP(const string &strDir)
         fc << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
         fc << "# Number of cameras: 1\n";
 
-        int         width  = settings_->newImSize().width;
-        int         height = settings_->newImSize().height;
+        int         width  = settings_->new_image_size().width;
+        int         height = settings_->new_image_size().height;
         const auto &cam    = _cameras[0];
 
         if (cam)

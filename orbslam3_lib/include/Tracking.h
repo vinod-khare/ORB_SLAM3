@@ -23,7 +23,7 @@
 #include "ImuTypes.h"
 #include "LocalMapping.h"
 #include "LoopClosing.h"
-#include "Settings.h"
+#include "settings.h"
 #include "System.h"
 #include "atlas.h"
 #include "frame.h"
@@ -47,7 +47,7 @@ namespace ORB_SLAM3
 class LocalMapping;
 class LoopClosing;
 class System;
-class Settings;
+class settings;
 
 class Tracking
 {
@@ -59,7 +59,7 @@ class Tracking
              atlas               *pAtlas,
              key_frame_database  *pKFDB,
              const int            sensor,
-             Settings            *settings,
+             settings            *settings,
              const camera_vector &cameras,
              const string        &_nameSeq = std::string());
 
@@ -347,7 +347,7 @@ class Tracking
 
     Sophus::SE3f mTlr;
 
-    void load_parameters(Settings *settings);
+    void load_parameters(settings *settings);
 
 #ifdef REGISTER_LOOP
     bool Stop();
