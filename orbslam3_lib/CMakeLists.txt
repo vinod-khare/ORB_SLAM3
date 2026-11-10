@@ -35,7 +35,7 @@ add_library(ORB_SLAM3 SHARED
         source/LoopClosing.cpp
         source/keypoint_extractor.cpp
         source/descriptor_matcher.cpp
-        source/Converter.cpp
+        source/converter.cpp
         source/MapPoint.cpp
         source/KeyFrame.cpp
         source/atlas.cpp

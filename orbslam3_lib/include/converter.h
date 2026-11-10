@@ -16,10 +16,11 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef CONVERTER_H
-#define CONVERTER_H
+#pragma once
 
 #include "G2oCompat.h"
+
+#include <vector>
 
 #include <opencv2/core/core.hpp>
 
@@ -31,18 +32,19 @@
 namespace ORB_SLAM3
 {
 
-class Converter
+/** Converts poses, rotations, and vectors between OpenCV, Eigen, g2o, and Sophus. */
+class converter
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    static g2o::SE3Quat toSE3Quat(const cv::Mat &cvT);
-    static g2o::SE3Quat toSE3Quat(const Sophus::SE3f &T);
-    static g2o::SE3Quat toSE3Quat(const g2o::Sim3 &gSim3);
+    static g2o::SE3Quat to_se3_quat(const cv::Mat &transform);
+    static g2o::SE3Quat to_se3_quat(const Sophus::SE3f &transform);
+    static g2o::SE3Quat to_se3_quat(const g2o::Sim3 &similarity);
 
-    static cv::Mat toCvMat(const g2o::SE3Quat &SE3);
-    static cv::Mat toCvMat(const g2o::Sim3 &Sim3);
+    static cv::Mat to_cv_mat(const g2o::SE3Quat &pose);
+    static cv::Mat to_cv_mat(const g2o::Sim3 &similarity);
 
-    template <typename T_DERIVED> static cv::Mat to_cv_mat(const Eigen::MatrixBase<T_DERIVED> &matrix)
+    template <typename DERIVED_T_> static cv::Mat to_cv_mat(const Eigen::MatrixBase<DERIVED_T_> &matrix)
     {
         cv::Mat cv_mat(static_cast<int>(matrix.rows()), static_cast<int>(matrix.cols()), CV_32F);
         for (Eigen::Index row = 0; row < matrix.rows(); ++row)
@@ -56,25 +58,23 @@ class Converter
         return cv_mat;
     }
 
-    static cv::Mat toCvSE3(const Eigen::Matrix<double, 3, 3> &R, const Eigen::Matrix<double, 3, 1> &t);
-    static cv::Mat tocvSkewMatrix(const cv::Mat &v);
+    static cv::Mat to_cv_se3(const Eigen::Matrix<double, 3, 3> &rotation, const Eigen::Matrix<double, 3, 1> &t);
+    static cv::Mat to_cv_skew_matrix(const cv::Mat &v);
 
-    static Eigen::Matrix<double, 3, 1> toVector3d(const cv::Mat &cvVector);
-    static Eigen::Matrix<float, 3, 1>  toVector3f(const cv::Mat &cvVector);
-    static Eigen::Matrix<double, 3, 1> toVector3d(const cv::Point3f &cvPoint);
-    static Eigen::Matrix<double, 3, 3> toMatrix3d(const cv::Mat &cvMat3);
-    static Eigen::Matrix<double, 4, 4> toMatrix4d(const cv::Mat &cvMat4);
-    static Eigen::Matrix<float, 3, 3>  toMatrix3f(const cv::Mat &cvMat3);
-    static Eigen::Matrix<float, 4, 4>  toMatrix4f(const cv::Mat &cvMat4);
-    static std::vector<float>          toQuaternion(const cv::Mat &M);
+    static Eigen::Matrix<double, 3, 1> to_vector3d(const cv::Mat &vector);
+    static Eigen::Matrix<float, 3, 1>  to_vector3f(const cv::Mat &vector);
+    static Eigen::Matrix<double, 3, 1> to_vector3d(const cv::Point3f &point);
+    static Eigen::Matrix<double, 3, 3> to_matrix3d(const cv::Mat &matrix);
+    static Eigen::Matrix<double, 4, 4> to_matrix4d(const cv::Mat &matrix);
+    static Eigen::Matrix<float, 3, 3>  to_matrix3f(const cv::Mat &matrix);
+    static Eigen::Matrix<float, 4, 4>  to_matrix4f(const cv::Mat &matrix);
+    static std::vector<float>          to_quaternion(const cv::Mat &matrix);
 
-    static bool               isRotationMatrix(const cv::Mat &R);
-    static std::vector<float> toEuler(const cv::Mat &R);
+    static bool               is_rotation_matrix(const cv::Mat &rotation);
+    static std::vector<float> to_euler(const cv::Mat &rotation);
 
-    static Sophus::SE3<float> toSophus(const cv::Mat &T);
-    static Sophus::Sim3f      toSophus(const g2o::Sim3 &S);
+    static Sophus::SE3<float> to_sophus(const cv::Mat &transform);
+    static Sophus::Sim3f      to_sophus(const g2o::Sim3 &similarity);
 };
 
 } // namespace ORB_SLAM3
-
-#endif // CONVERTER_H

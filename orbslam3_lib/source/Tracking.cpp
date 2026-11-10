@@ -18,12 +18,12 @@
 
 #include "Tracking.h"
 
-#include "Converter.h"
 #include "G2oTypes.h"
 #include "GeometricTools.h"
 #include "KannalaBrandt8.h"
 #include "Optimizer.h"
 #include "Pinhole.h"
+#include "converter.h"
 #include "descriptor_matcher.h"
 
 #include <algorithm>

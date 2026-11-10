@@ -19,7 +19,7 @@
 #ifndef G2OTYPES_H
 #define G2OTYPES_H
 
-#include "Converter.h"
+#include "converter.h"
 
 #include <Frame.h>
 #include <KeyFrame.h>
@@ -80,8 +80,11 @@ class ImuCamPose
     ImuCamPose(Frame *pF, const camera_vector &cameras);
     ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *pKF);
 
-    void SetParam(const std::vector<Eigen::Matrix3d> &_Rcw, const std::vector<Eigen::Vector3d> &_tcw, const std::vector<Eigen::Matrix3d> &_Rbc, const std::vector<Eigen::Vector3d> &_tbc,
-                  const double &_bf);
+    void SetParam(const std::vector<Eigen::Matrix3d> &_Rcw,
+                  const std::vector<Eigen::Vector3d> &_tcw,
+                  const std::vector<Eigen::Matrix3d> &_Rbc,
+                  const std::vector<Eigen::Vector3d> &_tbc,
+                  const double                       &_bf);
 
     void            Update(const double *pu);                                        // update in the imu reference
     void            UpdateW(const double *pu);                                       // update in the world reference

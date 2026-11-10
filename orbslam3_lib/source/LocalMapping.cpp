@@ -18,10 +18,10 @@
 
 #include "LocalMapping.h"
 
-#include "Converter.h"
 #include "GeometricTools.h"
 #include "LoopClosing.h"
 #include "Optimizer.h"
+#include "converter.h"
 #include "descriptor_matcher.h"
 
 #include <mutex>

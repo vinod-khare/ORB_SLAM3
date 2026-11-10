@@ -18,8 +18,8 @@
 
 #include "G2oTypes.h"
 
-#include "Converter.h"
 #include "ImuTypes.h"
+#include "converter.h"
 namespace ORB_SLAM3
 {
 
@@ -146,8 +146,8 @@ ImuCamPose::ImuCamPose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, KeyFrame *p
     DR.setIdentity();
 }
 
-void ImuCamPose::SetParam(const std::vector<Eigen::Matrix3d> &_Rcw, const std::vector<Eigen::Vector3d> &_tcw, const std::vector<Eigen::Matrix3d> &_Rbc,
-                          const std::vector<Eigen::Vector3d> &_tbc, const double &_bf)
+void ImuCamPose::SetParam(
+    const std::vector<Eigen::Matrix3d> &_Rcw, const std::vector<Eigen::Vector3d> &_tcw, const std::vector<Eigen::Matrix3d> &_Rbc, const std::vector<Eigen::Vector3d> &_tbc, const double &_bf)
 {
     Rbc                = _Rbc;
     tbc                = _tbc;

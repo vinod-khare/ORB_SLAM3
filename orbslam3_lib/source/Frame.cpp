@@ -19,11 +19,11 @@
 #include "Frame.h"
 
 #include "CameraModels/KannalaBrandt8.h"
-#include "Converter.h"
 #include "G2oTypes.h"
 #include "GeometricCamera.h"
 #include "KeyFrame.h"
 #include "MapPoint.h"
+#include "converter.h"
 #include "descriptor_matcher.h"
 
 #include <array>
@@ -53,7 +53,7 @@ Frame::Frame()
 Frame::Frame(const Frame &frame)
     : mpcpi(frame.mpcpi), mTcw(frame.mTcw), mbHasPose(false), mTlr(frame.mTlr), mTrl(frame.mTrl), mRlr(frame.mRlr), mtlr(frame.mtlr), mbHasVelocity(false),
       place_vocabulary_ptr(frame.place_vocabulary_ptr), mTimeStamp(frame.mTimeStamp), optical_flow_pyramid(frame.optical_flow_pyramid),
-      right_optical_flow_pyramid(frame.right_optical_flow_pyramid), mK(frame.mK.clone()), mK_(Converter::toMatrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()), mbf(frame.mbf),
+      right_optical_flow_pyramid(frame.right_optical_flow_pyramid), mK(frame.mK.clone()), mK_(converter::to_matrix3f(frame.mK)), mDistCoef(frame.mDistCoef.clone()), mbf(frame.mbf),
       mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys), mvKeysRight(frame.mvKeysRight), is_fisheye_stereo(frame.is_fisheye_stereo), mvpMapPoints(frame.mvpMapPoints),
       mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mvbOutlier(frame.mvbOutlier), mnCloseMPs(frame.mnCloseMPs), mImuBias(frame.mImuBias),
       mImuCalib(frame.mImuCalib), mpImuPreintegrated(frame.mpImuPreintegrated), mpLastKeyFrame(frame.mpLastKeyFrame), mpPrevFrame(frame.mpPrevFrame),
@@ -351,7 +351,7 @@ Frame::Frame(double              timestamp,
              const IMU::Calib   &imu_calibration,
              const Sophus::SE3f &left_to_right)
     : mpcpi(nullptr), mbHasPose(false), mTlr(left_to_right), mTrl(left_to_right.inverse()), mRlr(left_to_right.rotationMatrix()), mtlr(left_to_right.translation()), mbHasVelocity(false),
-      place_vocabulary_ptr(vocabulary), mTimeStamp(timestamp), mK(calibration.clone()), mK_(Converter::toMatrix3f(calibration)), mDistCoef(distortion.clone()), mbf(baseline_fx), mb(0),
+      place_vocabulary_ptr(vocabulary), mTimeStamp(timestamp), mK(calibration.clone()), mK_(converter::to_matrix3f(calibration)), mDistCoef(distortion.clone()), mbf(baseline_fx), mb(0),
       mThDepth(depth_threshold), N(0), mnCloseMPs(0), mImuCalib(imu_calibration), mpImuPreintegrated(nullptr), mpLastKeyFrame(nullptr), mpPrevFrame(previous), mpImuPreintegratedFrame(nullptr),
       mnId(nNextId++), mpReferenceKF(nullptr), mnScaleLevels(0), mfScaleFactor(1), mfLogScaleFactor(0), mnDataset(0), mbIsSet(false), mbImuPreintegrated(false), monoLeft(-1), monoRight(-1)
 {

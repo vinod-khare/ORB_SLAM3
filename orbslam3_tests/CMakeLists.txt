@@ -4,6 +4,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 
 add_executable(orbslam3_tests
+    converter_test.cpp
     timestamp_test.cpp
     optical_flow_test.cpp
     frame_drawer_test.cpp

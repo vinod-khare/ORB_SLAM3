@@ -18,10 +18,10 @@
 
 #include "Optimizer.h"
 
-#include "Converter.h"
 #include "G2oCompat.h"
 #include "G2oTypes.h"
 #include "OptimizableTypes.h"
+#include "converter.h"
 
 #include <complex>
 #include <memory>

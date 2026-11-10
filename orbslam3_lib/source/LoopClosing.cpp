@@ -18,10 +18,10 @@
 
 #include "LoopClosing.h"
 
-#include "Converter.h"
 #include "G2oTypes.h"
 #include "Optimizer.h"
 #include "Sim3Solver.h"
+#include "converter.h"
 #include "descriptor_matcher.h"
 
 #include <mutex>
@@ -649,7 +649,7 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
                 g2o::Sim3     gScm(solver.GetEstimatedRotation().cast<double>(), solver.GetEstimatedTranslation().cast<double>(), (double)solver.GetEstimatedScale());
                 g2o::Sim3     gSmw(pMostBoWMatchesKF->GetRotation().cast<double>(), pMostBoWMatchesKF->GetTranslation().cast<double>(), 1.0);
                 g2o::Sim3     gScw = gScm * gSmw; // Similarity matrix of current from the world position
-                Sophus::Sim3f mScw = Converter::toSophus(gScw);
+                Sophus::Sim3f mScw = converter::to_sophus(gScw);
 
                 vector<MapPoint *> vpMatchedMP;
                 vpMatchedMP.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint *>(NULL));
@@ -674,7 +674,7 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame *> &vpBowCand,
                     {
                         g2o::Sim3     gSmw(pMostBoWMatchesKF->GetRotation().cast<double>(), pMostBoWMatchesKF->GetTranslation().cast<double>(), 1.0);
                         g2o::Sim3     gScw = gScm * gSmw; // Similarity matrix of current from the world position
-                        Sophus::Sim3f mScw = Converter::toSophus(gScw);
+                        Sophus::Sim3f mScw = converter::to_sophus(gScw);
 
                         vector<MapPoint *> vpMatchedMP;
                         vpMatchedMP.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint *>(NULL));
@@ -858,7 +858,7 @@ int LoopClosing::FindMatchesByProjection(
         }
     }
 
-    Sophus::Sim3f      mScw = Converter::toSophus(g2oScw);
+    Sophus::Sim3f      mScw = converter::to_sophus(g2oScw);
     descriptor_matcher matcher(0.9, true);
 
     vpMatchedMapPoints.resize(pCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint *>(NULL));
@@ -1844,7 +1844,7 @@ void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector
         Map      *pMap         = pKFi->GetMap();
 
         g2o::Sim3     g2oScw = mit->second;
-        Sophus::Sim3f Scw    = Converter::toSophus(g2oScw);
+        Sophus::Sim3f Scw    = converter::to_sophus(g2oScw);
 
         vector<MapPoint *>   vpReplacePoints(vpMapPoints.size(), static_cast<MapPoint *>(NULL));
         [[maybe_unused]] int numFused = matcher.Fuse(pKFi, Scw, vpMapPoints, 4, vpReplacePoints);

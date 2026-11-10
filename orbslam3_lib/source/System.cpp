@@ -18,13 +18,13 @@
 
 #include "System.h"
 
-#include "Converter.h"
 #include "KeyFrameDatabase.h"
 #include "LocalMapping.h"
 #include "LoopClosing.h"
 #include "Settings.h"
 #include "Tracking.h"
 #include "atlas.h"
+#include "converter.h"
 #include "place_vocabulary.h"
 
 #include <cmath>

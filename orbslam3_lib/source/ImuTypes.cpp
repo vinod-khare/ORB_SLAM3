@@ -18,8 +18,8 @@
 
 #include "ImuTypes.h"
 
-#include "Converter.h"
 #include "GeometricTools.h"
+#include "converter.h"
 
 #include <iostream>
 
