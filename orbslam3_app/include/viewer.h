@@ -29,13 +29,13 @@
 namespace ORB_SLAM3
 {
 class frame_drawer;
-class MapDrawer;
+class map_drawer;
 
 class viewer
 {
   public:
     /** All dependencies, including settings, must outlive the viewer. */
-    viewer(viewer_control &controls, frame_drawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings);
+    viewer(viewer_control &controls, frame_drawer &frame_drawer, map_drawer &map_drawer, float tracked_image_scale, const viewer_settings &settings);
 
     void run();
     void request_finish();
@@ -53,7 +53,7 @@ class viewer
   private:
     viewer_control        &_controls;
     frame_drawer          &_frame_drawer;
-    MapDrawer             &_map_drawer;
+    map_drawer            &_map_drawer;
     const viewer_settings &_settings;
     float                  _tracked_image_scale;
 

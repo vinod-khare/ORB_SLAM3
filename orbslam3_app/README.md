@@ -67,7 +67,7 @@ The consolidation addresses these sources of complexity:
   a separately allocated viewer settings object. They now live in the owned
   `viewer_settings` member. Geometry is read from the same parsed YAML document;
   headless runs skip geometry and ground-truth calibration loading.
-- **Copies in UI consumers:** `Viewer` and `MapDrawer` each copied the entire
+- **Copies in UI consumers:** `viewer` and `map_drawer` each copied the entire
   viewer settings object. Both now borrow the same immutable settings. The
   application options outlive the UI objects and their worker thread. Runtime
   controls retain their own mutable state rather than mutating startup settings.

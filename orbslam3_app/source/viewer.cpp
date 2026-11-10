@@ -18,9 +18,9 @@
 
 #include "viewer.h"
 
-#include "MapDrawer.h"
 #include "Tracking.h"
 #include "frame_drawer.h"
+#include "map_drawer.h"
 
 #include <unistd.h>
 
@@ -204,7 +204,7 @@ void show_statistics(const viewer_statistics::snapshot &statistics)
 }
 } // namespace
 
-viewer::viewer(viewer_control &controls, frame_drawer &frame_drawer, MapDrawer &map_drawer, float tracked_image_scale, const viewer_settings &settings)
+viewer::viewer(viewer_control &controls, frame_drawer &frame_drawer, map_drawer &map_drawer, float tracked_image_scale, const viewer_settings &settings)
     : _controls(controls), _frame_drawer(frame_drawer), _map_drawer(map_drawer), _settings(settings), _tracked_image_scale(tracked_image_scale)
 {
     _dbow_version = controls.dbow_version();

@@ -16,7 +16,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "MapDrawer.h"
+#include "map_drawer.h"
 
 #include "Atlas.h"
 #include "KeyFrame.h"
@@ -45,10 +45,10 @@
 
 namespace ORB_SLAM3
 {
-MapDrawer::MapDrawer(Atlas &atlas, const viewer_settings &settings) : _atlas(atlas), _settings(settings), _ground_truth(settings.ground_truth_path, settings.ground_truth_body_to_camera) {}
-MapDrawer::~MapDrawer() = default;
+map_drawer::map_drawer(Atlas &atlas, const viewer_settings &settings) : _atlas(atlas), _settings(settings), _ground_truth(settings.ground_truth_path, settings.ground_truth_body_to_camera) {}
+map_drawer::~map_drawer() = default;
 
-void MapDrawer::SetCurrentCameraPose(const Sophus::SE3f &camera_pose, unsigned long map_id)
+void map_drawer::set_current_camera_pose(const Sophus::SE3f &camera_pose, unsigned long map_id)
 {
     std::scoped_lock lock(_camera_mutex);
     _camera_pose = camera_pose.inverse();
@@ -57,19 +57,19 @@ void MapDrawer::SetCurrentCameraPose(const Sophus::SE3f &camera_pose, unsigned l
     _connect_camera_trajectory = true;
 }
 
-void MapDrawer::break_camera_trajectory()
+void map_drawer::break_camera_trajectory()
 {
     std::scoped_lock lock(_camera_mutex);
     _connect_camera_trajectory = false;
 }
 
-Sophus::SE3f MapDrawer::camera_pose()
+Sophus::SE3f map_drawer::camera_pose()
 {
     std::scoped_lock lock(_camera_mutex);
     return _camera_pose;
 }
 
-void MapDrawer::reset_view(bool top_view)
+void map_drawer::reset_view(bool top_view)
 {
     if (!_renderer)
     {
@@ -91,7 +91,7 @@ void MapDrawer::reset_view(bool top_view)
     _follow_pose = Sophus::SE3f{};
 }
 
-void MapDrawer::follow_camera(bool top_view)
+void map_drawer::follow_camera(bool top_view)
 {
     if (!_renderer)
     {
@@ -116,7 +116,7 @@ void MapDrawer::follow_camera(bool top_view)
     _follow_pose = pose;
 }
 
-void MapDrawer::navigate(float horizontal, float vertical, float zoom, bool pan)
+void map_drawer::navigate(float horizontal, float vertical, float zoom, bool pan)
 {
     if (!_renderer)
     {
@@ -143,7 +143,7 @@ void MapDrawer::navigate(float horizontal, float vertical, float zoom, bool pan)
     camera->Dolly(std::pow(1.15, zoom));
 }
 
-cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 7> &layers)
+cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &layers)
 {
     if (!_window)
     {
@@ -440,7 +440,7 @@ cv::Mat MapDrawer::render(int width, int height, const std::array<bool, 7> &laye
     return cv::Mat(dimensions[1], dimensions[0], CV_8UC3, image->GetScalarPointer()).clone();
 }
 
-void MapDrawer::release()
+void map_drawer::release()
 {
     _camera_trajectory_actor = nullptr;
     _ground_truth_actor      = nullptr;

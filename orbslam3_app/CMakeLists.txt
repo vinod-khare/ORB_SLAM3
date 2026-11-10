@@ -21,7 +21,7 @@ target_link_libraries(orbslam3_input PUBLIC ORB_SLAM3 Threads::Threads PRIVATE r
 add_library(orbslam3_ui STATIC
     source/frame_drawer.cpp
     source/ground_truth_trajectory.cpp
-    source/MapDrawer.cpp
+    source/map_drawer.cpp
     source/viewer.cpp
     source/viewer_settings.cpp
     source/viewer_statistics.cpp)

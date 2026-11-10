@@ -21,12 +21,12 @@
 
 #include "Atlas.h"
 #include "Converter.h"
-#include "MapDrawer.h"
 #include "System.h"
 #include "Tracking.h"
 #include "command_line_options.h"
 #include "frame_drawer.h"
 #include "frame_prefetcher.h"
+#include "map_drawer.h"
 #include "time_this.h"
 #include "viewer.h"
 
@@ -167,7 +167,7 @@ int main(int argc, char **argv)
         const float       image_scale = SLAM.GetImageScale();
 
         std::unique_ptr<ORB_SLAM3::frame_drawer> frame_drawer;
-        std::unique_ptr<ORB_SLAM3::MapDrawer>    map_drawer;
+        std::unique_ptr<ORB_SLAM3::map_drawer>   map_drawer;
         std::unique_ptr<ORB_SLAM3::viewer>       viewer;
         system_viewer_control                    viewer_controls(SLAM, *SLAM.GetTracker());
         std::jthread                             viewer_thread;
@@ -176,7 +176,7 @@ int main(int argc, char **argv)
         {
             frame_drawer        = std::make_unique<ORB_SLAM3::frame_drawer>(*SLAM.GetAtlas());
             frame_drawer->_both = stereo;
-            map_drawer          = std::make_unique<ORB_SLAM3::MapDrawer>(*SLAM.GetAtlas(), options.viewer);
+            map_drawer          = std::make_unique<ORB_SLAM3::map_drawer>(*SLAM.GetAtlas(), options.viewer);
             viewer              = std::make_unique<ORB_SLAM3::viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, options.viewer);
             viewer->set_sequence(fmt::format("Settings: {}\nMode: {}\nDataset / sequence (left images): {}\nRight images: {}\nIMU: {}\nFrame selection: skip {}, stride {}, take {} (0 = all)",
                                              settings_path,
@@ -276,7 +276,7 @@ int main(int argc, char **argv)
 
                     if (tracker->mCurrentFrame.isSet() && tracker->mState == ORB_SLAM3::Tracking::OK)
                     {
-                        map_drawer->SetCurrentCameraPose(tracker->mCurrentFrame.GetPose(), SLAM.GetAtlas()->GetCurrentMap()->GetId());
+                        map_drawer->set_current_camera_pose(tracker->mCurrentFrame.GetPose(), SLAM.GetAtlas()->GetCurrentMap()->GetId());
                     }
                     else
                     {

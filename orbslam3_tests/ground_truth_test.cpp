@@ -1,10 +1,10 @@
 #include "Atlas.h"
 #include "Frame.h"
 #include "KeyFrame.h"
-#include "MapDrawer.h"
 #include "Pinhole.h"
 #include "Tracking.h"
 #include "ground_truth_trajectory.h"
+#include "map_drawer.h"
 
 #include <chrono>
 #include <filesystem>
@@ -53,8 +53,16 @@ TEST_CASE("Ground truth reads TUM text and EuRoC CSV with camera offsets", "[gro
 TEST_CASE("Ground truth rejects malformed poses and unordered timestamps", "[ground_truth]")
 {
     const ground_truth_file file;
-    for (const auto &text : {"", "1 0 0 0 0 0 0 1\n", "1 0 0\n", "1 0 0 0 0 0 0 0\n", "1 nan 0 0 0 0 0 1\n", "1 0 0 0 0 0 0 1 bad\n", "2 0 0 0 0 0 0 1\n1 0 0 0 0 0 0 1\n",
-                             "1 0 0 0 0 0 0 1\n1 0 0 0 0 0 0 1\n", "1000000000,0,0,0,1,0,0\n", "1000000000,nan,0,0,1,0,0,0\n"})
+    for (const auto &text : {"",
+                             "1 0 0 0 0 0 0 1\n",
+                             "1 0 0\n",
+                             "1 0 0 0 0 0 0 0\n",
+                             "1 nan 0 0 0 0 0 1\n",
+                             "1 0 0 0 0 0 0 1 bad\n",
+                             "2 0 0 0 0 0 0 1\n1 0 0 0 0 0 0 1\n",
+                             "1 0 0 0 0 0 0 1\n1 0 0 0 0 0 0 1\n",
+                             "1000000000,0,0,0,1,0,0\n",
+                             "1000000000,nan,0,0,1,0,0,0\n"})
     {
         CAPTURE(text);
         file.write(text);
@@ -172,11 +180,11 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
         keyframes.push_back(std::make_unique<ORB_SLAM3::KeyFrame>(frame, map, nullptr, cameras));
         map->AddKeyFrame(keyframes.back().get());
     }
-    ORB_SLAM3::MapDrawer drawer(atlas, settings);
-    std::array<bool, 7>  layers{false, false, false, false, false, false, false};
-    const auto           hidden = drawer.render(640, 480, layers);
-    layers[5]                   = true;
-    const auto visible          = drawer.render(640, 480, layers);
+    ORB_SLAM3::map_drawer drawer(atlas, settings);
+    std::array<bool, 7>   layers{false, false, false, false, false, false, false};
+    const auto            hidden = drawer.render(640, 480, layers);
+    layers[5]                    = true;
+    const auto visible           = drawer.render(640, 480, layers);
     cv::Mat    orange;
     cv::inRange(visible, cv::Scalar(220, 80, 0), cv::Scalar(255, 150, 40), orange);
     REQUIRE(cv::countNonZero(orange) > 50);
@@ -193,7 +201,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     REQUIRE(cv::norm(visible, drawer.render(640, 480, layers), cv::NORM_INF) == 0);
     for (const double timestamp : {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0})
     {
-        drawer.SetCurrentCameraPose(trajectory.pose_at(timestamp)->cast<float>().inverse());
+        drawer.set_current_camera_pose(trajectory.pose_at(timestamp)->cast<float>().inverse());
     }
     layers[6]       = true;
     const auto both = drawer.render(640, 480, layers);
@@ -218,9 +226,9 @@ TEST_CASE("Camera trail preserves hidden frames without bridging tracking loss o
 {
     const ORB_SLAM3::viewer_settings     settings{0.05f, 1.f, 1.f, 2.f, 0.08f, 3.f, 0.f, -0.7f, -1.8f, 500.f, 1.f};
     ORB_SLAM3::Atlas                     atlas(0);
-    ORB_SLAM3::MapDrawer                 actual(atlas, settings);
-    ORB_SLAM3::MapDrawer                 expected(atlas, settings);
-    ORB_SLAM3::MapDrawer                 continuous(atlas, settings);
+    ORB_SLAM3::map_drawer                actual(atlas, settings);
+    ORB_SLAM3::map_drawer                expected(atlas, settings);
+    ORB_SLAM3::map_drawer                continuous(atlas, settings);
     const std::array<Eigen::Vector3f, 6> positions{
         {{0, 0, 0}, {0.15f, 0, 0}, {0.35f, 0.15f, 0}, {0.5f, 0.15f, 0}, {0.7f, 0, 0}, {0.85f, 0, 0}}
     };
@@ -235,9 +243,9 @@ TEST_CASE("Camera trail preserves hidden frames without bridging tracking loss o
             expected.break_camera_trajectory();
         }
         const Sophus::SE3f pose(Eigen::Quaternionf::Identity(), -positions[index]);
-        actual.SetCurrentCameraPose(pose, index < 4 ? 0 : 1);
-        expected.SetCurrentCameraPose(pose);
-        continuous.SetCurrentCameraPose(pose);
+        actual.set_current_camera_pose(pose, index < 4 ? 0 : 1);
+        expected.set_current_camera_pose(pose);
+        continuous.set_current_camera_pose(pose);
     }
     std::array<bool, 7> layers{false, false, false, false, false, false, false};
     const auto          hidden = actual.render(640, 480, layers);

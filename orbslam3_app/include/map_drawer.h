@@ -42,14 +42,14 @@ namespace ORB_SLAM3
 {
 class Atlas;
 
-class MapDrawer
+class map_drawer
 {
   public:
     /** Atlas and settings must outlive the map drawer. */
-    MapDrawer(Atlas &atlas, const viewer_settings &settings);
-    ~MapDrawer();
+    map_drawer(Atlas &atlas, const viewer_settings &settings);
+    ~map_drawer();
 
-    void         SetCurrentCameraPose(const Sophus::SE3f &camera_pose, unsigned long map_id = 0);
+    void         set_current_camera_pose(const Sophus::SE3f &camera_pose, unsigned long map_id = 0);
     void         break_camera_trajectory();
     Sophus::SE3f camera_pose();
     cv::Mat      render(int width, int height, const std::array<bool, 7> &layers);
