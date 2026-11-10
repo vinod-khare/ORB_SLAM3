@@ -19,7 +19,7 @@
 #pragma once
 
 #include "CameraModels/geometric_camera.h"
-#include "G2oCompat.h"
+#include "g2o_compat.h"
 
 #include <memory>
 

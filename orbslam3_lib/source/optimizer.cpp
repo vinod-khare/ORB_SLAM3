@@ -18,7 +18,7 @@
 
 #include "optimizer.h"
 
-#include "G2oCompat.h"
+#include "g2o_compat.h"
 #include "g2o_types.h"
 #include "optimizable_types.h"
 #include "converter.h"

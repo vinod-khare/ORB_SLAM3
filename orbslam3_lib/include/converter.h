@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "G2oCompat.h"
+#include "g2o_compat.h"
 
 #include <vector>
 

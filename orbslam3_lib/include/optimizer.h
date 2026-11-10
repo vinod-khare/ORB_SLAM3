@@ -19,7 +19,7 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
 
-#include "G2oCompat.h"
+#include "g2o_compat.h"
 #include "frame.h"
 #include "key_frame.h"
 #include "loop_closing.h"
