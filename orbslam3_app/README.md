@@ -84,6 +84,14 @@ The small `feature_overrides` object crosses the UI-independent library boundary
 Core `ORB_SLAM3::settings` remains responsible for calibrated camera models,
 IMU parameters, feature validation and derived rectification maps; merging it
 with the application options would couple library consumers to UI/CLI concerns.
+The application constructs core settings with the selected sensor and feature
+overrides before transferring ownership to `system`. Library callers must do
+the same; `system` does not load settings files or parse command-line options.
+
+```cpp
+auto settings = std::make_unique<ORB_SLAM3::settings>(settings_path, ORB_SLAM3::system::stereo, overrides);
+ORB_SLAM3::system slam(vocabulary_path, std::move(settings));
+```
 
 There are still deliberate limits: the core settings loader retains mixed
 OpenCV/yaml-cpp parsing and its legacy flat camera/viewer key names. Calibration

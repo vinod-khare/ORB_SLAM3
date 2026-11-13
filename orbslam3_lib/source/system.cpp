@@ -31,6 +31,7 @@
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
+#include <stdexcept>
 #include <thread>
 
 #include <opencv2/imgcodecs.hpp>
@@ -41,9 +42,16 @@
 namespace ORB_SLAM3
 {
 
-system::system(const string &strVocFile, const string &strSettingsFile, const sensor_type sensor, const int initFr, const string &strSequence, const feature_overrides &overrides)
-    : _sensor(sensor), _reset_requested(false), _active_map_reset_requested(false), _localization_mode_activation_requested(false), _localization_mode_deactivation_requested(false), _shutdown(false)
+system::system(const string &vocabulary_file, std::unique_ptr<settings> settings, const int initial_frame, const string &sequence)
+    : _sensor(monocular), _settings(std::move(settings)), _reset_requested(false), _active_map_reset_requested(false), _localization_mode_activation_requested(false),
+      _localization_mode_deactivation_requested(false), _shutdown(false)
 {
+    if (!_settings)
+    {
+        throw std::invalid_argument("System settings must not be null");
+    }
+    _sensor = _settings->sensor();
+
     spdlog::info("ORB-SLAM3 Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.\n"
                  "ORB-SLAM2 Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.\n"
                  "This program comes with ABSOLUTELY NO WARRANTY;\n"
@@ -75,31 +83,13 @@ system::system(const string &strVocFile, const string &strSettingsFile, const se
         spdlog::info("Input sensor: RGB-D-Inertial");
     }
 
-    // Check settings file
-    cv::FileStorage fsSettings(strSettingsFile.c_str(), cv::FileStorage::READ);
-    if (!fsSettings.isOpened())
-    {
-        spdlog::critical("Failed to open settings file at: {}", strSettingsFile);
-        exit(-1);
-    }
-
-    _settings = std::make_unique<settings>(strSettingsFile, _sensor, overrides);
-
     std::ostringstream settings_output;
     settings_output << *_settings;
     spdlog::info("{}", settings_output.str());
-    _cameras = std::move(_settings->_cameras);
 
-    cv::FileNode node     = fsSettings["loopClosing"];
-    bool         activeLC = true;
-    if (!node.empty())
-    {
-        activeLC = static_cast<int>(fsSettings["loopClosing"]) != 0;
-    }
-
-    _vocabulary_file_path = strVocFile;
-    _vocabulary           = std::make_unique<place_vocabulary>(strVocFile, _settings->dbow_version());
-    _key_frame_database     = std::make_unique<key_frame_database>(*_vocabulary);
+    _vocabulary_file_path = vocabulary_file;
+    _vocabulary           = std::make_unique<place_vocabulary>(vocabulary_file, _settings->dbow_version());
+    _key_frame_database   = std::make_unique<key_frame_database>(*_vocabulary);
 
     spdlog::info("Initialization of Atlas from scratch");
     _atlas = std::make_unique<atlas>(0);
@@ -111,13 +101,13 @@ system::system(const string &strVocFile, const string &strSettingsFile, const se
 
     // Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
-    spdlog::info("Sequence name: {}", strSequence);
-    _tracker = std::make_unique<tracking>(this, _vocabulary.get(), _atlas.get(), _key_frame_database.get(), _sensor, _settings.get(), _cameras, strSequence);
+    spdlog::info("Sequence name: {}", sequence);
+    _tracker = std::make_unique<tracking>(this, _vocabulary.get(), _atlas.get(), _key_frame_database.get(), _sensor, _settings.get(), _settings->cameras(), sequence);
 
     // Initialize the Local Mapping thread and launch
     _local_mapper = std::make_unique<local_mapping>(
-        _statistics, this, _atlas.get(), _sensor == monocular || _sensor == imu_monocular, _sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd, strSequence);
-    _local_mapper->initial_frame      = initFr;
+        _statistics, this, _atlas.get(), _sensor == monocular || _sensor == imu_monocular, _sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd, sequence);
+    _local_mapper->initial_frame       = initial_frame;
     _local_mapper->far_point_threshold = _settings->far_point_threshold();
     if (_local_mapper->far_point_threshold != 0)
     {
@@ -130,7 +120,7 @@ system::system(const string &strVocFile, const string &strSettingsFile, const se
     }
 
     // Initialize the Loop Closing thread and launch
-    _loop_closer = std::make_unique<loop_closing>(_statistics, _atlas.get(), _key_frame_database.get(), _vocabulary.get(), _sensor != monocular, activeLC);
+    _loop_closer = std::make_unique<loop_closing>(_statistics, _atlas.get(), _key_frame_database.get(), _vocabulary.get(), _sensor != monocular, _settings->loop_closing_enabled());
 
     // Set pointers between threads
     _tracker->set_local_mapper(_local_mapper.get());
@@ -277,7 +267,7 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
         if (_reset_requested)
         {
             _tracker->reset();
-            _reset_requested          = false;
+            _reset_requested            = false;
             _active_map_reset_requested = false;
         }
         else if (_active_map_reset_requested)
@@ -299,8 +289,8 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
     register_frame_filename_for_export(filename);
 
     unique_lock<mutex> lock2(_state_mutex);
-    _tracking_state      = _tracker->state;
-    _tracked_map_points   = _tracker->current_frame.map_points;
+    _tracking_state                = _tracker->state;
+    _tracked_map_points            = _tracker->current_frame.map_points;
     _tracked_keypoints_undistorted = _tracker->current_frame.keypoints;
 
     return Tcw;
@@ -355,7 +345,7 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
         if (_reset_requested)
         {
             _tracker->reset();
-            _reset_requested          = false;
+            _reset_requested            = false;
             _active_map_reset_requested = false;
         }
         else if (_active_map_reset_requested)
@@ -377,8 +367,8 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
     register_frame_filename_for_export(filename);
 
     unique_lock<mutex> lock2(_state_mutex);
-    _tracking_state      = _tracker->state;
-    _tracked_map_points   = _tracker->current_frame.map_points;
+    _tracking_state                = _tracker->state;
+    _tracked_map_points            = _tracker->current_frame.map_points;
     _tracked_keypoints_undistorted = _tracker->current_frame.keypoints;
     return Tcw;
 }
@@ -394,7 +384,11 @@ void system::set_next_frame_color(const cv::Mat &color_image, const cv::Mat &col
         }
         if ((_sensor == stereo || _sensor == imu_stereo) && _settings->need_to_rectify())
         {
-            cv::remap(image, prepared, right ? _settings->right_rectification_map_x() : _settings->left_rectification_map_x(), right ? _settings->right_rectification_map_y() : _settings->left_rectification_map_y(), cv::INTER_LINEAR);
+            cv::remap(image,
+                      prepared,
+                      right ? _settings->right_rectification_map_x() : _settings->left_rectification_map_x(),
+                      right ? _settings->right_rectification_map_y() : _settings->left_rectification_map_y(),
+                      cv::INTER_LINEAR);
         }
         else if (_settings->need_to_resize())
         {
@@ -406,7 +400,7 @@ void system::set_next_frame_color(const cv::Mat &color_image, const cv::Mat &col
         }
         return prepared;
     };
-    _tracker->next_frame_color        = prepare_color(color_image, false);
+    _tracker->next_frame_color       = prepare_color(color_image, false);
     _tracker->next_frame_color_right = prepare_color(color_image_right, true);
 }
 
@@ -481,7 +475,7 @@ Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp,
         if (_reset_requested)
         {
             _tracker->reset();
-            _reset_requested          = false;
+            _reset_requested            = false;
             _active_map_reset_requested = false;
         }
         else if (_active_map_reset_requested)
@@ -504,8 +498,8 @@ Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp,
     register_frame_filename_for_export(filename);
 
     unique_lock<mutex> lock2(_state_mutex);
-    _tracking_state      = _tracker->state;
-    _tracked_map_points   = _tracker->current_frame.map_points;
+    _tracking_state                = _tracker->state;
+    _tracked_map_points            = _tracker->current_frame.map_points;
     _tracked_keypoints_undistorted = _tracker->current_frame.keypoints;
 
     return Tcw;
@@ -616,8 +610,8 @@ void system::save_trajectory_tum(const string &filename)
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
     list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                lT   = _tracker->frame_times.begin();
-    list<bool>::iterator                  lbL  = _tracker->lost_frames.begin();
+    list<double>::iterator                 lT   = _tracker->frame_times.begin();
+    list<bool>::iterator                   lbL  = _tracker->lost_frames.begin();
     for (list<Sophus::SE3f>::iterator lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
         if (*lbL)
@@ -731,8 +725,8 @@ void system::save_trajectory_euroc(const string &filename)
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
     list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                lT   = _tracker->frame_times.begin();
-    list<bool>::iterator                  lbL  = _tracker->lost_frames.begin();
+    list<double>::iterator                 lT   = _tracker->frame_times.begin();
+    list<bool>::iterator                   lbL  = _tracker->lost_frames.begin();
 
     for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
@@ -814,8 +808,8 @@ void system::save_trajectory_euroc(const string &filename, map *pMap)
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
     list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                lT   = _tracker->frame_times.begin();
-    list<bool>::iterator                  lbL  = _tracker->lost_frames.begin();
+    list<double>::iterator                 lT   = _tracker->frame_times.begin();
+    list<bool>::iterator                   lbL  = _tracker->lost_frames.begin();
 
     for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
@@ -1011,7 +1005,7 @@ void system::save_colmap(const string &strDir)
 
         int         width  = _settings->new_image_size().width;
         int         height = _settings->new_image_size().height;
-        const auto &cam    = _cameras[0];
+        const auto &cam    = _settings->cameras()[0];
 
         if (cam)
         {
@@ -1024,8 +1018,8 @@ void system::save_colmap(const string &strDir)
             else
             {
                 // KannalaBrandt8: [fx, fy, cx, cy, k1, k2, k3, k4]
-                fc << "1 OPENCV_FISHEYE " << width << " " << height << " " << cam->get_parameter(0) << " " << cam->get_parameter(1) << " " << cam->get_parameter(2) << " " << cam->get_parameter(3)
-                   << " " << cam->get_parameter(4) << " " << cam->get_parameter(5) << " " << cam->get_parameter(6) << " " << cam->get_parameter(7) << "\n";
+                fc << "1 OPENCV_FISHEYE " << width << " " << height << " " << cam->get_parameter(0) << " " << cam->get_parameter(1) << " " << cam->get_parameter(2) << " "
+                   << cam->get_parameter(3) << " " << cam->get_parameter(4) << " " << cam->get_parameter(5) << " " << cam->get_parameter(6) << " " << cam->get_parameter(7) << "\n";
             }
         }
         else
@@ -1077,9 +1071,9 @@ void system::save_colmap(const string &strDir)
     fcsv << "image_name,timestamp,tx,ty,tz,qx,qy,qz,qw,pose_convention\n";
 
     list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                lT   = _tracker->frame_times.begin();
-    list<bool>::iterator                  lbL  = _tracker->lost_frames.begin();
-    list<string>::iterator                lF   = _frame_filenames.begin();
+    list<double>::iterator                 lT   = _tracker->frame_times.begin();
+    list<bool>::iterator                   lbL  = _tracker->lost_frames.begin();
+    list<string>::iterator                 lF   = _frame_filenames.begin();
 
     int          image_id = 1;
     int          dropped  = 0;
@@ -1094,7 +1088,7 @@ void system::save_colmap(const string &strDir)
 
         if (!*lbL && *lRit)
         {
-            key_frame    *pKF = *lRit;
+            key_frame   *pKF = *lRit;
             Sophus::SE3f Trw;
             while (pKF->is_bad())
             {
@@ -1317,7 +1311,7 @@ void system::save_trajectory_kitti(const string &filename)
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
     list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                lT   = _tracker->frame_times.begin();
+    list<double>::iterator                 lT   = _tracker->frame_times.begin();
     for (list<Sophus::SE3f>::iterator lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++)
     {
         ORB_SLAM3::key_frame *pKF = *lRit;

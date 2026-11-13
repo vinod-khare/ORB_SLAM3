@@ -24,6 +24,7 @@
 #include "feature_overrides.h"
 #include "keypoint_descriptor_type.h"
 #include "keypoint_detector_type.h"
+#include "sensor_type.h"
 
 #include <filesystem>
 #include <memory>
@@ -33,8 +34,6 @@
 
 namespace ORB_SLAM3
 {
-
-class system;
 
 class settings
 {
@@ -56,7 +55,7 @@ class settings
     /*
      * Constructor from file
      */
-    settings(const std::string &config_file, const int &sensor, const feature_overrides &overrides = {});
+    settings(const std::string &config_file, sensor_type sensor, const feature_overrides &overrides = {});
 
     /*
      * Ostream operator overloading to dump settings to the terminal
@@ -104,6 +103,8 @@ class settings
     descriptor_matcher_type  matcher_backend() const { return _descriptor_matcher; }
     bool                     use_optical_flow() const { return _use_optical_flow; }
     int                      dbow_version() const { return _dbow_version; }
+    sensor_type              sensor() const { return _sensor; }
+    bool                     loop_closing_enabled() const { return _loop_closing_enabled; }
 
     float far_point_threshold() { return _far_point_threshold; }
 
@@ -113,8 +114,6 @@ class settings
     cv::Mat right_rectification_map_y() { return _right_rectification_map_y; }
 
   private:
-    friend class system;
-
     template <typename T> T read_parameter(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required = true)
     {
         cv::FileNode node = fSettings[name];
@@ -148,7 +147,7 @@ class settings
 
     void precompute_rectification_maps();
 
-    int                   _sensor;
+    sensor_type           _sensor;
     std::filesystem::path _calibration_file; // Kalibr camchain file
     camera_model_type     _camera_type;      // Camera type
 
@@ -208,6 +207,7 @@ class settings
      * Other stuff
      */
     float _far_point_threshold;
+    bool  _loop_closing_enabled{true};
 };
 }; // namespace ORB_SLAM3
 

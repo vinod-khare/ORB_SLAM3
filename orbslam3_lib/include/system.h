@@ -21,10 +21,10 @@
 
 #include "CameraModels/geometric_camera.h"
 #include "atlas.h"
-#include "feature_overrides.h"
 #include "imu_types.h"
 #include "keypoint.h"
 #include "processing_statistics.h"
+#include "settings.h"
 
 #include <list>
 #include <memory>
@@ -45,31 +45,23 @@ class place_vocabulary;
 class tracking;
 class local_mapping;
 class loop_closing;
-class settings;
 
 class system
 {
   public:
     // Input sensor
-    enum sensor_type
-    {
-        monocular     = 0,
-        stereo        = 1,
-        rgbd          = 2,
-        imu_monocular = 3,
-        imu_stereo    = 4,
-        imu_rgbd      = 5,
-    };
+    using sensor_type                          = ORB_SLAM3::sensor_type;
+    static constexpr sensor_type monocular     = ORB_SLAM3::monocular;
+    static constexpr sensor_type stereo        = ORB_SLAM3::stereo;
+    static constexpr sensor_type rgbd          = ORB_SLAM3::rgbd;
+    static constexpr sensor_type imu_monocular = ORB_SLAM3::imu_monocular;
+    static constexpr sensor_type imu_stereo    = ORB_SLAM3::imu_stereo;
+    static constexpr sensor_type imu_rgbd      = ORB_SLAM3::imu_rgbd;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    // Initialize the SLAM system. It launches the Local Mapping and Loop Closing threads.
-    system(const string            &strVocFile,
-           const string            &strSettingsFile,
-           const sensor_type        sensor,
-           const int                initFr      = 0,
-           const string            &strSequence = std::string(),
-           const feature_overrides &overrides   = {});
+    // Takes ownership of parsed settings and launches the Local Mapping and Loop Closing threads.
+    system(const string &vocabulary_file, std::unique_ptr<settings> settings, int initial_frame = 0, const string &sequence = std::string());
     ~system();
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
@@ -170,11 +162,10 @@ class system
 
     void change_dataset();
 
-    float                get_image_scale();
-    atlas               *get_atlas() const;
-    tracking            *get_tracker() const;
-    float                get_camera_frame_rate() const;
-    const camera_vector &cameras() const { return _cameras; }
+    float     get_image_scale();
+    atlas    *get_atlas() const;
+    tracking *get_tracker() const;
+    float     get_camera_frame_rate() const;
 
     /** Effective feature selections after resolving YAML, overrides, and defaults. */
     std::string keypoint_detector_name() const;
@@ -195,7 +186,6 @@ class system
     sensor_type _sensor;
 
     std::unique_ptr<settings> _settings;
-    camera_vector             _cameras;
     processing_statistics     _statistics;
 
     // ORB vocabulary used for place recognition and feature matching.

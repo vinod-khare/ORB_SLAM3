@@ -25,6 +25,7 @@
 #include "frame_drawer.h"
 #include "frame_prefetcher.h"
 #include "map_drawer.h"
+#include "settings.h"
 #include "system.h"
 #include "time_this.h"
 #include "tracking.h"
@@ -163,7 +164,8 @@ int main(int argc, char **argv)
         // Create SLAM system
         const ORB_SLAM3::system::sensor_type sensor =
             stereo ? (inertial ? ORB_SLAM3::system::imu_stereo : ORB_SLAM3::system::stereo) : (inertial ? ORB_SLAM3::system::imu_monocular : ORB_SLAM3::system::monocular);
-        ORB_SLAM3::system SLAM(vocab_path, settings_path, sensor, 0, output_filename, options.overrides);
+        auto              settings = std::make_unique<ORB_SLAM3::settings>(settings_path, sensor, options.overrides);
+        ORB_SLAM3::system SLAM(vocab_path, std::move(settings), 0, output_filename);
         const float       image_scale = SLAM.get_image_scale();
 
         std::unique_ptr<ORB_SLAM3::frame_drawer> frame_drawer;

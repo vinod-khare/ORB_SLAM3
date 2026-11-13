@@ -131,10 +131,12 @@ TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shut
     write_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
 
     const bool        explicit_shutdown = GENERATE(false, true);
-    ORB_SLAM3::system system(vocabulary_path.string(), files.path.string(), sensor);
-    REQUIRE(system.cameras().size() == (sensor == ORB_SLAM3::system::stereo ? 2 : 1));
-    REQUIRE(system.cameras()[0]->get_type() == (fisheye ? ORB_SLAM3::geometric_camera::cam_fisheye : ORB_SLAM3::geometric_camera::cam_pinhole));
-    const auto   &primary_camera = *system.cameras()[0];
+    auto              settings          = std::make_unique<ORB_SLAM3::settings>(files.path.string(), sensor);
+    const auto       &cameras           = settings->cameras();
+    ORB_SLAM3::system system(vocabulary_path.string(), std::move(settings));
+    REQUIRE(cameras.size() == (sensor == ORB_SLAM3::system::stereo ? 2 : 1));
+    REQUIRE(cameras[0]->get_type() == (fisheye ? ORB_SLAM3::geometric_camera::cam_fisheye : ORB_SLAM3::geometric_camera::cam_pinhole));
+    const auto   &primary_camera = *cameras[0];
     const cv::Mat image(512, 512, CV_8UC1, cv::Scalar(0));
     if (sensor == ORB_SLAM3::system::stereo)
     {
@@ -144,7 +146,7 @@ TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shut
     {
         system.track_monocular(image, 1.0);
     }
-    REQUIRE(&primary_camera == &*system.cameras()[0]);
+    REQUIRE(&primary_camera == &*cameras[0]);
     system.record_frame_statistics(2.0, 3.0);
     REQUIRE(system.statistics().get_snapshot().frames == 1);
     REQUIRE(system.statistics().get_snapshot().frame.frontend_ms == 3.0);
@@ -179,10 +181,45 @@ TEST_CASE("System exposes effective feature names before processing frames", "[s
     }
     const auto vocabulary_path = files.directory / "vocabulary.dbow3";
     write_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
-    const ORB_SLAM3::system system(vocabulary_path.string(), files.path.string(), ORB_SLAM3::system::monocular, 0, "", overrides);
+    auto                    settings = std::make_unique<ORB_SLAM3::settings>(files.path.string(), ORB_SLAM3::system::monocular, overrides);
+    const ORB_SLAM3::system system(vocabulary_path.string(), std::move(settings));
     REQUIRE(system.keypoint_detector_name() == (selection == 0 ? "fast" : selection == 1 ? "agast" : "gftt"));
     REQUIRE(system.keypoint_descriptor_name() == (selection == 1 ? "brief" : "orb"));
     REQUIRE(system.statistics().get_snapshot().frames == 0);
+}
+
+TEST_CASE("System uses preconstructed settings without reopening configuration files", "[settings][system]")
+{
+    imu_settings files;
+    const int    loop_closing = GENERATE(-1, 0, 1, 2);
+    if (loop_closing >= 0)
+    {
+        files.config["loopClosing"] = loop_closing;
+    }
+    files.write();
+    const auto vocabulary_path = files.directory / "vocabulary.dbow3";
+    write_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
+
+    auto settings = std::make_unique<ORB_SLAM3::settings>(files.path.string(), ORB_SLAM3::system::monocular);
+    REQUIRE(settings->sensor() == ORB_SLAM3::system::monocular);
+    REQUIRE(settings->loop_closing_enabled() == (loop_closing != 0));
+    const auto &cameras = settings->cameras();
+    const auto *camera  = cameras[0].get();
+    REQUIRE(std::filesystem::remove(files.path));
+    REQUIRE(std::filesystem::remove(files.directory / "calibration/camchain.yaml"));
+
+    ORB_SLAM3::system system(vocabulary_path.string(), std::move(settings));
+    REQUIRE(cameras[0].get() == camera);
+    const cv::Mat image(512, 512, CV_8UC1, cv::Scalar(0));
+    REQUIRE_NOTHROW(system.track_monocular(image, 1.0));
+    system.shutdown();
+}
+
+TEST_CASE("Settings and system reject invalid construction inputs", "[settings][system]")
+{
+    REQUIRE_THROWS_WITH(ORB_SLAM3::system("", nullptr), "System settings must not be null");
+    REQUIRE_THROWS_WITH(ORB_SLAM3::settings("", static_cast<ORB_SLAM3::sensor_type>(-1)), "Invalid sensor type");
+    REQUIRE_THROWS_WITH(ORB_SLAM3::settings("", static_cast<ORB_SLAM3::sensor_type>(6)), "Invalid sensor type");
 }
 
 TEST_CASE("IMU settings come from Kalibr calibration", "[settings][imu]")
@@ -227,8 +264,8 @@ TEST_CASE("Tracking rejects a vocabulary that does not match the selected descri
     files.write();
     const auto vocabulary_path = files.directory / "orb-vocabulary.dbow3";
     write_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
-    REQUIRE_THROWS_WITH(ORB_SLAM3::system(vocabulary_path.string(), files.path.string(), ORB_SLAM3::system::monocular),
-                        Catch::Matchers::ContainsSubstring("does not match keypoint.descriptor.type"));
+    auto settings = std::make_unique<ORB_SLAM3::settings>(files.path.string(), ORB_SLAM3::system::monocular);
+    REQUIRE_THROWS_WITH(ORB_SLAM3::system(vocabulary_path.string(), std::move(settings)), Catch::Matchers::ContainsSubstring("does not match keypoint.descriptor.type"));
 }
 
 TEST_CASE("Optical-flow setting supports nested YAML and CLI precedence", "[settings][tracking]")
