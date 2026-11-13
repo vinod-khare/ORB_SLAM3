@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.25)
 project(ORB_SLAM3 LANGUAGES C CXX)
 
 find_package(DBoW2 CONFIG REQUIRED)
-find_package(DBow3 CONFIG REQUIRED)
+find_package(DBow3 CONFIG QUIET)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc features2d calib3d imgcodecs video xfeatures2d)
 find_package(Sophus CONFIG REQUIRED)
@@ -73,7 +73,6 @@ target_link_libraries(ORB_SLAM3 PUBLIC
         opencv_video
         Eigen3::Eigen
         DBoW2::DBoW2
-        DBow3::DBow3
         Sophus::Sophus
         g2o::core
         g2o::stuff
@@ -83,5 +82,13 @@ target_link_libraries(ORB_SLAM3 PUBLIC
         g2o::solver_dense
         g2o::solver_eigen
 )
+
+if(DBow3_FOUND)
+        target_link_libraries(ORB_SLAM3 PUBLIC DBow3::DBow3)
+        target_compile_definitions(ORB_SLAM3 PUBLIC ORB_SLAM3_HAS_DBOW3=1)
+else()
+        target_compile_definitions(ORB_SLAM3 PUBLIC ORB_SLAM3_HAS_DBOW3=0)
+        message(STATUS "DBoW3 not found: building with DBoW2 only")
+endif()
 
 target_link_libraries(ORB_SLAM3 PRIVATE yaml-cpp::yaml-cpp magic_enum::magic_enum Microsoft.GSL::GSL spdlog::spdlog)

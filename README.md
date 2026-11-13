@@ -60,7 +60,7 @@ cmake -S . -B .build/Release -DCMAKE_BUILD_TYPE=Release
 cmake --build .build/Release -j20
 ```
 
-For vcpkg, add `-DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake` to the configure command. The build produces the `ORB_SLAM3` library, folder-based dataset runner, and vocabulary trainer.
+For vcpkg, add `-DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake` to the configure command. The build produces the `ORB_SLAM3` library and folder-based dataset runner. DBoW3 is optional: when found, the build also enables its backend and the vocabulary trainer. Otherwise DBoW2 remains available, including support for the shipped compressed vocabularies. Selecting `dbow_version: 3` or `--dbow_version 3` without DBoW3 reports `Code not compiled with DBoW3`.
 
 See the [app guide](orbslam3_app/README.md) for a quick start and complete application instructions.
 

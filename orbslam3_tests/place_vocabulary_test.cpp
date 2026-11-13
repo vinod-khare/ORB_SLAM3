@@ -21,6 +21,12 @@ void write_vocabulary_fixture(const std::string &filename, int scoring, int weig
 
 namespace
 {
+#if ORB_SLAM3_HAS_DBOW3
+#define DBOW_BACKENDS 2, 3
+#else
+#define DBOW_BACKENDS 2
+#endif
+
 struct vocabulary_file
 {
     std::filesystem::path path = std::filesystem::temp_directory_path() / ("orbslam3_vocabulary_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".dbow3");
@@ -59,23 +65,32 @@ TEST_CASE("Text vocabularies are rejected by the binary loader", "[dbow-binary]"
 {
     const vocabulary_file file;
     std::ofstream(file.path) << "2 6 0 0\n";
-    const int backend = GENERATE(2, 3);
+    const int backend = GENERATE(DBOW_BACKENDS);
     REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), backend));
 }
 
 TEST_CASE("Missing and empty binary vocabularies are rejected", "[dbow-binary]")
 {
     const vocabulary_file file;
-    const int             backend = GENERATE(2, 3);
+    const int             backend = GENERATE(DBOW_BACKENDS);
     std::filesystem::resize_file(file.path, 0);
     REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), backend));
     std::filesystem::remove(file.path);
     REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), backend));
 }
 
+TEST_CASE("DBoW2 rejects truncated binary vocabulary payloads", "[dbow-binary]")
+{
+    const vocabulary_file file;
+    const auto            size     = std::filesystem::file_size(file.path);
+    const auto            retained = GENERATE(13u, 32u, 100u);
+    std::filesystem::resize_file(file.path, std::min<std::uintmax_t>(retained, size - 1));
+    REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), 2));
+}
+
 TEST_CASE("Place recognition accepts the supported binary and floating-point descriptor formats", "[dbow]")
 {
-    const int                   backend = GENERATE(2, 3);
+    const int                   backend = GENERATE(DBOW_BACKENDS);
     const auto                  format  = GENERATE(std::pair{CV_8U, 32}, std::pair{CV_8U, 64}, std::pair{CV_32F, 64}, std::pair{CV_32F, 128}, std::pair{CV_32F, 200}, std::pair{CV_32F, 120});
     const vocabulary_file       file(0, 0, format.first, format.second);
     ORB_SLAM3::place_vocabulary vocabulary(file.path.string(), backend);
@@ -86,6 +101,7 @@ TEST_CASE("Place recognition accepts the supported binary and floating-point des
     vocabulary.transform(file.features, bow, nodes, 4);
     REQUIRE_FALSE(bow.empty());
     REQUIRE_FALSE(nodes.empty());
+#if ORB_SLAM3_HAS_DBOW3
     const auto score = vocabulary.score(bow, bow);
     vocabulary.set_version(5 - backend);
     DBoW2::BowVector     switched_bow;
@@ -94,12 +110,13 @@ TEST_CASE("Place recognition accepts the supported binary and floating-point des
     REQUIRE(switched_bow == bow);
     REQUIRE(switched_nodes == nodes);
     REQUIRE(vocabulary.score(bow, switched_bow) == Catch::Approx(score));
+#endif
 }
 
 TEST_CASE("Place recognition rejects features that do not match the vocabulary format", "[dbow]")
 {
     const vocabulary_file       file(0, 0, CV_32F, 128);
-    const int                   backend = GENERATE(2, 3);
+    const int                   backend = GENERATE(DBOW_BACKENDS);
     ORB_SLAM3::place_vocabulary vocabulary(file.path.string(), backend);
     DBoW2::BowVector            bow;
     DBoW2::FeatureVector        nodes;
@@ -113,7 +130,7 @@ TEST_CASE("Place recognition rejects features that do not match the vocabulary f
 
 TEST_CASE("Shallow vocabularies retain discriminative feature nodes for matching", "[dbow]")
 {
-    const int             backend = GENERATE(2, 3);
+    const int             backend = GENERATE(DBOW_BACKENDS);
     const int             levels  = GENERATE(1, 2, 4, 6);
     const auto            format  = GENERATE(std::pair{CV_8U, 32}, std::pair{CV_32F, 128});
     const vocabulary_file file(0, 0, format.first, format.second);
@@ -135,12 +152,14 @@ TEST_CASE("Shallow vocabularies retain discriminative feature nodes for matching
     DBoW2::FeatureVector leaf_nodes;
     vocabulary.transform(file.features, leaf_bow, leaf_nodes, 0);
     REQUIRE(bow == leaf_bow);
+#if ORB_SLAM3_HAS_DBOW3
     vocabulary.set_version(5 - backend);
     DBoW2::BowVector     switched_bow;
     DBoW2::FeatureVector switched_nodes;
     vocabulary.transform(file.features, switched_bow, switched_nodes, 4);
     REQUIRE(switched_bow == bow);
     REQUIRE(switched_nodes == nodes);
+#endif
 }
 
 TEST_CASE("DBoW backends preserve word IDs, feature nodes, scores and runtime switching", "[dbow]")
@@ -156,9 +175,13 @@ TEST_CASE("DBoW backends preserve word IDs, feature nodes, scores and runtime sw
     REQUIRE_FALSE(nodes.empty());
     const auto score = vocabulary.score(bow, bow);
     REQUIRE(score == Catch::Approx(1));
+#if ORB_SLAM3_HAS_DBOW3
     vocabulary.set_version(3);
     REQUIRE(vocabulary.version() == 3);
     REQUIRE(vocabulary.size() == 64);
+#else
+    REQUIRE_THROWS_WITH(vocabulary.set_version(3), "Code not compiled with DBoW3");
+#endif
     DBoW2::BowVector     bow3;
     DBoW2::FeatureVector nodes3;
     vocabulary.transform(file.features, bow3, nodes3, 4);
@@ -179,7 +202,7 @@ TEST_CASE("DBoW backends preserve word IDs, feature nodes, scores and runtime sw
 TEST_CASE("Failed backend switches retain a usable vocabulary", "[dbow]")
 {
     vocabulary_file             file;
-    const int                   initial = GENERATE(2, 3);
+    const int                   initial = GENERATE(DBOW_BACKENDS);
     ORB_SLAM3::place_vocabulary vocabulary(file.path.string(), initial);
     std::filesystem::remove(file.path);
     REQUIRE_THROWS(vocabulary.set_version(5 - initial));
@@ -191,6 +214,7 @@ TEST_CASE("Failed backend switches retain a usable vocabulary", "[dbow]")
     REQUIRE_FALSE(bow.empty());
 }
 
+#if ORB_SLAM3_HAS_DBOW3
 TEST_CASE("DBoW backends agree for every binary-vocabulary scoring and weighting mode", "[dbow]")
 {
     const int scoring   = GENERATE(0, 1, 2, 3, 4, 5);
@@ -253,6 +277,9 @@ TEST_CASE("Vocabulary queries remain valid while the backend changes", "[dbow]")
     REQUIRE(valid.load());
     REQUIRE(queries.load() > 0);
 }
+#else
+TEST_CASE("Unavailable DBoW3 is rejected before loading a vocabulary", "[dbow]") { REQUIRE_THROWS_WITH(ORB_SLAM3::place_vocabulary("missing.dbow3", 3), "Code not compiled with DBoW3"); }
+#endif
 
 TEST_CASE("Full ORB binary vocabulary preserves DBoW word and node identities", "[.][dbow-full]")
 {
@@ -279,6 +306,12 @@ TEST_CASE("Full ORB binary vocabulary preserves DBoW word and node identities", 
     DBoW2::FeatureVector       candidate_nodes;
     vocabulary.transform(subset, candidate, candidate_nodes, 4);
     const auto score = vocabulary.score(expected, candidate);
+    REQUIRE(words > 0);
+    REQUIRE_FALSE(expected.empty());
+    REQUIRE_FALSE(expected_nodes.empty());
+    REQUIRE(vocabulary.score(expected, expected) == Catch::Approx(1));
+    REQUIRE(score >= 0);
+#if ORB_SLAM3_HAS_DBOW3
     vocabulary.set_version(3);
     REQUIRE(vocabulary.size() == words);
     DBoW2::BowVector     actual;
@@ -292,4 +325,5 @@ TEST_CASE("Full ORB binary vocabulary preserves DBoW word and node identities", 
         REQUIRE(actual.at(word) == Catch::Approx(weight).epsilon(1e-6));
     }
     REQUIRE(vocabulary.score(actual, candidate) == Catch::Approx(score).epsilon(1e-6));
+#endif
 }

@@ -564,6 +564,12 @@ void settings::read_features(cv::FileStorage &fSettings, const std::string &conf
     {
         throw std::runtime_error("dbow_version must be 2 or 3");
     }
+#if !ORB_SLAM3_HAS_DBOW3
+    if (_dbow_version == 3)
+    {
+        throw std::runtime_error("Code not compiled with DBoW3");
+    }
+#endif
     const auto keypoint = root["keypoint"];
     if (!keypoint || !keypoint.IsMap())
     {

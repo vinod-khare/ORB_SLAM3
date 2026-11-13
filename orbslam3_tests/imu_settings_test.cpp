@@ -289,7 +289,18 @@ TEST_CASE("Library settings select and validate DBoW independently of the app", 
     REQUIRE(ORB_SLAM3::settings(files.path.string(), ORB_SLAM3::system::monocular).dbow_version() == 2);
     files.config["dbow_version"] = 3;
     files.write();
+#if ORB_SLAM3_HAS_DBOW3
     REQUIRE(ORB_SLAM3::settings(files.path.string(), ORB_SLAM3::system::monocular).dbow_version() == 3);
+#else
+    REQUIRE_THROWS_WITH(ORB_SLAM3::settings(files.path.string(), ORB_SLAM3::system::monocular), "Code not compiled with DBoW3");
+    ORB_SLAM3::feature_overrides unavailable;
+    unavailable.dbow_version     = 3;
+    files.config["dbow_version"] = 2;
+    files.write();
+    REQUIRE_THROWS_WITH(ORB_SLAM3::settings(files.path.string(), ORB_SLAM3::system::monocular, unavailable), "Code not compiled with DBoW3");
+    files.config["dbow_version"] = 3;
+    files.write();
+#endif
     ORB_SLAM3::feature_overrides overrides;
     overrides.dbow_version = 2;
     REQUIRE(ORB_SLAM3::settings(files.path.string(), ORB_SLAM3::system::monocular, overrides).dbow_version() == 2);

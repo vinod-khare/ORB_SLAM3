@@ -361,8 +361,13 @@ including TUM-VI, produce grayscale points. Points without a source pixel are wh
 
 ## DBoW place recognition
 
-Both DBoW2 and DBoW3 are linked into the application. Install `dbow2` and `dbow3`
-through vcpkg before configuring the build. DBoW2 remains the default.
+DBoW2 is required and remains the default. DBoW3 is optional: CMake enables it
+when the `DBow3` package is found. Install `dbow2` through vcpkg, and `dbow3`
+where available. Without DBoW3 (for example on macOS), the app and tests still
+build, but the DBoW3-only `vocabulary_trainer` target is omitted. Selecting version
+`3` through CLI, YAML, or the GUI reports `Code not compiled with DBoW3`;
+a failed GUI switch retains the active DBoW2 vocabulary. To explicitly test a
+DBoW2-only build, configure with `-DCMAKE_DISABLE_FIND_PACKAGE_DBow3=ON`.
 
 Select DBoW3 with `--dbow_version 3`, or in the settings YAML:
 
@@ -376,7 +381,8 @@ Both backends use the same compressed DBoW3 binary vocabulary format
 The vocabulary must be trained for the selected descriptor type and settings;
 the shipped ORB vocabulary therefore requires the default ORB descriptor.
 Binary (`CV_8U`) and floating-point (`CV_32F`) descriptor vocabularies are
-supported. DBoW2 imports the binary tree without changing node IDs, word IDs,
+supported, including in DBoW2-only builds. DBoW2 reads the binary tree independently
+of DBoW3 without changing node IDs, word IDs,
 child order, descriptors, or double-precision weights. Text and YAML vocabularies
 are rejected by both backends, regardless of filename extension.
 
@@ -403,7 +409,7 @@ matching vocabulary for whichever descriptor is selected for tracking and place
 recognition. A file's shape alone cannot identify its algorithm, so keep descriptor
 names and training settings with generated files.
 
-Build the `vocabulary_trainer` CMake target, then run the dependency-free script:
+With DBoW3 installed, build the `vocabulary_trainer` CMake target, then run the dependency-free script:
 
 ```bash
 bash tools/generate_vocabulary.sh \

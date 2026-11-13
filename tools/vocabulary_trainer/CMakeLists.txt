@@ -1,5 +1,10 @@
+find_package(DBow3 CONFIG QUIET)
+if(NOT DBow3_FOUND)
+    message(STATUS "Skipping vocabulary_trainer: DBoW3 is not available")
+    return()
+endif()
+
 find_package(Boost CONFIG REQUIRED COMPONENTS program_options)
-find_package(DBow3 CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
