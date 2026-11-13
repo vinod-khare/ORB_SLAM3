@@ -94,15 +94,8 @@ TEST_CASE("Keypoints expose undistorted coordinates without changing image coord
     for (auto &key : keys)
     {
         REQUIRE(key.pt_undistorted == key.pt);
-        const auto original   = key.pt;
-        key.pt_undistorted   += cv::Point2f(2, 3);
-        const auto converted  = key.undistorted();
-        REQUIRE(converted.pt == key.pt_undistorted);
-        REQUIRE(converted.size == key.size);
-        REQUIRE(converted.angle == key.angle);
-        REQUIRE(converted.response == key.response);
-        REQUIRE(converted.octave == key.octave);
-        REQUIRE(converted.class_id == key.class_id);
+        const auto original  = key.pt;
+        key.pt_undistorted  += cv::Point2f(2, 3);
         REQUIRE(key.pt == original);
     }
     const auto original    = ORB_SLAM3::to_cv_keypoints(keys);
@@ -113,6 +106,11 @@ TEST_CASE("Keypoints expose undistorted coordinates without changing image coord
     {
         REQUIRE(original[index].pt == keys[index].pt);
         REQUIRE(undistorted[index].pt == keys[index].pt_undistorted);
+        REQUIRE(undistorted[index].size == keys[index].size);
+        REQUIRE(undistorted[index].angle == keys[index].angle);
+        REQUIRE(undistorted[index].response == keys[index].response);
+        REQUIRE(undistorted[index].octave == keys[index].octave);
+        REQUIRE(undistorted[index].class_id == keys[index].class_id);
     }
 }
 

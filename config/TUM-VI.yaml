@@ -44,7 +44,8 @@ keypoint:
     n_levels: 8
     initial_threshold: 20
     minimum_threshold: 7
-  # ORB, SIFT, BRISK; independent of the keypoint detector
+  # ORB, SIFT, BRISK; independent of the keypoint detector.
+  # SIFT requires vocab/TUMVI_SIFT.dbow3 (used by run.sh), not vocab/ORBvoc.dbow3.
   descriptor:
     type: "SIFT"
 

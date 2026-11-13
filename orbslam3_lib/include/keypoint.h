@@ -4,7 +4,6 @@
 #include <vector>
 
 #include <opencv2/core/mat.hpp>
-#include <opencv2/features2d.hpp>
 
 namespace ORB_SLAM3
 {
@@ -26,14 +25,6 @@ class keypoint : public cv::KeyPoint
     keypoint(const cv::KeyPoint &native_keypoint) : keypoint(native_keypoint, native_keypoint.angle) {}
     keypoint(const cv::KeyPoint &native_keypoint, float tracking_angle) : cv::KeyPoint(native_keypoint), pt_undistorted(native_keypoint.pt), tracking_angle(tracking_angle) {}
 
-    /** Return an OpenCV keypoint with undistorted coordinates and unchanged metadata. */
-    cv::KeyPoint undistorted() const
-    {
-        auto converted = static_cast<const cv::KeyPoint &>(*this);
-        converted.pt   = pt_undistorted;
-        return converted;
-    }
-
     /** Geometry coordinates; equal to pt for rectified images and native fisheye observations. */
     cv::Point2f pt_undistorted;
     /** ORB orientation used for descriptor matching, independent of the detector's native angle. */
@@ -50,7 +41,11 @@ inline std::vector<cv::KeyPoint> to_cv_keypoints(const std::vector<keypoint> &ke
 
     for (const auto &item : keypoints)
     {
-        converted.push_back(undistorted ? item.undistorted() : static_cast<const cv::KeyPoint &>(item));
+        converted.push_back(item);
+        if (undistorted)
+        {
+            converted.back().pt = item.pt_undistorted;
+        }
     }
 
     return converted;

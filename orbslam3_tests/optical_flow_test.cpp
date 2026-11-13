@@ -480,6 +480,42 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
     REQUIRE_FALSE(frame.reliable_flow_inliers({0, 128}));
 }
 
+TEST_CASE("Pose optimization uses undistorted keypoint coordinates", "[undistorted_keypoints]")
+{
+    ORB_SLAM3::camera_vector cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
+    cv::Mat image(256, 256, CV_8UC1);
+    cv::RNG random(27);
+    random.fill(image, cv::RNG::UNIFORM, 0, 256);
+    ORB_SLAM3::keypoint_extractor extractor(400, 1.2f, 4, 20, 7);
+    ORB_SLAM3::frame              frame(1.0, nullptr, cameras[0]->to_k(), cv::Mat::zeros(4, 1, CV_32F), 20, 40);
+    ORB_SLAM3::frame::initial_computations = true;
+    ORB_SLAM3::tracking::extract_features(frame, extractor, image, cameras);
+
+    std::vector<std::unique_ptr<ORB_SLAM3::map_point>> points;
+    std::vector<ORB_SLAM3::keypoint>                   keys;
+    std::vector<ORB_SLAM3::map_point *>                observations;
+    for (int index = 0; index < 100; ++index)
+    {
+        const Eigen::Vector3f position((index % 10 - 4.5f) * 0.3f, (index / 10 - 4.5f) * 0.3f, 3.0f + (index % 3) * 0.2f);
+        auto                  point = std::make_unique<ORB_SLAM3::map_point>();
+        point->set_world_position(position);
+        const auto projection = cameras[0]->project(position);
+        keys.emplace_back(projection.x(), projection.y(), 7.f);
+        observations.push_back(point.get());
+        points.push_back(std::move(point));
+    }
+    frame.set_tracked_features(keys, observations);
+    for (std::size_t index = 0; index < frame.keypoints.size(); ++index)
+    {
+        frame.keypoints[index].pt += cv::Point2f(index % 2 == 0 ? 20.f : -20.f, index % 3 == 0 ? 15.f : -15.f);
+    }
+    frame.set_pose(Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.02f, -0.01f, 0.03f)));
+    REQUIRE(ORB_SLAM3::optimizer::pose_optimization(&frame, cameras) == frame.feature_count);
+    REQUIRE(frame.get_pose().translation().norm() < 0.001f);
+    REQUIRE(frame.get_pose().so3().log().norm() < 0.001f);
+}
+
 TEST_CASE("Fisheye flow preserves both camera observations for pose optimization")
 {
     const bool               right_only = GENERATE(false, true);

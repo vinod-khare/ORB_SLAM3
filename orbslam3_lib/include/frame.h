@@ -123,7 +123,7 @@ class frame
     Eigen::Vector3f in_reference_coordinates(Eigen::Vector3f pCw);
 
     // Compute the cell of a keypoint (return false if outside the grid)
-    bool position_in_grid(const cv::KeyPoint &kp, int &posX, int &posY);
+    bool position_in_grid(const cv::Point2f &position, int &posX, int &posY);
 
     vector<size_t> get_features_in_area(const float &x, const float &y, const float &r, const int minLevel = -1, const int maxLevel = -1, const bool bRight = false) const;
 

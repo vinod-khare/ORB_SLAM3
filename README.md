@@ -113,3 +113,16 @@ Command-line selections override YAML:
 ```
 
 When selecting a non-ORB descriptor, use a vocabulary trained for that same descriptor. For the available DBoW backends, supported vocabulary format, and runtime switching, see [DBoW place recognition in the app guide](orbslam3_app/README.md#dbow-place-recognition).
+
+The supplied [TUM-VI configuration](config/TUM-VI.yaml) selects SIFT, so
+[`run.sh`](run.sh) uses `vocab/TUMVI_SIFT.dbow3`. To run it headlessly on a
+limited number of frames:
+
+```sh
+.build/Release/orbslam3_app/orbslam3_app vocab/TUMVI_SIFT.dbow3 config/TUM-VI.yaml \
+  --slam-type stereo --no-viewer --frames-take 100 --output-folder .build/sift-smoke
+```
+
+Changing the descriptor also requires changing the vocabulary passed to the app.
+An ORB/SIFT format mismatch is rejected before tracking or the viewer starts; it
+is not a failure to detect keypoints.

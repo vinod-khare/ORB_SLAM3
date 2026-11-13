@@ -2908,10 +2908,10 @@ bool tracking::relocalization()
             {
                 continue;
             }
-            const cv::KeyPoint   &keypoint = current_frame.keypoints[j].undistorted();
+            const auto           &keypoint = current_frame.keypoints[j];
             const Eigen::Vector3f position = map_point->get_world_position();
             world_points.emplace_back(position.x(), position.y(), position.z());
-            image_points.push_back(keypoint.pt);
+            image_points.push_back(keypoint.pt_undistorted);
             max_errors.push_back(current_frame.level_sigma_squared[keypoint.octave] * 5.991f);
         }
 

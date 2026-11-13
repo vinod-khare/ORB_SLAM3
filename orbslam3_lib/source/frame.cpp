@@ -19,11 +19,11 @@
 #include "frame.h"
 
 #include "CameraModels/kannala_brandt8.h"
+#include "converter.h"
+#include "descriptor_matcher.h"
 #include "g2o_types.h"
 #include "geometric_camera.h"
 #include "key_frame.h"
-#include "converter.h"
-#include "descriptor_matcher.h"
 #include "map_point.h"
 
 #include <array>
@@ -394,7 +394,7 @@ void frame::_assign_features_to_grid()
         const auto &kp = (!is_fisheye_stereo || std::cmp_less(i, keypoints.size())) ? keypoints[i] : right_keypoints[i - static_cast<int>(keypoints.size())];
 
         int nGridPosX, nGridPosY;
-        if (position_in_grid(kp.undistorted(), nGridPosX, nGridPosY))
+        if (position_in_grid(kp.pt_undistorted, nGridPosX, nGridPosY))
         {
             if (!is_fisheye_stereo || std::cmp_less(i, keypoints.size()))
             {
@@ -707,10 +707,10 @@ vector<size_t> frame::get_features_in_area(const float &x, const float &y, const
     return vIndices;
 }
 
-bool frame::position_in_grid(const cv::KeyPoint &kp, int &posX, int &posY)
+bool frame::position_in_grid(const cv::Point2f &position, int &posX, int &posY)
 {
-    posX = round((kp.pt.x - min_x) * grid_element_width_inverse);
-    posY = round((kp.pt.y - min_y) * grid_element_height_inverse);
+    posX = round((position.x - min_x) * grid_element_width_inverse);
+    posY = round((position.y - min_y) * grid_element_height_inverse);
 
     // Keypoint's coordinates are undistorted, which could cause to go out of the image
     if (posX < 0 || posX >= FRAME_GRID_COLS || posY < 0 || posY >= FRAME_GRID_ROWS)

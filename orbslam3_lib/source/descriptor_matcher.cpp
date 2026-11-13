@@ -850,8 +850,8 @@ int descriptor_matcher::search_for_initialization(frame &F1, frame &F2, vector<c
 
     for (size_t i1 = 0, iend1 = F1.keypoints.size(); i1 < iend1; i1++)
     {
-        cv::KeyPoint kp1    = F1.keypoints[i1].undistorted();
-        int          level1 = kp1.octave;
+        const auto &kp1    = F1.keypoints[i1];
+        int         level1 = kp1.octave;
         if (level1 > 0)
         {
             continue;
@@ -1210,10 +1210,9 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                     }
                 }
 
-                const cv::KeyPoint &kp1 = ((!is_fisheye_stereo(pKF1->cameras))             ? pKF1->keypoints[idx1]
-                                           : (std::cmp_less(idx1, pKF1->keypoints.size())) ? pKF1->keypoints[idx1]
-                                                                                           : pKF1->right_keypoints[idx1 - pKF1->keypoints.size()])
-                                              .undistorted();
+                const auto &kp1 = ((!is_fisheye_stereo(pKF1->cameras))             ? pKF1->keypoints[idx1]
+                                   : (std::cmp_less(idx1, pKF1->keypoints.size())) ? pKF1->keypoints[idx1]
+                                                                                   : pKF1->right_keypoints[idx1 - pKF1->keypoints.size()]);
 
                 const bool bRight1 = is_fisheye_stereo(pKF1->cameras) && std::cmp_greater_equal(idx1, pKF1->keypoints.size());
 
@@ -1253,16 +1252,15 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                         continue;
                     }
 
-                    const cv::KeyPoint &kp2 = ((!is_fisheye_stereo(pKF2->cameras))             ? pKF2->keypoints[idx2]
-                                               : (std::cmp_less(idx2, pKF2->keypoints.size())) ? pKF2->keypoints[idx2]
-                                                                                               : pKF2->right_keypoints[idx2 - pKF2->keypoints.size()])
-                                                  .undistorted();
-                    const bool bRight2 = is_fisheye_stereo(pKF2->cameras) && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
+                    const auto &kp2     = ((!is_fisheye_stereo(pKF2->cameras))             ? pKF2->keypoints[idx2]
+                                           : (std::cmp_less(idx2, pKF2->keypoints.size())) ? pKF2->keypoints[idx2]
+                                                                                           : pKF2->right_keypoints[idx2 - pKF2->keypoints.size()]);
+                    const bool  bRight2 = is_fisheye_stereo(pKF2->cameras) && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
 
                     if (!bStereo1 && !bStereo2 && !is_fisheye_stereo(pKF1->cameras))
                     {
-                        const float distex = ep(0) - kp2.pt.x;
-                        const float distey = ep(1) - kp2.pt.y;
+                        const float distex = ep(0) - kp2.pt_undistorted.x;
+                        const float distey = ep(1) - kp2.pt_undistorted.y;
                         if (distex * distex + distey * distey < 100 * pKF2->scale_factors[kp2.octave])
                         {
                             continue;
@@ -1309,9 +1307,13 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                         }
                     }
 
+                    auto cv_kp1 = static_cast<cv::KeyPoint>(kp1);
+                    auto cv_kp2 = static_cast<cv::KeyPoint>(kp2);
+                    cv_kp1.pt   = kp1.pt_undistorted;
+                    cv_kp2.pt   = kp2.pt_undistorted;
                     if (bCoarse || pKF1->cameras[camera_index1]->epipolar_constrain(*pKF2->cameras[camera_index2],
-                                                                                    kp1,
-                                                                                    kp2,
+                                                                                    cv_kp1,
+                                                                                    cv_kp2,
                                                                                     R12,
                                                                                     t12,
                                                                                     pKF1->level_sigma_squared[kp1.octave],
@@ -1514,8 +1516,8 @@ int descriptor_matcher::fuse(key_frame *pKF, const vector<map_point *> &vpMapPoi
         int   bestIdx  = -1;
         for (vector<size_t>::const_iterator vit = vIndices.begin(), vend = vIndices.end(); vit != vend; vit++)
         {
-            size_t              idx = *vit;
-            const cv::KeyPoint &kp  = ((!is_fisheye_stereo(pKF->cameras) || !bRight) ? pKF->keypoints[idx] : pKF->right_keypoints[idx]).undistorted();
+            size_t      idx = *vit;
+            const auto &kp  = ((!is_fisheye_stereo(pKF->cameras) || !bRight) ? pKF->keypoints[idx] : pKF->right_keypoints[idx]);
 
             const int &kpLevel = kp.octave;
 
@@ -1527,8 +1529,8 @@ int descriptor_matcher::fuse(key_frame *pKF, const vector<map_point *> &vpMapPoi
             if (pKF->right_coordinates[idx] >= 0)
             {
                 // Check reprojection error in stereo
-                const float &kpx = kp.pt.x;
-                const float &kpy = kp.pt.y;
+                const float &kpx = kp.pt_undistorted.x;
+                const float &kpy = kp.pt_undistorted.y;
                 const float &kpr = pKF->right_coordinates[idx];
                 const float  ex  = uv(0) - kpx;
                 const float  ey  = uv(1) - kpy;
@@ -1542,8 +1544,8 @@ int descriptor_matcher::fuse(key_frame *pKF, const vector<map_point *> &vpMapPoi
             }
             else
             {
-                const float &kpx = kp.pt.x;
-                const float &kpy = kp.pt.y;
+                const float &kpx = kp.pt_undistorted.x;
+                const float &kpy = kp.pt_undistorted.y;
                 const float  ex  = uv(0) - kpx;
                 const float  ey  = uv(1) - kpy;
                 const float  e2  = ex * ex + ey * ey;
@@ -1847,7 +1849,7 @@ int descriptor_matcher::search_by_sim3(key_frame *pKF1, key_frame *pKF2, std::ve
         {
             const size_t idx = *vit;
 
-            const cv::KeyPoint &kp = pKF2->keypoints[idx].undistorted();
+            const auto &kp = pKF2->keypoints[idx];
 
             if (kp.octave < nPredictedLevel - 1 || kp.octave > nPredictedLevel)
             {
@@ -1941,7 +1943,7 @@ int descriptor_matcher::search_by_sim3(key_frame *pKF1, key_frame *pKF2, std::ve
         {
             const size_t idx = *vit;
 
-            const cv::KeyPoint &kp = pKF1->keypoints[idx].undistorted();
+            const auto &kp = pKF1->keypoints[idx];
 
             if (kp.octave < nPredictedLevel - 1 || kp.octave > nPredictedLevel)
             {

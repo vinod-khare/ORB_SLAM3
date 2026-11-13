@@ -19,8 +19,8 @@
 #include "sim3_solver.h"
 
 #include "DUtils/random.h"
-#include "key_frame.h"
 #include "descriptor_matcher.h"
+#include "key_frame.h"
 
 #include <cmath>
 #include <limits>
@@ -98,8 +98,8 @@ sim3_solver::sim3_solver(key_frame *first_key_frame, key_frame *second_key_frame
                 continue;
             }
 
-            const cv::KeyPoint &kp1 = first_key_frame->keypoints[indexKF1].undistorted();
-            const cv::KeyPoint &kp2 = pKFm->keypoints[indexKF2].undistorted();
+            const auto &kp1 = first_key_frame->keypoints[indexKF1];
+            const auto &kp2 = pKFm->keypoints[indexKF2];
 
             const float sigmaSquare1 = first_key_frame->level_sigma_squared[kp1.octave];
             const float sigmaSquare2 = pKFm->level_sigma_squared[kp2.octave];
