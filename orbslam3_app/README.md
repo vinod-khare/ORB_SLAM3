@@ -102,8 +102,10 @@ When optical flow is enabled, the prefetch worker also builds the left-image Pyr
 ## GUI statistics
 
 The dockable **Statistics** pane displays the resolved dataset/sequence image
-paths, IMU path, settings file, sensor mode and frame-selection options. These
-reflect the effective CLI/YAML configuration, not just the YAML defaults.
+paths, IMU path, settings file, sensor mode, selected keypoint detector and
+descriptor types, and frame-selection options. These reflect the effective
+CLI/YAML configuration, including feature defaults, not just the YAML values.
+The read-only feature selections are visible even before the first frame is processed.
 Sequence progress counts the selected frames after skip/stride/take filtering.
 Use **Restore pane layout** in Controls if a saved layout hides the new pane.
 

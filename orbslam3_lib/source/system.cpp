@@ -18,14 +18,14 @@
 
 #include "system.h"
 
-#include "local_mapping.h"
-#include "loop_closing.h"
-#include "settings.h"
-#include "tracking.h"
 #include "atlas.h"
 #include "converter.h"
 #include "key_frame_database.h"
+#include "local_mapping.h"
+#include "loop_closing.h"
 #include "place_vocabulary.h"
+#include "settings.h"
+#include "tracking.h"
 
 #include <cmath>
 #include <filesystem>
@@ -35,6 +35,7 @@
 
 #include <opencv2/imgcodecs.hpp>
 
+#include <magic_enum/magic_enum.hpp>
 #include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
@@ -1482,5 +1483,9 @@ atlas *system::get_atlas() const { return _atlas.get(); }
 tracking *system::get_tracker() const { return _tracker.get(); }
 
 float system::get_camera_frame_rate() const { return _settings->fps(); }
+
+std::string system::keypoint_detector_name() const { return std::string(magic_enum::enum_name(_settings->keypoint_detector())); }
+
+std::string system::keypoint_descriptor_name() const { return std::string(magic_enum::enum_name(_settings->keypoint_descriptor())); }
 
 } // namespace ORB_SLAM3

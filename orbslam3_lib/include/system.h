@@ -66,7 +66,7 @@ class system
     // Initialize the SLAM system. It launches the Local Mapping and Loop Closing threads.
     system(const string            &strVocFile,
            const string            &strSettingsFile,
-           const sensor_type            sensor,
+           const sensor_type        sensor,
            const int                initFr      = 0,
            const string            &strSequence = std::string(),
            const feature_overrides &overrides   = {});
@@ -175,6 +175,10 @@ class system
     tracking            *get_tracker() const;
     float                get_camera_frame_rate() const;
     const camera_vector &cameras() const { return _cameras; }
+
+    /** Effective feature selections after resolving YAML, overrides, and defaults. */
+    std::string keypoint_detector_name() const;
+    std::string keypoint_descriptor_name() const;
 
     processing_statistics       &statistics() { return _statistics; }
     const processing_statistics &statistics() const { return _statistics; }

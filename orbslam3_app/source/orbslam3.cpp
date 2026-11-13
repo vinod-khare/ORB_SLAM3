@@ -19,15 +19,15 @@
  * ORB-SLAM3. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "system.h"
-#include "tracking.h"
 #include "atlas.h"
 #include "command_line_options.h"
 #include "converter.h"
 #include "frame_drawer.h"
 #include "frame_prefetcher.h"
 #include "map_drawer.h"
+#include "system.h"
 #include "time_this.h"
+#include "tracking.h"
 #include "viewer.h"
 
 #include <chrono>
@@ -178,9 +178,12 @@ int main(int argc, char **argv)
             frame_drawer->_both = stereo;
             map_drawer          = std::make_unique<ORB_SLAM3::map_drawer>(*SLAM.get_atlas(), options.viewer);
             viewer              = std::make_unique<ORB_SLAM3::viewer>(viewer_controls, *frame_drawer, *map_drawer, image_scale, options.viewer);
-            viewer->set_sequence(fmt::format("Settings: {}\nMode: {}\nDataset / sequence (left images): {}\nRight images: {}\nIMU: {}\nFrame selection: skip {}, stride {}, take {} (0 = all)",
+            viewer->set_sequence(fmt::format("Settings: {}\nMode: {}\nKeypoint detector: {}\nKeypoint descriptor: {}\nDataset / sequence (left images): {}\nRight images: {}\nIMU: {}\nFrame "
+                                             "selection: skip {}, stride {}, take {} (0 = all)",
                                              settings_path,
                                              slam_type,
+                                             SLAM.keypoint_detector_name(),
+                                             SLAM.keypoint_descriptor_name(),
                                              options.input.left_image_path,
                                              stereo ? options.input.right_image_path : "not used",
                                              inertial ? options.input.imu_path : "not used",

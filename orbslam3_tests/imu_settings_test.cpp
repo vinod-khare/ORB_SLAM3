@@ -157,6 +157,34 @@ TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shut
     }
 }
 
+TEST_CASE("System exposes effective feature names before processing frames", "[settings][features]")
+{
+    imu_settings files;
+    const auto   selection = GENERATE(0, 1, 2);
+    if (selection != 0)
+    {
+        files.config["keypoint"]["detector"]["type"]   = "AgAsT";
+        files.config["keypoint"]["descriptor"]["type"] = "BRIEF";
+    }
+    else
+    {
+        files.config["keypoint"]["detector"].remove("type");
+    }
+    files.write();
+    ORB_SLAM3::feature_overrides overrides;
+    if (selection == 2)
+    {
+        overrides.detector   = "GFTT";
+        overrides.descriptor = "oRb";
+    }
+    const auto vocabulary_path = files.directory / "vocabulary.dbow3";
+    write_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
+    const ORB_SLAM3::system system(vocabulary_path.string(), files.path.string(), ORB_SLAM3::system::monocular, 0, "", overrides);
+    REQUIRE(system.keypoint_detector_name() == (selection == 0 ? "fast" : selection == 1 ? "agast" : "gftt"));
+    REQUIRE(system.keypoint_descriptor_name() == (selection == 1 ? "brief" : "orb"));
+    REQUIRE(system.statistics().get_snapshot().frames == 0);
+}
+
 TEST_CASE("IMU settings come from Kalibr calibration", "[settings][imu]")
 {
     imu_settings files;
