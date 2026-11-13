@@ -19,9 +19,9 @@
 #ifndef MAP_POINT_H
 #define MAP_POINT_H
 
-#include "key_frame.h"
 #include "converter.h"
 #include "frame.h"
+#include "key_frame.h"
 #include "map.h"
 
 #include <map>
@@ -56,7 +56,7 @@ class map_point
     key_frame *get_reference_key_frame();
 
     std::map<key_frame *, std::tuple<int, int>> get_observations();
-    int                                        get_observation_count();
+    int                                         get_observation_count();
 
     void                         add_observation(key_frame *pKF, int idx);
     std::array<unsigned char, 3> color();
@@ -80,7 +80,7 @@ class map_point
 
     cv::Mat get_descriptor();
 
-    void update_normal_and_depth();
+    void update_normal_and_depth(const geometric_camera &camera);
 
     float get_min_distance_invariance();
     float get_max_distance_invariance();
@@ -129,9 +129,9 @@ class map_point
     Eigen::Vector3f merge_normal_vector;
 
     // Fopr inverse depth optimization
-    double    inverse_depth;
-    double    initial_u;
-    double    initial_v;
+    double     inverse_depth;
+    double     initial_u;
+    double     initial_v;
     key_frame *host_key_frame;
 
     static std::mutex global_mutex;

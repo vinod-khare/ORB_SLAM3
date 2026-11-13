@@ -33,11 +33,12 @@ class sim3_solver
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    sim3_solver(key_frame                       *first_key_frame,
-                key_frame                       *second_key_frame,
+    sim3_solver(geometric_camera               &camera,
+                key_frame                      *first_key_frame,
+                key_frame                      *second_key_frame,
                 const std::vector<map_point *> &matched_map_points,
                 const bool                      fixed_scale        = true,
-                const vector<key_frame *>        matched_key_frames = vector<key_frame *>());
+                const vector<key_frame *>       matched_key_frames = vector<key_frame *>());
 
     void set_ransac_parameters(double probability = 0.99, int minimum_inliers = 6, int maximum_iterations = 300);
 
@@ -123,7 +124,7 @@ class sim3_solver
 
     // Calibration
 
-    const camera_vector &cameras;
+    geometric_camera &_camera;
 };
 
 } // namespace ORB_SLAM3

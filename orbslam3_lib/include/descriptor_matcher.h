@@ -64,11 +64,13 @@ class descriptor_matcher
 
     // Project MapPoints using a Similarity Transformation and search matches.
     // Used in loop detection (Loop Closing)
-    int search_by_projection(key_frame *pKF, Sophus::Sim3<float> &Scw, const std::vector<map_point *> &vpPoints, std::vector<map_point *> &vpMatched, int th, float distance_multiplier = 1.0);
+    int search_by_projection(
+        camera_view cameras, key_frame *pKF, Sophus::Sim3<float> &Scw, const std::vector<map_point *> &vpPoints, std::vector<map_point *> &vpMatched, int th, float distance_multiplier = 1.0);
 
     // Project MapPoints using a Similarity Transformation and search matches.
     // Used in Place Recognition (Loop Closing and Merging)
-    int search_by_projection(key_frame                      *pKF,
+    int search_by_projection(camera_view                     cameras,
+                             key_frame                      *pKF,
                              Sophus::Sim3<float>            &Scw,
                              const std::vector<map_point *> &vpPoints,
                              const std::vector<key_frame *> &vpPointsKFs,
@@ -86,17 +88,17 @@ class descriptor_matcher
     int search_for_initialization(frame &F1, frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize = 10);
 
     // Matching to triangulate new MapPoints. Check Epipolar Constraint.
-    int search_for_triangulation(key_frame *pKF1, key_frame *pKF2, std::vector<pair<size_t, size_t>> &vMatchedPairs, const bool bOnlyStereo, const bool bCoarse = false);
+    int search_for_triangulation(camera_view cameras, key_frame *pKF1, key_frame *pKF2, std::vector<pair<size_t, size_t>> &vMatchedPairs, const bool bOnlyStereo, const bool bCoarse = false);
 
     // Search matches between MapPoints seen in KF1 and KF2 transforming by a Sim3 [s12*R12|t12]
     // In the stereo and RGB-D case, s12=1
-    int search_by_sim3(key_frame *pKF1, key_frame *pKF2, std::vector<map_point *> &vpMatches12, const Sophus::Sim3f &S12, const float th);
+    int search_by_sim3(camera_view cameras, key_frame *pKF1, key_frame *pKF2, std::vector<map_point *> &vpMatches12, const Sophus::Sim3f &S12, const float th);
 
     // Project MapPoints into key_frame and search for duplicated MapPoints.
-    int fuse(key_frame *pKF, const vector<map_point *> &vpMapPoints, const float th = 3.0, const bool bRight = false);
+    int fuse(camera_view cameras, key_frame *pKF, const vector<map_point *> &vpMapPoints, const float th = 3.0, const bool bRight = false);
 
     // Project MapPoints into key_frame using a given Sim3 and search for duplicated MapPoints.
-    int fuse(key_frame *pKF, Sophus::Sim3f &Scw, const std::vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint);
+    int fuse(camera_view cameras, key_frame *pKF, Sophus::Sim3f &Scw, const std::vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint);
 
   public:
     static const int low_distance_threshold;

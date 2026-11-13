@@ -1,10 +1,10 @@
-#include "key_frame.h"
-#include "pinhole.h"
-#include "tracking.h"
 #include "atlas.h"
 #include "frame.h"
 #include "ground_truth_trajectory.h"
+#include "key_frame.h"
 #include "map_drawer.h"
+#include "pinhole.h"
+#include "tracking.h"
 
 #include <chrono>
 #include <filesystem>
@@ -166,7 +166,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     cv::Mat image(256, 256, CV_8UC1);
     cv::RNG random(42);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
-    const ORB_SLAM3::ground_truth_trajectory          trajectory(file.path.string());
+    const ORB_SLAM3::ground_truth_trajectory           trajectory(file.path.string());
     std::vector<std::unique_ptr<ORB_SLAM3::key_frame>> keyframes;
     for (const double timestamp : {1.25, 2.25, 3.25})
     {
@@ -175,7 +175,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
         frame.dataset                  = 0;
         const Eigen::Vector3f position = trajectory.pose_at(timestamp)->translation().cast<float>();
         frame.set_pose(Sophus::SE3f(Eigen::Quaternionf::Identity(), -position));
-        keyframes.push_back(std::make_unique<ORB_SLAM3::key_frame>(frame, map, nullptr, cameras));
+        keyframes.push_back(std::make_unique<ORB_SLAM3::key_frame>(frame, map, nullptr));
         map->add_key_frame(keyframes.back().get());
     }
     ORB_SLAM3::map_drawer drawer(atlas, settings);

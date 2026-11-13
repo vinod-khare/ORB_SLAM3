@@ -105,8 +105,13 @@ system::system(const string &vocabulary_file, std::unique_ptr<settings> settings
     _tracker = std::make_unique<tracking>(this, _vocabulary.get(), _atlas.get(), _key_frame_database.get(), _sensor, _settings.get(), _settings->cameras(), sequence);
 
     // Initialize the Local Mapping thread and launch
-    _local_mapper = std::make_unique<local_mapping>(
-        _statistics, this, _atlas.get(), _sensor == monocular || _sensor == imu_monocular, _sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd, sequence);
+    _local_mapper                      = std::make_unique<local_mapping>(_statistics,
+                                                    _settings->cameras(),
+                                                    this,
+                                                    _atlas.get(),
+                                                    _sensor == monocular || _sensor == imu_monocular,
+                                                    _sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd,
+                                                    sequence);
     _local_mapper->initial_frame       = initial_frame;
     _local_mapper->far_point_threshold = _settings->far_point_threshold();
     if (_local_mapper->far_point_threshold != 0)
@@ -120,7 +125,8 @@ system::system(const string &vocabulary_file, std::unique_ptr<settings> settings
     }
 
     // Initialize the Loop Closing thread and launch
-    _loop_closer = std::make_unique<loop_closing>(_statistics, _atlas.get(), _key_frame_database.get(), _vocabulary.get(), _sensor != monocular, _settings->loop_closing_enabled());
+    _loop_closer =
+        std::make_unique<loop_closing>(_statistics, _settings->cameras(), _atlas.get(), _key_frame_database.get(), _vocabulary.get(), _sensor != monocular, _settings->loop_closing_enabled());
 
     // Set pointers between threads
     _tracker->set_local_mapper(_local_mapper.get());

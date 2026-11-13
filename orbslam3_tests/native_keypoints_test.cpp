@@ -1,5 +1,7 @@
 #include "descriptor_matcher.h"
 #include "frame.h"
+#include "g2o_types.h"
+#include "kannala_brandt8.h"
 #include "keypoint_extractor.h"
 #include "map_point.h"
 #include "pinhole.h"
@@ -154,7 +156,7 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     REQUIRE(point.z() == 2.f);
 
     ORB_SLAM3::map         map;
-    ORB_SLAM3::key_frame   keyframe(frame, &map, nullptr, cameras);
+    ORB_SLAM3::key_frame   keyframe(frame, &map, nullptr);
     const ORB_SLAM3::frame copied(frame);
     REQUIRE(keyframe.keypoints.front().pt == key.pt);
     REQUIRE(keyframe.keypoints.front().pt_undistorted == frame.keypoints.front().pt_undistorted);
@@ -176,7 +178,7 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
 
 TEST_CASE("Initialization matching filters using tracking rather than native orientation", "[native_keypoints]")
 {
-    const cv::Mat            image       = cv::Mat::zeros(256, 256, CV_8U);
+    const cv::Mat            image = cv::Mat::zeros(256, 256, CV_8U);
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
     ORB_SLAM3::frame         first(0.0, nullptr, 40);
@@ -244,8 +246,115 @@ TEST_CASE("Frames use the camera supplied for each operation", "[camera_calibrat
 
     ORB_SLAM3::map              map;
     const ORB_SLAM3::imu::calib imu_calibration(Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f(1, 2, 3)), 1, 1, 1, 1);
-    ORB_SLAM3::key_frame        keyframe(first, &map, nullptr, first_camera, imu_calibration);
+    ORB_SLAM3::key_frame        keyframe(first, &map, nullptr, imu_calibration);
     REQUIRE(keyframe.imu_calibration.camera_to_body.matrix().isApprox(imu_calibration.camera_to_body.matrix()));
+}
+
+TEST_CASE("Keyframe geometry uses explicitly supplied cameras", "[camera_calibration]")
+{
+    ORB_SLAM3::camera_vector cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{100, 100, 50, 50}));
+    cameras[0]->set_baseline(0.1f);
+    ORB_SLAM3::frame frame(0, nullptr, 40);
+    frame.keypoints.emplace_back(30.f, 40.f, 7.f);
+    const cv::Mat image(160, 160, CV_8U, cv::Scalar(0));
+    frame.initialize_features(image, cameras);
+    frame.depths[0] = 2.f;
+    const Sophus::SE3f pose(Sophus::SO3f::exp(Eigen::Vector3f(0.1f, -0.2f, 0.3f)), Eigen::Vector3f(1, 2, 3));
+    frame.set_pose(pose);
+    ORB_SLAM3::map       map;
+    ORB_SLAM3::key_frame keyframe(frame, &map, nullptr);
+
+    cameras.clear();
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 250, 60, 70}));
+    cameras[0]->set_baseline(0.2f);
+    const int     coefficient_count = GENERATE(4, 5);
+    const cv::Mat distortion        = cv::Mat(cv::Vec<float, 5>(-0.1f, 0.02f, 0.003f, -0.004f, 0.01f));
+    cameras[0]->set_distortion_coefficients(distortion.rowRange(0, coefficient_count));
+
+    Eigen::Vector3f unprojected;
+    REQUIRE(keyframe.unproject_stereo(0, unprojected, *cameras[0]));
+    REQUIRE(unprojected.isApprox(pose.inverse() * Eigen::Vector3f(-0.3f, -0.24f, 2.f)));
+
+    const Eigen::Vector3f camera_point(0.2f, 0.3f, 2.f);
+    ORB_SLAM3::map_point  point(pose.inverse() * camera_point, &keyframe, &map);
+    cv::Point2f           projected;
+    float                 u;
+    float                 v;
+    REQUIRE(keyframe.project_point_undistort(&point, projected, u, v, *cameras[0]));
+    REQUIRE(u == Catch::Approx(80.f));
+    REQUIRE(v == Catch::Approx(107.5f));
+    REQUIRE(projected == cv::Point2f(u, v));
+
+    const std::vector<cv::Point3f> object_points{cv::Point3f(0.2f, 0.3f, 2.f)};
+    std::vector<cv::Point2f>       expected;
+    cv::projectPoints(object_points, cv::Vec3f::all(0), cv::Vec3f::all(0), cameras[0]->to_k(), cameras[0]->distortion_coefficients(), expected);
+    REQUIRE(keyframe.project_point_distort(&point, projected, u, v, *cameras[0]));
+    REQUIRE(cv::norm(projected - expected.front()) < 0.001f);
+    REQUIRE(projected == cv::Point2f(u, v));
+
+    ORB_SLAM3::inverse_depth_point inverse_depth(0.5, 30, 40, *cameras[0]);
+    const Eigen::Vector3d          reconstructed(
+        (inverse_depth.u - inverse_depth.cx) / (inverse_depth.fx * inverse_depth.rho), (inverse_depth.v - inverse_depth.cy) / (inverse_depth.fy * inverse_depth.rho), 1 / inverse_depth.rho);
+    REQUIRE(reconstructed.isApprox(Eigen::Vector3d(-0.3, -0.24, 2), 1e-6));
+    REQUIRE(inverse_depth.bf == Catch::Approx(40.f));
+    const ORB_SLAM3::imu_cam_pose optimizer_pose(&keyframe, cameras);
+    REQUIRE(optimizer_pose.bf == Catch::Approx(40.f));
+
+    point.set_world_position(pose.inverse() * Eigen::Vector3f(0, 0, -1));
+    REQUIRE_FALSE(keyframe.project_point_undistort(&point, projected, u, v, *cameras[0]));
+    REQUIRE_FALSE(keyframe.project_point_distort(&point, projected, u, v, *cameras[0]));
+    point.set_world_position(pose.inverse() * Eigen::Vector3f(10, 0, 1));
+    REQUIRE_FALSE(keyframe.project_point_undistort(&point, projected, u, v, *cameras[0]));
+    REQUIRE_FALSE(keyframe.project_point_distort(&point, projected, u, v, *cameras[0]));
+
+    ORB_SLAM3::pinhole alternate(std::vector<float>{100, 100, 50, 50});
+    REQUIRE(keyframe.unproject_stereo(0, unprojected, alternate));
+    REQUIRE(unprojected.isApprox(pose.inverse() * Eigen::Vector3f(-0.4f, -0.2f, 2.f)));
+}
+
+TEST_CASE("Keyframe stereo poses read camera extrinsics", "[camera_calibration]")
+{
+    ORB_SLAM3::camera_vector cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{100, 100, 80, 80, 0, 0, 0, 0}));
+    cameras.push_back(std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{110, 110, 80, 80, 0, 0, 0, 0}));
+    ORB_SLAM3::frame frame(0, nullptr, 40);
+    frame.keypoints.emplace_back(30.f, 40.f, 7.f);
+    frame.right_keypoints.emplace_back(35.f, 45.f, 7.f);
+    frame.keypoints[0].descriptor       = cv::Mat(1, 32, CV_8U, cv::Scalar(1));
+    frame.right_keypoints[0].descriptor = cv::Mat(1, 32, CV_8U, cv::Scalar(2));
+    frame.mono_left = frame.mono_right = 1;
+    frame.scale_levels                 = 1;
+    frame.scale_factors                = {1.f};
+    const cv::Mat image(160, 160, CV_8U, cv::Scalar(0));
+    frame.initialize_features(image, cameras, image);
+    const Sophus::SE3f pose(Sophus::SO3f::exp(Eigen::Vector3f(0.1f, 0.2f, 0.3f)), Eigen::Vector3f(1, 2, 3));
+    frame.set_pose(pose);
+    ORB_SLAM3::map       map;
+    ORB_SLAM3::key_frame keyframe(frame, &map, nullptr);
+    cameras.clear();
+    REQUIRE(keyframe.is_fisheye_stereo);
+    REQUIRE(keyframe.descriptor(0).at<unsigned char>(0) == 1);
+    REQUIRE(keyframe.descriptor(1).at<unsigned char>(0) == 2);
+    REQUIRE(keyframe.get_features_in_area(35, 45, 1, true) == std::vector<std::size_t>{0});
+    ORB_SLAM3::kannala_brandt8 camera(std::vector<float>{100, 100, 80, 80, 0, 0, 0, 0});
+    const Sophus::SE3f         extrinsics(Sophus::SO3f::exp(Eigen::Vector3f(-0.1f, 0.1f, 0)), Eigen::Vector3f(0.2f, 0.01f, 0));
+    camera.set_left_to_right_pose(extrinsics);
+    const Sophus::SE3f right_pose = extrinsics.inverse() * pose;
+    REQUIRE(keyframe.get_relative_pose_tlr(camera).matrix().isApprox(extrinsics.matrix()));
+    REQUIRE(keyframe.get_relative_pose_trl(camera).matrix().isApprox(extrinsics.inverse().matrix()));
+    REQUIRE(keyframe.get_right_pose(camera).matrix().isApprox(right_pose.matrix()));
+    REQUIRE(keyframe.get_right_pose_inverse(camera).matrix().isApprox(right_pose.inverse().matrix()));
+    REQUIRE(keyframe.get_right_camera_center(camera).isApprox(right_pose.inverse().translation()));
+    REQUIRE(keyframe.get_right_rotation(camera).isApprox(right_pose.rotationMatrix()));
+    REQUIRE(keyframe.get_right_translation(camera).isApprox(right_pose.translation()));
+
+    const Eigen::Vector3f world_point = pose.inverse() * Eigen::Vector3f(0.2f, 0.3f, 2.f);
+    ORB_SLAM3::map_point  point(world_point, &keyframe, &map);
+    point.add_observation(&keyframe, 1);
+    REQUIRE(point.get_observation_count() == 1);
+    point.update_normal_and_depth(camera);
+    REQUIRE(point.get_normal().isApprox((world_point - right_pose.inverse().translation()).normalized()));
 }
 
 TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]")
@@ -302,10 +411,8 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     ORB_SLAM3::map map;
     const auto     second_keypoint                                                          = frame.keypoints[1].pt;
     frame.color_image.at<cv::Vec3b>(cvRound(second_keypoint.y), cvRound(second_keypoint.x)) = cv::Vec3b(220, 40, 10);
-    ORB_SLAM3::key_frame colored_keyframe(frame, &map, nullptr, cameras);
-    REQUIRE(&colored_keyframe.cameras == &cameras);
-    REQUIRE(colored_keyframe.cameras[0]->get_parameter(0) == 100);
-    REQUIRE(colored_keyframe.cameras.size() == 1);
+    ORB_SLAM3::key_frame colored_keyframe(frame, &map, nullptr);
+    REQUIRE_FALSE(colored_keyframe.is_fisheye_stereo);
     REQUIRE(colored_keyframe.keypoints[0].color == frame.keypoint_color(0));
     const std::array<unsigned char, 3> second_color{10, 40, 220};
     REQUIRE(colored_keyframe.keypoints[1].color == second_color);

@@ -32,10 +32,10 @@
 namespace ORB_SLAM3
 {
 
-local_mapping::local_mapping(processing_statistics &statistics, system *pSys, atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName)
+local_mapping::local_mapping(processing_statistics &statistics, camera_view cameras, system *pSys, atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName)
     : scale(1.0), initialization_section(0), initialization_index(0), iteration_index(0), skip_bundle_adjustment_1(true), skip_bundle_adjustment_2(true), _statistics(statistics),
-      owner_system(pSys), monocular(bMonocular), inertial(bInertial), reset_requested(false), active_map_reset_requested(false), finish_requested(false), finished(true), owner_atlas(pAtlas),
-      bundle_adjustment_aborted(false), stopped(false), stop_requested_flag(false), not_stop_requested(false), accept_key_frames_flag(true), initializing(false),
+      _cameras(cameras), owner_system(pSys), monocular(bMonocular), inertial(bInertial), reset_requested(false), active_map_reset_requested(false), finish_requested(false), finished(true),
+      owner_atlas(pAtlas), bundle_adjustment_aborted(false), stopped(false), stop_requested_flag(false), not_stop_requested(false), accept_key_frames_flag(true), initializing(false),
       inertial_information(Eigen::MatrixXd::Zero(9, 9))
 {
     inlier_match_count = 0;
@@ -115,7 +115,8 @@ void local_mapping::run()
                         }
 
                         bool bLarge = ((tracker->get_matches_inliers() > 75) && monocular) || ((tracker->get_matches_inliers() > 100) && !monocular);
-                        optimizer::local_inertial_ba(current_key_frame,
+                        optimizer::local_inertial_ba(_cameras,
+                                                     current_key_frame,
                                                      &bundle_adjustment_aborted,
                                                      current_key_frame->get_map(),
                                                      num_FixedKF_BA,
@@ -128,7 +129,8 @@ void local_mapping::run()
                     }
                     else
                     {
-                        optimizer::local_bundle_adjustment(current_key_frame, &bundle_adjustment_aborted, current_key_frame->get_map(), num_FixedKF_BA, num_OptKF_BA, num_MPs_BA, num_edges_BA);
+                        optimizer::local_bundle_adjustment(
+                            _cameras, current_key_frame, &bundle_adjustment_aborted, current_key_frame->get_map(), num_FixedKF_BA, num_OptKF_BA, num_MPs_BA, num_edges_BA);
                         b_doneLBA = true;
                     }
                 }
@@ -273,7 +275,7 @@ void local_mapping::process_new_key_frame()
                 if (!pMP->is_in_key_frame(current_key_frame))
                 {
                     pMP->add_observation(current_key_frame, i);
-                    pMP->update_normal_and_depth();
+                    pMP->update_normal_and_depth(*_cameras[0]);
                     pMP->compute_distinctive_descriptors();
                 }
                 else // this can only happen for new stereo points inserted by the Tracking
@@ -385,12 +387,10 @@ void local_mapping::create_new_map_points()
     Eigen::Vector3f            tcw1     = sophTcw1.translation();
     Eigen::Vector3f            Ow1      = current_key_frame->get_camera_center();
 
-    const float                  &fx1    = current_key_frame->fx;
-    const float                  &fy1    = current_key_frame->fy;
-    const float                  &cx1    = current_key_frame->cx;
-    const float                  &cy1    = current_key_frame->cy;
-    [[maybe_unused]] const float &invfx1 = current_key_frame->invfx;
-    [[maybe_unused]] const float &invfy1 = current_key_frame->invfy;
+    const float fx1 = _cameras[0]->get_parameter(0);
+    const float fy1 = _cameras[0]->get_parameter(1);
+    const float cx1 = _cameras[0]->get_parameter(2);
+    const float cy1 = _cameras[0]->get_parameter(3);
 
     const float ratioFactor         = 1.5f * current_key_frame->scale_factor;
     int         countStereo         = 0;
@@ -417,7 +417,7 @@ void local_mapping::create_new_map_points()
 
         if (!monocular)
         {
-            if (baseline < pKF2->mb)
+            if (baseline < _cameras[0]->baseline())
             {
                 continue;
             }
@@ -437,7 +437,7 @@ void local_mapping::create_new_map_points()
         vector<pair<size_t, size_t>> vMatchedIndices;
         bool                         bCoarse = inertial && tracker->state == tracking::RECENTLY_LOST && current_key_frame->get_map()->get_inertial_ba2();
 
-        matcher.search_for_triangulation(current_key_frame, pKF2, vMatchedIndices, false, bCoarse);
+        matcher.search_for_triangulation(_cameras, current_key_frame, pKF2, vMatchedIndices, false, bCoarse);
 
         Sophus::SE3<float>         sophTcw2 = pKF2->get_pose();
         Eigen::Matrix<float, 3, 4> eigTcw2  = sophTcw2.matrix3x4();
@@ -445,12 +445,10 @@ void local_mapping::create_new_map_points()
         Eigen::Matrix<float, 3, 3> Rwc2     = Rcw2.transpose();
         Eigen::Vector3f            tcw2     = sophTcw2.translation();
 
-        const float                  &fx2    = pKF2->fx;
-        const float                  &fy2    = pKF2->fy;
-        const float                  &cx2    = pKF2->cx;
-        const float                  &cy2    = pKF2->cy;
-        [[maybe_unused]] const float &invfx2 = pKF2->invfx;
-        [[maybe_unused]] const float &invfy2 = pKF2->invfy;
+        const float fx2 = _cameras[0]->get_parameter(0);
+        const float fy2 = _cameras[0]->get_parameter(1);
+        const float cx2 = _cameras[0]->get_parameter(2);
+        const float cy2 = _cameras[0]->get_parameter(3);
 
         // Triangulate each match
         const int nmatches = vMatchedIndices.size();
@@ -459,38 +457,38 @@ void local_mapping::create_new_map_points()
             const int &idx1 = vMatchedIndices[ikp].first;
             const int &idx2 = vMatchedIndices[ikp].second;
 
-            const auto &kp1      = ((!is_fisheye_stereo(current_key_frame->cameras))             ? current_key_frame->keypoints[idx1]
+            const auto &kp1      = ((!current_key_frame->is_fisheye_stereo)                      ? current_key_frame->keypoints[idx1]
                                     : (std::cmp_less(idx1, current_key_frame->keypoints.size())) ? current_key_frame->keypoints[idx1]
                                                                                                  : current_key_frame->right_keypoints[idx1 - current_key_frame->keypoints.size()]);
             const float kp1_ur   = current_key_frame->right_coordinates[idx1];
-            bool        bStereo1 = (!is_fisheye_stereo(current_key_frame->cameras) && kp1_ur >= 0);
-            const bool  bRight1  = is_fisheye_stereo(current_key_frame->cameras) && std::cmp_greater_equal(idx1, current_key_frame->keypoints.size());
+            bool        bStereo1 = (!current_key_frame->is_fisheye_stereo && kp1_ur >= 0);
+            const bool  bRight1  = current_key_frame->is_fisheye_stereo && std::cmp_greater_equal(idx1, current_key_frame->keypoints.size());
 
-            const auto &kp2 = ((!is_fisheye_stereo(pKF2->cameras))           ? pKF2->keypoints[idx2]
+            const auto &kp2 = ((!pKF2->is_fisheye_stereo)                    ? pKF2->keypoints[idx2]
                                : std::cmp_less(idx2, pKF2->keypoints.size()) ? pKF2->keypoints[idx2]
                                                                              : pKF2->right_keypoints[idx2 - pKF2->keypoints.size()]);
 
             const float kp2_ur   = pKF2->right_coordinates[idx2];
-            bool        bStereo2 = (!is_fisheye_stereo(pKF2->cameras) && kp2_ur >= 0);
-            const bool  bRight2  = is_fisheye_stereo(pKF2->cameras) && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
+            bool        bStereo2 = (!pKF2->is_fisheye_stereo && kp2_ur >= 0);
+            const bool  bRight2  = pKF2->is_fisheye_stereo && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
 
-            if (is_fisheye_stereo(current_key_frame->cameras) && is_fisheye_stereo(pKF2->cameras))
+            if (current_key_frame->is_fisheye_stereo && pKF2->is_fisheye_stereo)
             {
                 if (bRight1 && bRight2)
                 {
-                    sophTcw1 = current_key_frame->get_right_pose();
-                    Ow1      = current_key_frame->get_right_camera_center();
+                    sophTcw1 = current_key_frame->get_right_pose(*_cameras[0]);
+                    Ow1      = current_key_frame->get_right_camera_center(*_cameras[0]);
 
-                    sophTcw2 = pKF2->get_right_pose();
-                    Ow2      = pKF2->get_right_camera_center();
+                    sophTcw2 = pKF2->get_right_pose(*_cameras[0]);
+                    Ow2      = pKF2->get_right_camera_center(*_cameras[0]);
 
                     camera_index1 = 1;
                     camera_index2 = 1;
                 }
                 else if (bRight1 && !bRight2)
                 {
-                    sophTcw1 = current_key_frame->get_right_pose();
-                    Ow1      = current_key_frame->get_right_camera_center();
+                    sophTcw1 = current_key_frame->get_right_pose(*_cameras[0]);
+                    Ow1      = current_key_frame->get_right_camera_center(*_cameras[0]);
 
                     sophTcw2 = pKF2->get_pose();
                     Ow2      = pKF2->get_camera_center();
@@ -503,8 +501,8 @@ void local_mapping::create_new_map_points()
                     sophTcw1 = current_key_frame->get_pose();
                     Ow1      = current_key_frame->get_camera_center();
 
-                    sophTcw2 = pKF2->get_right_pose();
-                    Ow2      = pKF2->get_right_camera_center();
+                    sophTcw2 = pKF2->get_right_pose(*_cameras[0]);
+                    Ow2      = pKF2->get_right_camera_center(*_cameras[0]);
 
                     camera_index1 = 0;
                     camera_index2 = 1;
@@ -532,8 +530,8 @@ void local_mapping::create_new_map_points()
             }
 
             // Check parallax between rays
-            Eigen::Vector3f xn1 = current_key_frame->cameras[camera_index1]->unproject_eigen(kp1.pt_undistorted);
-            Eigen::Vector3f xn2 = pKF2->cameras[camera_index2]->unproject_eigen(kp2.pt_undistorted);
+            Eigen::Vector3f xn1 = _cameras[camera_index1]->unproject_eigen(kp1.pt_undistorted);
+            Eigen::Vector3f xn2 = _cameras[camera_index2]->unproject_eigen(kp2.pt_undistorted);
 
             Eigen::Vector3f ray1            = Rwc1 * xn1;
             Eigen::Vector3f ray2            = Rwc2 * xn2;
@@ -545,11 +543,11 @@ void local_mapping::create_new_map_points()
 
             if (bStereo1)
             {
-                cosParallaxStereo1 = cos(2 * atan2(current_key_frame->mb / 2, current_key_frame->depths[idx1]));
+                cosParallaxStereo1 = cos(2 * atan2(_cameras[0]->baseline() / 2, current_key_frame->depths[idx1]));
             }
             else if (bStereo2)
             {
-                cosParallaxStereo2 = cos(2 * atan2(pKF2->mb / 2, pKF2->depths[idx2]));
+                cosParallaxStereo2 = cos(2 * atan2(_cameras[0]->baseline() / 2, pKF2->depths[idx2]));
             }
 
             if (bStereo1 || bStereo2)
@@ -575,13 +573,13 @@ void local_mapping::create_new_map_points()
             {
                 countStereoAttempt++;
                 bPointStereo = true;
-                goodProj     = current_key_frame->unproject_stereo(idx1, x3D);
+                goodProj     = current_key_frame->unproject_stereo(idx1, x3D, *_cameras[0]);
             }
             else if (bStereo2 && cosParallaxStereo2 < cosParallaxStereo1)
             {
                 countStereoAttempt++;
                 bPointStereo = true;
-                goodProj     = pKF2->unproject_stereo(idx2, x3D);
+                goodProj     = pKF2->unproject_stereo(idx2, x3D, *_cameras[0]);
             }
             else
             {
@@ -619,7 +617,7 @@ void local_mapping::create_new_map_points()
 
             if (!bStereo1)
             {
-                cv::Point2f uv1   = current_key_frame->cameras[camera_index1]->project(cv::Point3f(x1, y1, z1));
+                cv::Point2f uv1   = _cameras[camera_index1]->project(cv::Point3f(x1, y1, z1));
                 float       errX1 = uv1.x - kp1.pt_undistorted.x;
                 float       errY1 = uv1.y - kp1.pt_undistorted.y;
 
@@ -631,7 +629,7 @@ void local_mapping::create_new_map_points()
             else
             {
                 float u1      = fx1 * x1 * invz1 + cx1;
-                float u1_r    = u1 - current_key_frame->mbf * invz1;
+                float u1_r    = u1 - _cameras[0]->baseline_fx() * invz1;
                 float v1      = fy1 * y1 * invz1 + cy1;
                 float errX1   = u1 - kp1.pt_undistorted.x;
                 float errY1   = v1 - kp1.pt_undistorted.y;
@@ -649,7 +647,7 @@ void local_mapping::create_new_map_points()
             const float invz2        = 1.0 / z2;
             if (!bStereo2)
             {
-                cv::Point2f uv2   = pKF2->cameras[camera_index2]->project(cv::Point3f(x2, y2, z2));
+                cv::Point2f uv2   = _cameras[camera_index2]->project(cv::Point3f(x2, y2, z2));
                 float       errX2 = uv2.x - kp2.pt_undistorted.x;
                 float       errY2 = uv2.y - kp2.pt_undistorted.y;
                 if ((errX2 * errX2 + errY2 * errY2) > 5.991 * sigmaSquare2)
@@ -660,7 +658,7 @@ void local_mapping::create_new_map_points()
             else
             {
                 float u2      = fx2 * x2 * invz2 + cx2;
-                float u2_r    = u2 - current_key_frame->mbf * invz2;
+                float u2_r    = u2 - _cameras[0]->baseline_fx() * invz2;
                 float v2      = fy2 * y2 * invz2 + cy2;
                 float errX2   = u2 - kp2.pt_undistorted.x;
                 float errY2   = v2 - kp2.pt_undistorted.y;
@@ -711,7 +709,7 @@ void local_mapping::create_new_map_points()
 
             pMP->compute_distinctive_descriptors();
 
-            pMP->update_normal_and_depth();
+            pMP->update_normal_and_depth(*_cameras[0]);
 
             owner_atlas->add_map_point(pMP);
             recently_added_map_points.push_back(pMP);
@@ -785,10 +783,10 @@ void local_mapping::search_in_neighbors()
     {
         key_frame *pKFi = *vit;
 
-        matcher.fuse(pKFi, vpMapPointMatches);
-        if (is_fisheye_stereo(pKFi->cameras))
+        matcher.fuse(_cameras, pKFi, vpMapPointMatches);
+        if (pKFi->is_fisheye_stereo)
         {
-            matcher.fuse(pKFi, vpMapPointMatches, true);
+            matcher.fuse(_cameras, pKFi, vpMapPointMatches, true);
         }
     }
 
@@ -823,10 +821,10 @@ void local_mapping::search_in_neighbors()
         }
     }
 
-    matcher.fuse(current_key_frame, vpFuseCandidates);
-    if (is_fisheye_stereo(current_key_frame->cameras))
+    matcher.fuse(_cameras, current_key_frame, vpFuseCandidates);
+    if (current_key_frame->is_fisheye_stereo)
     {
-        matcher.fuse(current_key_frame, vpFuseCandidates, true);
+        matcher.fuse(_cameras, current_key_frame, vpFuseCandidates, true);
     }
 
     // Update points
@@ -839,7 +837,7 @@ void local_mapping::search_in_neighbors()
             if (!pMP->is_bad())
             {
                 pMP->compute_distinctive_descriptors();
-                pMP->update_normal_and_depth();
+                pMP->update_normal_and_depth(*_cameras[0]);
             }
         }
     }
@@ -993,7 +991,7 @@ void local_mapping::cull_key_frames()
                 {
                     if (!monocular)
                     {
-                        if (pKF->depths[i] > pKF->depth_threshold || pKF->depths[i] < 0)
+                        if (pKF->depths[i] > _cameras[0]->depth_threshold() || pKF->depths[i] < 0)
                         {
                             continue;
                         }
@@ -1002,7 +1000,7 @@ void local_mapping::cull_key_frames()
                     nMPs++;
                     if (pMP->get_observation_count() > thObs)
                     {
-                        const int                                   &scaleLevel   = (!is_fisheye_stereo(pKF->cameras))        ? pKF->keypoints[i].octave
+                        const int                                   &scaleLevel   = (!pKF->is_fisheye_stereo)                 ? pKF->keypoints[i].octave
                                                                                     : std::cmp_less(i, pKF->keypoints.size()) ? pKF->keypoints[i].octave
                                                                                                                               : pKF->right_keypoints[i - pKF->keypoints.size()].octave;
                         const std::map<key_frame *, tuple<int, int>> observations = pMP->get_observations();
@@ -1017,7 +1015,7 @@ void local_mapping::cull_key_frames()
                             tuple<int, int> indexes   = mit->second;
                             int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
                             int             scaleLeveli = -1;
-                            if (!is_fisheye_stereo(pKFi->cameras))
+                            if (!pKFi->is_fisheye_stereo)
                             {
                                 scaleLeveli = pKFi->keypoints[leftIndex].octave;
                             }
@@ -1329,7 +1327,8 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
 
     initialization_time = tracker->last_frame.timestamp - vpKF.front()->timestamp;
 
-    optimizer::inertial_optimization(owner_atlas->get_current_map(), imu_world_rotation, scale, gyro_bias, accelerometer_bias, monocular, inertial_information, false, false, priorG, priorA);
+    optimizer::inertial_optimization(
+        _cameras, owner_atlas->get_current_map(), imu_world_rotation, scale, gyro_bias, accelerometer_bias, monocular, inertial_information, false, false, priorG, priorA);
 
     if (scale < 1e-1)
     {
@@ -1344,7 +1343,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
         if ((fabs(scale - 1.f) > 0.00001) || !monocular)
         {
             Sophus::SE3f Twg(imu_world_rotation.cast<float>().transpose(), Eigen::Vector3f::Zero());
-            owner_atlas->get_current_map()->apply_scaled_rotation(Twg, scale, true);
+            owner_atlas->get_current_map()->apply_scaled_rotation(*_cameras[0], Twg, scale, true);
             tracker->update_frame_imu(scale, vpKF[0]->get_imu_bias(), current_key_frame);
         }
 
@@ -1371,11 +1370,11 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
     {
         if (priorA != 0.f)
         {
-            optimizer::full_inertial_ba(owner_atlas->get_current_map(), 100, false, current_key_frame->id, NULL, true, priorG, priorA);
+            optimizer::full_inertial_ba(_cameras, owner_atlas->get_current_map(), 100, false, current_key_frame->id, NULL, true, priorG, priorA);
         }
         else
         {
-            optimizer::full_inertial_ba(owner_atlas->get_current_map(), 100, false, current_key_frame->id, NULL, false);
+            optimizer::full_inertial_ba(_cameras, owner_atlas->get_current_map(), 100, false, current_key_frame->id, NULL, false);
         }
     }
 
@@ -1533,7 +1532,7 @@ void local_mapping::refine_scale()
     imu_world_rotation = Eigen::Matrix3d::Identity();
     scale              = 1.0;
 
-    optimizer::inertial_optimization(owner_atlas->get_current_map(), imu_world_rotation, scale);
+    optimizer::inertial_optimization(_cameras, owner_atlas->get_current_map(), imu_world_rotation, scale);
 
     if (scale < 1e-1) // 1e-1
     {
@@ -1548,7 +1547,7 @@ void local_mapping::refine_scale()
     if ((fabs(scale - 1.f) > 0.002) || !monocular)
     {
         Sophus::SE3f Tgw(imu_world_rotation.cast<float>().transpose(), Eigen::Vector3f::Zero());
-        owner_atlas->get_current_map()->apply_scaled_rotation(Tgw, scale, true);
+        owner_atlas->get_current_map()->apply_scaled_rotation(*_cameras[0], Tgw, scale, true);
         tracker->update_frame_imu(scale, current_key_frame->get_imu_bias(), current_key_frame);
     }
 

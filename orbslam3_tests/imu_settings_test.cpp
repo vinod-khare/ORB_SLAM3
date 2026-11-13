@@ -1,3 +1,4 @@
+#include "pinhole.h"
 #include "settings.h"
 #include "system.h"
 #include "tracking.h"
@@ -174,6 +175,31 @@ TEST_CASE("Settings attach distortion to the primary camera", "[camera_calibrati
     files.write();
     ORB_SLAM3::settings settings(files.path.string(), ORB_SLAM3::system::monocular);
     REQUIRE(settings.cameras()[0]->distortion_coefficients().at<float>(0) == Catch::Approx(-0.1f));
+}
+
+TEST_CASE("Settings supply metric close-depth thresholds through cameras", "[camera_calibration]")
+{
+    const auto   sensor = GENERATE(ORB_SLAM3::system::stereo, ORB_SLAM3::system::imu_stereo, ORB_SLAM3::system::rgbd, ORB_SLAM3::system::imu_rgbd);
+    imu_settings files;
+    auto         calibration         = YAML::LoadFile((files.directory / "calibration/camchain.yaml").string());
+    calibration["cam1"]              = YAML::Clone(calibration["cam0"]);
+    calibration["cam1"]["T_cn_cnm1"] = YAML::Load("[[1, 0, 0, -0.1], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]");
+    std::ofstream(files.directory / "calibration/camchain.yaml") << calibration;
+    files.config["Stereo.ThDepth"]      = 40.5;
+    files.config["Stereo.b"]            = 0.1;
+    files.config["RGBD.DepthMapFactor"] = 1.5;
+    files.write();
+    ORB_SLAM3::settings settings(files.path.string(), sensor);
+    const auto         &camera = *settings.cameras()[0];
+    REQUIRE(camera.depth_threshold() == Catch::Approx(4.05f));
+    const ORB_SLAM3::pinhole copied_camera(static_cast<ORB_SLAM3::pinhole *>(settings.cameras()[0].get()));
+    REQUIRE(copied_camera.depth_threshold() == Catch::Approx(4.05f));
+    ORB_SLAM3::atlas   atlas(0);
+    extraction_tracker tracker(nullptr, nullptr, &atlas, nullptr, sensor, &settings, settings.cameras());
+    tracker.gray_image  = cv::Mat(512, 512, CV_8U, cv::Scalar(0));
+    tracker.right_image = tracker.gray_image;
+    tracker.create_frame(1.0, tracker.extractor(false));
+    REQUIRE(tracker.current_frame.depth_threshold == Catch::Approx(camera.depth_threshold()));
 }
 
 TEST_CASE("System exposes effective feature names before processing frames", "[settings][features]")

@@ -49,7 +49,7 @@ class key_frame
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const camera_vector &cameras, const imu::calib &imu_calibration = {});
+    key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const imu::calib &imu_calibration = {});
 
     // Pose functions
     void set_pose(const Sophus::SE3f &Tcw);
@@ -75,29 +75,29 @@ class key_frame
     void add_connection(key_frame *pKF, const int &weight);
     void erase_connection(key_frame *pKF);
 
-    void                    update_connections(bool upParent = true);
-    void                    update_best_covisibles();
+    void                     update_connections(bool upParent = true);
+    void                     update_best_covisibles();
     std::set<key_frame *>    get_connected_key_frames();
     std::vector<key_frame *> get_vector_covisible_key_frames();
     std::vector<key_frame *> get_best_covisibility_key_frames(const int &number_of_key_frames);
     std::vector<key_frame *> get_covisibles_by_weight(const int &w);
-    int                     get_weight(key_frame *pKF);
+    int                      get_weight(key_frame *pKF);
 
     // Spanning tree functions
-    void                 add_child(key_frame *pKF);
-    void                 erase_child(key_frame *pKF);
-    void                 change_parent(key_frame *pKF);
+    void                  add_child(key_frame *pKF);
+    void                  erase_child(key_frame *pKF);
+    void                  change_parent(key_frame *pKF);
     std::set<key_frame *> get_children();
     key_frame            *get_parent();
-    bool                 has_child(key_frame *pKF);
-    void                 set_first_connection(bool bFirst);
+    bool                  has_child(key_frame *pKF);
+    void                  set_first_connection(bool bFirst);
 
     // Loop Edges
-    void                 add_loop_edge(key_frame *pKF);
+    void                  add_loop_edge(key_frame *pKF);
     std::set<key_frame *> get_loop_edges();
 
     // Merge Edges
-    void            add_merge_edge(key_frame *pKF);
+    void             add_merge_edge(key_frame *pKF);
     set<key_frame *> get_merge_edges();
 
     // map_point observation functions
@@ -113,7 +113,7 @@ class key_frame
 
     // KeyPoint functions
     std::vector<size_t> get_features_in_area(const float &x, const float &y, const float &r, const bool bRight = false) const;
-    bool                unproject_stereo(int i, Eigen::Vector3f &x3D);
+    bool                unproject_stereo(int i, Eigen::Vector3f &x3D, geometric_camera &camera);
 
     // Image
     bool is_in_image(const float &x, const float &y) const;
@@ -143,8 +143,8 @@ class key_frame
 
     imu::bias get_imu_bias();
 
-    bool project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v);
-    bool project_point_undistort(map_point *pMP, cv::Point2f &kp, float &u, float &v);
+    bool project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v, geometric_camera &camera);
+    bool project_point_undistort(map_point *pMP, cv::Point2f &kp, float &u, float &v, geometric_camera &camera);
 
     void set_key_frame_database(key_frame_database *pKFDB);
 
@@ -213,20 +213,17 @@ class key_frame
 
     float scale;
 
-    // Calibration parameters
-    const float fx, fy, cx, cy, invfx, invfy, mbf, mb, depth_threshold;
-    cv::Mat     distortion_coefficients;
-
     // Number of KeyPoints
-    const int feature_count;
+    const int  feature_count;
+    const bool is_fisheye_stereo;
 
     // KeyPoints, stereo coordinate and descriptors (all associated by an index)
     const std::vector<keypoint> keypoints;
     const std::vector<float>    right_coordinates; // negative value for monocular points
-    const std::vector<float>    depths;  // negative value for monocular points
+    const std::vector<float>    depths;            // negative value for monocular points
     const cv::Mat              &descriptor(std::size_t index) const
     {
-        return is_fisheye_stereo(cameras) && index >= keypoints.size() ? right_keypoints[index - keypoints.size()].descriptor : keypoints[index].descriptor;
+        return is_fisheye_stereo && index >= keypoints.size() ? right_keypoints[index - keypoints.size()].descriptor : keypoints[index].descriptor;
     }
 
     // BoW
@@ -280,10 +277,6 @@ class key_frame
     Eigen::Vector3f velocity_world;
     bool            has_velocity;
 
-    // Transformation matrix between cameras in stereo fisheye
-    Sophus::SE3<float> left_to_right_pose;
-    Sophus::SE3<float> right_to_left_pose;
-
     // Imu bias
     imu::bias imu_bias;
 
@@ -300,11 +293,11 @@ class key_frame
 
     std::map<key_frame *, int> connected_key_frame_weights;
     std::vector<key_frame *>   ordered_connected_key_frames;
-    std::vector<int>          ordered_weights;
+    std::vector<int>           ordered_weights;
     // For save relation without pointer, this is necessary for save/load function
 
     // Spanning Tree and Loop Edges
-    bool                 first_connection;
+    bool                  first_connection;
     key_frame            *parent_key_frame;
     std::set<key_frame *> child_key_frames;
     std::set<key_frame *> loop_edges;
@@ -316,12 +309,7 @@ class key_frame
     bool to_be_erased;
     bool bad;
 
-    float half_baseline; // Only for visualization
-
     map *owner_map;
-
-    // Calibration
-    Eigen::Matrix3f calibration_matrix;
 
     // Mutex
     std::mutex pose_mutex; // for pose, velocity and biases
@@ -330,30 +318,28 @@ class key_frame
     std::mutex map_mutex;
 
   public:
-    const camera_vector &cameras;
-
     // Indexes of stereo observations correspondences
     std::vector<int> left_to_right_matches, right_to_left_matches;
 
-    Sophus::SE3f get_relative_pose_trl();
-    Sophus::SE3f get_relative_pose_tlr();
+    Sophus::SE3f get_relative_pose_trl(const geometric_camera &camera);
+    Sophus::SE3f get_relative_pose_tlr(const geometric_camera &camera);
 
     // KeyPoints in the right image (for stereo fisheye, coordinates are needed)
     const std::vector<keypoint> right_keypoints;
 
     std::vector<std::vector<std::vector<size_t>>> right_grid;
 
-    Sophus::SE3<float> get_right_pose();
-    Sophus::SE3<float> get_right_pose_inverse();
+    Sophus::SE3<float> get_right_pose(const geometric_camera &camera);
+    Sophus::SE3<float> get_right_pose_inverse(const geometric_camera &camera);
 
-    Eigen::Vector3f            get_right_camera_center();
-    Eigen::Matrix<float, 3, 3> get_right_rotation();
-    Eigen::Vector3f            get_right_translation();
+    Eigen::Vector3f            get_right_camera_center(const geometric_camera &camera);
+    Eigen::Matrix<float, 3, 3> get_right_rotation(const geometric_camera &camera);
+    Eigen::Vector3f            get_right_translation(const geometric_camera &camera);
 
     void print_point_distribution()
     {
         int       left = 0, right = 0;
-        const int Nlim = is_fisheye_stereo(cameras) ? static_cast<int>(keypoints.size()) : feature_count;
+        const int Nlim = is_fisheye_stereo ? static_cast<int>(keypoints.size()) : feature_count;
         for (int i = 0; i < feature_count; i++)
         {
             if (map_points[i])

@@ -19,13 +19,13 @@
 #ifndef LOOP_CLOSING_H
 #define LOOP_CLOSING_H
 
-#include "tracking.h"
 #include "atlas.h"
 #include "key_frame.h"
 #include "key_frame_database.h"
 #include "local_mapping.h"
 #include "place_vocabulary.h"
 #include "processing_statistics.h"
+#include "tracking.h"
 
 #include <map>
 #include <mutex>
@@ -50,7 +50,7 @@ class loop_closing
     typedef std::map<key_frame *, g2o::Sim3, std::less<key_frame *>, Eigen::aligned_allocator<std::pair<key_frame *const, g2o::Sim3>>> key_frame_and_pose;
 
   public:
-    loop_closing(processing_statistics &statistics, atlas *pAtlas, key_frame_database *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
+    loop_closing(processing_statistics &statistics, camera_view cameras, atlas *pAtlas, key_frame_database *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC);
     ~loop_closing();
 
     void set_tracker(tracking *pTracker);
@@ -89,6 +89,7 @@ class loop_closing
 
   protected:
     processing_statistics &_statistics;
+    camera_view            _cameras;
 
     bool check_new_key_frames();
 

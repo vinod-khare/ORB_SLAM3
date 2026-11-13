@@ -81,7 +81,7 @@ void tracking::load_parameters(settings *settings)
 
     if (sensor == system::stereo || sensor == system::rgbd || sensor == system::imu_stereo || sensor == system::imu_rgbd)
     {
-        depth_threshold = settings->baseline() * settings->depth_threshold();
+        depth_threshold = cameras[0]->depth_threshold();
     }
 
     if (sensor == system::rgbd || sensor == system::imu_rgbd)
@@ -1135,7 +1135,7 @@ void tracking::stereo_initialization()
 
         // Create key_frame
         key_frame *pKFini =
-            new key_frame(current_frame, owner_atlas->get_current_map(), database, cameras, sensor == system::imu_stereo || sensor == system::imu_rgbd ? *imu_calibration : imu::calib{});
+            new key_frame(current_frame, owner_atlas->get_current_map(), database, sensor == system::imu_stereo || sensor == system::imu_rgbd ? *imu_calibration : imu::calib{});
 
         // Insert key_frame in the map
         owner_atlas->add_key_frame(pKFini);
@@ -1154,7 +1154,7 @@ void tracking::stereo_initialization()
                     pNewMP->add_observation(pKFini, i);
                     pKFini->add_map_point(pNewMP, i);
                     pNewMP->compute_distinctive_descriptors();
-                    pNewMP->update_normal_and_depth();
+                    pNewMP->update_normal_and_depth(*cameras[0]);
                     owner_atlas->add_map_point(pNewMP);
 
                     current_frame.map_points[i] = pNewMP;
@@ -1179,7 +1179,7 @@ void tracking::stereo_initialization()
                     pKFini->add_map_point(pNewMP, rightIndex + static_cast<int>(current_frame.keypoints.size()));
 
                     pNewMP->compute_distinctive_descriptors();
-                    pNewMP->update_normal_and_depth();
+                    pNewMP->update_normal_and_depth(*cameras[0]);
                     owner_atlas->add_map_point(pNewMP);
 
                     current_frame.map_points[i]                                                             = pNewMP;
@@ -1291,8 +1291,8 @@ void tracking::monocular_initialization()
 void tracking::create_initial_map_monocular()
 {
     // Create KeyFrames
-    key_frame *pKFini = new key_frame(initial_frame, owner_atlas->get_current_map(), database, cameras, sensor == system::imu_monocular ? *imu_calibration : imu::calib{});
-    key_frame *pKFcur = new key_frame(current_frame, owner_atlas->get_current_map(), database, cameras, sensor == system::imu_monocular ? *imu_calibration : imu::calib{});
+    key_frame *pKFini = new key_frame(initial_frame, owner_atlas->get_current_map(), database, sensor == system::imu_monocular ? *imu_calibration : imu::calib{});
+    key_frame *pKFcur = new key_frame(current_frame, owner_atlas->get_current_map(), database, sensor == system::imu_monocular ? *imu_calibration : imu::calib{});
 
     if (sensor == system::imu_monocular)
     {
@@ -1325,7 +1325,7 @@ void tracking::create_initial_map_monocular()
         pMP->add_observation(pKFcur, initial_matches[i]);
 
         pMP->compute_distinctive_descriptors();
-        pMP->update_normal_and_depth();
+        pMP->update_normal_and_depth(*cameras[0]);
 
         // Fill Current Frame structure
         current_frame.map_points[initial_matches[i]] = pMP;
@@ -1344,7 +1344,7 @@ void tracking::create_initial_map_monocular()
 
     // Bundle Adjustment
     spdlog::info("New Map created with {} points", owner_atlas->map_points_in_map());
-    optimizer::global_bundle_adjustment(owner_atlas->get_current_map(), 20);
+    optimizer::global_bundle_adjustment(cameras, owner_atlas->get_current_map(), 20);
 
     float medianDepth = pKFini->compute_scene_median_depth(2);
     float invMedianDepth;
@@ -1377,7 +1377,7 @@ void tracking::create_initial_map_monocular()
         {
             map_point *pMP = vpAllMapPoints[iMP];
             pMP->set_world_position(pMP->get_world_position() * invMedianDepth);
-            pMP->update_normal_and_depth();
+            pMP->update_normal_and_depth(*cameras[0]);
         }
     }
 
@@ -2377,7 +2377,6 @@ void tracking::create_new_key_frame()
     key_frame *pKF = new key_frame(current_frame,
                                    owner_atlas->get_current_map(),
                                    database,
-                                   cameras,
                                    sensor == system::imu_monocular || sensor == system::imu_stereo || sensor == system::imu_rgbd ? *imu_calibration : imu::calib{});
 
     if (owner_atlas->is_imu_initialized())
@@ -2478,7 +2477,7 @@ void tracking::create_new_key_frame()
 
                     pKF->add_map_point(pNewMP, i);
                     pNewMP->compute_distinctive_descriptors();
-                    pNewMP->update_normal_and_depth();
+                    pNewMP->update_normal_and_depth(*cameras[0]);
                     owner_atlas->add_map_point(pNewMP);
 
                     current_frame.map_points[i] = pNewMP;

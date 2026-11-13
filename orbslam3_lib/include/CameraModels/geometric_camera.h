@@ -39,7 +39,7 @@ class geometric_camera
     geometric_camera(const std::vector<float> &_vParameters) : parameters(_vParameters) {}
     geometric_camera(const geometric_camera &other)
         : parameters(other.parameters), id(other.id), type(other.type), _distortion_coefficients(other._distortion_coefficients.clone()), _baseline(other._baseline),
-          _left_to_right_pose(other._left_to_right_pose)
+          _depth_threshold(other._depth_threshold), _left_to_right_pose(other._left_to_right_pose)
     {
     }
     virtual ~geometric_camera() = default;
@@ -83,6 +83,10 @@ class geometric_camera
     float baseline_fx() { return _baseline * get_parameter(0); }
     void  set_baseline(float baseline) { _baseline = baseline; }
 
+    /** Metric cutoff for close stereo/RGB-D observations (baseline * Stereo.ThDepth). */
+    float depth_threshold() const { return _depth_threshold; }
+    void  set_depth_threshold(float threshold) { _depth_threshold = threshold; }
+
     /** Pose of the right camera in the left camera's coordinates. */
     const Sophus::SE3f &left_to_right_pose() const { return _left_to_right_pose; }
     void                set_left_to_right_pose(const Sophus::SE3f &pose) { _left_to_right_pose = pose; }
@@ -117,6 +121,7 @@ class geometric_camera
   private:
     cv::Mat      _distortion_coefficients = cv::Mat::zeros(4, 1, CV_32F);
     float        _baseline{0};
+    float        _depth_threshold{0};
     Sophus::SE3f _left_to_right_pose;
 };
 

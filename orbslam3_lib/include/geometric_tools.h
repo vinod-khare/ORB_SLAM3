@@ -42,13 +42,13 @@ class geometric_tools
     static bool solve_pnp_ransac(const std::vector<cv::Point3f> &world_points,
                                  const std::vector<cv::Point2f> &image_points,
                                  const std::vector<float>       &max_errors,
-                                 geometric_camera                &camera,
+                                 geometric_camera               &camera,
                                  int                             min_inliers,
                                  Eigen::Matrix4f                &camera_from_world,
                                  std::vector<bool>              &inliers);
 
     // Compute the Fundamental matrix between KF1 and KF2
-    static Eigen::Matrix3f compute_f12(key_frame *&key_frame1, key_frame *&key_frame2);
+    static Eigen::Matrix3f compute_f12(key_frame *&key_frame1, key_frame *&key_frame2, geometric_camera &camera1, geometric_camera &camera2);
 
     // Triangulate point with KF1 and KF2
     static bool

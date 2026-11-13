@@ -76,6 +76,8 @@ Detection, description, and matching are independently selectable. Descriptors a
 
 `Tracking` owns the extractors and supplies keypoints, descriptors, and scale metadata to `frame` for all sensor modes, including deferred optical-flow recovery. Frames retain neither camera models nor calibration: camera models and IMU calibration are passed to operations that need them. Stereo extraction runs concurrently, and its image pyramids are passed explicitly for stereo depth computation; frames retain no extractor references.
 
+Keyframes retain neither camera models nor camera calibration. Geometry operations receive cameras explicitly; keyframes retain only the stereo observation layout copied from their source frame. Tracking, mapping, and loop closing supply the shared camera models to matching and optimization. Intrinsics, distortion, stereo baseline/extrinsics, and the metric close-depth cutoff (`baseline * Stereo.ThDepth`) come from those models, which must outlive the processing workers and solvers that use them.
+
 Each `keypoint` stores original image coordinates in `pt` and geometry coordinates in `pt_undistorted`, without a separate undistorted keypoint vector in frames or keyframes. Rectified and native fisheye observations use the original coordinates for both fields. `GetTrackedKeyPointsUn()` continues to return undistorted coordinates in `pt`.
 
 ```yaml

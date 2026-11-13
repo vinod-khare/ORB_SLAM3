@@ -153,7 +153,7 @@ void map_point::add_observation(key_frame *pKF, int idx)
 
     if (!_has_color && idx >= 0 && static_cast<std::size_t>(idx) < static_cast<std::size_t>(pKF->feature_count))
     {
-        const bool  right = is_fisheye_stereo(pKF->cameras) && std::cmp_greater_equal(idx, pKF->keypoints.size());
+        const bool  right = pKF->is_fisheye_stereo && std::cmp_greater_equal(idx, pKF->keypoints.size());
         const auto &key   = right ? pKF->right_keypoints[idx - pKF->keypoints.size()] : pKF->keypoints[idx];
         _color            = key.color;
         _has_color        = key.has_color;
@@ -168,7 +168,7 @@ void map_point::add_observation(key_frame *pKF, int idx)
         indexes = tuple<int, int>(-1, -1);
     }
 
-    if (is_fisheye_stereo(pKF->cameras) && std::cmp_greater_equal(idx, pKF->keypoints.size()))
+    if (pKF->is_fisheye_stereo && std::cmp_greater_equal(idx, pKF->keypoints.size()))
     {
         get<1>(indexes) = idx;
     }
@@ -179,7 +179,7 @@ void map_point::add_observation(key_frame *pKF, int idx)
 
     observations_by_key_frame[pKF] = indexes;
 
-    if (!is_fisheye_stereo(pKF->cameras) && pKF->right_coordinates[idx] >= 0)
+    if (!pKF->is_fisheye_stereo && pKF->right_coordinates[idx] >= 0)
     {
         observation_count += 2;
     }
@@ -201,7 +201,7 @@ void map_point::erase_observation(key_frame *pKF)
 
             if (leftIndex != -1)
             {
-                if (!is_fisheye_stereo(pKF->cameras) && pKF->right_coordinates[leftIndex] >= 0)
+                if (!pKF->is_fisheye_stereo && pKF->right_coordinates[leftIndex] >= 0)
                 {
                     observation_count -= 2;
                 }
@@ -261,7 +261,7 @@ void map_point::set_bad_flag()
     for (std::map<key_frame *, tuple<int, int>>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
     {
         key_frame *pKF       = mit->first;
-        int       leftIndex = get<0>(mit->second), rightIndex = get<1>(mit->second);
+        int        leftIndex = get<0>(mit->second), rightIndex = get<1>(mit->second);
         if (leftIndex != -1)
         {
             pKF->erase_map_point_match(leftIndex);
@@ -289,7 +289,7 @@ void map_point::replace(map_point *pMP)
         return;
     }
 
-    int                                   nvisible, nfound;
+    int                                    nvisible, nfound;
     std::map<key_frame *, tuple<int, int>> obs;
     {
         unique_lock<mutex> lock1(features_mutex);
@@ -479,11 +479,11 @@ bool map_point::is_in_key_frame(key_frame *pKF)
     return (observations_by_key_frame.count(pKF));
 }
 
-void map_point::update_normal_and_depth()
+void map_point::update_normal_and_depth(const geometric_camera &camera)
 {
     std::map<key_frame *, tuple<int, int>> observations;
     key_frame                             *pRefKF;
-    Eigen::Vector3f                       Pos;
+    Eigen::Vector3f                        Pos;
     {
         unique_lock<mutex> lock1(features_mutex);
         unique_lock<mutex> lock2(position_mutex);
@@ -520,7 +520,7 @@ void map_point::update_normal_and_depth()
         }
         if (rightIndex != -1)
         {
-            Eigen::Vector3f Owi     = pKF->get_right_camera_center();
+            Eigen::Vector3f Owi     = pKF->get_right_camera_center(camera);
             Eigen::Vector3f normali = Pos - Owi;
             normal                  = normal + normali / normali.norm();
             n++;
@@ -533,7 +533,7 @@ void map_point::update_normal_and_depth()
     tuple<int, int> indexes   = observations[pRefKF];
     int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
     int             level;
-    if (!is_fisheye_stereo(pRefKF->cameras))
+    if (!pRefKF->is_fisheye_stereo)
     {
         level = pRefKF->keypoints[leftIndex].octave;
     }
@@ -622,7 +622,7 @@ void map_point::print_observations()
     spdlog::debug("Observations for map point {}", id);
     for (std::map<key_frame *, tuple<int, int>>::iterator mit = observations_by_key_frame.begin(), mend = observations_by_key_frame.end(); mit != mend; mit++)
     {
-        key_frame            *pKFi      = mit->first;
+        key_frame           *pKFi      = mit->first;
         tuple<int, int>      indexes   = mit->second;
         [[maybe_unused]] int leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
         spdlog::debug("Observed in keyframe {} in map {}", pKFi->id, pKFi->get_map()->get_id());

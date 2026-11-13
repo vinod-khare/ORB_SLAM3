@@ -34,8 +34,13 @@
 namespace ORB_SLAM3
 {
 
-sim3_solver::sim3_solver(key_frame *first_key_frame, key_frame *second_key_frame, const vector<map_point *> &matched_map_points, const bool fixed_scale, vector<key_frame *> matched_key_frames)
-    : iterations(0), best_inlier_count(0), fix_scale(fixed_scale), cameras(first_key_frame->cameras)
+sim3_solver::sim3_solver(geometric_camera          &camera,
+                         key_frame                 *first_key_frame,
+                         key_frame                 *second_key_frame,
+                         const vector<map_point *> &matched_map_points,
+                         const bool                 fixed_scale,
+                         vector<key_frame *>        matched_key_frames)
+    : iterations(0), best_inlier_count(0), fix_scale(fixed_scale), _camera(camera)
 {
     bool bDifferentKFs = false;
     if (matched_key_frames.empty())
@@ -122,8 +127,8 @@ sim3_solver::sim3_solver(key_frame *first_key_frame, key_frame *second_key_frame
         }
     }
 
-    from_camera_to_image(camera_points_1, points_1_image_1, *cameras[0]);
-    from_camera_to_image(camera_points_2, points_2_image_2, *cameras[0]);
+    from_camera_to_image(camera_points_1, points_1_image_1, _camera);
+    from_camera_to_image(camera_points_2, points_2_image_2, _camera);
 
     set_ransac_parameters();
 }
@@ -453,8 +458,8 @@ bool sim3_solver::compute_sim3(Eigen::Matrix3f &points_1, Eigen::Matrix3f &point
 void sim3_solver::check_inliers()
 {
     vector<Eigen::Vector2f> vP1im2, vP2im1;
-    project(camera_points_2, vP2im1, transformation_12, *cameras[0]);
-    project(camera_points_1, vP1im2, transformation_21, *cameras[0]);
+    project(camera_points_2, vP2im1, transformation_12, _camera);
+    project(camera_points_1, vP1im2, transformation_21, _camera);
 
     current_inlier_count = 0;
 

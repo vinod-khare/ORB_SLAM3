@@ -32,7 +32,7 @@ namespace ORB_SLAM3
 bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_points,
                                        const std::vector<cv::Point2f> &image_points,
                                        const std::vector<float>       &max_errors,
-                                       geometric_camera                &camera,
+                                       geometric_camera               &camera,
                                        int                             min_inliers,
                                        Eigen::Matrix4f                &camera_from_world,
                                        std::vector<bool>              &inliers)
@@ -246,7 +246,7 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
     }
 }
 
-Eigen::Matrix3f geometric_tools::compute_f12(key_frame *&key_frame1, key_frame *&key_frame2)
+Eigen::Matrix3f geometric_tools::compute_f12(key_frame *&key_frame1, key_frame *&key_frame2, geometric_camera &camera1, geometric_camera &camera2)
 {
     Sophus::SE3<float>                    camera1_from_world      = key_frame1->get_pose();
     Sophus::Matrix3<float>                rotation1_from_world    = camera1_from_world.rotationMatrix();
@@ -261,8 +261,8 @@ Eigen::Matrix3f geometric_tools::compute_f12(key_frame *&key_frame1, key_frame *
 
     Eigen::Matrix3f translation_skew = Sophus::SO3f::hat(translation1_from_camera2);
 
-    const Eigen::Matrix3f calibration1 = key_frame1->cameras[0]->to_k_eigen();
-    const Eigen::Matrix3f calibration2 = key_frame2->cameras[0]->to_k_eigen();
+    const Eigen::Matrix3f calibration1 = camera1.to_k_eigen();
+    const Eigen::Matrix3f calibration2 = camera2.to_k_eigen();
 
     return calibration1.transpose().inverse() * translation_skew * rotation1_from_camera2 * calibration2.inverse();
 }

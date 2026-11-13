@@ -478,15 +478,15 @@ int descriptor_matcher::search_by_vocabulary(key_frame *pKF, frame &F, vector<ma
                     {
                         vpMapPointMatches[bestIdxF] = pMP;
 
-                        const keypoint &kp = ((!is_fisheye_stereo(pKF->cameras))                           ? pKF->keypoints[realIdxKF]
+                        const keypoint &kp = ((!pKF->is_fisheye_stereo)                                    ? pKF->keypoints[realIdxKF]
                                               : (std::cmp_greater_equal(realIdxKF, pKF->keypoints.size())) ? pKF->right_keypoints[realIdxKF - pKF->keypoints.size()]
                                                                                                            : pKF->keypoints[realIdxKF]);
 
                         if (_check_orientation)
                         {
-                            const keypoint &Fkp = (!is_fisheye_stereo(pKF->cameras) || !F.is_fisheye_stereo) ? F.keypoints[bestIdxF]
-                                                  : std::cmp_greater_equal(bestIdxF, F.keypoints.size())     ? F.right_keypoints[bestIdxF - F.keypoints.size()]
-                                                                                                             : F.keypoints[bestIdxF];
+                            const keypoint &Fkp = (!pKF->is_fisheye_stereo || !F.is_fisheye_stereo)      ? F.keypoints[bestIdxF]
+                                                  : std::cmp_greater_equal(bestIdxF, F.keypoints.size()) ? F.right_keypoints[bestIdxF - F.keypoints.size()]
+                                                                                                         : F.keypoints[bestIdxF];
 
                             float rot = kp.tracking_angle - Fkp.tracking_angle;
                             if (rot < 0.0)
@@ -510,7 +510,7 @@ int descriptor_matcher::search_by_vocabulary(key_frame *pKF, frame &F, vector<ma
                         {
                             vpMapPointMatches[bestIdxFR] = pMP;
 
-                            const keypoint &kp = ((!is_fisheye_stereo(pKF->cameras))                           ? pKF->keypoints[realIdxKF]
+                            const keypoint &kp = ((!pKF->is_fisheye_stereo)                                    ? pKF->keypoints[realIdxKF]
                                                   : (std::cmp_greater_equal(realIdxKF, pKF->keypoints.size())) ? pKF->right_keypoints[realIdxKF - pKF->keypoints.size()]
                                                                                                                : pKF->keypoints[realIdxKF]);
 
@@ -577,14 +577,9 @@ int descriptor_matcher::search_by_vocabulary(key_frame *pKF, frame &F, vector<ma
     return nmatches;
 }
 
-int descriptor_matcher::search_by_projection(key_frame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, vector<map_point *> &vpMatched, int th, float distance_multiplier)
+int descriptor_matcher::search_by_projection(
+    camera_view cameras, key_frame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, vector<map_point *> &vpMatched, int th, float distance_multiplier)
 {
-    // Get Calibration Parameters for later projection
-    [[maybe_unused]] const float &fx = pKF->fx;
-    [[maybe_unused]] const float &fy = pKF->fy;
-    [[maybe_unused]] const float &cx = pKF->cx;
-    [[maybe_unused]] const float &cy = pKF->cy;
-
     Sophus::SE3f    Tcw = Sophus::SE3f(Scw.rotationMatrix(), Scw.translation() / Scw.scale());
     Eigen::Vector3f Ow  = Tcw.inverse().translation();
 
@@ -618,7 +613,7 @@ int descriptor_matcher::search_by_projection(key_frame *pKF, Sophus::Sim3f &Scw,
         }
 
         // Project into Image
-        const Eigen::Vector2f uv = pKF->cameras[0]->project(p3Dc);
+        const Eigen::Vector2f uv = cameras[0]->project(p3Dc);
 
         // Point must be inside the image
         if (!pKF->is_in_image(uv(0), uv(1)))
@@ -698,7 +693,8 @@ int descriptor_matcher::search_by_projection(key_frame *pKF, Sophus::Sim3f &Scw,
     return nmatches;
 }
 
-int descriptor_matcher::search_by_projection(key_frame                      *pKF,
+int descriptor_matcher::search_by_projection(camera_view                     cameras,
+                                             key_frame                      *pKF,
                                              Sophus::Sim3<float>            &Scw,
                                              const std::vector<map_point *> &vpPoints,
                                              const std::vector<key_frame *> &vpPointsKFs,
@@ -708,10 +704,10 @@ int descriptor_matcher::search_by_projection(key_frame                      *pKF
                                              float                           distance_multiplier)
 {
     // Get Calibration Parameters for later projection
-    const float &fx = pKF->fx;
-    const float &fy = pKF->fy;
-    const float &cx = pKF->cx;
-    const float &cy = pKF->cy;
+    const float fx = cameras[0]->get_parameter(0);
+    const float fy = cameras[0]->get_parameter(1);
+    const float cx = cameras[0]->get_parameter(2);
+    const float cy = cameras[0]->get_parameter(3);
 
     Sophus::SE3f    Tcw = Sophus::SE3f(Scw.rotationMatrix(), Scw.translation() / Scw.scale());
     Eigen::Vector3f Ow  = Tcw.inverse().translation();
@@ -1001,7 +997,7 @@ int descriptor_matcher::search_by_vocabulary(key_frame *pKF1, key_frame *pKF2, v
             for (size_t i1 = 0, iend1 = f1it->second.size(); i1 < iend1; i1++)
             {
                 const size_t idx1 = f1it->second[i1];
-                if (is_fisheye_stereo(pKF1->cameras) && idx1 >= pKF1->keypoints.size())
+                if (pKF1->is_fisheye_stereo && idx1 >= pKF1->keypoints.size())
                 {
                     continue;
                 }
@@ -1026,7 +1022,7 @@ int descriptor_matcher::search_by_vocabulary(key_frame *pKF1, key_frame *pKF2, v
                 for (const auto idx2 : ranked_indices)
                 {
 
-                    if (is_fisheye_stereo(pKF2->cameras) && idx2 >= pKF2->keypoints.size())
+                    if (pKF2->is_fisheye_stereo && idx2 >= pKF2->keypoints.size())
                     {
                         continue;
                     }
@@ -1124,7 +1120,7 @@ int descriptor_matcher::search_by_vocabulary(key_frame *pKF1, key_frame *pKF2, v
     return nmatches;
 }
 
-int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF2, vector<pair<size_t, size_t>> &vMatchedPairs, const bool bOnlyStereo, const bool bCoarse)
+int descriptor_matcher::search_for_triangulation(camera_view cameras, key_frame *pKF1, key_frame *pKF2, vector<pair<size_t, size_t>> &vMatchedPairs, const bool bOnlyStereo, const bool bCoarse)
 {
     const DBoW2::FeatureVector &vFeatVec1 = pKF1->feature_vector;
     const DBoW2::FeatureVector &vFeatVec2 = pKF2->feature_vector;
@@ -1136,7 +1132,7 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
     Eigen::Vector3f Cw  = pKF1->get_camera_center();
     Eigen::Vector3f C2  = T2w * Cw;
 
-    Eigen::Vector2f ep = pKF2->cameras[0]->project(C2);
+    Eigen::Vector2f ep = cameras[0]->project(C2);
     Sophus::SE3f    T12;
     Sophus::SE3f    Tll, Tlr, Trl, Trr;
     Eigen::Matrix3f R12; // for fastest computation
@@ -1145,7 +1141,7 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
     size_t camera_index1 = 0;
     size_t camera_index2 = 0;
 
-    if (!is_fisheye_stereo(pKF1->cameras) && !is_fisheye_stereo(pKF2->cameras))
+    if (!pKF1->is_fisheye_stereo && !pKF2->is_fisheye_stereo)
     {
         T12 = T1w * Tw2;
         R12 = T12.rotationMatrix();
@@ -1153,8 +1149,8 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
     }
     else
     {
-        Sophus::SE3f Tr1w = pKF1->get_right_pose();
-        Sophus::SE3f Twr2 = pKF2->get_right_pose_inverse();
+        Sophus::SE3f Tr1w = pKF1->get_right_pose(*cameras[0]);
+        Sophus::SE3f Twr2 = pKF2->get_right_pose_inverse(*cameras[0]);
         Tll               = T1w * Tw2;
         Tlr               = T1w * Twr2;
         Trl               = Tr1w * Tw2;
@@ -1200,7 +1196,7 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                     continue;
                 }
 
-                const bool bStereo1 = (!is_fisheye_stereo(pKF1->cameras) && pKF1->right_coordinates[idx1] >= 0);
+                const bool bStereo1 = (!pKF1->is_fisheye_stereo && pKF1->right_coordinates[idx1] >= 0);
 
                 if (bOnlyStereo)
                 {
@@ -1210,11 +1206,11 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                     }
                 }
 
-                const auto &kp1 = ((!is_fisheye_stereo(pKF1->cameras))             ? pKF1->keypoints[idx1]
+                const auto &kp1 = ((!pKF1->is_fisheye_stereo)                      ? pKF1->keypoints[idx1]
                                    : (std::cmp_less(idx1, pKF1->keypoints.size())) ? pKF1->keypoints[idx1]
                                                                                    : pKF1->right_keypoints[idx1 - pKF1->keypoints.size()]);
 
-                const bool bRight1 = is_fisheye_stereo(pKF1->cameras) && std::cmp_greater_equal(idx1, pKF1->keypoints.size());
+                const bool bRight1 = pKF1->is_fisheye_stereo && std::cmp_greater_equal(idx1, pKF1->keypoints.size());
 
                 const cv::Mat &d1 = pKF1->descriptor(idx1);
 
@@ -1233,7 +1229,7 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                         continue;
                     }
 
-                    const bool bStereo2 = (!is_fisheye_stereo(pKF2->cameras) && pKF2->right_coordinates[idx2] >= 0);
+                    const bool bStereo2 = (!pKF2->is_fisheye_stereo && pKF2->right_coordinates[idx2] >= 0);
 
                     if (bOnlyStereo)
                     {
@@ -1252,12 +1248,12 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                         continue;
                     }
 
-                    const auto &kp2     = ((!is_fisheye_stereo(pKF2->cameras))             ? pKF2->keypoints[idx2]
+                    const auto &kp2     = ((!pKF2->is_fisheye_stereo)                      ? pKF2->keypoints[idx2]
                                            : (std::cmp_less(idx2, pKF2->keypoints.size())) ? pKF2->keypoints[idx2]
                                                                                            : pKF2->right_keypoints[idx2 - pKF2->keypoints.size()]);
-                    const bool  bRight2 = is_fisheye_stereo(pKF2->cameras) && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
+                    const bool  bRight2 = pKF2->is_fisheye_stereo && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
 
-                    if (!bStereo1 && !bStereo2 && !is_fisheye_stereo(pKF1->cameras))
+                    if (!bStereo1 && !bStereo2 && !pKF1->is_fisheye_stereo)
                     {
                         const float distex = ep(0) - kp2.pt_undistorted.x;
                         const float distey = ep(1) - kp2.pt_undistorted.y;
@@ -1267,7 +1263,7 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                         }
                     }
 
-                    if (is_fisheye_stereo(pKF1->cameras) && is_fisheye_stereo(pKF2->cameras))
+                    if (pKF1->is_fisheye_stereo && pKF2->is_fisheye_stereo)
                     {
                         if (bRight1 && bRight2)
                         {
@@ -1311,13 +1307,13 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                     auto cv_kp2 = static_cast<cv::KeyPoint>(kp2);
                     cv_kp1.pt   = kp1.pt_undistorted;
                     cv_kp2.pt   = kp2.pt_undistorted;
-                    if (bCoarse || pKF1->cameras[camera_index1]->epipolar_constrain(*pKF2->cameras[camera_index2],
-                                                                                    cv_kp1,
-                                                                                    cv_kp2,
-                                                                                    R12,
-                                                                                    t12,
-                                                                                    pKF1->level_sigma_squared[kp1.octave],
-                                                                                    pKF2->level_sigma_squared[kp2.octave])) // MODIFICATION_2
+                    if (bCoarse || cameras[camera_index1]->epipolar_constrain(*cameras[camera_index2],
+                                                                              cv_kp1,
+                                                                              cv_kp2,
+                                                                              R12,
+                                                                              t12,
+                                                                              pKF1->level_sigma_squared[kp1.octave],
+                                                                              pKF2->level_sigma_squared[kp2.octave])) // MODIFICATION_2
                     {
                         bestIdx2 = idx2;
                         bestDist = dist;
@@ -1327,7 +1323,7 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                 if (bestIdx2 >= 0)
                 {
                     const keypoint &tracking_kp1 = bRight1 ? pKF1->right_keypoints[idx1 - pKF1->keypoints.size()] : pKF1->keypoints[idx1];
-                    const keypoint &kp2          = ((!is_fisheye_stereo(pKF2->cameras))               ? pKF2->keypoints[bestIdx2]
+                    const keypoint &kp2          = ((!pKF2->is_fisheye_stereo)                        ? pKF2->keypoints[bestIdx2]
                                                     : std::cmp_less(bestIdx2, pKF2->keypoints.size()) ? pKF2->keypoints[bestIdx2]
                                                                                                       : pKF2->right_keypoints[bestIdx2 - pKF2->keypoints.size()]);
                     vMatches12[idx1]             = bestIdx2;
@@ -1401,16 +1397,16 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
     return nmatches;
 }
 
-int descriptor_matcher::fuse(key_frame *pKF, const vector<map_point *> &vpMapPoints, const float th, const bool bRight)
+int descriptor_matcher::fuse(camera_view cameras, key_frame *pKF, const vector<map_point *> &vpMapPoints, const float th, const bool bRight)
 {
-    auto           &selected_camera = *pKF->cameras[bRight ? 1 : 0];
+    auto           &selected_camera = *cameras[bRight ? 1 : 0];
     Sophus::SE3f    Tcw;
     Eigen::Vector3f Ow;
 
     if (bRight)
     {
-        Tcw = pKF->get_right_pose();
-        Ow  = pKF->get_right_camera_center();
+        Tcw = pKF->get_right_pose(*cameras[0]);
+        Ow  = pKF->get_right_camera_center(*cameras[0]);
     }
     else
     {
@@ -1418,11 +1414,7 @@ int descriptor_matcher::fuse(key_frame *pKF, const vector<map_point *> &vpMapPoi
         Ow  = pKF->get_camera_center();
     }
 
-    [[maybe_unused]] const float &fx = pKF->fx;
-    [[maybe_unused]] const float &fy = pKF->fy;
-    [[maybe_unused]] const float &cx = pKF->cx;
-    [[maybe_unused]] const float &cy = pKF->cy;
-    const float                  &bf = pKF->mbf;
+    const float bf = cameras[0]->baseline_fx();
 
     int nFused = 0;
 
@@ -1517,7 +1509,7 @@ int descriptor_matcher::fuse(key_frame *pKF, const vector<map_point *> &vpMapPoi
         for (vector<size_t>::const_iterator vit = vIndices.begin(), vend = vIndices.end(); vit != vend; vit++)
         {
             size_t      idx = *vit;
-            const auto &kp  = ((!is_fisheye_stereo(pKF->cameras) || !bRight) ? pKF->keypoints[idx] : pKF->right_keypoints[idx]);
+            const auto &kp  = ((!pKF->is_fisheye_stereo || !bRight) ? pKF->keypoints[idx] : pKF->right_keypoints[idx]);
 
             const int &kpLevel = kp.octave;
 
@@ -1606,14 +1598,8 @@ int descriptor_matcher::fuse(key_frame *pKF, const vector<map_point *> &vpMapPoi
     return nFused;
 }
 
-int descriptor_matcher::fuse(key_frame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint)
+int descriptor_matcher::fuse(camera_view cameras, key_frame *pKF, Sophus::Sim3f &Scw, const vector<map_point *> &vpPoints, float th, vector<map_point *> &vpReplacePoint)
 {
-    // Get Calibration Parameters for later projection
-    [[maybe_unused]] const float &fx = pKF->fx;
-    [[maybe_unused]] const float &fy = pKF->fy;
-    [[maybe_unused]] const float &cx = pKF->cx;
-    [[maybe_unused]] const float &cy = pKF->cy;
-
     // Decompose Scw
     Sophus::SE3f    Tcw = Sophus::SE3f(Scw.rotationMatrix(), Scw.translation() / Scw.scale());
     Eigen::Vector3f Ow  = Tcw.inverse().translation();
@@ -1649,7 +1635,7 @@ int descriptor_matcher::fuse(key_frame *pKF, Sophus::Sim3f &Scw, const vector<ma
         }
 
         // Project into Image
-        const Eigen::Vector2f uv = pKF->cameras[0]->project(p3Dc);
+        const Eigen::Vector2f uv = cameras[0]->project(p3Dc);
 
         // Point must be inside the image
         if (!pKF->is_in_image(uv(0), uv(1)))
@@ -1739,12 +1725,12 @@ int descriptor_matcher::fuse(key_frame *pKF, Sophus::Sim3f &Scw, const vector<ma
     return nFused;
 }
 
-int descriptor_matcher::search_by_sim3(key_frame *pKF1, key_frame *pKF2, std::vector<map_point *> &vpMatches12, const Sophus::Sim3f &S12, const float th)
+int descriptor_matcher::search_by_sim3(camera_view cameras, key_frame *pKF1, key_frame *pKF2, std::vector<map_point *> &vpMatches12, const Sophus::Sim3f &S12, const float th)
 {
-    const float &fx = pKF1->fx;
-    const float &fy = pKF1->fy;
-    const float &cx = pKF1->cx;
-    const float &cy = pKF1->cy;
+    const float fx = cameras[0]->get_parameter(0);
+    const float fy = cameras[0]->get_parameter(1);
+    const float cx = cameras[0]->get_parameter(2);
+    const float cy = cameras[0]->get_parameter(3);
 
     // Camera 1 & 2 from world
     Sophus::SE3f T1w = pKF1->get_pose();
@@ -2343,7 +2329,7 @@ int descriptor_matcher::search_by_projection(
                         // Fisheye frames index right-camera keypoints after the left ones.
                         const auto angle_of = [](const std::vector<keypoint> &left, const std::vector<keypoint> &right, bool fisheye_stereo, size_t idx)
                         { return (!fisheye_stereo || idx < left.size()) ? left[idx].tracking_angle : right[idx - left.size()].tracking_angle; };
-                        float rot = angle_of(pKF->keypoints, pKF->right_keypoints, is_fisheye_stereo(pKF->cameras), i) -
+                        float rot = angle_of(pKF->keypoints, pKF->right_keypoints, pKF->is_fisheye_stereo, i) -
                                     angle_of(CurrentFrame.keypoints, CurrentFrame.right_keypoints, CurrentFrame.is_fisheye_stereo, bestIdx2);
                         if (rot < 0.0)
                         {

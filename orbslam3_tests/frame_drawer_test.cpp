@@ -137,7 +137,7 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
         const auto &position                                                      = frame.keypoints[index].pt;
         frame.color_image.at<cv::Vec3b>(cvRound(position.y), cvRound(position.x)) = index == 0 ? cv::Vec3b(0, 0, 255) : cv::Vec3b(255, 0, 0);
     }
-    ORB_SLAM3::key_frame keyframe(frame, &map, nullptr, cameras);
+    ORB_SLAM3::key_frame keyframe(frame, &map, nullptr);
     ORB_SLAM3::map_point red(Eigen::Vector3f(-0.2f, 0.f, 0.f), &keyframe, &map);
     ORB_SLAM3::map_point blue(Eigen::Vector3f(0.2f, 0.f, 0.f), &keyframe, &map);
     red.add_observation(&keyframe, 0);

@@ -19,8 +19,8 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
 
-#include "g2o_compat.h"
 #include "frame.h"
+#include "g2o_compat.h"
 #include "key_frame.h"
 #include "loop_closing.h"
 #include "map.h"
@@ -48,10 +48,16 @@ class loop_closing;
 class optimizer
 {
   public:
-    void static bundle_adjustment(
-        const std::vector<key_frame *> &vpKF, const std::vector<map_point *> &vpMP, int nIterations = 5, bool *pbStopFlag = NULL, const unsigned long nLoopKF = 0, const bool bRobust = true);
-    void static global_bundle_adjustment(map *pMap, int nIterations = 5, bool *pbStopFlag = NULL, const unsigned long nLoopKF = 0, const bool bRobust = true);
-    void static full_inertial_ba(map                *pMap,
+    void static bundle_adjustment(camera_view                     cameras,
+                                  const std::vector<key_frame *> &vpKF,
+                                  const std::vector<map_point *> &vpMP,
+                                  int                             nIterations = 5,
+                                  bool                           *pbStopFlag  = NULL,
+                                  const unsigned long             nLoopKF     = 0,
+                                  const bool                      bRobust     = true);
+    void static global_bundle_adjustment(camera_view cameras, map *pMap, int nIterations = 5, bool *pbStopFlag = NULL, const unsigned long nLoopKF = 0, const bool bRobust = true);
+    void static full_inertial_ba(camera_view         cameras,
+                                 map                *pMap,
                                  int                 its,
                                  const bool          bFixLocal  = false,
                                  const unsigned long nLoopKF    = 0,
@@ -62,25 +68,31 @@ class optimizer
                                  Eigen::VectorXd    *vSingVal   = NULL,
                                  bool               *bHess      = NULL);
 
-    void static local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges);
+    void static local_bundle_adjustment(camera_view cameras, key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges);
 
     int static pose_optimization(frame *pFrame, const camera_vector &cameras);
     int static pose_inertial_optimization_last_key_frame(frame *pFrame, const camera_vector &cameras, const imu::calib &imu_calibration, bool bRecInit = false);
     int static pose_inertial_optimization_last_frame(frame *pFrame, const camera_vector &cameras, const imu::calib &imu_calibration, bool bRecInit = false);
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
-    void static optimize_essential_graph(map                                           *pMap,
+    void static optimize_essential_graph(camera_view                                    cameras,
+                                         map                                           *pMap,
                                          key_frame                                     *pLoopKF,
                                          key_frame                                     *pCurKF,
                                          const loop_closing::key_frame_and_pose        &NonCorrectedSim3,
                                          const loop_closing::key_frame_and_pose        &CorrectedSim3,
                                          const std::map<key_frame *, set<key_frame *>> &LoopConnections,
                                          const bool                                    &bFixScale);
-    void static optimize_essential_graph(
-        key_frame *pCurKF, vector<key_frame *> &vpFixedKFs, vector<key_frame *> &vpFixedCorrectedKFs, vector<key_frame *> &vpNonFixedKFs, vector<map_point *> &vpNonCorrectedMPs);
+    void static optimize_essential_graph(camera_view          cameras,
+                                         key_frame           *pCurKF,
+                                         vector<key_frame *> &vpFixedKFs,
+                                         vector<key_frame *> &vpFixedCorrectedKFs,
+                                         vector<key_frame *> &vpNonFixedKFs,
+                                         vector<map_point *> &vpNonCorrectedMPs);
 
     // For inertial loopclosing
-    void static optimize_essential_graph_4dof(map                                           *pMap,
+    void static optimize_essential_graph_4dof(camera_view                                    cameras,
+                                              map                                           *pMap,
                                               key_frame                                     *pLoopKF,
                                               key_frame                                     *pCurKF,
                                               const loop_closing::key_frame_and_pose        &NonCorrectedSim3,
@@ -88,7 +100,8 @@ class optimizer
                                               const std::map<key_frame *, set<key_frame *>> &LoopConnections);
 
     // if bFixScale is true, optimize SE3 (stereo,rgbd), Sim3 otherwise (mono) (NEW)
-    static int optimize_sim3(key_frame                   *pKF1,
+    static int optimize_sim3(camera_view                  cameras,
+                             key_frame                   *pKF1,
                              key_frame                   *pKF2,
                              std::vector<map_point *>    &vpMatches1,
                              g2o::Sim3                   &g2oS12,
@@ -99,18 +112,20 @@ class optimizer
 
     // For inertial systems
 
-    void static local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges, bool bLarge = false, bool bRecInit = false);
-    void static merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, loop_closing::key_frame_and_pose &corrPoses);
+    void static local_inertial_ba(
+        camera_view cameras, key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges, bool bLarge = false, bool bRecInit = false);
+    void static merge_inertial_ba(camera_view cameras, key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, loop_closing::key_frame_and_pose &corrPoses);
 
     // Local BA in welding area when two maps are merged
-    void static local_bundle_adjustment(key_frame *pMainKF, vector<key_frame *> vpAdjustKF, vector<key_frame *> vpFixedKF, bool *pbStopFlag);
+    void static local_bundle_adjustment(camera_view cameras, key_frame *pMainKF, vector<key_frame *> vpAdjustKF, vector<key_frame *> vpFixedKF, bool *pbStopFlag);
 
     // Marginalize block element (start:end,start:end). Perform Schur complement.
     // Marginalized elements are filled with zeros.
     static Eigen::MatrixXd marginalize(const Eigen::MatrixXd &H, const int &start, const int &end);
 
     // Inertial pose-graph
-    void static inertial_optimization(map             *pMap,
+    void static inertial_optimization(camera_view      cameras,
+                                      map             *pMap,
                                       Eigen::Matrix3d &Rwg,
                                       double          &scale,
                                       Eigen::Vector3d &bg,
@@ -121,8 +136,8 @@ class optimizer
                                       bool             bGauss    = false,
                                       float            priorG    = 1e2,
                                       float            priorA    = 1e6);
-    void static inertial_optimization(map *pMap, Eigen::Vector3d &bg, Eigen::Vector3d &ba, float priorG = 1e2, float priorA = 1e6);
-    void static inertial_optimization(map *pMap, Eigen::Matrix3d &Rwg, double &scale);
+    void static inertial_optimization(camera_view cameras, map *pMap, Eigen::Vector3d &bg, Eigen::Vector3d &ba, float priorG = 1e2, float priorA = 1e6);
+    void static inertial_optimization(camera_view cameras, map *pMap, Eigen::Matrix3d &Rwg, double &scale);
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };

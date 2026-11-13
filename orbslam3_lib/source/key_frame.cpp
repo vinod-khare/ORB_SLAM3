@@ -46,39 +46,37 @@ std::vector<keypoint> keypoints_with_color(frame &frame, const std::vector<keypo
 
 long unsigned int key_frame::next_id = 0;
 
-key_frame::key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const camera_vector &cameras, const imu::calib &imu_calibration)
+key_frame::key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const imu::calib &imu_calibration)
     : has_imu(pMap->is_imu_initialized()), frame_id(F.id), timestamp(F.timestamp), grid_columns(FRAME_GRID_COLS), grid_rows(FRAME_GRID_ROWS),
       grid_element_width_inverse(F.grid_element_width_inverse), grid_element_height_inverse(F.grid_element_height_inverse), track_reference_for_frame(0), fuse_target_key_frame_id(0),
       local_ba_key_frame_id(0), fixed_ba_key_frame_id(0), number_of_optimizations(0), loop_query_id(0), loop_common_words(0), relocalization_query_id(0), relocalization_words(0),
       place_recognition_query_id(0), place_recognition_words(0), place_recognition_score(0), current_place_recognition(false), global_ba_key_frame_id(0), merge_corrected_key_frame_id(0),
-      local_ba_merge_key_frame_id(0), fx(cameras[0]->get_parameter(0)), fy(cameras[0]->get_parameter(1)), cx(cameras[0]->get_parameter(2)), cy(cameras[0]->get_parameter(3)), invfx(1.0f / fx),
-      invfy(1.0f / fy), mbf(cameras[0]->baseline_fx()), mb(cameras[0]->baseline()), depth_threshold(F.depth_threshold), distortion_coefficients(cameras[0]->distortion_coefficients().clone()),
-      feature_count(F.feature_count), keypoints(keypoints_with_color(F, F.keypoints, 0)), right_coordinates(F.right_coordinates), depths(F.depths), bow_vector(F.bow_vector),
-      feature_vector(F.feature_vector), scale_levels(F.scale_levels), scale_factor(F.scale_factor), log_scale_factor(F.log_scale_factor), scale_factors(F.scale_factors),
-      level_sigma_squared(F.level_sigma_squared), inverse_level_sigma_squared(F.inverse_level_sigma_squared), min_x(F.min_x), min_y(F.min_y), max_x(F.max_x), max_y(F.max_y),
-      previous_key_frame(nullptr), next_key_frame(nullptr), imu_preintegrated(F.imu_preintegrated), imu_calibration(imu_calibration), name_file(F.name_file), dataset(F.dataset),
-      has_velocity(false), left_to_right_pose(cameras[0]->left_to_right_pose()), right_to_left_pose(cameras[0]->left_to_right_pose().inverse()), map_points(F.map_points), database(pKFDB),
-      place_vocabulary_ptr(F.place_vocabulary_ptr), first_connection(true), parent_key_frame(nullptr), not_erasable(false), to_be_erased(false), bad(false),
-      half_baseline(cameras[0]->baseline() / 2), owner_map(pMap), calibration_matrix(cameras[0]->to_k_eigen()), cameras(cameras), left_to_right_matches(F.left_to_right_matches),
-      right_to_left_matches(F.right_to_left_matches), right_keypoints(keypoints_with_color(F, F.right_keypoints, static_cast<int>(F.keypoints.size())))
+      local_ba_merge_key_frame_id(0), feature_count(F.feature_count), is_fisheye_stereo(F.is_fisheye_stereo), keypoints(keypoints_with_color(F, F.keypoints, 0)),
+      right_coordinates(F.right_coordinates), depths(F.depths), bow_vector(F.bow_vector), feature_vector(F.feature_vector), scale_levels(F.scale_levels), scale_factor(F.scale_factor),
+      log_scale_factor(F.log_scale_factor), scale_factors(F.scale_factors), level_sigma_squared(F.level_sigma_squared), inverse_level_sigma_squared(F.inverse_level_sigma_squared),
+      min_x(F.min_x), min_y(F.min_y), max_x(F.max_x), max_y(F.max_y), previous_key_frame(nullptr), next_key_frame(nullptr), imu_preintegrated(F.imu_preintegrated),
+      imu_calibration(imu_calibration), name_file(F.name_file), dataset(F.dataset), has_velocity(false), map_points(F.map_points), database(pKFDB),
+      place_vocabulary_ptr(F.place_vocabulary_ptr), first_connection(true), parent_key_frame(nullptr), not_erasable(false), to_be_erased(false), bad(false), owner_map(pMap),
+      left_to_right_matches(F.left_to_right_matches), right_to_left_matches(F.right_to_left_matches),
+      right_keypoints(keypoints_with_color(F, F.right_keypoints, static_cast<int>(F.keypoints.size())))
 {
     id = next_id++;
     grid.resize(grid_columns);
-    if (is_fisheye_stereo(cameras))
+    if (is_fisheye_stereo)
     {
         right_grid.resize(grid_columns);
     }
     for (int i = 0; i < grid_columns; i++)
     {
         grid[i].resize(grid_rows);
-        if (is_fisheye_stereo(cameras))
+        if (is_fisheye_stereo)
         {
             right_grid[i].resize(grid_rows);
         }
         for (int j = 0; j < grid_rows; j++)
         {
             grid[i][j] = F.grid[i][j];
-            if (is_fisheye_stereo(cameras))
+            if (is_fisheye_stereo)
             {
                 right_grid[i][j] = F.right_grid[i][j];
             }
@@ -92,8 +90,8 @@ key_frame::key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const camer
     }
     else
     {
-        velocity_world           = F.get_velocity();
-        has_velocity = true;
+        velocity_world = F.get_velocity();
+        has_velocity   = true;
     }
 
     imu_bias = F.imu_bias;
@@ -119,10 +117,10 @@ void key_frame::set_pose(const Sophus::SE3f &Tcw)
 {
     unique_lock<mutex> lock(pose_mutex);
 
-    camera_pose = Tcw;
+    camera_pose     = Tcw;
     camera_rotation = camera_pose.rotationMatrix();
-    world_pose = camera_pose.inverse();
-    world_rotation = world_pose.rotationMatrix();
+    world_pose      = camera_pose.inverse();
+    world_rotation  = world_pose.rotationMatrix();
 
     if (imu_calibration.is_set) // TODO Use a flag instead of the OpenCV matrix
     {
@@ -133,8 +131,8 @@ void key_frame::set_pose(const Sophus::SE3f &Tcw)
 void key_frame::set_velocity(const Eigen::Vector3f &Vw)
 {
     unique_lock<mutex> lock(pose_mutex);
-    velocity_world           = Vw;
-    has_velocity = true;
+    velocity_world = Vw;
+    has_velocity   = true;
 }
 
 Sophus::SE3f key_frame::get_pose()
@@ -220,7 +218,7 @@ void key_frame::add_connection(key_frame *pKF, const int &weight)
 
 void key_frame::update_best_covisibles()
 {
-    unique_lock<mutex>            lock(connections_mutex);
+    unique_lock<mutex>             lock(connections_mutex);
     vector<pair<int, key_frame *>> vPairs;
     vPairs.reserve(connected_key_frame_weights.size());
     for (std::map<key_frame *, int>::iterator mit = connected_key_frame_weights.begin(), mend = connected_key_frame_weights.end(); mit != mend; mit++)
@@ -230,7 +228,7 @@ void key_frame::update_best_covisibles()
 
     sort(vPairs.begin(), vPairs.end());
     list<key_frame *> lKFs;
-    list<int>        lWs;
+    list<int>         lWs;
     for (size_t i = 0, iend = vPairs.size(); i < iend; i++)
     {
         if (!vPairs[i].second->is_bad())
@@ -241,13 +239,13 @@ void key_frame::update_best_covisibles()
     }
 
     ordered_connected_key_frames = vector<key_frame *>(lKFs.begin(), lKFs.end());
-    ordered_weights             = vector<int>(lWs.begin(), lWs.end());
+    ordered_weights              = vector<int>(lWs.begin(), lWs.end());
 }
 
 set<key_frame *> key_frame::get_connected_key_frames()
 {
     unique_lock<mutex> lock(connections_mutex);
-    set<key_frame *>    s;
+    set<key_frame *>   s;
     for (std::map<key_frame *, int>::iterator mit = connected_key_frame_weights.begin(); mit != connected_key_frame_weights.end(); mit++)
     {
         s.insert(mit->first);
@@ -462,9 +460,9 @@ void key_frame::update_connections(bool upParent)
 
     // If the counter is greater than threshold add connection
     // In case no keyframe counter is over threshold add the one with maximum counter
-    int       nmax   = 0;
+    int        nmax   = 0;
     key_frame *pKFmax = NULL;
-    int       th     = 15;
+    int        th     = 15;
 
     vector<pair<int, key_frame *>> vPairs;
     vPairs.reserve(KFcounter.size());
@@ -500,7 +498,7 @@ void key_frame::update_connections(bool upParent)
 
     sort(vPairs.begin(), vPairs.end());
     list<key_frame *> lKFs;
-    list<int>        lWs;
+    list<int>         lWs;
     for (size_t i = 0; i < vPairs.size(); i++)
     {
         lKFs.push_front(vPairs[i].second);
@@ -510,9 +508,9 @@ void key_frame::update_connections(bool upParent)
     {
         unique_lock<mutex> lockCon(connections_mutex);
 
-        connected_key_frame_weights    = KFcounter;
+        connected_key_frame_weights  = KFcounter;
         ordered_connected_key_frames = vector<key_frame *>(lKFs.begin(), lKFs.end());
-        ordered_weights             = vector<int>(lWs.begin(), lWs.end());
+        ordered_weights              = vector<int>(lWs.begin(), lWs.end());
 
         if (first_connection && id != owner_map->get_initial_key_frame_id())
         {
@@ -668,7 +666,7 @@ void key_frame::set_bad_flag()
         {
             bool bContinue = false;
 
-            int       max = -1;
+            int        max = -1;
             key_frame *pC  = nullptr;
             key_frame *pP  = nullptr;
 
@@ -797,7 +795,7 @@ vector<size_t> key_frame::get_features_in_area(const float &x, const float &y, c
             const vector<size_t> vCell = (!bRight) ? grid[ix][iy] : right_grid[ix][iy];
             for (size_t j = 0, jend = vCell.size(); j < jend; j++)
             {
-                const auto &kpUn  = (!is_fisheye_stereo(cameras) || !bRight) ? keypoints[vCell[j]] : right_keypoints[vCell[j]];
+                const auto &kpUn  = (!is_fisheye_stereo || !bRight) ? keypoints[vCell[j]] : right_keypoints[vCell[j]];
                 const float distx = kpUn.pt_undistorted.x - x;
                 const float disty = kpUn.pt_undistorted.y - y;
 
@@ -814,15 +812,15 @@ vector<size_t> key_frame::get_features_in_area(const float &x, const float &y, c
 
 bool key_frame::is_in_image(const float &x, const float &y) const { return (x >= min_x && x < max_x && y >= min_y && y < max_y); }
 
-bool key_frame::unproject_stereo(int i, Eigen::Vector3f &x3D)
+bool key_frame::unproject_stereo(int i, Eigen::Vector3f &x3D, geometric_camera &camera)
 {
     const float z = depths[i];
     if (z > 0)
     {
         const float     u = keypoints[i].pt.x;
         const float     v = keypoints[i].pt.y;
-        const float     x = (u - cx) * z * invfx;
-        const float     y = (v - cy) * z * invfy;
+        const float     x = (u - camera.get_parameter(2)) * z / camera.get_parameter(0);
+        const float     y = (v - camera.get_parameter(3)) * z / camera.get_parameter(1);
         Eigen::Vector3f x3Dc(x, y, z);
 
         unique_lock<mutex> lock(pose_mutex);
@@ -913,8 +911,13 @@ void key_frame::update_map(map *pMap)
     owner_map = pMap;
 }
 
-bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v)
+bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v, geometric_camera &camera)
 {
+    const float fx                      = camera.get_parameter(0);
+    const float fy                      = camera.get_parameter(1);
+    const float cx                      = camera.get_parameter(2);
+    const float cy                      = camera.get_parameter(3);
+    const auto &distortion_coefficients = camera.distortion_coefficients();
 
     // 3D in absolute coordinates
     Eigen::Vector3f P = pMP->get_world_position();
@@ -946,8 +949,8 @@ bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u,
         return false;
     }
 
-    float x  = (u - cx) * invfx;
-    float y  = (v - cy) * invfy;
+    float x  = (u - cx) / fx;
+    float y  = (v - cy) / fy;
     float r2 = x * x + y * y;
     float k1 = distortion_coefficients.at<float>(0);
     float k2 = distortion_coefficients.at<float>(1);
@@ -978,8 +981,12 @@ bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u,
     return true;
 }
 
-bool key_frame::project_point_undistort(map_point *pMP, cv::Point2f &kp, float &u, float &v)
+bool key_frame::project_point_undistort(map_point *pMP, cv::Point2f &kp, float &u, float &v, geometric_camera &camera)
 {
+    const float fx = camera.get_parameter(0);
+    const float fy = camera.get_parameter(1);
+    const float cx = camera.get_parameter(2);
+    const float cy = camera.get_parameter(3);
 
     // 3D in absolute coordinates
     Eigen::Vector3f P = pMP->get_world_position();
@@ -1016,50 +1023,50 @@ bool key_frame::project_point_undistort(map_point *pMP, cv::Point2f &kp, float &
     return true;
 }
 
-Sophus::SE3f key_frame::get_relative_pose_trl()
+Sophus::SE3f key_frame::get_relative_pose_trl(const geometric_camera &camera)
 {
     unique_lock<mutex> lock(pose_mutex);
-    return right_to_left_pose;
+    return camera.left_to_right_pose().inverse();
 }
 
-Sophus::SE3f key_frame::get_relative_pose_tlr()
+Sophus::SE3f key_frame::get_relative_pose_tlr(const geometric_camera &camera)
 {
     unique_lock<mutex> lock(pose_mutex);
-    return left_to_right_pose;
+    return camera.left_to_right_pose();
 }
 
-Sophus::SE3<float> key_frame::get_right_pose()
+Sophus::SE3<float> key_frame::get_right_pose(const geometric_camera &camera)
 {
     unique_lock<mutex> lock(pose_mutex);
 
-    return right_to_left_pose * camera_pose;
+    return camera.left_to_right_pose().inverse() * camera_pose;
 }
 
-Sophus::SE3<float> key_frame::get_right_pose_inverse()
+Sophus::SE3<float> key_frame::get_right_pose_inverse(const geometric_camera &camera)
 {
     unique_lock<mutex> lock(pose_mutex);
 
-    return world_pose * left_to_right_pose;
+    return world_pose * camera.left_to_right_pose();
 }
 
-Eigen::Vector3f key_frame::get_right_camera_center()
+Eigen::Vector3f key_frame::get_right_camera_center(const geometric_camera &camera)
 {
     unique_lock<mutex> lock(pose_mutex);
 
-    return (world_pose * left_to_right_pose).translation();
+    return (world_pose * camera.left_to_right_pose()).translation();
 }
 
-Eigen::Matrix<float, 3, 3> key_frame::get_right_rotation()
+Eigen::Matrix<float, 3, 3> key_frame::get_right_rotation(const geometric_camera &camera)
 {
     unique_lock<mutex> lock(pose_mutex);
 
-    return (right_to_left_pose.so3() * camera_pose.so3()).matrix();
+    return (camera.left_to_right_pose().inverse().so3() * camera_pose.so3()).matrix();
 }
 
-Eigen::Vector3f key_frame::get_right_translation()
+Eigen::Vector3f key_frame::get_right_translation(const geometric_camera &camera)
 {
     unique_lock<mutex> lock(pose_mutex);
-    return (right_to_left_pose * camera_pose).translation();
+    return (camera.left_to_right_pose().inverse() * camera_pose).translation();
 }
 
 void key_frame::set_key_frame_database(key_frame_database *pKFDB) { database = pKFDB; }

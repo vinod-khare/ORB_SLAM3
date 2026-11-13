@@ -221,7 +221,7 @@ void map::set_bad() { bad = true; }
 
 bool map::is_bad() { return bad; }
 
-void map::apply_scaled_rotation(const Sophus::SE3f &T, const float s, const bool bScaledVel)
+void map::apply_scaled_rotation(const geometric_camera &camera, const Sophus::SE3f &T, const float s, const bool bScaledVel)
 {
     unique_lock<mutex> lock(map_mutex);
 
@@ -232,7 +232,7 @@ void map::apply_scaled_rotation(const Sophus::SE3f &T, const float s, const bool
 
     for (set<key_frame *>::iterator sit = key_frames.begin(); sit != key_frames.end(); sit++)
     {
-        key_frame    *pKF   = *sit;
+        key_frame   *pKF   = *sit;
         Sophus::SE3f Twc   = pKF->get_pose_inverse();
         Twc.translation() *= s;
         Sophus::SE3f Tyc   = Tyw * Twc;
@@ -252,7 +252,7 @@ void map::apply_scaled_rotation(const Sophus::SE3f &T, const float s, const bool
     {
         map_point *pMP = *sit;
         pMP->set_world_position(s * Ryw * pMP->get_world_position() + tyw);
-        pMP->update_normal_and_depth();
+        pMP->update_normal_and_depth(camera);
     }
     map_change_index++;
 }

@@ -19,13 +19,13 @@
 #ifndef LOCAL_MAPPING_H
 #define LOCAL_MAPPING_H
 
-#include "loop_closing.h"
-#include "tracking.h"
 #include "atlas.h"
 #include "key_frame.h"
 #include "key_frame_database.h"
+#include "loop_closing.h"
 #include "processing_statistics.h"
 #include "settings.h"
+#include "tracking.h"
 
 #include <mutex>
 
@@ -40,7 +40,7 @@ class local_mapping
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    local_mapping(processing_statistics &statistics, system *pSys, atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName = std::string());
+    local_mapping(processing_statistics &statistics, camera_view cameras, system *pSys, atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName = std::string());
 
     void set_loop_closer(loop_closing *pLoopCloser);
 
@@ -112,6 +112,7 @@ class local_mapping
 
   protected:
     processing_statistics &_statistics;
+    camera_view            _cameras;
 
     bool check_new_key_frames();
     void process_new_key_frame();
@@ -141,7 +142,7 @@ class local_mapping
     atlas *owner_atlas;
 
     loop_closing *loop_closer;
-    tracking    *tracker;
+    tracking     *tracker;
 
     std::list<key_frame *> new_key_frames;
 

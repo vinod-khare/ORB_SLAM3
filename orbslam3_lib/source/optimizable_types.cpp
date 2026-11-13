@@ -217,7 +217,7 @@ void edge_se3_project_xyz_to_body::linearizeOplus()
     _jacobianOplusXj = -camera.project_jacobian(X_r) * right_from_left.rotation().toRotationMatrix() * SE3deriv;
 }
 
-vertex_sim3_expmap::vertex_sim3_expmap(const camera_vector &cameras) : BaseVertex<7, g2o::Sim3>(), cameras(cameras)
+vertex_sim3_expmap::vertex_sim3_expmap(camera_view cameras) : BaseVertex<7, g2o::Sim3>(), cameras(cameras)
 {
     _marginalized = false;
     _fix_scale    = false;

@@ -18,10 +18,10 @@
 
 #include "loop_closing.h"
 
-#include "g2o_types.h"
-#include "optimizer.h"
 #include "converter.h"
 #include "descriptor_matcher.h"
+#include "g2o_types.h"
+#include "optimizer.h"
 #include "sim3_solver.h"
 
 #include <mutex>
@@ -34,8 +34,8 @@
 namespace ORB_SLAM3
 {
 
-loop_closing::loop_closing(processing_statistics &statistics, atlas *pAtlas, key_frame_database *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC)
-    : _statistics(statistics), reset_requested(false), active_map_reset_requested(false), finish_requested(false), finished(true), owner_atlas(pAtlas), database(pDB),
+loop_closing::loop_closing(processing_statistics &statistics, camera_view cameras, atlas *pAtlas, key_frame_database *pDB, place_vocabulary *pVoc, const bool bFixScale, const bool bActiveLC)
+    : _statistics(statistics), _cameras(cameras), reset_requested(false), active_map_reset_requested(false), finish_requested(false), finished(true), owner_atlas(pAtlas), database(pDB),
       place_vocabulary_ptr(pVoc), matched_key_frame(NULL), loop_detected(false), loop_coincidence_count(0), loop_not_found_count(0), merge_detected(false), merge_coincidence_count(0),
       merge_not_found_count(0), last_loop_key_frame_id(0), global_bundle_adjustment_running(false), global_bundle_adjustment_finished(true), global_bundle_adjustment_stop_requested(false),
       fix_scale(bFixScale), full_bundle_adjustment_index(0), loop_closing_active(bActiveLC)
@@ -459,7 +459,7 @@ bool loop_closing::detect_and_refine_sim3_from_last_key_frame(
         {
             bFixedScale = false;
         }
-        int numOptMatches = optimizer::optimize_sim3(current_key_frame, pMatchedKF, vpMatchedMPs, gScm, 10, bFixedScale, mHessian7x7, true);
+        int numOptMatches = optimizer::optimize_sim3(_cameras, current_key_frame, pMatchedKF, vpMatchedMPs, gScm, 10, bFixedScale, mHessian7x7, true);
 
         if (numOptMatches > nProjOptMatches)
         {
@@ -606,7 +606,7 @@ bool loop_closing::detect_common_regions_from_bow(std::vector<key_frame *> &vpBo
                 bFixedScale = false;
             }
 
-            sim3_solver solver = sim3_solver(current_key_frame, pMostBoWMatchesKF, vpMatchedPoints, bFixedScale, vpKeyFrameMatchedMP);
+            sim3_solver solver = sim3_solver(*_cameras[0], current_key_frame, pMostBoWMatchesKF, vpMatchedPoints, bFixedScale, vpKeyFrameMatchedMP);
             solver.set_ransac_parameters(0.99, nBoWInliers, 300); // at least 15 inliers
 
             bool            bNoMore = false;
@@ -658,7 +658,7 @@ bool loop_closing::detect_common_regions_from_bow(std::vector<key_frame *> &vpBo
                 vpMatchedMP.resize(current_key_frame->get_map_point_matches().size(), static_cast<map_point *>(NULL));
                 vector<key_frame *> vpMatchedKF;
                 vpMatchedKF.resize(current_key_frame->get_map_point_matches().size(), static_cast<key_frame *>(NULL));
-                int numProjMatches = matcher.search_by_projection(current_key_frame, mScw, vpMapPoints, vpKeyFrames, vpMatchedMP, vpMatchedKF, 8, 1.5);
+                int numProjMatches = matcher.search_by_projection(_cameras, current_key_frame, mScw, vpMapPoints, vpKeyFrames, vpMatchedMP, vpMatchedKF, 8, 1.5);
 
                 if (numProjMatches >= nProjMatches)
                 {
@@ -671,7 +671,7 @@ bool loop_closing::detect_common_regions_from_bow(std::vector<key_frame *> &vpBo
                         bFixedScale = false;
                     }
 
-                    int numOptMatches = optimizer::optimize_sim3(current_key_frame, pKFi, vpMatchedMP, gScm, 10, fix_scale, mHessian7x7, true);
+                    int numOptMatches = optimizer::optimize_sim3(_cameras, current_key_frame, pKFi, vpMatchedMP, gScm, 10, fix_scale, mHessian7x7, true);
 
                     if (numOptMatches >= nSim3Inliers)
                     {
@@ -681,7 +681,7 @@ bool loop_closing::detect_common_regions_from_bow(std::vector<key_frame *> &vpBo
 
                         vector<map_point *> vpMatchedMP;
                         vpMatchedMP.resize(current_key_frame->get_map_point_matches().size(), static_cast<map_point *>(NULL));
-                        int numProjOptMatches = matcher.search_by_projection(current_key_frame, mScw, vpMapPoints, vpMatchedMP, 5, 1.0);
+                        int numProjOptMatches = matcher.search_by_projection(_cameras, current_key_frame, mScw, vpMapPoints, vpMatchedMP, 5, 1.0);
 
                         if (numProjOptMatches >= nProjOptMatches)
                         {
@@ -865,7 +865,7 @@ int loop_closing::find_matches_by_projection(
     descriptor_matcher matcher(0.9, true);
 
     vpMatchedMapPoints.resize(pCurrentKF->get_map_point_matches().size(), static_cast<map_point *>(NULL));
-    int num_matches = matcher.search_by_projection(pCurrentKF, mScw, vpMapPoints, vpMatchedMapPoints, 3, 1.5);
+    int num_matches = matcher.search_by_projection(_cameras, pCurrentKF, mScw, vpMapPoints, vpMatchedMapPoints, 3, 1.5);
 
     return num_matches;
 }
@@ -974,7 +974,7 @@ void loop_closing::correct_loop()
                 pMPi->set_world_position(eigCorrectedP3Dw.cast<float>());
                 pMPi->corrected_by_key_frame_id        = current_key_frame->id;
                 pMPi->corrected_reference_key_frame_id = pKFi->id;
-                pMPi->update_normal_and_depth();
+                pMPi->update_normal_and_depth(*_cameras[0]);
             }
 
             // Correct velocity according to orientation correction
@@ -1048,11 +1048,11 @@ void loop_closing::correct_loop()
 
     if (pLoopMap->is_inertial() && pLoopMap->is_imu_initialized())
     {
-        optimizer::optimize_essential_graph_4dof(pLoopMap, loop_matched_key_frame, current_key_frame, NonCorrectedSim3, CorrectedSim3, LoopConnections);
+        optimizer::optimize_essential_graph_4dof(_cameras, pLoopMap, loop_matched_key_frame, current_key_frame, NonCorrectedSim3, CorrectedSim3, LoopConnections);
     }
     else
     {
-        optimizer::optimize_essential_graph(pLoopMap, loop_matched_key_frame, current_key_frame, NonCorrectedSim3, CorrectedSim3, LoopConnections, bFixedScale);
+        optimizer::optimize_essential_graph(_cameras, pLoopMap, loop_matched_key_frame, current_key_frame, NonCorrectedSim3, CorrectedSim3, LoopConnections, bFixedScale);
     }
 
     owner_atlas->inform_new_big_change();
@@ -1439,11 +1439,11 @@ void loop_closing::merge_local()
     std::copy(spMergeConnectedKFs.begin(), spMergeConnectedKFs.end(), std::back_inserter(vpMergeConnectedKFs));
     if (tracker->sensor == system::imu_monocular || tracker->sensor == system::imu_stereo || tracker->sensor == system::imu_rgbd)
     {
-        optimizer::merge_inertial_ba(current_key_frame, merge_matched_key_frame, &bStop, pCurrentMap, vCorrectedSim3);
+        optimizer::merge_inertial_ba(_cameras, current_key_frame, merge_matched_key_frame, &bStop, pCurrentMap, vCorrectedSim3);
     }
     else
     {
-        optimizer::local_bundle_adjustment(current_key_frame, vpLocalCurrentWindowKFs, vpMergeConnectedKFs, &bStop);
+        optimizer::local_bundle_adjustment(_cameras, current_key_frame, vpLocalCurrentWindowKFs, vpMergeConnectedKFs, &bStop);
     }
 
     // Loop closed. Release Local Mapping.
@@ -1515,7 +1515,7 @@ void loop_closing::merge_local()
                 Eigen::Vector3d eigCorrectedP3Dw = g2oCorrectedSwi.map(g2oNonCorrectedSiw.map(P3Dw));
                 pMPi->set_world_position(eigCorrectedP3Dw.cast<float>());
 
-                pMPi->update_normal_and_depth();
+                pMPi->update_normal_and_depth(*_cameras[0]);
             }
         }
 
@@ -1529,7 +1529,7 @@ void loop_closing::merge_local()
         // Optimize graph (and update the loop position for each element form the begining to the end)
         if (tracker->sensor != system::monocular)
         {
-            optimizer::optimize_essential_graph(current_key_frame, vpMergeConnectedKFs, vpLocalCurrentWindowKFs, vpCurrentMapKFs, vpCurrentMapMPs);
+            optimizer::optimize_essential_graph(_cameras, current_key_frame, vpMergeConnectedKFs, vpLocalCurrentWindowKFs, vpCurrentMapKFs, vpCurrentMapMPs);
         }
 
         {
@@ -1631,7 +1631,7 @@ void loop_closing::merge_local_2()
         {
             bScaleVel = true;
         }
-        owner_atlas->get_current_map()->apply_scaled_rotation(T_on, s_on, bScaleVel);
+        owner_atlas->get_current_map()->apply_scaled_rotation(*_cameras[0], T_on, s_on, bScaleVel);
         tracker->update_frame_imu(s_on, current_key_frame->get_imu_bias(), tracker->get_last_key_frame());
     }
 
@@ -1643,7 +1643,7 @@ void loop_closing::merge_local_2()
         Eigen::Vector3d bg, ba;
         bg << 0., 0., 0.;
         ba << 0., 0., 0.;
-        optimizer::inertial_optimization(pCurrentMap, bg, ba);
+        optimizer::inertial_optimization(_cameras, pCurrentMap, bg, ba);
         imu::bias          b(ba[0], ba[1], ba[2], bg[0], bg[1], bg[2]);
         unique_lock<mutex> lock(owner_atlas->get_current_map()->map_update_mutex);
         tracker->update_frame_imu(1.0f, b, tracker->get_last_key_frame());
@@ -1778,7 +1778,7 @@ void loop_closing::merge_local_2()
     // Perform BA
     bool       bStopFlag = false;
     key_frame *pCurrKF   = tracker->get_last_key_frame();
-    optimizer::merge_inertial_ba(pCurrKF, merge_matched_key_frame, &bStopFlag, pCurrentMap, CorrectedSim3);
+    optimizer::merge_inertial_ba(_cameras, pCurrKF, merge_matched_key_frame, &bStopFlag, pCurrentMap, CorrectedSim3);
 
     // Release Local Mapping.
     local_mapper->release();
@@ -1850,7 +1850,7 @@ void loop_closing::search_and_fuse(const key_frame_and_pose &CorrectedPosesMap, 
         Sophus::Sim3f Scw    = converter::to_sophus(g2oScw);
 
         vector<map_point *>  vpReplacePoints(vpMapPoints.size(), static_cast<map_point *>(NULL));
-        [[maybe_unused]] int numFused = matcher.fuse(pKFi, Scw, vpMapPoints, 4, vpReplacePoints);
+        [[maybe_unused]] int numFused = matcher.fuse(_cameras, pKFi, Scw, vpMapPoints, 4, vpReplacePoints);
 
         // Get Map Mutex
         unique_lock<mutex> lock(pMap->map_update_mutex);
@@ -1885,7 +1885,7 @@ void loop_closing::search_and_fuse(const vector<key_frame *> &vConectedKFs, vect
         Sophus::Sim3f Scw(Tcw.unit_quaternion(), Tcw.translation());
         Scw.setScale(1.f);
         vector<map_point *> vpReplacePoints(vpMapPoints.size(), static_cast<map_point *>(NULL));
-        matcher.fuse(pKF, Scw, vpMapPoints, 4, vpReplacePoints);
+        matcher.fuse(_cameras, pKF, Scw, vpMapPoints, 4, vpReplacePoints);
 
         // Get Map Mutex
         unique_lock<mutex> lock(pMap->map_update_mutex);
@@ -1984,11 +1984,11 @@ void loop_closing::run_global_bundle_adjustment(map *pActiveMap, unsigned long n
 
     if (!bImuInit)
     {
-        optimizer::global_bundle_adjustment(pActiveMap, 10, &global_bundle_adjustment_stop_requested, nLoopKF, false);
+        optimizer::global_bundle_adjustment(_cameras, pActiveMap, 10, &global_bundle_adjustment_stop_requested, nLoopKF, false);
     }
     else
     {
-        optimizer::full_inertial_ba(pActiveMap, 7, false, nLoopKF, &global_bundle_adjustment_stop_requested);
+        optimizer::full_inertial_ba(_cameras, pActiveMap, 7, false, nLoopKF, &global_bundle_adjustment_stop_requested);
     }
 
     int idx = full_bundle_adjustment_index;

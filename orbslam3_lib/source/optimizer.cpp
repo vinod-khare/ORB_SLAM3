@@ -51,14 +51,15 @@ template <typename AlgorithmType> AlgorithmType *MakeOptimizationAlgorithm(g2o::
 
 bool sortByVal(const pair<map_point *, int> &a, const pair<map_point *, int> &b) { return (a.second < b.second); }
 
-void optimizer::global_bundle_adjustment(map *pMap, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
+void optimizer::global_bundle_adjustment(camera_view cameras, map *pMap, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
 {
     vector<key_frame *> vpKFs = pMap->get_all_key_frames();
     vector<map_point *> vpMP  = pMap->get_all_map_points();
-    bundle_adjustment(vpKFs, vpMP, nIterations, pbStopFlag, nLoopKF, bRobust);
+    bundle_adjustment(cameras, vpKFs, vpMP, nIterations, pbStopFlag, nLoopKF, bRobust);
 }
 
-void optimizer::bundle_adjustment(const vector<key_frame *> &vpKFs, const vector<map_point *> &vpMP, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
+void optimizer::bundle_adjustment(
+    camera_view cameras, const vector<key_frame *> &vpKFs, const vector<map_point *> &vpMP, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
 {
     vector<bool> vbNotIncludedMP;
     vbNotIncludedMP.resize(vpMP.size());
@@ -177,7 +178,7 @@ void optimizer::bundle_adjustment(const vector<key_frame *> &vpKFs, const vector
                 Eigen::Matrix<double, 2, 1> obs;
                 obs << kpUn.pt_undistorted.x, kpUn.pt_undistorted.y;
 
-                ORB_SLAM3::edge_se3_project_xyz *e = new ORB_SLAM3::edge_se3_project_xyz(*pKF->cameras[0]);
+                ORB_SLAM3::edge_se3_project_xyz *e = new ORB_SLAM3::edge_se3_project_xyz(*cameras[0]);
 
                 e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(id)));
                 e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKF->id)));
@@ -222,11 +223,11 @@ void optimizer::bundle_adjustment(const vector<key_frame *> &vpKFs, const vector
                     rk->setDelta(thHuber3D);
                 }
 
-                e->fx = pKF->fx;
-                e->fy = pKF->fy;
-                e->cx = pKF->cx;
-                e->cy = pKF->cy;
-                e->bf = pKF->mbf;
+                e->fx = cameras[0]->get_parameter(0);
+                e->fy = cameras[0]->get_parameter(1);
+                e->cx = cameras[0]->get_parameter(2);
+                e->cy = cameras[0]->get_parameter(3);
+                e->bf = cameras[0]->baseline_fx();
 
                 optimizer.addEdge(e);
 
@@ -235,7 +236,7 @@ void optimizer::bundle_adjustment(const vector<key_frame *> &vpKFs, const vector
                 vpMapPointEdgeStereo.push_back(pMP);
             }
 
-            if (is_fisheye_stereo(pKF->cameras))
+            if (pKF->is_fisheye_stereo)
             {
                 int rightIndex = get<1>(mit->second);
 
@@ -247,7 +248,7 @@ void optimizer::bundle_adjustment(const vector<key_frame *> &vpKFs, const vector
                     cv::KeyPoint                kp = pKF->right_keypoints[rightIndex];
                     obs << kp.pt.x, kp.pt.y;
 
-                    ORB_SLAM3::edge_se3_project_xyz_to_body *e = new ORB_SLAM3::edge_se3_project_xyz_to_body(*pKF->cameras[1]);
+                    ORB_SLAM3::edge_se3_project_xyz_to_body *e = new ORB_SLAM3::edge_se3_project_xyz_to_body(*cameras[1]);
 
                     e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(id)));
                     e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKF->id)));
@@ -259,7 +260,7 @@ void optimizer::bundle_adjustment(const vector<key_frame *> &vpKFs, const vector
                     e->setRobustKernel(rk);
                     rk->setDelta(thHuber2D);
 
-                    Sophus::SE3f Trl   = pKF->get_relative_pose_trl();
+                    Sophus::SE3f Trl   = pKF->get_relative_pose_trl(*cameras[0]);
                     e->right_from_left = g2o::SE3Quat(Trl.unit_quaternion().cast<double>(), Trl.translation().cast<double>());
 
                     optimizer.addEdge(e);
@@ -394,7 +395,7 @@ void optimizer::bundle_adjustment(const vector<key_frame *> &vpKFs, const vector
         if (nLoopKF == pMap->get_origin_key_frame()->id)
         {
             pMP->set_world_position(vPoint->estimate().cast<float>());
-            pMP->update_normal_and_depth();
+            pMP->update_normal_and_depth(*cameras[0]);
         }
         else
         {
@@ -404,8 +405,17 @@ void optimizer::bundle_adjustment(const vector<key_frame *> &vpKFs, const vector
     }
 }
 
-void optimizer::full_inertial_ba(
-    map *pMap, int its, const bool bFixLocal, const long unsigned int nLoopId, bool *pbStopFlag, bool bInit, float priorG, float priorA, Eigen::VectorXd *vSingVal, bool *bHess)
+void optimizer::full_inertial_ba(camera_view             cameras,
+                                 map                    *pMap,
+                                 int                     its,
+                                 const bool              bFixLocal,
+                                 const long unsigned int nLoopId,
+                                 bool                   *pbStopFlag,
+                                 bool                    bInit,
+                                 float                   priorG,
+                                 float                   priorA,
+                                 Eigen::VectorXd        *vSingVal,
+                                 bool                   *bHess)
 {
     long unsigned int         maxKFid = pMap->get_max_key_frame_id();
     const vector<key_frame *> vpKFs   = pMap->get_all_key_frames();
@@ -440,7 +450,7 @@ void optimizer::full_inertial_ba(
         {
             continue;
         }
-        vertex_pose *VP = new vertex_pose(pKFi);
+        vertex_pose *VP = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         pIncKF      = pKFi;
         bool bFixed = false;
@@ -719,7 +729,7 @@ void optimizer::full_inertial_ba(
                     optimizer.addEdge(e);
                 }
 
-                if (is_fisheye_stereo(pKFi->cameras))
+                if (pKFi->is_fisheye_stereo)
                 { // Monocular right observation
                     int rightIndex = get<1>(mit->second);
 
@@ -849,7 +859,7 @@ void optimizer::full_inertial_ba(
         if (nLoopId == 0)
         {
             pMP->set_world_position(vPoint->estimate().cast<float>());
-            pMP->update_normal_and_depth();
+            pMP->update_normal_and_depth(*cameras[0]);
         }
         else
         {
@@ -1171,7 +1181,7 @@ int optimizer::pose_optimization(frame *pFrame, const camera_vector &cameras)
     return nInitialCorrespondences - nBad;
 }
 
-void optimizer::local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges)
+void optimizer::local_bundle_adjustment(camera_view cameras, key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges)
 {
     // Local KeyFrames: First Breath Search from Current Keyframe
     list<key_frame *> lLocalKeyFrames;
@@ -1388,7 +1398,7 @@ void optimizer::local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *p
                     Eigen::Matrix<double, 2, 1> obs;
                     obs << kpUn.pt_undistorted.x, kpUn.pt_undistorted.y;
 
-                    ORB_SLAM3::edge_se3_project_xyz *e = new ORB_SLAM3::edge_se3_project_xyz(*pKFi->cameras[0]);
+                    ORB_SLAM3::edge_se3_project_xyz *e = new ORB_SLAM3::edge_se3_project_xyz(*cameras[0]);
 
                     e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(id)));
                     e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKFi->id)));
@@ -1427,11 +1437,11 @@ void optimizer::local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *p
                     e->setRobustKernel(rk);
                     rk->setDelta(thHuberStereo);
 
-                    e->fx = pKFi->fx;
-                    e->fy = pKFi->fy;
-                    e->cx = pKFi->cx;
-                    e->cy = pKFi->cy;
-                    e->bf = pKFi->mbf;
+                    e->fx = cameras[0]->get_parameter(0);
+                    e->fy = cameras[0]->get_parameter(1);
+                    e->cx = cameras[0]->get_parameter(2);
+                    e->cy = cameras[0]->get_parameter(3);
+                    e->bf = cameras[0]->baseline_fx();
 
                     optimizer.addEdge(e);
                     vpEdgesStereo.push_back(e);
@@ -1441,7 +1451,7 @@ void optimizer::local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *p
                     nEdges++;
                 }
 
-                if (is_fisheye_stereo(pKFi->cameras))
+                if (pKFi->is_fisheye_stereo)
                 {
                     int rightIndex = get<1>(mit->second);
 
@@ -1453,7 +1463,7 @@ void optimizer::local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *p
                         cv::KeyPoint                kp = pKFi->right_keypoints[rightIndex];
                         obs << kp.pt.x, kp.pt.y;
 
-                        ORB_SLAM3::edge_se3_project_xyz_to_body *e = new ORB_SLAM3::edge_se3_project_xyz_to_body(*pKFi->cameras[1]);
+                        ORB_SLAM3::edge_se3_project_xyz_to_body *e = new ORB_SLAM3::edge_se3_project_xyz_to_body(*cameras[1]);
 
                         e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(id)));
                         e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKFi->id)));
@@ -1465,7 +1475,7 @@ void optimizer::local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *p
                         e->setRobustKernel(rk);
                         rk->setDelta(thHuberMono);
 
-                        Sophus::SE3f Trl   = pKFi->get_relative_pose_trl();
+                        Sophus::SE3f Trl   = pKFi->get_relative_pose_trl(*cameras[0]);
                         e->right_from_left = g2o::SE3Quat(Trl.unit_quaternion().cast<double>(), Trl.translation().cast<double>());
 
                         optimizer.addEdge(e);
@@ -1578,13 +1588,14 @@ void optimizer::local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *p
         map_point              *pMP    = *lit;
         g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->id + maxKFid + 1));
         pMP->set_world_position(vPoint->estimate().cast<float>());
-        pMP->update_normal_and_depth();
+        pMP->update_normal_and_depth(*cameras[0]);
     }
 
     pMap->increase_change_index();
 }
 
-void optimizer::optimize_essential_graph(map                                           *pMap,
+void optimizer::optimize_essential_graph(camera_view                                    cameras,
+                                         map                                           *pMap,
                                          key_frame                                     *pLoopKF,
                                          key_frame                                     *pCurKF,
                                          const loop_closing::key_frame_and_pose        &NonCorrectedSim3,
@@ -1890,15 +1901,19 @@ void optimizer::optimize_essential_graph(map                                    
         Eigen::Matrix<double, 3, 1> eigCorrectedP3Dw = correctedSwr.map(Srw.map(eigP3Dw));
         pMP->set_world_position(eigCorrectedP3Dw.cast<float>());
 
-        pMP->update_normal_and_depth();
+        pMP->update_normal_and_depth(*cameras[0]);
     }
 
     // TODO Check this changeindex
     pMap->increase_change_index();
 }
 
-void optimizer::optimize_essential_graph(
-    key_frame *pCurKF, vector<key_frame *> &vpFixedKFs, vector<key_frame *> &vpFixedCorrectedKFs, vector<key_frame *> &vpNonFixedKFs, vector<map_point *> &vpNonCorrectedMPs)
+void optimizer::optimize_essential_graph(camera_view          cameras,
+                                         key_frame           *pCurKF,
+                                         vector<key_frame *> &vpFixedKFs,
+                                         vector<key_frame *> &vpFixedCorrectedKFs,
+                                         vector<key_frame *> &vpNonFixedKFs,
+                                         vector<map_point *> &vpNonCorrectedMPs)
 {
     spdlog::trace("Opt_Essential: There are {} KFs fixed in the merged map", vpFixedKFs.size());
     spdlog::trace("Opt_Essential: There are " + to_string(vpFixedCorrectedKFs.size()) + " KFs fixed in the old map");
@@ -2230,7 +2245,7 @@ void optimizer::optimize_essential_graph(
             Eigen::Vector3f eigCorrectedP3Dw = Twr * TNonCorrectedwr.inverse() * pMPi->get_world_position();
             pMPi->set_world_position(eigCorrectedP3Dw);
 
-            pMPi->update_normal_and_depth();
+            pMPi->update_normal_and_depth(*cameras[0]);
         }
         else
         {
@@ -2239,7 +2254,8 @@ void optimizer::optimize_essential_graph(
     }
 }
 
-int optimizer::optimize_sim3(key_frame                   *pKF1,
+int optimizer::optimize_sim3(camera_view                  cameras,
+                             key_frame                   *pKF1,
                              key_frame                   *pKF2,
                              vector<map_point *>         &vpMatches1,
                              g2o::Sim3                   &g2oS12,
@@ -2265,7 +2281,7 @@ int optimizer::optimize_sim3(key_frame                   *pKF1,
     const Eigen::Vector3f t2w = pKF2->get_translation();
 
     // Set Sim3 vertex
-    ORB_SLAM3::vertex_sim3_expmap *vSim3 = new ORB_SLAM3::vertex_sim3_expmap(pKF1->cameras);
+    ORB_SLAM3::vertex_sim3_expmap *vSim3 = new ORB_SLAM3::vertex_sim3_expmap(cameras);
     vSim3->_fix_scale                    = bFixScale;
     vSim3->setEstimate(g2oS12);
     vSim3->setId(0);
@@ -2524,7 +2540,7 @@ int optimizer::optimize_sim3(key_frame                   *pKF1,
     return nIn;
 }
 
-void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges, bool bLarge, bool bRecInit)
+void optimizer::local_inertial_ba(camera_view cameras, key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges, bool bLarge, bool bRecInit)
 {
     map *pCurrentMap = pKF->get_map();
 
@@ -2689,7 +2705,7 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
     {
         key_frame *pKFi = vpOptimizableKFs[i];
 
-        vertex_pose *VP = new vertex_pose(pKFi);
+        vertex_pose *VP = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         VP->setFixed(false);
         optimizer.addVertex(VP);
@@ -2715,7 +2731,7 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
     for (list<key_frame *>::iterator it = lpOptVisKFs.begin(), itEnd = lpOptVisKFs.end(); it != itEnd; it++)
     {
         key_frame   *pKFi = *it;
-        vertex_pose *VP   = new vertex_pose(pKFi);
+        vertex_pose *VP   = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         VP->setFixed(false);
         optimizer.addVertex(VP);
@@ -2725,7 +2741,7 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
     for (list<key_frame *>::iterator lit = lFixedKeyFrames.begin(), lend = lFixedKeyFrames.end(); lit != lend; lit++)
     {
         key_frame   *pKFi = *lit;
-        vertex_pose *VP   = new vertex_pose(pKFi);
+        vertex_pose *VP   = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         VP->setFixed(true);
         optimizer.addVertex(VP);
@@ -2911,7 +2927,7 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
                     e->setMeasurement(obs);
 
                     // Add here uncerteinty
-                    const float unc2 = pKFi->cameras[0]->uncertainty2(obs);
+                    const float unc2 = cameras[0]->uncertainty2(obs);
 
                     const float &invSigma2 = pKFi->inverse_level_sigma_squared[left_octave] / unc2;
                     e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
@@ -2943,7 +2959,7 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
                     e->setMeasurement(obs);
 
                     // Add here uncerteinty
-                    const float unc2 = pKFi->cameras[0]->uncertainty2(obs.head(2));
+                    const float unc2 = cameras[0]->uncertainty2(obs.head(2));
 
                     const float &invSigma2 = pKFi->inverse_level_sigma_squared[left_octave] / unc2;
                     e->setInformation(Eigen::Matrix3d::Identity() * invSigma2);
@@ -2959,7 +2975,7 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
                 }
 
                 // Monocular right observation
-                if (is_fisheye_stereo(pKFi->cameras))
+                if (pKFi->is_fisheye_stereo)
                 {
                     int rightIndex = get<1>(mit->second);
 
@@ -2979,7 +2995,7 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
                         e->setMeasurement(obs);
 
                         // Add here uncerteinty
-                        const float unc2 = pKFi->cameras[0]->uncertainty2(obs);
+                        const float unc2 = cameras[0]->uncertainty2(obs);
 
                         const float &invSigma2 = pKFi->inverse_level_sigma_squared[left_octave] / unc2;
                         e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
@@ -3120,7 +3136,7 @@ void optimizer::local_inertial_ba(key_frame *pKF, bool *pbStopFlag, map *pMap, i
         map_point              *pMP    = *lit;
         g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->id + iniMPid + 1));
         pMP->set_world_position(vPoint->estimate().cast<float>());
-        pMP->update_normal_and_depth();
+        pMP->update_normal_and_depth(*cameras[0]);
     }
 
     pMap->increase_change_index();
@@ -3213,8 +3229,18 @@ Eigen::MatrixXd optimizer::marginalize(const Eigen::MatrixXd &H, const int &star
     return res;
 }
 
-void optimizer::inertial_optimization(
-    map *pMap, Eigen::Matrix3d &Rwg, double &scale, Eigen::Vector3d &bg, Eigen::Vector3d &ba, bool bMono, Eigen::MatrixXd &covInertial, bool bFixedVel, bool bGauss, float priorG, float priorA)
+void optimizer::inertial_optimization(camera_view      cameras,
+                                      map             *pMap,
+                                      Eigen::Matrix3d &Rwg,
+                                      double          &scale,
+                                      Eigen::Vector3d &bg,
+                                      Eigen::Vector3d &ba,
+                                      bool             bMono,
+                                      Eigen::MatrixXd &covInertial,
+                                      bool             bFixedVel,
+                                      bool             bGauss,
+                                      float            priorG,
+                                      float            priorA)
 {
     spdlog::trace("inertial optimization");
     int                       its     = 200;
@@ -3246,7 +3272,7 @@ void optimizer::inertial_optimization(
         {
             continue;
         }
-        vertex_pose *VP = new vertex_pose(pKFi);
+        vertex_pose *VP = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         VP->setFixed(true);
         optimizer.addVertex(VP);
@@ -3419,7 +3445,7 @@ void optimizer::inertial_optimization(
     }
 }
 
-void optimizer::inertial_optimization(map *pMap, Eigen::Vector3d &bg, Eigen::Vector3d &ba, float priorG, float priorA)
+void optimizer::inertial_optimization(camera_view cameras, map *pMap, Eigen::Vector3d &bg, Eigen::Vector3d &ba, float priorG, float priorA)
 {
     int                       its     = 200; // Check number of iterations
     long unsigned int         maxKFid = pMap->get_max_key_frame_id();
@@ -3446,7 +3472,7 @@ void optimizer::inertial_optimization(map *pMap, Eigen::Vector3d &bg, Eigen::Vec
         {
             continue;
         }
-        vertex_pose *VP = new vertex_pose(pKFi);
+        vertex_pose *VP = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         VP->setFixed(true);
         optimizer.addVertex(VP);
@@ -3589,7 +3615,7 @@ void optimizer::inertial_optimization(map *pMap, Eigen::Vector3d &bg, Eigen::Vec
     }
 }
 
-void optimizer::inertial_optimization(map *pMap, Eigen::Matrix3d &Rwg, double &scale)
+void optimizer::inertial_optimization(camera_view cameras, map *pMap, Eigen::Matrix3d &Rwg, double &scale)
 {
     int                       its     = 10;
     long unsigned int         maxKFid = pMap->get_max_key_frame_id();
@@ -3614,7 +3640,7 @@ void optimizer::inertial_optimization(map *pMap, Eigen::Matrix3d &Rwg, double &s
         {
             continue;
         }
-        vertex_pose *VP = new vertex_pose(pKFi);
+        vertex_pose *VP = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         VP->setFixed(true);
         optimizer.addVertex(VP);
@@ -3703,7 +3729,7 @@ void optimizer::inertial_optimization(map *pMap, Eigen::Matrix3d &Rwg, double &s
     Rwg   = VGDir->estimate().rotation_world_gravity;
 }
 
-void optimizer::local_bundle_adjustment(key_frame *pMainKF, vector<key_frame *> vpAdjustKF, vector<key_frame *> vpFixedKF, bool *pbStopFlag)
+void optimizer::local_bundle_adjustment(camera_view cameras, key_frame *pMainKF, vector<key_frame *> vpAdjustKF, vector<key_frame *> vpFixedKF, bool *pbStopFlag)
 {
     [[maybe_unused]] bool bShowImages = false;
 
@@ -3880,7 +3906,7 @@ void optimizer::local_bundle_adjustment(key_frame *pMainKF, vector<key_frame *> 
                 Eigen::Matrix<double, 2, 1> obs;
                 obs << kpUn.pt_undistorted.x, kpUn.pt_undistorted.y;
 
-                ORB_SLAM3::edge_se3_project_xyz *e = new ORB_SLAM3::edge_se3_project_xyz(*pKF->cameras[0]);
+                ORB_SLAM3::edge_se3_project_xyz *e = new ORB_SLAM3::edge_se3_project_xyz(*cameras[0]);
 
                 e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(id)));
                 e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKF->id)));
@@ -3920,11 +3946,11 @@ void optimizer::local_bundle_adjustment(key_frame *pMainKF, vector<key_frame *> 
                 e->setRobustKernel(rk);
                 rk->setDelta(thHuber3D);
 
-                e->fx = pKF->fx;
-                e->fy = pKF->fy;
-                e->cx = pKF->cx;
-                e->cy = pKF->cy;
-                e->bf = pKF->mbf;
+                e->fx = cameras[0]->get_parameter(0);
+                e->fy = cameras[0]->get_parameter(1);
+                e->cx = cameras[0]->get_parameter(2);
+                e->cy = cameras[0]->get_parameter(3);
+                e->bf = cameras[0]->baseline_fx();
 
                 optimizer.addEdge(e);
 
@@ -4186,11 +4212,11 @@ void optimizer::local_bundle_adjustment(key_frame *pMainKF, vector<key_frame *> 
 
         g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMPi->id + maxKFid + 1));
         pMPi->set_world_position(vPoint->estimate().cast<float>());
-        pMPi->update_normal_and_depth();
+        pMPi->update_normal_and_depth(*cameras[0]);
     }
 }
 
-void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, loop_closing::key_frame_and_pose &corrPoses)
+void optimizer::merge_inertial_ba(camera_view cameras, key_frame *pCurrKF, key_frame *pMergeKF, bool *pbStopFlag, map *pMap, loop_closing::key_frame_and_pose &corrPoses)
 {
     const int           Nd      = 6;
     const unsigned long maxKFid = pCurrKF->id;
@@ -4366,7 +4392,7 @@ void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool 
     {
         key_frame *pKFi = vpOptimizableKFs[i];
 
-        vertex_pose *VP = new vertex_pose(pKFi);
+        vertex_pose *VP = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         VP->setFixed(false);
         optimizer.addVertex(VP);
@@ -4394,7 +4420,7 @@ void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool 
     {
         key_frame *pKFi = vpOptimizableCovKFs[i];
 
-        vertex_pose *VP = new vertex_pose(pKFi);
+        vertex_pose *VP = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         VP->setFixed(false);
         optimizer.addVertex(VP);
@@ -4420,7 +4446,7 @@ void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool 
     for (list<key_frame *>::iterator lit = lFixedKeyFrames.begin(), lend = lFixedKeyFrames.end(); lit != lend; lit++)
     {
         key_frame   *pKFi = *lit;
-        vertex_pose *VP   = new vertex_pose(pKFi);
+        vertex_pose *VP   = new vertex_pose(pKFi, cameras);
         VP->setId(pKFi->id);
         VP->setFixed(true);
         optimizer.addVertex(VP);
@@ -4759,7 +4785,7 @@ void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool 
         map_point              *pMP    = *lit;
         g2o::VertexSBAPointXYZ *vPoint = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pMP->id + iniMPid + 1));
         pMP->set_world_position(vPoint->estimate().cast<float>());
-        pMP->update_normal_and_depth();
+        pMP->update_normal_and_depth(*cameras[0]);
     }
 
     pMap->increase_change_index();
@@ -4925,7 +4951,7 @@ int optimizer::pose_inertial_optimization_last_key_frame(frame *pFrame, const ca
     nInitialCorrespondences = nInitialMonoCorrespondences + nInitialStereoCorrespondences;
 
     key_frame   *pKF = pFrame->last_key_frame;
-    vertex_pose *VPk = new vertex_pose(pKF);
+    vertex_pose *VPk = new vertex_pose(pKF, cameras);
     VPk->setId(4);
     VPk->setFixed(true);
     optimizer.addVertex(VPk);
@@ -5589,7 +5615,8 @@ int optimizer::pose_inertial_optimization_last_frame(frame *pFrame, const camera
     return nInitialCorrespondences - nBad;
 }
 
-void optimizer::optimize_essential_graph_4dof(map                                           *pMap,
+void optimizer::optimize_essential_graph_4dof(camera_view                                    cameras,
+                                              map                                           *pMap,
                                               key_frame                                     *pLoopKF,
                                               key_frame                                     *pCurKF,
                                               const loop_closing::key_frame_and_pose        &NonCorrectedSim3,
@@ -5639,7 +5666,7 @@ void optimizer::optimize_essential_graph_4dof(map                               
             const g2o::Sim3 Swc = it->second.inverse();
             Eigen::Matrix3d Rwc = Swc.rotation().toRotationMatrix();
             Eigen::Vector3d twc = Swc.translation();
-            V4DoF               = new vertex_pose_4dof(Rwc, twc, pKF);
+            V4DoF               = new vertex_pose_4dof(Rwc, twc, pKF, cameras);
         }
         else
         {
@@ -5647,7 +5674,7 @@ void optimizer::optimize_essential_graph_4dof(map                               
             g2o::Sim3    Siw(Tcw.unit_quaternion(), Tcw.translation(), 1.0);
 
             vScw[nIDi] = Siw;
-            V4DoF      = new vertex_pose_4dof(pKF);
+            V4DoF      = new vertex_pose_4dof(pKF, cameras);
         }
 
         if (pKF == pLoopKF)
@@ -5912,7 +5939,7 @@ void optimizer::optimize_essential_graph_4dof(map                               
         Eigen::Matrix<double, 3, 1> eigCorrectedP3Dw = correctedSwr.map(Srw.map(eigP3Dw));
         pMP->set_world_position(eigCorrectedP3Dw.cast<float>());
 
-        pMP->update_normal_and_depth();
+        pMP->update_normal_and_depth(*cameras[0]);
     }
     pMap->increase_change_index();
 }

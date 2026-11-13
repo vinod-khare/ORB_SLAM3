@@ -75,9 +75,9 @@ class imu_cam_pose
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     imu_cam_pose() {}
-    imu_cam_pose(key_frame *pKF);
+    imu_cam_pose(key_frame *pKF, camera_view cameras);
     imu_cam_pose(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration);
-    imu_cam_pose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF);
+    imu_cam_pose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF, camera_view cameras);
 
     void set_parameters(const std::vector<Eigen::Matrix3d> &_Rcw,
                         const std::vector<Eigen::Vector3d> &_tcw,
@@ -118,7 +118,7 @@ class inverse_depth_point
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     inverse_depth_point() {}
-    inverse_depth_point(double _rho, double _u, double _v, key_frame *pHostKF);
+    inverse_depth_point(double _rho, double _u, double _v, geometric_camera &camera);
 
     void update(const double *pu);
 
@@ -140,7 +140,7 @@ class vertex_pose : public g2o::BaseVertex<6, imu_cam_pose>
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    vertex_pose(key_frame *pKF) { setEstimate(imu_cam_pose(pKF)); }
+    vertex_pose(key_frame *pKF, camera_view cameras) { setEstimate(imu_cam_pose(pKF, cameras)); }
     vertex_pose(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) { setEstimate(imu_cam_pose(pF, cameras, imu_calibration)); }
 
     virtual bool read(std::istream &is);
@@ -160,9 +160,9 @@ class vertex_pose_4dof : public g2o::BaseVertex<4, imu_cam_pose>
     // Translation and yaw are the only optimizable variables
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    vertex_pose_4dof(key_frame *pKF) { setEstimate(imu_cam_pose(pKF)); }
+    vertex_pose_4dof(key_frame *pKF, camera_view cameras) { setEstimate(imu_cam_pose(pKF, cameras)); }
     vertex_pose_4dof(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) { setEstimate(imu_cam_pose(pF, cameras, imu_calibration)); }
-    vertex_pose_4dof(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF) { setEstimate(imu_cam_pose(_Rwc, _twc, pKF)); }
+    vertex_pose_4dof(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF, camera_view cameras) { setEstimate(imu_cam_pose(_Rwc, _twc, pKF, cameras)); }
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -303,7 +303,7 @@ class vertex_inverse_depth : public g2o::BaseVertex<1, inverse_depth_point>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_inverse_depth() {}
-    vertex_inverse_depth(double invDepth, double u, double v, key_frame *pHostKF) { setEstimate(inverse_depth_point(invDepth, u, v, pHostKF)); }
+    vertex_inverse_depth(double invDepth, double u, double v, geometric_camera &camera) { setEstimate(inverse_depth_point(invDepth, u, v, camera)); }
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }

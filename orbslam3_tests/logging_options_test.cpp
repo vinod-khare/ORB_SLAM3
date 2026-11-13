@@ -1,6 +1,6 @@
-#include "loop_closing.h"
 #include "command_line_options.h"
 #include "folder_reader.h"
+#include "loop_closing.h"
 #include "processing_statistics.h"
 #include "time_this.h"
 
@@ -225,7 +225,7 @@ TEST_CASE("Global bundle adjustment shutdown joins its worker before returning",
 {
     struct loop_worker : ORB_SLAM3::loop_closing
     {
-        explicit loop_worker(ORB_SLAM3::processing_statistics &statistics) : loop_closing(statistics, nullptr, nullptr, nullptr, true, false) {}
+        explicit loop_worker(ORB_SLAM3::processing_statistics &statistics) : loop_closing(statistics, {}, nullptr, nullptr, nullptr, true, false) {}
         void start_job()
         {
             _global_ba_thread = std::jthread(

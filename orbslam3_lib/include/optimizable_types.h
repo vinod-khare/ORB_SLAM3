@@ -158,7 +158,7 @@ class vertex_sim3_expmap : public g2o::BaseVertex<7, g2o::Sim3>
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    explicit vertex_sim3_expmap(const camera_vector &cameras);
+    explicit vertex_sim3_expmap(camera_view cameras);
     virtual bool read(std::istream &is);
     virtual bool write(std::ostream &os) const;
 
@@ -177,7 +177,7 @@ class vertex_sim3_expmap : public g2o::BaseVertex<7, g2o::Sim3>
         setEstimate(s * estimate());
     }
 
-    const camera_vector &cameras;
+    camera_view cameras;
 
     bool _fix_scale;
 };

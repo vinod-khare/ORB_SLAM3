@@ -344,6 +344,7 @@ settings::settings(const std::string &config_file, const sensor_type sensor, con
     if (_sensor == stereo || _sensor == imu_stereo || _sensor == rgbd || _sensor == imu_rgbd)
     {
         _cameras[0]->set_baseline(_baseline);
+        _cameras[0]->set_depth_threshold(_baseline * _depth_threshold);
     }
     if ((_sensor == stereo || _sensor == imu_stereo) && _camera_type == kannala_brandt)
     {

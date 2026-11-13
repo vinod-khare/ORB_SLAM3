@@ -48,7 +48,7 @@ class map
     void inform_new_big_change();
     int  get_last_big_change_index();
 
-    std::vector<key_frame *>  get_all_key_frames();
+    std::vector<key_frame *> get_all_key_frames();
     std::vector<map_point *> get_all_map_points();
     std::vector<map_point *> get_reference_map_points();
 
@@ -81,7 +81,7 @@ class map
     void set_imu_initialized();
     bool is_imu_initialized();
 
-    void apply_scaled_rotation(const Sophus::SE3f &T, const float s, const bool bScaledVel = false);
+    void apply_scaled_rotation(const geometric_camera &camera, const Sophus::SE3f &T, const float s, const bool bScaledVel = false);
 
     void set_inertial_sensor();
     bool is_inertial();
@@ -100,7 +100,7 @@ class map
 
     vector<key_frame *> key_frame_origins;
     key_frame          *first_region_key_frame;
-    std::mutex         map_update_mutex;
+    std::mutex          map_update_mutex;
 
     // This avoid that two points are created simultaneously in separate threads (id conflict)
     std::mutex point_creation_mutex;
@@ -122,7 +122,7 @@ class map
     long unsigned int id;
 
     std::set<map_point *> map_points;
-    std::set<key_frame *>  key_frames;
+    std::set<key_frame *> key_frames;
 
     key_frame *initial_key_frame;
     key_frame *lowest_id_key_frame;
