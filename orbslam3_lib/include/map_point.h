@@ -45,7 +45,7 @@ class map_point
 
     map_point(const Eigen::Vector3f &Pos, key_frame *pRefKF, map *pMap);
     map_point(const double invDepth, cv::Point2f uv_init, key_frame *pRefKF, key_frame *pHostKF, map *pMap);
-    map_point(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const int &idxF);
+    map_point(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const int &idxF, geometric_camera &camera);
 
     void            set_world_position(const Eigen::Vector3f &Pos);
     Eigen::Vector3f get_world_position();

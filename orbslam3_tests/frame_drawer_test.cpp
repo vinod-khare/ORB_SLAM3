@@ -25,7 +25,7 @@ class frame_drawer_fixture : public ORB_SLAM3::frame_drawer
         _state             = ORB_SLAM3::tracking::OK;
         _localization_only = false;
 
-        ORB_SLAM3::frame frame(0.0, nullptr, cv::Mat::eye(3, 3, CV_32F), cv::Mat::zeros(4, 1, CV_32F), 10.f, 40.f);
+        ORB_SLAM3::frame frame(0.0, nullptr, 40.f);
         frame.color_image       = cv::Mat::zeros(160, 240, image_type);
         frame.color_image_right = frame.color_image.clone();
         frame.keypoints         = right ? std::vector<ORB_SLAM3::keypoint>(2) : std::vector<ORB_SLAM3::keypoint>{};
@@ -126,9 +126,7 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
     ORB_SLAM3::camera_vector      cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{100, 100, 64, 64}));
-    cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::frame::initial_computations = true;
-    ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->to_k(), distortion, 10.f, 40.f);
+    ORB_SLAM3::frame frame(0.0, nullptr, 40.f);
     ORB_SLAM3::tracking::extract_features(frame, extractor, input, cameras);
     REQUIRE(frame.feature_count >= 2);
     frame.set_pose(Sophus::SE3f{});

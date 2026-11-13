@@ -50,7 +50,7 @@ class kannala_brandt8 : public geometric_camera
         id   = next_id++;
         type = cam_fisheye;
     }
-    kannala_brandt8(kannala_brandt8 *pKannala) : geometric_camera(pKannala->parameters), lapping_area(2, 0), _precision(pKannala->_precision), _two_view_reconstruction(nullptr)
+    kannala_brandt8(kannala_brandt8 *pKannala) : geometric_camera(*pKannala), lapping_area(2, 0), _precision(pKannala->_precision), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 8);
         id   = next_id++;

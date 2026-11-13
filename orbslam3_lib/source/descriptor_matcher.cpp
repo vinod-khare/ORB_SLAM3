@@ -2006,8 +2006,8 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
     const Sophus::SE3f    Tlw = LastFrame.get_pose();
     const Eigen::Vector3f tlc = Tlw * twc;
 
-    const bool bForward  = tlc(2) > CurrentFrame.baseline && !bMono;
-    const bool bBackward = -tlc(2) > CurrentFrame.baseline && !bMono;
+    const bool bForward  = tlc(2) > cameras[0]->baseline() && !bMono;
+    const bool bBackward = -tlc(2) > cameras[0]->baseline() && !bMono;
 
     for (int i = 0; i < LastFrame.feature_count; i++)
     {
@@ -2086,7 +2086,7 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
 
                     if (!CurrentFrame.is_fisheye_stereo && CurrentFrame.right_coordinates[i2] > 0)
                     {
-                        const float ur = uv(0) - CurrentFrame.baseline_fx * invzc;
+                        const float ur = uv(0) - cameras[0]->baseline_fx() * invzc;
                         const float er = fabs(ur - CurrentFrame.right_coordinates[i2]);
                         if (er > radius)
                         {
@@ -2135,7 +2135,7 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
                 }
                 if (CurrentFrame.is_fisheye_stereo)
                 {
-                    Eigen::Vector3f x3Dr = CurrentFrame.get_relative_pose_trl() * x3Dc;
+                    Eigen::Vector3f x3Dr = cameras[0]->left_to_right_pose().inverse() * x3Dc;
                     Eigen::Vector2f uv   = cameras[0]->project(x3Dr);
 
                     int nLastOctave = (!LastFrame.is_fisheye_stereo || std::cmp_less(i, LastFrame.keypoints.size())) ? LastFrame.keypoints[i].octave

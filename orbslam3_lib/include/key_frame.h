@@ -49,7 +49,7 @@ class key_frame
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const camera_vector &cameras);
+    key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const camera_vector &cameras, const imu::calib &imu_calibration = {});
 
     // Pose functions
     void set_pose(const Sophus::SE3f &Tcw);

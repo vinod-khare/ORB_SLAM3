@@ -43,7 +43,7 @@ class pinhole : public geometric_camera
         type = cam_pinhole;
     }
 
-    pinhole(pinhole *pPinhole) : geometric_camera(pPinhole->parameters), _two_view_reconstruction(nullptr)
+    pinhole(pinhole *pPinhole) : geometric_camera(*pPinhole), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 4);
         id   = next_id++;

@@ -72,11 +72,11 @@ imu_cam_pose::imu_cam_pose(key_frame *pKF) : cameras(pKF->cameras), its(0)
     rotation_delta.setIdentity();
 }
 
-imu_cam_pose::imu_cam_pose(frame *pF, const camera_vector &cameras) : cameras(cameras), its(0)
+imu_cam_pose::imu_cam_pose(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) : cameras(cameras), its(0)
 {
     // Load IMU pose
-    translation_world_body = pF->get_imu_position().cast<double>();
-    rotation_world_body    = pF->get_imu_rotation().cast<double>();
+    translation_world_body = pF->get_imu_position(imu_calibration).cast<double>();
+    rotation_world_body    = pF->get_imu_rotation(imu_calibration).cast<double>();
 
     // Load camera poses
     int num_cams;
@@ -99,15 +99,15 @@ imu_cam_pose::imu_cam_pose(frame *pF, const camera_vector &cameras) : cameras(ca
     // Left camera
     translation_camera_world[0] = pF->get_pose().translation().cast<double>();
     rotation_camera_world[0]    = pF->get_pose().rotationMatrix().cast<double>();
-    translation_camera_body[0]  = pF->imu_calibration.camera_to_body.translation().cast<double>();
-    rotation_camera_body[0]     = pF->imu_calibration.camera_to_body.rotationMatrix().cast<double>();
+    translation_camera_body[0]  = imu_calibration.camera_to_body.translation().cast<double>();
+    rotation_camera_body[0]     = imu_calibration.camera_to_body.rotationMatrix().cast<double>();
     rotation_body_camera[0]     = rotation_camera_body[0].transpose();
-    translation_body_camera[0]  = pF->imu_calibration.body_to_camera.translation().cast<double>();
-    bf                          = pF->baseline_fx;
+    translation_body_camera[0]  = imu_calibration.body_to_camera.translation().cast<double>();
+    bf                          = cameras[0]->baseline_fx();
 
     if (num_cams > 1)
     {
-        Eigen::Matrix4d Trl         = pF->get_relative_pose_trl().matrix().cast<double>();
+        Eigen::Matrix4d Trl         = cameras[0]->left_to_right_pose().inverse().matrix().cast<double>();
         rotation_camera_world[1]    = Trl.block<3, 3>(0, 0) * rotation_camera_world[0];
         translation_camera_world[1] = Trl.block<3, 3>(0, 0) * translation_camera_world[0] + Trl.block<3, 1>(0, 3);
         translation_camera_body[1]  = Trl.block<3, 3>(0, 0) * translation_camera_body[0] + Trl.block<3, 1>(0, 3);

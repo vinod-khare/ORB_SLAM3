@@ -73,7 +73,7 @@ map_point::map_point(const double invDepth, cv::Point2f uv_init, key_frame *pRef
     id = next_id++;
 }
 
-map_point::map_point(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const int &idxF)
+map_point::map_point(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const int &idxF, geometric_camera &camera)
     : first_key_frame_id(-1), first_frame_id(pFrame->id), observation_count(0), track_reference_for_frame(0), last_frame_seen(0), local_ba_key_frame_id(0), fuse_candidate_key_frame_id(0),
       loop_point_key_frame_id(0), corrected_by_key_frame_id(0), corrected_reference_key_frame_id(0), global_ba_key_frame_id(0), origin_map_id(pMap->get_id()), reference_key_frame(nullptr),
       visible(1), found(1), bad(false), replaced(nullptr), owner_map(pMap)
@@ -88,7 +88,7 @@ map_point::map_point(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const
     else
     {
         Eigen::Matrix3f Rwl = pFrame->get_rwc();
-        Eigen::Vector3f tlr = pFrame->get_relative_pose_tlr().translation();
+        Eigen::Vector3f tlr = camera.left_to_right_pose().translation();
         Eigen::Vector3f twl = pFrame->get_camera_origin();
 
         Ow = Rwl * tlr + twl;

@@ -122,8 +122,9 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     const cv::Mat            image                  = cv::Mat::zeros(256, 256, CV_8U);
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
-    ORB_SLAM3::frame::initial_computations = true;
-    ORB_SLAM3::frame    frame(0.0, nullptr, calibration, distortion, 20, 40);
+    cameras[0]->set_distortion_coefficients(distortion);
+    cameras[0]->set_baseline(0.1f);
+    ORB_SLAM3::frame    frame(0.0, nullptr, 40);
     ORB_SLAM3::keypoint key(73.25f, 81.75f, 31.f);
     key.pt_undistorted = cv::Point2f(-10, -20);
     key.descriptor     = cv::Mat::zeros(1, 32, CV_8U);
@@ -143,11 +144,11 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
 
     cv::Mat depth                                                           = cv::Mat::zeros(image.size(), CV_32F);
     depth.at<float>(static_cast<int>(key.pt.y), static_cast<int>(key.pt.x)) = 2.f;
-    frame.compute_stereo_from_rgbd(depth);
+    frame.compute_stereo_from_rgbd(depth, *cameras[0]);
     REQUIRE(frame.depths.front() == 2.f);
     REQUIRE(frame.right_coordinates.front() == Catch::Approx(position.x - 10.f));
     Eigen::Vector3f point;
-    REQUIRE(frame.unproject_stereo(0, point));
+    REQUIRE(frame.unproject_stereo(0, point, *cameras[0]));
     REQUIRE(point.x() == Catch::Approx((position.x - 128.f) * 2.f / 200.f));
     REQUIRE(point.y() == Catch::Approx((position.y - 128.f) * 2.f / 200.f));
     REQUIRE(point.z() == 2.f);
@@ -168,20 +169,18 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     REQUIRE(matches == std::vector<int>{0});
     REQUIRE(previous_matches.front() == frame.keypoints.front().pt_undistorted);
 
-    frame.set_tracked_features({}, {});
+    frame.set_tracked_features(*cameras[0], {}, {});
     REQUIRE(frame.keypoints.empty());
     REQUIRE(frame.get_features_in_area(position.x, position.y, 2).empty());
 }
 
 TEST_CASE("Initialization matching filters using tracking rather than native orientation", "[native_keypoints]")
 {
-    const cv::Mat            calibration = cv::Mat(cv::Matx33f(200, 0, 128, 0, 200, 128, 0, 0, 1));
-    const cv::Mat            distortion  = cv::Mat::zeros(4, 1, CV_32F);
     const cv::Mat            image       = cv::Mat::zeros(256, 256, CV_8U);
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
-    ORB_SLAM3::frame         first(0.0, nullptr, calibration, distortion, 20, 40);
-    ORB_SLAM3::frame         second(1.0, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::frame         first(0.0, nullptr, 40);
+    ORB_SLAM3::frame         second(1.0, nullptr, 40);
     std::vector<cv::Point2f> positions;
     for (int index = 0; index < 12; ++index)
     {
@@ -192,7 +191,6 @@ TEST_CASE("Initialization matching filters using tracking rather than native ori
         second.keypoints.push_back(key);
         positions.push_back(position);
     }
-    ORB_SLAM3::frame::initial_computations = true;
     first.initialize_features(image, cameras);
     second.initialize_features(image, cameras);
     ORB_SLAM3::descriptor_matcher matcher(0.9f, true);
@@ -201,6 +199,53 @@ TEST_CASE("Initialization matching filters using tracking rather than native ori
     second.keypoints.back().tracking_angle = 180.f;
     REQUIRE(matcher.search_for_initialization(first, second, positions, matches, 2) == 11);
     REQUIRE(matches.back() == -1);
+}
+
+TEST_CASE("Frames use the camera supplied for each operation", "[camera_calibration]")
+{
+    ORB_SLAM3::camera_vector first_camera;
+    ORB_SLAM3::camera_vector second_camera;
+    first_camera.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{100, 100, 50, 50}));
+    second_camera.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 60, 60}));
+    first_camera[0]->set_baseline(0.1f);
+    second_camera[0]->set_baseline(0.2f);
+    cv::Mat distortion = cv::Mat(cv::Vec4f(-0.2f, 0, 0, 0));
+    second_camera[0]->set_distortion_coefficients(distortion);
+    distortion.setTo(0);
+    REQUIRE_THROWS(second_camera[0]->set_distortion_coefficients(cv::Mat::zeros(3, 1, CV_32F)));
+    ORB_SLAM3::pinhole copied_camera(static_cast<ORB_SLAM3::pinhole *>(second_camera[0].get()));
+    REQUIRE(copied_camera.baseline() == Catch::Approx(0.2f));
+    REQUIRE(copied_camera.distortion_coefficients().at<float>(0) == Catch::Approx(-0.2f));
+    REQUIRE(copied_camera.distortion_coefficients().data != second_camera[0]->distortion_coefficients().data);
+
+    const cv::Mat    image = cv::Mat::zeros(120, 120, CV_8U);
+    ORB_SLAM3::frame first(0, nullptr, 40);
+    ORB_SLAM3::frame second(1, nullptr, 40);
+    first.keypoints.emplace_back(30.f, 30.f, 7.f);
+    second.keypoints.emplace_back(30.f, 30.f, 7.f);
+    first.initialize_features(image, first_camera);
+    second.initialize_features(image, second_camera);
+    first.set_pose(Sophus::SE3f{});
+    second.set_pose(Sophus::SE3f{});
+
+    const cv::Mat depth(image.size(), CV_32F, cv::Scalar(2));
+    first.compute_stereo_from_rgbd(depth, *first_camera[0]);
+    second.compute_stereo_from_rgbd(depth, *second_camera[0]);
+    REQUIRE(first.right_coordinates[0] == Catch::Approx(25));
+    REQUIRE(second.right_coordinates[0] == Catch::Approx(second.keypoints[0].pt_undistorted.x - 20));
+    REQUIRE(second.keypoints[0].pt_undistorted != second.keypoints[0].pt);
+    REQUIRE(first.get_features_in_area(30, 30, 1) == std::vector<std::size_t>{0});
+
+    Eigen::Vector3f point;
+    REQUIRE(first.unproject_stereo(0, point, *first_camera[0]));
+    REQUIRE(point.x() == Catch::Approx(-0.4f));
+    REQUIRE(first.unproject_stereo(0, point, *second_camera[0]));
+    REQUIRE(point.x() == Catch::Approx(-0.3f));
+
+    ORB_SLAM3::map              map;
+    const ORB_SLAM3::imu::calib imu_calibration(Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f(1, 2, 3)), 1, 1, 1, 1);
+    ORB_SLAM3::key_frame        keyframe(first, &map, nullptr, first_camera, imu_calibration);
+    REQUIRE(keyframe.imu_calibration.camera_to_body.matrix().isApprox(imu_calibration.camera_to_body.matrix()));
 }
 
 TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]")
@@ -237,9 +282,7 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     ORB_SLAM3::keypoint_extractor extractor(100, 1.2f, 1, 20, 7);
     ORB_SLAM3::camera_vector      cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{100, 100, 64, 64}));
-    cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::frame::initial_computations = true;
-    ORB_SLAM3::frame frame(0.0, nullptr, cameras[0]->to_k(), distortion, 10.f, 40.f);
+    ORB_SLAM3::frame frame(0.0, nullptr, 40.f);
     ORB_SLAM3::tracking::extract_features(frame, extractor, image, cameras);
     REQUIRE(frame.feature_count >= 2);
     REQUIRE(frame.extraction_ms > 0);
@@ -249,7 +292,7 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     REQUIRE(copied.extraction_ms == frame.extraction_ms);
     REQUIRE(copied.stereo_matching_ms == frame.stereo_matching_ms);
     REQUIRE(copied.optical_flow_ms == frame.optical_flow_ms);
-    const ORB_SLAM3::frame next(frame, 0.1);
+    const ORB_SLAM3::frame next(frame, 0.1, *cameras[0]);
     REQUIRE(next.extraction_ms == 0);
     REQUIRE(next.stereo_matching_ms == 0);
     REQUIRE(next.optical_flow_ms == 0);

@@ -65,8 +65,8 @@ class optimizer
     void static local_bundle_adjustment(key_frame *pKF, bool *pbStopFlag, map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges);
 
     int static pose_optimization(frame *pFrame, const camera_vector &cameras);
-    int static pose_inertial_optimization_last_key_frame(frame *pFrame, const camera_vector &cameras, bool bRecInit = false);
-    int static pose_inertial_optimization_last_frame(frame *pFrame, const camera_vector &cameras, bool bRecInit = false);
+    int static pose_inertial_optimization_last_key_frame(frame *pFrame, const camera_vector &cameras, const imu::calib &imu_calibration, bool bRecInit = false);
+    int static pose_inertial_optimization_last_frame(frame *pFrame, const camera_vector &cameras, const imu::calib &imu_calibration, bool bRecInit = false);
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
     void static optimize_essential_graph(map                                           *pMap,

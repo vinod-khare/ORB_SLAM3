@@ -37,6 +37,11 @@ class geometric_camera
   public:
     geometric_camera() {}
     geometric_camera(const std::vector<float> &_vParameters) : parameters(_vParameters) {}
+    geometric_camera(const geometric_camera &other)
+        : parameters(other.parameters), id(other.id), type(other.type), _distortion_coefficients(other._distortion_coefficients.clone()), _baseline(other._baseline),
+          _left_to_right_pose(other._left_to_right_pose)
+    {
+    }
     virtual ~geometric_camera() = default;
 
     virtual cv::Point2f     project(const cv::Point3f &p3D)     = 0;
@@ -67,6 +72,21 @@ class geometric_camera
     float get_parameter(const int i) { return parameters[i]; }
     void  set_parameter(const float p, const size_t i) { parameters[i] = p; }
 
+    const cv::Mat &distortion_coefficients() const { return _distortion_coefficients; }
+    void           set_distortion_coefficients(const cv::Mat &coefficients)
+    {
+        CV_Assert(coefficients.type() == CV_32F && (coefficients.rows == 1 || coefficients.cols == 1) && (coefficients.total() == 4 || coefficients.total() == 5));
+        _distortion_coefficients = coefficients.clone();
+    }
+
+    float baseline() const { return _baseline; }
+    float baseline_fx() { return _baseline * get_parameter(0); }
+    void  set_baseline(float baseline) { _baseline = baseline; }
+
+    /** Pose of the right camera in the left camera's coordinates. */
+    const Sophus::SE3f &left_to_right_pose() const { return _left_to_right_pose; }
+    void                set_left_to_right_pose(const Sophus::SE3f &pose) { _left_to_right_pose = pose; }
+
     size_t size() { return parameters.size(); }
 
     virtual bool match_and_triangulate(const cv::KeyPoint &kp1,
@@ -93,6 +113,11 @@ class geometric_camera
     unsigned int id;
 
     unsigned int type;
+
+  private:
+    cv::Mat      _distortion_coefficients = cv::Mat::zeros(4, 1, CV_32F);
+    float        _baseline{0};
+    Sophus::SE3f _left_to_right_pose;
 };
 
 using camera_vector = std::vector<std::unique_ptr<geometric_camera>>;

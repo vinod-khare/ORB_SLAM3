@@ -46,18 +46,21 @@ std::vector<keypoint> keypoints_with_color(frame &frame, const std::vector<keypo
 
 long unsigned int key_frame::next_id = 0;
 
-key_frame::key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const camera_vector &cameras)
-    : has_imu(pMap->is_imu_initialized()), frame_id(F.id), timestamp(F.timestamp), grid_columns(FRAME_GRID_COLS), grid_rows(FRAME_GRID_ROWS), grid_element_width_inverse(F.grid_element_width_inverse),
-      grid_element_height_inverse(F.grid_element_height_inverse), track_reference_for_frame(0), fuse_target_key_frame_id(0), local_ba_key_frame_id(0), fixed_ba_key_frame_id(0), number_of_optimizations(0), loop_query_id(0),
-      loop_common_words(0), relocalization_query_id(0), relocalization_words(0), place_recognition_query_id(0), place_recognition_words(0), place_recognition_score(0), current_place_recognition(false), global_ba_key_frame_id(0),
-      merge_corrected_key_frame_id(0), local_ba_merge_key_frame_id(0), fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy), mbf(F.baseline_fx), mb(F.baseline), depth_threshold(F.depth_threshold),
-      distortion_coefficients(F.distortion_coefficients), feature_count(F.feature_count), keypoints(keypoints_with_color(F, F.keypoints, 0)), right_coordinates(F.right_coordinates), depths(F.depths), bow_vector(F.bow_vector),
+key_frame::key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const camera_vector &cameras, const imu::calib &imu_calibration)
+    : has_imu(pMap->is_imu_initialized()), frame_id(F.id), timestamp(F.timestamp), grid_columns(FRAME_GRID_COLS), grid_rows(FRAME_GRID_ROWS),
+      grid_element_width_inverse(F.grid_element_width_inverse), grid_element_height_inverse(F.grid_element_height_inverse), track_reference_for_frame(0), fuse_target_key_frame_id(0),
+      local_ba_key_frame_id(0), fixed_ba_key_frame_id(0), number_of_optimizations(0), loop_query_id(0), loop_common_words(0), relocalization_query_id(0), relocalization_words(0),
+      place_recognition_query_id(0), place_recognition_words(0), place_recognition_score(0), current_place_recognition(false), global_ba_key_frame_id(0), merge_corrected_key_frame_id(0),
+      local_ba_merge_key_frame_id(0), fx(cameras[0]->get_parameter(0)), fy(cameras[0]->get_parameter(1)), cx(cameras[0]->get_parameter(2)), cy(cameras[0]->get_parameter(3)), invfx(1.0f / fx),
+      invfy(1.0f / fy), mbf(cameras[0]->baseline_fx()), mb(cameras[0]->baseline()), depth_threshold(F.depth_threshold), distortion_coefficients(cameras[0]->distortion_coefficients().clone()),
+      feature_count(F.feature_count), keypoints(keypoints_with_color(F, F.keypoints, 0)), right_coordinates(F.right_coordinates), depths(F.depths), bow_vector(F.bow_vector),
       feature_vector(F.feature_vector), scale_levels(F.scale_levels), scale_factor(F.scale_factor), log_scale_factor(F.log_scale_factor), scale_factors(F.scale_factors),
-      level_sigma_squared(F.level_sigma_squared), inverse_level_sigma_squared(F.inverse_level_sigma_squared), min_x(F.min_x), min_y(F.min_y), max_x(F.max_x), max_y(F.max_y), previous_key_frame(nullptr),
-      next_key_frame(nullptr), imu_preintegrated(F.imu_preintegrated), imu_calibration(F.imu_calibration), name_file(F.name_file), dataset(F.dataset), has_velocity(false),
-      left_to_right_pose(F.get_relative_pose_tlr()), right_to_left_pose(F.get_relative_pose_trl()), map_points(F.map_points), database(pKFDB), place_vocabulary_ptr(F.place_vocabulary_ptr), first_connection(true),
-      parent_key_frame(nullptr), not_erasable(false), to_be_erased(false), bad(false), half_baseline(F.baseline / 2), owner_map(pMap), calibration_matrix(F.eigen_calibration_matrix), cameras(cameras),
-      left_to_right_matches(F.left_to_right_matches), right_to_left_matches(F.right_to_left_matches), right_keypoints(keypoints_with_color(F, F.right_keypoints, static_cast<int>(F.keypoints.size())))
+      level_sigma_squared(F.level_sigma_squared), inverse_level_sigma_squared(F.inverse_level_sigma_squared), min_x(F.min_x), min_y(F.min_y), max_x(F.max_x), max_y(F.max_y),
+      previous_key_frame(nullptr), next_key_frame(nullptr), imu_preintegrated(F.imu_preintegrated), imu_calibration(imu_calibration), name_file(F.name_file), dataset(F.dataset),
+      has_velocity(false), left_to_right_pose(cameras[0]->left_to_right_pose()), right_to_left_pose(cameras[0]->left_to_right_pose().inverse()), map_points(F.map_points), database(pKFDB),
+      place_vocabulary_ptr(F.place_vocabulary_ptr), first_connection(true), parent_key_frame(nullptr), not_erasable(false), to_be_erased(false), bad(false),
+      half_baseline(cameras[0]->baseline() / 2), owner_map(pMap), calibration_matrix(cameras[0]->to_k_eigen()), cameras(cameras), left_to_right_matches(F.left_to_right_matches),
+      right_to_left_matches(F.right_to_left_matches), right_keypoints(keypoints_with_color(F, F.right_keypoints, static_cast<int>(F.keypoints.size())))
 {
     id = next_id++;
     grid.resize(grid_columns);

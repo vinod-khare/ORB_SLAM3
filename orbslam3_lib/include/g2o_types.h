@@ -76,7 +76,7 @@ class imu_cam_pose
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     imu_cam_pose() {}
     imu_cam_pose(key_frame *pKF);
-    imu_cam_pose(frame *pF, const camera_vector &cameras);
+    imu_cam_pose(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration);
     imu_cam_pose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF);
 
     void set_parameters(const std::vector<Eigen::Matrix3d> &_Rcw,
@@ -141,7 +141,7 @@ class vertex_pose : public g2o::BaseVertex<6, imu_cam_pose>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_pose(key_frame *pKF) { setEstimate(imu_cam_pose(pKF)); }
-    vertex_pose(frame *pF, const camera_vector &cameras) { setEstimate(imu_cam_pose(pF, cameras)); }
+    vertex_pose(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) { setEstimate(imu_cam_pose(pF, cameras, imu_calibration)); }
 
     virtual bool read(std::istream &is);
     virtual bool write(std::ostream &os) const;
@@ -161,7 +161,7 @@ class vertex_pose_4dof : public g2o::BaseVertex<4, imu_cam_pose>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_pose_4dof(key_frame *pKF) { setEstimate(imu_cam_pose(pKF)); }
-    vertex_pose_4dof(frame *pF, const camera_vector &cameras) { setEstimate(imu_cam_pose(pF, cameras)); }
+    vertex_pose_4dof(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) { setEstimate(imu_cam_pose(pF, cameras, imu_calibration)); }
     vertex_pose_4dof(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF) { setEstimate(imu_cam_pose(_Rwc, _twc, pKF)); }
 
     virtual bool read(std::istream &is) { return false; }

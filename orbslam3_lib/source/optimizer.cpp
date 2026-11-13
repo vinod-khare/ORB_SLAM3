@@ -962,11 +962,11 @@ int optimizer::pose_optimization(frame *pFrame, const camera_vector &cameras)
                         e->setRobustKernel(rk);
                         rk->setDelta(deltaStereo);
 
-                        e->fx = pFrame->fx;
-                        e->fy = pFrame->fy;
-                        e->cx = pFrame->cx;
-                        e->cy = pFrame->cy;
-                        e->bf = pFrame->baseline_fx;
+                        e->fx = cameras[0]->get_parameter(0);
+                        e->fy = cameras[0]->get_parameter(1);
+                        e->cx = cameras[0]->get_parameter(2);
+                        e->cy = cameras[0]->get_parameter(3);
+                        e->bf = cameras[0]->baseline_fx();
                         e->Xw = pMP->get_world_position().cast<double>();
 
                         optimizer.addEdge(e);
@@ -1029,7 +1029,8 @@ int optimizer::pose_optimization(frame *pFrame, const camera_vector &cameras)
                         rk->setDelta(deltaMono);
                         e->point_world = pMP->get_world_position().cast<double>();
 
-                        e->right_from_left = g2o::SE3Quat(pFrame->get_relative_pose_trl().unit_quaternion().cast<double>(), pFrame->get_relative_pose_trl().translation().cast<double>());
+                        const auto right_from_left = cameras[0]->left_to_right_pose().inverse();
+                        e->right_from_left         = g2o::SE3Quat(right_from_left.unit_quaternion().cast<double>(), right_from_left.translation().cast<double>());
 
                         optimizer.addEdge(e);
 
@@ -4764,7 +4765,7 @@ void optimizer::merge_inertial_ba(key_frame *pCurrKF, key_frame *pMergeKF, bool 
     pMap->increase_change_index();
 }
 
-int optimizer::pose_inertial_optimization_last_key_frame(frame *pFrame, const camera_vector &cameras, bool bRecInit)
+int optimizer::pose_inertial_optimization_last_key_frame(frame *pFrame, const camera_vector &cameras, const imu::calib &imu_calibration, bool bRecInit)
 {
     g2o::SparseOptimizer                 optimizer;
     g2o::BlockSolverX::LinearSolverType *linearSolver;
@@ -4782,7 +4783,7 @@ int optimizer::pose_inertial_optimization_last_key_frame(frame *pFrame, const ca
     int nInitialCorrespondences       = 0;
 
     // Set Frame vertex
-    vertex_pose *VP = new vertex_pose(pFrame, cameras);
+    vertex_pose *VP = new vertex_pose(pFrame, cameras, imu_calibration);
     VP->setId(0);
     VP->setFixed(false);
     optimizer.addVertex(VP);
@@ -5106,7 +5107,7 @@ int optimizer::pose_inertial_optimization_last_key_frame(frame *pFrame, const ca
     }
 
     // Recover optimized pose, velocity and biases
-    pFrame->set_imu_pose_velocity(VP->estimate().rotation_world_body.cast<float>(), VP->estimate().translation_world_body.cast<float>(), VV->estimate().cast<float>());
+    pFrame->set_imu_pose_velocity(VP->estimate().rotation_world_body.cast<float>(), VP->estimate().translation_world_body.cast<float>(), VV->estimate().cast<float>(), imu_calibration);
     vector_6d b;
     b << VG->estimate(), VA->estimate();
     pFrame->imu_bias = imu::bias(b[3], b[4], b[5], b[0], b[1], b[2]);
@@ -5159,7 +5160,7 @@ int optimizer::pose_inertial_optimization_last_key_frame(frame *pFrame, const ca
     return nInitialCorrespondences - nBad;
 }
 
-int optimizer::pose_inertial_optimization_last_frame(frame *pFrame, const camera_vector &cameras, bool bRecInit)
+int optimizer::pose_inertial_optimization_last_frame(frame *pFrame, const camera_vector &cameras, const imu::calib &imu_calibration, bool bRecInit)
 {
     g2o::SparseOptimizer                 optimizer;
     g2o::BlockSolverX::LinearSolverType *linearSolver;
@@ -5177,7 +5178,7 @@ int optimizer::pose_inertial_optimization_last_frame(frame *pFrame, const camera
     int nInitialCorrespondences       = 0;
 
     // Set Current Frame vertex
-    vertex_pose *VP = new vertex_pose(pFrame, cameras);
+    vertex_pose *VP = new vertex_pose(pFrame, cameras, imu_calibration);
     VP->setId(0);
     VP->setFixed(false);
     optimizer.addVertex(VP);
@@ -5322,7 +5323,7 @@ int optimizer::pose_inertial_optimization_last_frame(frame *pFrame, const camera
     // Set Previous Frame Vertex
     frame *pFp = pFrame->previous_frame;
 
-    vertex_pose *VPk = new vertex_pose(pFp, cameras);
+    vertex_pose *VPk = new vertex_pose(pFp, cameras, imu_calibration);
     VPk->setId(4);
     VPk->setFixed(false);
     optimizer.addVertex(VPk);
@@ -5518,7 +5519,7 @@ int optimizer::pose_inertial_optimization_last_frame(frame *pFrame, const camera
     nInliers = nInliersMono + nInliersStereo;
 
     // Recover optimized pose, velocity and biases
-    pFrame->set_imu_pose_velocity(VP->estimate().rotation_world_body.cast<float>(), VP->estimate().translation_world_body.cast<float>(), VV->estimate().cast<float>());
+    pFrame->set_imu_pose_velocity(VP->estimate().rotation_world_body.cast<float>(), VP->estimate().translation_world_body.cast<float>(), VV->estimate().cast<float>(), imu_calibration);
     vector_6d b;
     b << VG->estimate(), VA->estimate();
     pFrame->imu_bias = imu::bias(b[3], b[4], b[5], b[0], b[1], b[2]);

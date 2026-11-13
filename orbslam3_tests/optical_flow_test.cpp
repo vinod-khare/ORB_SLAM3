@@ -21,20 +21,16 @@ TEST_CASE("Default and copied frames own a valid IMU integration lock")
     frame.set_integrated();
     REQUIRE(frame.imu_is_preintegrated());
 
-    frame.calibration_matrix = cv::Mat::eye(3, 3, CV_32F);
     const ORB_SLAM3::frame copied(frame);
     REQUIRE(copied.imu_is_preintegrated());
 }
 
 TEST_CASE("Frame construction initializes state without extraction")
 {
-    const cv::Mat    calibration = cv::Mat(cv::Matx33f(200, 0, 128, 0, 200, 128, 0, 0, 1));
-    const cv::Mat    distortion  = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::frame previous(1.0, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::frame previous(1.0, nullptr, 40);
     previous.set_velocity(Eigen::Vector3f(1, 2, 3));
-    const Sophus::SE3f relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0, 0));
     const auto         next_id = ORB_SLAM3::frame::next_id;
-    ORB_SLAM3::frame   current(1.05, nullptr, calibration, distortion, 20, 40, &previous, {}, relative_pose);
+    ORB_SLAM3::frame   current(1.05, nullptr, 40, &previous);
     REQUIRE(current.id == next_id);
     REQUIRE(ORB_SLAM3::frame::next_id == next_id + 1);
     REQUIRE(current.timestamp == 1.05);
@@ -46,11 +42,8 @@ TEST_CASE("Frame construction initializes state without extraction")
     REQUIRE(current.previous_frame == &previous);
     REQUIRE(current.has_velocity());
     REQUIRE(current.get_velocity().isApprox(previous.get_velocity()));
-    REQUIRE(current.get_relative_pose_tlr().matrix().isApprox(relative_pose.matrix()));
     REQUIRE_FALSE(current.has_pose());
     REQUIRE_FALSE(current.imu_is_preintegrated());
-    REQUIRE(cv::norm(current.calibration_matrix, calibration, cv::NORM_INF) == 0);
-    REQUIRE(current.calibration_matrix.data != calibration.data);
 }
 
 TEST_CASE("Frame feature data survives extractor reuse and destruction")
@@ -61,9 +54,7 @@ TEST_CASE("Frame feature data survives extractor reuse and destruction")
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
-    const cv::Mat    distortion = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::frame frame(1.0, nullptr, cameras[0]->to_k(), distortion, 20, 40);
-    ORB_SLAM3::frame::initial_computations = true;
+    ORB_SLAM3::frame frame(1.0, nullptr, 40);
     cv::Mat descriptors;
     {
         ORB_SLAM3::keypoint_extractor extractor(400, 1.2f, 4, 20, 7, ORB_SLAM3::keypoint_detector_type::fast, descriptor_type);
@@ -76,7 +67,7 @@ TEST_CASE("Frame feature data survives extractor reuse and destruction")
         REQUIRE(frame.level_sigma_squared == extractor.get_scale_sigma_squares());
         REQUIRE(frame.inverse_level_sigma_squared == extractor.get_inverse_scale_sigma_squares());
         descriptors = descriptor_matrix(frame.keypoints).clone();
-        ORB_SLAM3::frame other(2.0, nullptr, cameras[0]->to_k(), distortion, 20, 40);
+        ORB_SLAM3::frame other(2.0, nullptr, 40);
         ORB_SLAM3::tracking::extract_features(other, extractor, cv::Mat::zeros(image.size(), image.type()), cameras);
         REQUIRE(other.feature_count == 0);
     }
@@ -109,7 +100,6 @@ TEST_CASE("Optical flow reuses frame pyramids and matches raw image tracking")
     const auto &right_pyramid = previous_frame.get_optical_flow_pyramid(current_image, true);
     REQUIRE(cv::norm(right_pyramid.front(), current_image, cv::NORM_INF) == 0);
     REQUIRE(right_pyramid.front().data != previous_pyramid.front().data);
-    previous_frame.calibration_matrix = cv::Mat::eye(3, 3, CV_32F);
     const ORB_SLAM3::frame copied(previous_frame);
     REQUIRE(copied.right_optical_flow_pyramid.front().data == right_pyramid.front().data);
 
@@ -189,8 +179,10 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
         distortion.at<float>(0) = -0.1f;
     }
     Sophus::SE3f relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0, 0));
-    ORB_SLAM3::frame::initial_computations = true;
-    ORB_SLAM3::frame previous(1.0, nullptr, calibration, distortion, 20, 40, nullptr, {}, relative_pose);
+    cameras[0]->set_distortion_coefficients(distortion);
+    cameras[0]->set_baseline(0.1f);
+    cameras[0]->set_left_to_right_pose(relative_pose);
+    ORB_SLAM3::frame previous(1.0, nullptr, 40);
     ORB_SLAM3::tracking::extract_features(previous, left_extractor, image, cameras, stereo ? image : cv::Mat(), stereo ? &right_extractor : nullptr);
     previous.last_key_frame = nullptr;
     previous.dataset        = 0;
@@ -207,7 +199,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     previous.get_optical_flow_pyramid(image, true);
     previous.flow_candidates = 200;
     const auto       next_id = ORB_SLAM3::frame::next_id;
-    ORB_SLAM3::frame current(previous, 1.05);
+    ORB_SLAM3::frame current(previous, 1.05, *cameras[0]);
     REQUIRE(current.id == next_id);
     REQUIRE(ORB_SLAM3::frame::next_id == next_id + 1);
     REQUIRE(current.flow_only);
@@ -227,7 +219,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     ORB_SLAM3::keypoint  tracked_feature(native_tracked, 42.f);
     tracked_feature.pt_undistorted = cv::Point2f(-10, -20);
     tracked_feature.descriptor     = cv::Mat::ones(1, 32, CV_8U);
-    current.set_tracked_features({tracked_feature}, {&point});
+    current.set_tracked_features(*cameras[0], {tracked_feature}, {&point});
     current.flow_candidates = 100;
     current.flow_tracks     = 1;
     REQUIRE(current.feature_count == 1);
@@ -321,7 +313,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
         REQUIRE(current.is_fisheye_stereo);
         REQUIRE(current.keypoints.empty());
         REQUIRE(current.right_keypoints.empty());
-        current.set_tracked_features({tracked}, {&point});
+        current.set_tracked_features(*cameras[0], {tracked}, {&point});
         REQUIRE(current.is_fisheye_stereo);
         REQUIRE(current.keypoints.size() == 1);
         REQUIRE(current.right_keypoints.empty());
@@ -362,15 +354,14 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
             cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
         }
     }
-    auto    calibration                    = cameras[0]->to_k();
-    cv::Mat distortion                     = cv::Mat::zeros(4, 1, CV_32F);
-    ORB_SLAM3::frame::initial_computations = true;
     const Sophus::SE3f relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0, 0));
-    ORB_SLAM3::frame   previous(1.0, nullptr, calibration, distortion, 20, 40, nullptr, {}, relative_pose);
+    cameras[0]->set_baseline(0.1f);
+    cameras[0]->set_left_to_right_pose(relative_pose);
+    ORB_SLAM3::frame previous(1.0, nullptr, 40);
     ORB_SLAM3::tracking::extract_features(previous, left_extractor, left, cameras, right, &right_extractor);
     previous.last_key_frame = nullptr;
     previous.dataset        = 0;
-    ORB_SLAM3::frame current(previous, 1.05);
+    ORB_SLAM3::frame current(previous, 1.05, *cameras[0]);
     REQUIRE(current.flow_only);
     REQUIRE(current.right_keypoints.empty());
     cv::setNumThreads(4);
@@ -406,12 +397,13 @@ TEST_CASE("RGB-D frames undistort tracked features using the primary camera")
     cv::Mat                       calibration = cv::Mat(cv::Matx33f(200, 0, 128, 0, 200, 128, 0, 0, 1));
     cv::Mat                       distortion  = cv::Mat(cv::Vec4f(-0.1f, 0, 0, 0));
     const cv::Mat                 depth(image.size(), CV_32F, cv::Scalar(2));
-    ORB_SLAM3::frame::initial_computations = true;
-    ORB_SLAM3::frame         frame(1.0, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::frame              frame(1.0, nullptr, 40);
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
+    cameras[0]->set_distortion_coefficients(distortion);
+    cameras[0]->set_baseline(0.1f);
     ORB_SLAM3::tracking::extract_features(frame, extractor, image, cameras);
-    frame.compute_stereo_from_rgbd(depth);
+    frame.compute_stereo_from_rgbd(depth, *cameras[0]);
     REQUIRE(frame.feature_count > 0);
     REQUIRE_FALSE(frame.is_fisheye_stereo);
     REQUIRE(std::all_of(frame.depths.begin(), frame.depths.end(), [](float value) { return value == 2.0f; }));
@@ -419,7 +411,7 @@ TEST_CASE("RGB-D frames undistort tracked features using the primary camera")
 
     ORB_SLAM3::map_point point;
     const cv::KeyPoint   tracked(73.25f, 81.75f, 31.0f);
-    frame.set_tracked_features({tracked}, {&point});
+    frame.set_tracked_features(*cameras[0], {tracked}, {&point});
     std::vector<cv::Point2f> expected;
     cv::undistortPoints(std::vector<cv::Point2f>{tracked.pt}, expected, calibration, distortion, cv::noArray(), calibration);
     REQUIRE(cv::norm(frame.keypoints.front().pt_undistorted - expected.front()) < 0.001);
@@ -429,14 +421,14 @@ TEST_CASE("RGB-D frames undistort tracked features using the primary camera")
 TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
 {
     ORB_SLAM3::frame frame;
-    frame.distortion_coefficients = cv::Mat::zeros(4, 1, CV_32F);
+    ORB_SLAM3::pinhole               camera(std::vector<float>{200, 200, 128, 128});
     ORB_SLAM3::map_point             point;
     std::vector<ORB_SLAM3::keypoint> keys;
     for (int i = 0; i < 100; ++i)
     {
         keys.emplace_back(static_cast<float>(16 + (i % 4) * 32), static_cast<float>(16 + ((i / 4) % 4) * 32), 31.0f);
     }
-    frame.set_tracked_features(keys, std::vector<ORB_SLAM3::map_point *>(100, &point));
+    frame.set_tracked_features(camera, keys, std::vector<ORB_SLAM3::map_point *>(100, &point));
     REQUIRE(frame.reliable_flow_inliers({128, 128}));
     REQUIRE(frame.flow_inliers == 100);
     REQUIRE(frame.flow_occupied_cells == 16);
@@ -446,18 +438,18 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
     REQUIRE(frame.reliable_flow_inliers({128, 128})); // exactly 60%
     frame.outliers[40] = true;
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(100, ORB_SLAM3::keypoint(16, 16, 31)), std::vector<ORB_SLAM3::map_point *>(100, &point));
+    frame.set_tracked_features(camera, std::vector<ORB_SLAM3::keypoint>(100, ORB_SLAM3::keypoint(16, 16, 31)), std::vector<ORB_SLAM3::map_point *>(100, &point));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 49), std::vector<ORB_SLAM3::map_point *>(49, &point));
+    frame.set_tracked_features(camera, std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 49), std::vector<ORB_SLAM3::map_point *>(49, &point));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 50), std::vector<ORB_SLAM3::map_point *>(50, &point));
+    frame.set_tracked_features(camera, std::vector<ORB_SLAM3::keypoint>(keys.begin(), keys.begin() + 50), std::vector<ORB_SLAM3::map_point *>(50, &point));
     REQUIRE(frame.reliable_flow_inliers({128, 128}));
     std::vector<ORB_SLAM3::keypoint> six_cells;
     for (int i = 0; i < 60; ++i)
     {
         six_cells.emplace_back(static_cast<float>(16 + (i % 3) * 32), static_cast<float>(16 + ((i / 3) % 2) * 32), 31.0f);
     }
-    frame.set_tracked_features(six_cells, std::vector<ORB_SLAM3::map_point *>(60, &point));
+    frame.set_tracked_features(camera, six_cells, std::vector<ORB_SLAM3::map_point *>(60, &point));
     REQUIRE(frame.reliable_flow_inliers({128, 128}));
     for (auto &key : six_cells)
     {
@@ -466,9 +458,9 @@ TEST_CASE("Flow quality requires geometric inliers and spatial coverage")
             key.pt = cv::Point2f(16, 16);
         }
     }
-    frame.set_tracked_features(six_cells, std::vector<ORB_SLAM3::map_point *>(60, &point));
+    frame.set_tracked_features(camera, six_cells, std::vector<ORB_SLAM3::map_point *>(60, &point));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
-    frame.set_tracked_features(keys, std::vector<ORB_SLAM3::map_point *>(100, nullptr));
+    frame.set_tracked_features(camera, keys, std::vector<ORB_SLAM3::map_point *>(100, nullptr));
     REQUIRE_FALSE(frame.reliable_flow_inliers({128, 128}));
     for (auto &key : keys)
     {
@@ -488,8 +480,7 @@ TEST_CASE("Pose optimization uses undistorted keypoint coordinates", "[undistort
     cv::RNG random(27);
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     ORB_SLAM3::keypoint_extractor extractor(400, 1.2f, 4, 20, 7);
-    ORB_SLAM3::frame              frame(1.0, nullptr, cameras[0]->to_k(), cv::Mat::zeros(4, 1, CV_32F), 20, 40);
-    ORB_SLAM3::frame::initial_computations = true;
+    ORB_SLAM3::frame              frame(1.0, nullptr, 40);
     ORB_SLAM3::tracking::extract_features(frame, extractor, image, cameras);
 
     std::vector<std::unique_ptr<ORB_SLAM3::map_point>> points;
@@ -505,7 +496,7 @@ TEST_CASE("Pose optimization uses undistorted keypoint coordinates", "[undistort
         observations.push_back(point.get());
         points.push_back(std::move(point));
     }
-    frame.set_tracked_features(keys, observations);
+    frame.set_tracked_features(*cameras[0], keys, observations);
     for (std::size_t index = 0; index < frame.keypoints.size(); ++index)
     {
         frame.keypoints[index].pt += cv::Point2f(index % 2 == 0 ? 20.f : -20.f, index % 3 == 0 ? 15.f : -15.f);
@@ -532,8 +523,8 @@ TEST_CASE("Fisheye flow preserves both camera observations for pose optimization
     ORB_SLAM3::keypoint_extractor left_extractor(400, 1.2f, 4, 20, 7);
     ORB_SLAM3::keypoint_extractor right_extractor(400, 1.2f, 4, 20, 7);
     const Sophus::SE3f            relative_pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(0.1f, 0.02f, 0));
-    ORB_SLAM3::frame              frame(1.0, nullptr, cameras[0]->to_k(), cv::Mat::zeros(4, 1, CV_32F), 20, 40, nullptr, {}, relative_pose);
-    ORB_SLAM3::frame::initial_computations = true;
+    cameras[0]->set_left_to_right_pose(relative_pose);
+    ORB_SLAM3::frame frame(1.0, nullptr, 40);
     ORB_SLAM3::tracking::extract_features(frame, left_extractor, image, cameras, image, &right_extractor);
 
     std::vector<std::unique_ptr<ORB_SLAM3::map_point>> points;
@@ -547,7 +538,7 @@ TEST_CASE("Fisheye flow preserves both camera observations for pose optimization
         auto                  point = std::make_unique<ORB_SLAM3::map_point>();
         point->set_world_position(position);
         const auto left  = cameras[0]->project(position);
-        const auto right = cameras[1]->project(frame.get_relative_pose_trl() * position);
+        const auto right = cameras[1]->project(cameras[0]->left_to_right_pose().inverse() * position);
         if (!right_only)
         {
             left_keys.emplace_back(left.x(), left.y(), 7.f);
@@ -557,7 +548,7 @@ TEST_CASE("Fisheye flow preserves both camera observations for pose optimization
         right_points.push_back(point.get());
         points.push_back(std::move(point));
     }
-    frame.set_tracked_features(left_keys, left_points, right_keys, right_points);
+    frame.set_tracked_features(*cameras[0], left_keys, left_points, right_keys, right_points);
     REQUIRE(frame.feature_count == (right_only ? 100 : 200));
     REQUIRE(frame.right_keypoints.size() == 100);
     REQUIRE(frame.map_points[frame.keypoints.size()] == right_points.front());

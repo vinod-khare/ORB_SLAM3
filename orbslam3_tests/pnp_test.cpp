@@ -135,8 +135,9 @@ TEST_CASE("Inertial camera poses update only their modeled stereo observations",
     ORB_SLAM3::frame frame;
     frame.set_pose(Sophus::SE3f{});
     frame.set_velocity(Eigen::Vector3f::Zero());
-    frame.baseline_fx = 20;
-    ORB_SLAM3::imu_cam_pose     pose(&frame, cameras);
+    cameras[0]->set_baseline(20.0f / 500.0f);
+    ORB_SLAM3::imu::calib       calibration(Sophus::SE3f{}, 1, 1, 1, 1);
+    ORB_SLAM3::imu_cam_pose     pose(&frame, cameras, calibration);
     const std::array<double, 6> update{};
     pose.update(update.data());
     pose.update_world_reference(update.data());
@@ -145,10 +146,22 @@ TEST_CASE("Inertial camera poses update only their modeled stereo observations",
     REQUIRE(pose.project(Eigen::Vector3d(0, 0, 1)).isApprox(Eigen::Vector2d(320, 240)));
     static_assert(!std::is_default_constructible_v<ORB_SLAM3::vertex_pose>);
     static_assert(!std::is_default_constructible_v<ORB_SLAM3::vertex_pose_4dof>);
-    ORB_SLAM3::vertex_pose vertex(&frame, cameras);
+    ORB_SLAM3::vertex_pose vertex(&frame, cameras, calibration);
     std::stringstream      serialized_pose;
     REQUIRE(vertex.write(serialized_pose));
     REQUIRE(vertex.read(serialized_pose));
     REQUIRE(vertex.estimate().cameras.data() == cameras.data());
     REQUIRE(vertex.estimate().project(Eigen::Vector3d(0, 0, 1)).isApprox(Eigen::Vector2d(320, 240)));
+}
+
+TEST_CASE("Frames use the supplied IMU calibration", "[camera_calibration]")
+{
+    ORB_SLAM3::frame frame;
+    frame.set_pose(Sophus::SE3f{});
+    const ORB_SLAM3::imu::calib first(Sophus::SE3f{}, 1, 1, 1, 1);
+    const ORB_SLAM3::imu::calib second(Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f(1, 2, 3)), 1, 1, 1, 1);
+    REQUIRE(frame.get_imu_position(first).isApprox(first.camera_to_body.translation()));
+    REQUIRE(frame.get_imu_position(second).isApprox(second.camera_to_body.translation()));
+    frame.set_imu_pose_velocity(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), second);
+    REQUIRE(frame.get_imu_position(second).isApprox(Eigen::Vector3f::Zero()));
 }

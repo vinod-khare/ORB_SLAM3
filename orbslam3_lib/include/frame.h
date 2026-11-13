@@ -18,12 +18,12 @@
 
 #pragma once
 
+#include "CameraModels/geometric_camera.h"
 #include "Eigen/Core"
 #include "converter.h"
 #include "imu_types.h"
 #include "keypoint.h"
 #include "place_vocabulary.h"
-#include "settings.h"
 #include "sophus/se3.hpp"
 
 #include <array>
@@ -47,7 +47,6 @@ namespace ORB_SLAM3
 class map_point;
 class key_frame;
 class constraint_pose_imu;
-class geometric_camera;
 
 class frame
 {
@@ -62,12 +61,13 @@ class frame
     // Copy constructor.
     frame(const frame &frame);
 
-    // Calibration/state for a new image, without detecting or describing features.
-    frame(frame &previous, double timestamp);
+    // State for a new image, without detecting or describing features.
+    frame(frame &previous, double timestamp, geometric_camera &camera);
     /** Initialize geometry and feature indexing from keypoints supplied by Tracking. */
     void initialize_features(
         const cv::Mat &left, const camera_vector &cameras, const cv::Mat &right = {}, const std::vector<cv::Mat> &left_pyramid = {}, const std::vector<cv::Mat> &right_pyramid = {});
-    void set_tracked_features(std::vector<keypoint> keys, std::vector<map_point *> points, std::vector<keypoint> right_keys = {}, std::vector<map_point *> right_points = {});
+    void set_tracked_features(
+        geometric_camera &camera, std::vector<keypoint> keys, std::vector<map_point *> points, std::vector<keypoint> right_keys = {}, std::vector<map_point *> right_points = {});
     bool reliable_flow_inliers(const cv::Size &image_size, int minimum_inliers = 50);
     bool flow_only{false};
     int  flow_candidates{};
@@ -75,16 +75,8 @@ class frame
     int  flow_inliers{};
     int  flow_occupied_cells{};
 
-    /** Construct calibration/state only; Tracking supplies extracted features separately. */
-    frame(double              timestamp,
-          place_vocabulary   *vocabulary,
-          const cv::Mat      &calibration,
-          const cv::Mat      &distortion,
-          float               baseline_fx,
-          float               depth_threshold,
-          frame              *previous        = nullptr,
-          const imu::calib   &imu_calibration = {},
-          const Sophus::SE3f &left_to_right   = {});
+    /** Construct frame state; Tracking supplies extracted features separately. */
+    frame(double timestamp, place_vocabulary *vocabulary, float depth_threshold, frame *previous = nullptr);
 
     const std::vector<cv::Mat> &get_optical_flow_pyramid(const cv::Mat &image, bool right = false);
     static std::vector<cv::Mat> build_optical_flow_pyramid(const cv::Mat &image);
@@ -101,24 +93,16 @@ class frame
     Eigen::Vector3f get_velocity() const;
 
     // Set IMU pose and velocity (implicitly changes camera pose)
-    void set_imu_pose_velocity(const Eigen::Matrix3f &Rwb, const Eigen::Vector3f &twb, const Eigen::Vector3f &Vwb);
+    void set_imu_pose_velocity(const Eigen::Matrix3f &Rwb, const Eigen::Vector3f &twb, const Eigen::Vector3f &Vwb, const imu::calib &imu_calibration);
 
-    Eigen::Matrix<float, 3, 1> get_imu_position() const;
-    Eigen::Matrix<float, 3, 3> get_imu_rotation();
-    Sophus::SE3<float>         get_imu_pose();
-
-    Sophus::SE3f    get_relative_pose_trl();
-    Sophus::SE3f    get_relative_pose_tlr();
-    Eigen::Matrix3f get_relative_pose_tlr_rotation();
-    Eigen::Vector3f get_relative_pose_tlr_translation();
+    Eigen::Matrix<float, 3, 1> get_imu_position(const imu::calib &imu_calibration) const;
+    Eigen::Matrix<float, 3, 3> get_imu_rotation(const imu::calib &imu_calibration);
 
     void set_new_bias(const imu::bias &b);
 
     // Check if a map_point is in the frustum of the camera
     // and fill variables of the map_point to be used by the tracking
     bool is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_vector &cameras);
-
-    bool project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v);
 
     Eigen::Vector3f in_reference_coordinates(Eigen::Vector3f pCw);
 
@@ -129,13 +113,13 @@ class frame
 
     // Search a match for each keypoint in the left image to a keypoint in the right image.
     // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.
-    void compute_stereo_matches(const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid);
+    void compute_stereo_matches(geometric_camera &camera, const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid);
 
     // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
-    void compute_stereo_from_rgbd(const cv::Mat &imDepth);
+    void compute_stereo_from_rgbd(const cv::Mat &imDepth, geometric_camera &camera);
 
     // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
-    bool unproject_stereo(const int &i, Eigen::Vector3f &x3D);
+    bool unproject_stereo(const int &i, Eigen::Vector3f &x3D, geometric_camera &camera);
 
     constraint_pose_imu *imu_constraint;
 
@@ -179,10 +163,6 @@ class frame
     // tcw_ not necessary as Sophus has a method for extracting the translation vector: Tcw_.translation()
     // Twc_ not necessary as Sophus has a method for easily computing the inverse pose: Tcw_.inverse()
 
-    Sophus::SE3<float>         _left_to_right, _right_to_left;
-    Eigen::Matrix<float, 3, 3> _left_to_right_rotation;
-    Eigen::Vector3f            _left_to_right_translation;
-
     // IMU linear velocity
     Eigen::Vector3f _world_velocity;
     bool            _has_velocity;
@@ -198,23 +178,6 @@ class frame
 
     std::vector<cv::Mat> optical_flow_pyramid;
     std::vector<cv::Mat> right_optical_flow_pyramid;
-
-    // Calibration matrix and OpenCV distortion parameters.
-    cv::Mat         calibration_matrix;
-    Eigen::Matrix3f eigen_calibration_matrix;
-    static float    fx;
-    static float    fy;
-    static float    cx;
-    static float    cy;
-    static float    invfx;
-    static float    invfy;
-    cv::Mat         distortion_coefficients;
-
-    // Stereo baseline multiplied by fx.
-    float baseline_fx;
-
-    // Stereo baseline in meters.
-    float baseline;
 
     // Threshold close/far points. Close points are inserted from 1 view.
     // Far points are inserted as in the monocular case from 2 views.
@@ -251,17 +214,14 @@ class frame
     int               close_map_point_count;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
-    static float             grid_element_width_inverse;
-    static float             grid_element_height_inverse;
+    float                    grid_element_width_inverse{};
+    float                    grid_element_height_inverse{};
     std::vector<std::size_t> grid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     imu::bias predicted_imu_bias;
 
     // IMU bias
     imu::bias imu_bias;
-
-    // Imu calibration
-    imu::calib imu_calibration;
 
     // Imu preintegration from last keyframe
     imu::preintegrated *imu_preintegrated;
@@ -287,13 +247,11 @@ class frame
     vector<float> level_sigma_squared;
     vector<float> inverse_level_sigma_squared;
 
-    // Undistorted Image Bounds (computed once).
-    static float min_x;
-    static float max_x;
-    static float min_y;
-    static float max_y;
-
-    static bool initial_computations;
+    // Undistorted image bounds for feature indexing.
+    float min_x{};
+    float max_x{};
+    float min_y{};
+    float max_y{};
 
     std::map<long unsigned int, cv::Point2f> projected_points;
     std::map<long unsigned int, cv::Point2f> matched_in_image;
@@ -303,15 +261,13 @@ class frame
     int dataset;
 
   private:
-    // Undistort keypoints given OpenCV distortion parameters.
-    // Only for the RGB-D case. Stereo must be already rectified!
-    // (called in the constructor).
-    void _undistort_keypoints();
+    // Undistort keypoints using the primary camera. Stereo must be rectified.
+    void _undistort_keypoints(geometric_camera &camera);
 
-    // Computes image bounds for the undistorted image (called in the constructor).
-    void _compute_image_bounds(const cv::Mat &imLeft);
+    // Computes image bounds for the undistorted image.
+    void _compute_image_bounds(const cv::Mat &imLeft, geometric_camera &camera);
 
-    // Assign keypoints to the grid for speed up feature matching (called in the constructor).
+    // Assign keypoints to the grid for speed up feature matching.
     void _assign_features_to_grid();
 
     bool _is_set;
@@ -339,7 +295,7 @@ class frame
     // Stereo fisheye
     void compute_stereo_fisheye_matches(const camera_vector &cameras);
 
-    bool is_in_frustum_checks(map_point *pMP, float viewingCosLimit, geometric_camera &camera, bool bRight = false);
+    bool is_in_frustum_checks(map_point *pMP, float viewingCosLimit, const camera_vector &cameras, bool bRight = false);
 
     Eigen::Vector3f unproject_stereo_fisheye(const int &i);
 

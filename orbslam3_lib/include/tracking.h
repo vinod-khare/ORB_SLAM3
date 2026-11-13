@@ -271,10 +271,6 @@ class tracking
     atlas *owner_atlas;
 
     // Calibration matrix
-    cv::Mat         camera_matrix;
-    Eigen::Matrix3f camera_matrix_eigen;
-    cv::Mat         distortion_coefficients;
-    float           baseline_fx;
     float           image_scale;
 
     float  imu_frequency;
@@ -344,8 +340,6 @@ class tracking
     const camera_vector &cameras;
 
     int initialization_id, last_id;
-
-    Sophus::SE3f left_to_right_pose;
 
     void load_parameters(settings *settings);
 

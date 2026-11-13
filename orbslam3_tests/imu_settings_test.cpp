@@ -89,7 +89,6 @@ TEST_CASE("Tracking preserves initialization extraction during deferred recovery
     tracker.gray_image = cv::Mat(512, 512, CV_8UC1);
     cv::RNG random(17);
     random.fill(tracker.gray_image, cv::RNG::UNIFORM, 0, 256);
-    ORB_SLAM3::frame::initial_computations = true;
 
     const bool initial = GENERATE(false, true);
     tracker.create_frame(1.0, tracker.extractor(initial));
@@ -98,7 +97,7 @@ TEST_CASE("Tracking preserves initialization extraction during deferred recovery
     REQUIRE((descriptors.rows > 250) == initial);
     REQUIRE(tracker.current_frame.previous_frame == (sensor == ORB_SLAM3::system::imu_monocular ? &tracker.last_frame : nullptr));
     tracker.last_frame    = tracker.current_frame;
-    tracker.current_frame = ORB_SLAM3::frame(tracker.last_frame, 1.05);
+    tracker.current_frame = ORB_SLAM3::frame(tracker.last_frame, 1.05, *tracker.cameras[0]);
     REQUIRE(tracker.current_frame.flow_only);
     tracker.extract_current_features();
     REQUIRE_FALSE(tracker.current_frame.flow_only);
@@ -136,6 +135,12 @@ TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shut
     ORB_SLAM3::system system(vocabulary_path.string(), std::move(settings));
     REQUIRE(cameras.size() == (sensor == ORB_SLAM3::system::stereo ? 2 : 1));
     REQUIRE(cameras[0]->get_type() == (fisheye ? ORB_SLAM3::geometric_camera::cam_fisheye : ORB_SLAM3::geometric_camera::cam_pinhole));
+    if (sensor == ORB_SLAM3::system::stereo)
+    {
+        REQUIRE(cameras[0]->baseline() == Catch::Approx(0.1f));
+        REQUIRE(cameras[0]->baseline_fx() == Catch::Approx(0.1f * cameras[0]->get_parameter(0)));
+        REQUIRE(cameras[0]->left_to_right_pose().translation().x() == Catch::Approx(fisheye ? 0.1f : 0.f));
+    }
     const auto   &primary_camera = *cameras[0];
     const cv::Mat image(512, 512, CV_8UC1, cv::Scalar(0));
     if (sensor == ORB_SLAM3::system::stereo)
@@ -157,6 +162,18 @@ TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shut
         system.shutdown();
         REQUIRE(system.statistics().get_snapshot().frames == 1);
     }
+}
+
+TEST_CASE("Settings attach distortion to the primary camera", "[camera_calibration]")
+{
+    imu_settings files;
+    auto         calibration                 = YAML::LoadFile((files.directory / "calibration/camchain.yaml").string());
+    calibration["cam0"]["distortion_model"]  = "radtan";
+    calibration["cam0"]["distortion_coeffs"] = std::vector<float>{-0.1f, 0, 0, 0};
+    std::ofstream(files.directory / "calibration/camchain.yaml") << calibration;
+    files.write();
+    ORB_SLAM3::settings settings(files.path.string(), ORB_SLAM3::system::monocular);
+    REQUIRE(settings.cameras()[0]->distortion_coefficients().at<float>(0) == Catch::Approx(-0.1f));
 }
 
 TEST_CASE("System exposes effective feature names before processing frames", "[settings][features]")
