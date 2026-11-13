@@ -13,7 +13,7 @@ Use this workflow for a class or similar type and its related source/header file
    - Read applicable repository and language instructions before editing.
    - Inspect the target declaration, implementation, neighboring types, build files, and all references.
    - Check the worktree first. Preserve unrelated user changes and do not stage them.
-   - Follow established repository naming conventions. In this repository, class names use `lower_camel_case`, methods use `lower_snake_case`, and private data members begin with `_` and do not end with `_`.
+   - Follow established repository naming conventions. In this repository, class names use `lower_snake_case`, methods use `lower_snake_case`, and private data members begin with `_` and do not end with `_`.
    - Audit every data member in every access section, including public configuration/state and protected test seams. Do not stop after renaming private members or only the fields directly involved in the requested change.
 
 2. **Plan the complete refactor**
