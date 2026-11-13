@@ -1,9 +1,9 @@
-#include "pinhole.h"
-#include "tracking.h"
 #include "descriptor_matcher.h"
 #include "frame.h"
 #include "keypoint_extractor.h"
 #include "map_point.h"
+#include "pinhole.h"
+#include "tracking.h"
 
 #include <algorithm>
 #include <memory>
@@ -84,13 +84,12 @@ std::pair<int, int> descriptor_layout(ORB_SLAM3::keypoint_descriptor_type type)
 TEST_CASE("Keypoints expose undistorted coordinates without changing image coordinates", "[undistorted_keypoints]")
 {
     const cv::KeyPoint               tracked(73.25f, 81.75f, 31.f, 42.f, 0.75f, 2, 7);
-    const cv::KeyPoint               display(tracked.pt, 7.f, -1.f);
     std::vector<ORB_SLAM3::keypoint> keys{
         ORB_SLAM3::keypoint{},
         ORB_SLAM3::keypoint(tracked.pt, tracked.size),
         ORB_SLAM3::keypoint(tracked.pt.x, tracked.pt.y, tracked.size),
         ORB_SLAM3::keypoint(tracked),
-        ORB_SLAM3::keypoint(tracked, display),
+        ORB_SLAM3::keypoint(tracked, 15.f),
     };
     for (auto &key : keys)
     {
@@ -137,7 +136,6 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     cv::undistortPoints(std::vector<cv::Point2f>{key.pt}, expected, calibration, distortion, cv::noArray(), calibration);
     const auto &position = expected.front();
     REQUIRE(frame.keypoints.front().pt == key.pt);
-    REQUIRE(frame.keypoints.front().display.pt == key.pt);
     REQUIRE(cv::norm(frame.keypoints.front().pt_undistorted - position) < 0.001);
     REQUIRE(frame.get_features_in_area(position.x, position.y, 0.01f) == std::vector<std::size_t>{0});
     if (distortion_coefficient != 0)
@@ -157,7 +155,7 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     REQUIRE(point.z() == 2.f);
 
     ORB_SLAM3::map         map;
-    ORB_SLAM3::key_frame    keyframe(frame, &map, nullptr, cameras);
+    ORB_SLAM3::key_frame   keyframe(frame, &map, nullptr, cameras);
     const ORB_SLAM3::frame copied(frame);
     REQUIRE(keyframe.keypoints.front().pt == key.pt);
     REQUIRE(keyframe.keypoints.front().pt_undistorted == frame.keypoints.front().pt_undistorted);
@@ -175,6 +173,36 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
     frame.set_tracked_features({}, {});
     REQUIRE(frame.keypoints.empty());
     REQUIRE(frame.get_features_in_area(position.x, position.y, 2).empty());
+}
+
+TEST_CASE("Initialization matching filters using tracking rather than native orientation", "[native_keypoints]")
+{
+    const cv::Mat            calibration = cv::Mat(cv::Matx33f(200, 0, 128, 0, 200, 128, 0, 0, 1));
+    const cv::Mat            distortion  = cv::Mat::zeros(4, 1, CV_32F);
+    const cv::Mat            image       = cv::Mat::zeros(256, 256, CV_8U);
+    ORB_SLAM3::camera_vector cameras;
+    cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
+    ORB_SLAM3::frame         first(0.0, nullptr, calibration, distortion, 20, 40);
+    ORB_SLAM3::frame         second(1.0, nullptr, calibration, distortion, 20, 40);
+    std::vector<cv::Point2f> positions;
+    for (int index = 0; index < 12; ++index)
+    {
+        const cv::Point2f   position(30.f + 20.f * (index % 4), 30.f + 20.f * (index / 4));
+        ORB_SLAM3::keypoint key(cv::KeyPoint(position, 7.f, -1.f), 0.f);
+        key.descriptor = cv::Mat::zeros(1, 32, CV_8U);
+        first.keypoints.push_back(key);
+        second.keypoints.push_back(key);
+        positions.push_back(position);
+    }
+    ORB_SLAM3::frame::initial_computations = true;
+    first.initialize_features(image, cameras);
+    second.initialize_features(image, cameras);
+    ORB_SLAM3::descriptor_matcher matcher(0.9f, true);
+    std::vector<int>              matches;
+    REQUIRE(matcher.search_for_initialization(first, second, positions, matches, 2) == 12);
+    second.keypoints.back().tracking_angle = 180.f;
+    REQUIRE(matcher.search_for_initialization(first, second, positions, matches, 2) == 11);
+    REQUIRE(matches.back() == -1);
 }
 
 TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]")
@@ -249,7 +277,7 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     REQUIRE(point.color() == colored_keyframe.keypoints[0].color);
 }
 
-TEST_CASE("Display keypoints retain detector metadata without changing tracking keypoints", "[native_keypoints]")
+TEST_CASE("Keypoints retain native detector metadata and separate tracking orientation", "[native_keypoints]")
 {
     using detector  = ORB_SLAM3::keypoint_detector_type;
     const auto type = GENERATE(detector::fast,
@@ -301,11 +329,9 @@ TEST_CASE("Display keypoints retain detector metadata without changing tracking 
             {
                 continue;
             }
-            const auto &native = tracking_key.display;
-            REQUIRE(native.pt == tracking_key.pt);
-            REQUIRE(tracking_key.size == static_cast<int>(31 * scales[level]));
-            REQUIRE(tracking_key.angle >= 0);
-            REQUIRE(tracking_key.angle < 360);
+            const auto &native = tracking_key;
+            REQUIRE(tracking_key.tracking_angle >= 0);
+            REQUIRE(tracking_key.tracking_angle < 360);
             const bool in_overlap = native.pt.x >= overlap[0] && native.pt.x <= overlap[1];
             REQUIRE(in_overlap == (index >= static_cast<std::size_t>(mono_count)));
             if (type == detector::fast || type == detector::agast)
@@ -335,6 +361,7 @@ TEST_CASE("Display keypoints retain detector metadata without changing tracking 
         REQUIRE(repeated_keys[index].pt == tracking_keys[index].pt);
         REQUIRE(repeated_keys[index].size == tracking_keys[index].size);
         REQUIRE(repeated_keys[index].angle == tracking_keys[index].angle);
+        REQUIRE(repeated_keys[index].tracking_angle == tracking_keys[index].tracking_angle);
     }
     extractor(cv::Mat::zeros(image.size(), CV_8UC1), cv::noArray(), repeated_keys, repeated_descriptors, overlap);
     REQUIRE(repeated_keys.empty());

@@ -1,10 +1,10 @@
-#include "pinhole.h"
-#include "tracking.h"
 #include "atlas.h"
 #include "frame_drawer.h"
 #include "keypoint_extractor.h"
 #include "map_drawer.h"
 #include "map_point.h"
+#include "pinhole.h"
+#include "tracking.h"
 
 #include <memory>
 #include <type_traits>
@@ -33,9 +33,10 @@ class frame_drawer_fixture : public ORB_SLAM3::frame_drawer
         for (const auto &key : keys)
         {
             (right ? frame.right_keypoints : frame.keypoints).emplace_back(key);
+            (right ? frame.right_keypoints : frame.keypoints).back().tracking_angle = 45.f;
         }
         const auto offset   = right ? frame.keypoints.size() : 0;
-        frame.feature_count = static_cast<int>(offset + frame.right_keypoints.size());
+        frame.feature_count = static_cast<int>(frame.keypoints.size() + frame.right_keypoints.size());
         frame.map_points.assign(frame.feature_count, nullptr);
         frame.outliers.assign(frame.feature_count, false);
         _map_match.observation_count = 1;
@@ -138,7 +139,7 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
         const auto &position                                                      = frame.keypoints[index].pt;
         frame.color_image.at<cv::Vec3b>(cvRound(position.y), cvRound(position.x)) = index == 0 ? cv::Vec3b(0, 0, 255) : cv::Vec3b(255, 0, 0);
     }
-    ORB_SLAM3::key_frame  keyframe(frame, &map, nullptr, cameras);
+    ORB_SLAM3::key_frame keyframe(frame, &map, nullptr, cameras);
     ORB_SLAM3::map_point red(Eigen::Vector3f(-0.2f, 0.f, 0.f), &keyframe, &map);
     ORB_SLAM3::map_point blue(Eigen::Vector3f(0.2f, 0.f, 0.f), &keyframe, &map);
     red.add_observation(&keyframe, 0);

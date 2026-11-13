@@ -9,12 +9,13 @@
 namespace ORB_SLAM3
 {
 
+/** Native detector metadata, with octave set to the SLAM image-pyramid level. */
 class keypoint : public cv::KeyPoint
 {
   public:
     keypoint() = default;
     keypoint(const cv::Point2f &position, float size, float angle = -1.f, float response = 0.f, int octave = 0, int class_id = -1)
-        : cv::KeyPoint(position, size, angle, response, octave, class_id), pt_undistorted(position), display(position, size, angle, response, octave, class_id)
+        : cv::KeyPoint(position, size, angle, response, octave, class_id), pt_undistorted(position), tracking_angle(angle)
     {
     }
 
@@ -22,8 +23,8 @@ class keypoint : public cv::KeyPoint
     {
     }
 
-    keypoint(const cv::KeyPoint &tracked_keypoint) : cv::KeyPoint(tracked_keypoint), pt_undistorted(tracked_keypoint.pt), display(tracked_keypoint) {}
-    keypoint(const cv::KeyPoint &tracked_keypoint, const cv::KeyPoint &display_keypoint) : cv::KeyPoint(tracked_keypoint), pt_undistorted(tracked_keypoint.pt), display(display_keypoint) {}
+    keypoint(const cv::KeyPoint &native_keypoint) : keypoint(native_keypoint, native_keypoint.angle) {}
+    keypoint(const cv::KeyPoint &native_keypoint, float tracking_angle) : cv::KeyPoint(native_keypoint), pt_undistorted(native_keypoint.pt), tracking_angle(tracking_angle) {}
 
     /** Return an OpenCV keypoint with undistorted coordinates and unchanged metadata. */
     cv::KeyPoint undistorted() const
@@ -34,8 +35,9 @@ class keypoint : public cv::KeyPoint
     }
 
     /** Geometry coordinates; equal to pt for rectified images and native fisheye observations. */
-    cv::Point2f                  pt_undistorted;
-    cv::KeyPoint                 display;
+    cv::Point2f pt_undistorted;
+    /** ORB orientation used for descriptor matching, independent of the detector's native angle. */
+    float                        tracking_angle{-1.f};
     cv::Mat                      descriptor;
     std::array<unsigned char, 3> color{255, 255, 255};
     bool                         has_color{false};

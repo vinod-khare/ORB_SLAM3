@@ -18,13 +18,13 @@
 
 #include "tracking.h"
 
+#include "converter.h"
+#include "descriptor_matcher.h"
 #include "g2o_types.h"
+#include "geometric_tools.h"
 #include "kannala_brandt8.h"
 #include "optimizer.h"
 #include "pinhole.h"
-#include "converter.h"
-#include "descriptor_matcher.h"
-#include "geometric_tools.h"
 
 #include <algorithm>
 #include <array>
@@ -2022,9 +2022,8 @@ int tracking::track_with_optical_flow()
                 continue;
             }
 
-            auto key       = previous_keys[index];
-            key.pt         = point;
-            key.display.pt = point;
+            auto key = previous_keys[index];
+            key.pt   = point;
             tracked_keys[view].push_back(key);
             tracked_points[view].push_back(map_points[index]);
         }

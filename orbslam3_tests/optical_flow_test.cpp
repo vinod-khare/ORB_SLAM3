@@ -1,10 +1,10 @@
+#include "frame.h"
 #include "kannala_brandt8.h"
+#include "keypoint_extractor.h"
+#include "map_point.h"
 #include "optimizer.h"
 #include "pinhole.h"
 #include "tracking.h"
-#include "frame.h"
-#include "keypoint_extractor.h"
-#include "map_point.h"
 
 #include <algorithm>
 #include <limits>
@@ -171,7 +171,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     {
         if (camera_kind == 2)
         {
-            auto camera           = std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
+            auto camera          = std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
             camera->lapping_area = {0, 256};
             cameras.push_back(std::move(camera));
         }
@@ -195,10 +195,11 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     previous.last_key_frame = nullptr;
     previous.dataset        = 0;
     REQUIRE(previous.feature_count > 0);
-    REQUIRE(previous.keypoints.front().display.size == 7 * previous.scale_factors[previous.keypoints.front().octave]);
-    REQUIRE(previous.keypoints.front().display.angle == -1);
+    REQUIRE(previous.keypoints.front().size == 7 * previous.scale_factors[previous.keypoints.front().octave]);
+    REQUIRE(previous.keypoints.front().angle == -1);
     const ORB_SLAM3::frame copied(previous);
-    REQUIRE(copied.keypoints.front().display.size == previous.keypoints.front().display.size);
+    REQUIRE(copied.keypoints.front().size == previous.keypoints.front().size);
+    REQUIRE(copied.keypoints.front().tracking_angle == previous.keypoints.front().tracking_angle);
     REQUIRE(copied.keypoints.front().pt_undistorted == previous.keypoints.front().pt_undistorted);
     REQUIRE(copied.right_keypoints.size() == previous.right_keypoints.size());
     REQUIRE_FALSE(previous.keypoints.front().descriptor.empty());
@@ -223,7 +224,7 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     ORB_SLAM3::map_point point;
     cv::KeyPoint         tracked(73.25f, 81.75f, 31.0f);
     const cv::KeyPoint   native_tracked(tracked.pt, 7.f, -1.f);
-    ORB_SLAM3::keypoint  tracked_feature(tracked, native_tracked);
+    ORB_SLAM3::keypoint  tracked_feature(native_tracked, 42.f);
     tracked_feature.pt_undistorted = cv::Point2f(-10, -20);
     tracked_feature.descriptor     = cv::Mat::ones(1, 32, CV_8U);
     current.set_tracked_features({tracked_feature}, {&point});
@@ -231,10 +232,9 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
     current.flow_tracks     = 1;
     REQUIRE(current.feature_count == 1);
     REQUIRE(current.keypoints.front().pt == tracked.pt);
-    REQUIRE(current.keypoints.front().display.pt == tracked.pt);
-    REQUIRE(current.keypoints.front().display.size == 7.f);
-    REQUIRE(current.keypoints.front().display.angle == -1.f);
-    REQUIRE(current.keypoints.front().size == 31.f);
+    REQUIRE(current.keypoints.front().size == 7.f);
+    REQUIRE(current.keypoints.front().angle == -1.f);
+    REQUIRE(current.keypoints.front().tracking_angle == 42.f);
     REQUIRE(current.keypoints.front().descriptor.empty());
     REQUIRE(current.right_keypoints.empty());
     std::vector<cv::Point2f> expected_undistorted;
@@ -297,8 +297,9 @@ TEST_CASE("Flow frames defer extraction and refresh current-image features witho
         REQUIRE(std::all_of(current.keypoints.begin(), current.keypoints.end(), [](const auto &key) { return key.pt_undistorted == key.pt; }));
         REQUIRE(std::all_of(current.right_keypoints.begin(), current.right_keypoints.end(), [](const auto &key) { return key.pt_undistorted == key.pt; }));
     }
-    REQUIRE(current.keypoints.front().display.size == previous.keypoints.front().display.size);
-    REQUIRE(current.keypoints.front().display.angle == previous.keypoints.front().display.angle);
+    REQUIRE(current.keypoints.front().size == previous.keypoints.front().size);
+    REQUIRE(current.keypoints.front().angle == previous.keypoints.front().angle);
+    REQUIRE(current.keypoints.front().tracking_angle == previous.keypoints.front().tracking_angle);
     REQUIRE(current.left_to_right_matches == previous.left_to_right_matches);
     REQUIRE(current.depths == previous.depths);
     REQUIRE(current.bow_vector.empty());
@@ -352,7 +353,7 @@ TEST_CASE("Stereo refresh restores dense observations and measured depth after f
     {
         if (fisheye)
         {
-            auto camera           = std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
+            auto camera          = std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
             camera->lapping_area = {0, 256};
             cameras.push_back(std::move(camera));
         }
@@ -485,7 +486,7 @@ TEST_CASE("Fisheye flow preserves both camera observations for pose optimization
     ORB_SLAM3::camera_vector cameras;
     for (int view = 0; view < 2; ++view)
     {
-        auto camera           = std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
+        auto camera          = std::make_unique<ORB_SLAM3::kannala_brandt8>(std::vector<float>{200, 200, 128, 128, 0, 0, 0, 0});
         camera->lapping_area = {0, 256};
         cameras.push_back(std::move(camera));
     }

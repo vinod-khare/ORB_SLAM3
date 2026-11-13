@@ -262,27 +262,27 @@ void keypoint_distribution_node::divide_node(keypoint_distribution_node &n1, key
     const int halfY = ceil(static_cast<float>(bottom_right.y - upper_left.y) / 2);
 
     // Define boundaries of childs
-    n1.upper_left = upper_left;
-    n1.upper_right = cv::Point2i(upper_left.x + halfX, upper_left.y);
-    n1.bottom_left = cv::Point2i(upper_left.x, upper_left.y + halfY);
+    n1.upper_left   = upper_left;
+    n1.upper_right  = cv::Point2i(upper_left.x + halfX, upper_left.y);
+    n1.bottom_left  = cv::Point2i(upper_left.x, upper_left.y + halfY);
     n1.bottom_right = cv::Point2i(upper_left.x + halfX, upper_left.y + halfY);
     n1.keypoints.reserve(keypoints.size());
 
-    n2.upper_left = n1.upper_right;
-    n2.upper_right = upper_right;
-    n2.bottom_left = n1.bottom_right;
+    n2.upper_left   = n1.upper_right;
+    n2.upper_right  = upper_right;
+    n2.bottom_left  = n1.bottom_right;
     n2.bottom_right = cv::Point2i(upper_right.x, upper_left.y + halfY);
     n2.keypoints.reserve(keypoints.size());
 
-    n3.upper_left = n1.bottom_left;
-    n3.upper_right = n1.bottom_right;
-    n3.bottom_left = bottom_left;
+    n3.upper_left   = n1.bottom_left;
+    n3.upper_right  = n1.bottom_right;
+    n3.bottom_left  = bottom_left;
     n3.bottom_right = cv::Point2i(n1.bottom_right.x, bottom_left.y);
     n3.keypoints.reserve(keypoints.size());
 
-    n4.upper_left = n3.upper_right;
-    n4.upper_right = n2.bottom_right;
-    n4.bottom_left = n3.bottom_right;
+    n4.upper_left   = n3.upper_right;
+    n4.upper_right  = n2.bottom_right;
+    n4.bottom_left  = n3.bottom_right;
     n4.bottom_right = bottom_right;
     n4.keypoints.reserve(keypoints.size());
 
@@ -368,9 +368,9 @@ keypoint_extractor::distribute_keypoints(const vector<cv::KeyPoint> &vToDistribu
     for (int i = 0; i < nIni; i++)
     {
         keypoint_distribution_node ni;
-        ni.upper_left = cv::Point2i(hX * static_cast<float>(i), 0);
-        ni.upper_right = cv::Point2i(hX * static_cast<float>(i + 1), 0);
-        ni.bottom_left = cv::Point2i(ni.upper_left.x, maxY - minY);
+        ni.upper_left   = cv::Point2i(hX * static_cast<float>(i), 0);
+        ni.upper_right  = cv::Point2i(hX * static_cast<float>(i + 1), 0);
+        ni.bottom_left  = cv::Point2i(ni.upper_left.x, maxY - minY);
         ni.bottom_right = cv::Point2i(ni.upper_right.x, maxY - minY);
         ni.keypoints.reserve(vToDistributeKeys.size());
 
@@ -758,9 +758,8 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<k
     vector<vector<KeyPoint>> allKeypoints;
     vector<vector<KeyPoint>> display_keypoints;
     compute_keypoints(allKeypoints, display_keypoints);
-    vector<cv::KeyPoint> output_keys;
-    vector<cv::KeyPoint> output_display;
-    Mat                  descriptors;
+    vector<keypoint> output_keys;
+    Mat              descriptors;
     for (int level = 0; level < level_count; ++level)
     {
         auto local_keys = allKeypoints[level];
@@ -787,13 +786,11 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<k
         for (std::size_t descriptor_index = 0; descriptor_index < local_keys.size(); ++descriptor_index)
         {
             const int original_index  = local_keys[descriptor_index].class_id;
-            auto      key             = allKeypoints[level][original_index];
-            auto      display_key     = display_keypoints[level][original_index];
-            key.pt                   *= scale_factors[level];
-            display_key.pt           *= scale_factors[level];
-            display_key.size         *= scale_factors[level];
-            output_keys.push_back(key);
-            output_display.push_back(display_key);
+            auto      native_key      = display_keypoints[level][original_index];
+            native_key.pt            *= scale_factors[level];
+            native_key.size          *= scale_factors[level];
+            native_key.octave         = level;
+            output_keys.emplace_back(native_key, allKeypoints[level][original_index].angle);
             descriptors.push_back(level_descriptors.row(static_cast<int>(descriptor_index)));
         }
     }
@@ -811,7 +808,7 @@ int keypoint_extractor::operator()(InputArray _image, InputArray _mask, vector<k
     {
         const auto &key               = output_keys[index];
         const int   target            = key.pt.x >= vLappingArea[0] && key.pt.x <= vLappingArea[1] ? stereo_index-- : mono_index++;
-        _keypoints[target]            = keypoint(key, output_display[index]);
+        _keypoints[target]            = key;
         _keypoints[target].descriptor = descriptors.row(static_cast<int>(index));
         descriptors.row(static_cast<int>(index)).copyTo(output_descriptors.row(target));
     }

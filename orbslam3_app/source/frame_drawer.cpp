@@ -18,9 +18,9 @@
 
 #include "frame_drawer.h"
 
-#include "tracking.h"
 #include "atlas.h"
 #include "map_point.h"
+#include "tracking.h"
 
 #include <iomanip>
 #include <mutex>
@@ -133,9 +133,9 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
             auto *map_point = frame->map_points[i];
             if (map_point && !frame->outliers[i])
             {
-                auto key  = current_keys[i].display;
-                key.pt   /= image_scale;
-                key.size /= image_scale;
+                cv::KeyPoint key  = current_keys[i];
+                key.pt           /= image_scale;
+                key.size         /= image_scale;
 
                 // This is a match to a map_point in the map
                 if (map_point->get_observation_count() > 0)
@@ -237,9 +237,9 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
             auto      *map_point = frame->map_points[index];
             if (map_point && !frame->outliers[index])
             {
-                auto key  = current_keys[i].display;
-                key.pt   /= image_scale;
-                key.size /= image_scale;
+                cv::KeyPoint key  = current_keys[i];
+                key.pt           /= image_scale;
+                key.size         /= image_scale;
 
                 // This is a match to a map_point in the map
                 if (map_point->get_observation_count() > 0)

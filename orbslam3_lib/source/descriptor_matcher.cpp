@@ -478,18 +478,17 @@ int descriptor_matcher::search_by_vocabulary(key_frame *pKF, frame &F, vector<ma
                     {
                         vpMapPointMatches[bestIdxF] = pMP;
 
-                        const cv::KeyPoint &kp = ((!is_fisheye_stereo(pKF->cameras))                        ? pKF->keypoints[realIdxKF]
-                                                  : (std::cmp_greater_equal(realIdxKF, pKF->keypoints.size())) ? pKF->right_keypoints[realIdxKF - pKF->keypoints.size()]
-                                                                                                            : pKF->keypoints[realIdxKF])
-                                                     .undistorted();
+                        const keypoint &kp = ((!is_fisheye_stereo(pKF->cameras))                           ? pKF->keypoints[realIdxKF]
+                                              : (std::cmp_greater_equal(realIdxKF, pKF->keypoints.size())) ? pKF->right_keypoints[realIdxKF - pKF->keypoints.size()]
+                                                                                                           : pKF->keypoints[realIdxKF]);
 
                         if (_check_orientation)
                         {
-                            cv::KeyPoint &Fkp = (!is_fisheye_stereo(pKF->cameras) || !F.is_fisheye_stereo) ? F.keypoints[bestIdxF]
-                                                : std::cmp_greater_equal(bestIdxF, F.keypoints.size())     ? F.right_keypoints[bestIdxF - F.keypoints.size()]
-                                                                                                           : F.keypoints[bestIdxF];
+                            const keypoint &Fkp = (!is_fisheye_stereo(pKF->cameras) || !F.is_fisheye_stereo) ? F.keypoints[bestIdxF]
+                                                  : std::cmp_greater_equal(bestIdxF, F.keypoints.size())     ? F.right_keypoints[bestIdxF - F.keypoints.size()]
+                                                                                                             : F.keypoints[bestIdxF];
 
-                            float rot = kp.angle - Fkp.angle;
+                            float rot = kp.tracking_angle - Fkp.tracking_angle;
                             if (rot < 0.0)
                             {
                                 rot += 360.0f;
@@ -511,18 +510,17 @@ int descriptor_matcher::search_by_vocabulary(key_frame *pKF, frame &F, vector<ma
                         {
                             vpMapPointMatches[bestIdxFR] = pMP;
 
-                            const cv::KeyPoint &kp = ((!is_fisheye_stereo(pKF->cameras))                        ? pKF->keypoints[realIdxKF]
-                                                      : (std::cmp_greater_equal(realIdxKF, pKF->keypoints.size())) ? pKF->right_keypoints[realIdxKF - pKF->keypoints.size()]
-                                                                                                                : pKF->keypoints[realIdxKF])
-                                                         .undistorted();
+                            const keypoint &kp = ((!is_fisheye_stereo(pKF->cameras))                           ? pKF->keypoints[realIdxKF]
+                                                  : (std::cmp_greater_equal(realIdxKF, pKF->keypoints.size())) ? pKF->right_keypoints[realIdxKF - pKF->keypoints.size()]
+                                                                                                               : pKF->keypoints[realIdxKF]);
 
                             if (_check_orientation)
                             {
-                                cv::KeyPoint &Fkp = (!F.is_fisheye_stereo)                                  ? F.keypoints[bestIdxFR]
-                                                    : std::cmp_greater_equal(bestIdxFR, F.keypoints.size()) ? F.right_keypoints[bestIdxFR - F.keypoints.size()]
-                                                                                                            : F.keypoints[bestIdxFR];
+                                const keypoint &Fkp = (!F.is_fisheye_stereo)                                  ? F.keypoints[bestIdxFR]
+                                                      : std::cmp_greater_equal(bestIdxFR, F.keypoints.size()) ? F.right_keypoints[bestIdxFR - F.keypoints.size()]
+                                                                                                              : F.keypoints[bestIdxFR];
 
-                                float rot = kp.angle - Fkp.angle;
+                                float rot = kp.tracking_angle - Fkp.tracking_angle;
                                 if (rot < 0.0)
                                 {
                                     rot += 360.0f;
@@ -700,12 +698,12 @@ int descriptor_matcher::search_by_projection(key_frame *pKF, Sophus::Sim3f &Scw,
     return nmatches;
 }
 
-int descriptor_matcher::search_by_projection(key_frame                       *pKF,
+int descriptor_matcher::search_by_projection(key_frame                      *pKF,
                                              Sophus::Sim3<float>            &Scw,
                                              const std::vector<map_point *> &vpPoints,
-                                             const std::vector<key_frame *>  &vpPointsKFs,
+                                             const std::vector<key_frame *> &vpPointsKFs,
                                              std::vector<map_point *>       &vpMatched,
-                                             std::vector<key_frame *>        &vpMatchedKF,
+                                             std::vector<key_frame *>       &vpMatchedKF,
                                              int                             th,
                                              float                           distance_multiplier)
 {
@@ -728,7 +726,7 @@ int descriptor_matcher::search_by_projection(key_frame                       *pK
     for (int iMP = 0, iendMP = vpPoints.size(); iMP < iendMP; iMP++)
     {
         map_point *pMP  = vpPoints[iMP];
-        key_frame  *pKFi = vpPointsKFs[iMP];
+        key_frame *pKFi = vpPointsKFs[iMP];
 
         // Discard Bad MapPoints and already found
         if (pMP->is_bad() || spAlreadyFound.count(pMP))
@@ -913,7 +911,7 @@ int descriptor_matcher::search_for_initialization(frame &F1, frame &F2, vector<c
 
                 if (_check_orientation)
                 {
-                    float rot = F1.keypoints[i1].angle - F2.keypoints[bestIdx2].angle;
+                    float rot = F1.keypoints[i1].tracking_angle - F2.keypoints[bestIdx2].tracking_angle;
                     if (rot < 0.0)
                     {
                         rot += 360.0f;
@@ -1070,7 +1068,7 @@ int descriptor_matcher::search_by_vocabulary(key_frame *pKF1, key_frame *pKF2, v
 
                         if (_check_orientation)
                         {
-                            float rot = vKeysUn1[idx1].angle - vKeysUn2[bestIdx2].angle;
+                            float rot = vKeysUn1[idx1].tracking_angle - vKeysUn2[bestIdx2].tracking_angle;
                             if (rot < 0.0)
                             {
                                 rot += 360.0f;
@@ -1212,9 +1210,9 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                     }
                 }
 
-                const cv::KeyPoint &kp1 = ((!is_fisheye_stereo(pKF1->cameras))          ? pKF1->keypoints[idx1]
+                const cv::KeyPoint &kp1 = ((!is_fisheye_stereo(pKF1->cameras))             ? pKF1->keypoints[idx1]
                                            : (std::cmp_less(idx1, pKF1->keypoints.size())) ? pKF1->keypoints[idx1]
-                                                                                        : pKF1->right_keypoints[idx1 - pKF1->keypoints.size()])
+                                                                                           : pKF1->right_keypoints[idx1 - pKF1->keypoints.size()])
                                               .undistorted();
 
                 const bool bRight1 = is_fisheye_stereo(pKF1->cameras) && std::cmp_greater_equal(idx1, pKF1->keypoints.size());
@@ -1255,9 +1253,9 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                         continue;
                     }
 
-                    const cv::KeyPoint &kp2 = ((!is_fisheye_stereo(pKF2->cameras))          ? pKF2->keypoints[idx2]
+                    const cv::KeyPoint &kp2 = ((!is_fisheye_stereo(pKF2->cameras))             ? pKF2->keypoints[idx2]
                                                : (std::cmp_less(idx2, pKF2->keypoints.size())) ? pKF2->keypoints[idx2]
-                                                                                            : pKF2->right_keypoints[idx2 - pKF2->keypoints.size()])
+                                                                                               : pKF2->right_keypoints[idx2 - pKF2->keypoints.size()])
                                                   .undistorted();
                     const bool bRight2 = is_fisheye_stereo(pKF2->cameras) && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
 
@@ -1312,12 +1310,12 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
                     }
 
                     if (bCoarse || pKF1->cameras[camera_index1]->epipolar_constrain(*pKF2->cameras[camera_index2],
-                                                                                   kp1,
-                                                                                   kp2,
-                                                                                   R12,
-                                                                                   t12,
-                                                                                   pKF1->level_sigma_squared[kp1.octave],
-                                                                                   pKF2->level_sigma_squared[kp2.octave])) // MODIFICATION_2
+                                                                                    kp1,
+                                                                                    kp2,
+                                                                                    R12,
+                                                                                    t12,
+                                                                                    pKF1->level_sigma_squared[kp1.octave],
+                                                                                    pKF2->level_sigma_squared[kp2.octave])) // MODIFICATION_2
                     {
                         bestIdx2 = idx2;
                         bestDist = dist;
@@ -1326,16 +1324,16 @@ int descriptor_matcher::search_for_triangulation(key_frame *pKF1, key_frame *pKF
 
                 if (bestIdx2 >= 0)
                 {
-                    const cv::KeyPoint &kp2 = ((!is_fisheye_stereo(pKF2->cameras))            ? pKF2->keypoints[bestIdx2]
-                                               : std::cmp_less(bestIdx2, pKF2->keypoints.size()) ? pKF2->keypoints[bestIdx2]
-                                                                                              : pKF2->right_keypoints[bestIdx2 - pKF2->keypoints.size()])
-                                                  .undistorted();
-                    vMatches12[idx1] = bestIdx2;
+                    const keypoint &tracking_kp1 = bRight1 ? pKF1->right_keypoints[idx1 - pKF1->keypoints.size()] : pKF1->keypoints[idx1];
+                    const keypoint &kp2          = ((!is_fisheye_stereo(pKF2->cameras))               ? pKF2->keypoints[bestIdx2]
+                                                    : std::cmp_less(bestIdx2, pKF2->keypoints.size()) ? pKF2->keypoints[bestIdx2]
+                                                                                                      : pKF2->right_keypoints[bestIdx2 - pKF2->keypoints.size()]);
+                    vMatches12[idx1]             = bestIdx2;
                     nmatches++;
 
                     if (_check_orientation)
                     {
-                        float rot = kp1.angle - kp2.angle;
+                        float rot = tracking_kp1.tracking_angle - kp2.tracking_angle;
                         if (rot < 0.0)
                         {
                             rot += 360.0f;
@@ -2112,16 +2110,14 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
 
                     if (_check_orientation)
                     {
-                        cv::KeyPoint kpLF = ((!LastFrame.is_fisheye_stereo)                 ? LastFrame.keypoints[i]
-                                             : std::cmp_less(i, LastFrame.keypoints.size()) ? LastFrame.keypoints[i]
-                                                                                            : LastFrame.right_keypoints[i - LastFrame.keypoints.size()])
-                                                .undistorted();
+                        const keypoint &kpLF = ((!LastFrame.is_fisheye_stereo)                 ? LastFrame.keypoints[i]
+                                                : std::cmp_less(i, LastFrame.keypoints.size()) ? LastFrame.keypoints[i]
+                                                                                               : LastFrame.right_keypoints[i - LastFrame.keypoints.size()]);
 
-                        cv::KeyPoint kpCF = ((!CurrentFrame.is_fisheye_stereo)                        ? CurrentFrame.keypoints[bestIdx2]
-                                             : std::cmp_less(bestIdx2, CurrentFrame.keypoints.size()) ? CurrentFrame.keypoints[bestIdx2]
-                                                                                                      : CurrentFrame.right_keypoints[bestIdx2 - CurrentFrame.keypoints.size()])
-                                                .undistorted();
-                        float rot = kpLF.angle - kpCF.angle;
+                        const keypoint &kpCF = ((!CurrentFrame.is_fisheye_stereo)                        ? CurrentFrame.keypoints[bestIdx2]
+                                                : std::cmp_less(bestIdx2, CurrentFrame.keypoints.size()) ? CurrentFrame.keypoints[bestIdx2]
+                                                                                                         : CurrentFrame.right_keypoints[bestIdx2 - CurrentFrame.keypoints.size()]);
+                        float           rot  = kpLF.tracking_angle - kpCF.tracking_angle;
                         if (rot < 0.0)
                         {
                             rot += 360.0f;
@@ -2195,14 +2191,13 @@ int descriptor_matcher::search_by_projection(frame &CurrentFrame, const frame &L
                         nmatches++;
                         if (_check_orientation)
                         {
-                            cv::KeyPoint kpLF = ((!LastFrame.is_fisheye_stereo)                 ? LastFrame.keypoints[i]
-                                                 : std::cmp_less(i, LastFrame.keypoints.size()) ? LastFrame.keypoints[i]
-                                                                                                : LastFrame.right_keypoints[i - LastFrame.keypoints.size()])
-                                                    .undistorted();
+                            const keypoint &kpLF = ((!LastFrame.is_fisheye_stereo)                 ? LastFrame.keypoints[i]
+                                                    : std::cmp_less(i, LastFrame.keypoints.size()) ? LastFrame.keypoints[i]
+                                                                                                   : LastFrame.right_keypoints[i - LastFrame.keypoints.size()]);
 
-                            cv::KeyPoint kpCF = CurrentFrame.right_keypoints[bestIdx2];
+                            const keypoint &kpCF = CurrentFrame.right_keypoints[bestIdx2];
 
-                            float rot = kpLF.angle - kpCF.angle;
+                            float rot = kpLF.tracking_angle - kpCF.tracking_angle;
                             if (rot < 0.0)
                             {
                                 rot += 360.0f;
@@ -2345,7 +2340,7 @@ int descriptor_matcher::search_by_projection(
                     {
                         // Fisheye frames index right-camera keypoints after the left ones.
                         const auto angle_of = [](const std::vector<keypoint> &left, const std::vector<keypoint> &right, bool fisheye_stereo, size_t idx)
-                        { return (!fisheye_stereo || idx < left.size()) ? left[idx].angle : right[idx - left.size()].angle; };
+                        { return (!fisheye_stereo || idx < left.size()) ? left[idx].tracking_angle : right[idx - left.size()].tracking_angle; };
                         float rot = angle_of(pKF->keypoints, pKF->right_keypoints, is_fisheye_stereo(pKF->cameras), i) -
                                     angle_of(CurrentFrame.keypoints, CurrentFrame.right_keypoints, CurrentFrame.is_fisheye_stereo, bestIdx2);
                         if (rot < 0.0)
