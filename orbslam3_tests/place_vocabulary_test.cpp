@@ -1,5 +1,6 @@
 #include "place_vocabulary.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -16,7 +17,7 @@
 #include <catch2/matchers/catch_matchers.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
-void write_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type = CV_8U, int descriptor_size = 32);
+void write_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type = CV_8U, int descriptor_size = 32, int levels = 6);
 
 namespace
 {
@@ -108,6 +109,38 @@ TEST_CASE("Place recognition rejects features that do not match the vocabulary f
     REQUIRE_THROWS_WITH(vocabulary.transform(incompatible, bow, nodes, 4), Catch::Matchers::ContainsSubstring("does not match"));
     REQUIRE(bow.empty());
     REQUIRE(nodes.empty());
+}
+
+TEST_CASE("Shallow vocabularies retain discriminative feature nodes for matching", "[dbow]")
+{
+    const int             backend = GENERATE(2, 3);
+    const int             levels  = GENERATE(1, 2, 4, 6);
+    const auto            format  = GENERATE(std::pair{CV_8U, 32}, std::pair{CV_32F, 128});
+    const vocabulary_file file(0, 0, format.first, format.second);
+    write_vocabulary_fixture(file.path.string(), 0, 0, format.first, format.second, levels);
+    ORB_SLAM3::place_vocabulary vocabulary(file.path.string(), backend);
+    DBoW2::BowVector            bow;
+    DBoW2::FeatureVector        nodes;
+    vocabulary.transform(file.features, bow, nodes, 4);
+    REQUIRE_FALSE(nodes.empty());
+    const int matching_level = std::min(2, levels);
+    for (const auto &[node, indices] : nodes)
+    {
+        REQUIRE(node >= (1u << matching_level) - 1);
+        REQUIRE(node < (1u << (matching_level + 1)) - 1);
+        REQUIRE_FALSE(indices.empty());
+    }
+
+    DBoW2::BowVector     leaf_bow;
+    DBoW2::FeatureVector leaf_nodes;
+    vocabulary.transform(file.features, leaf_bow, leaf_nodes, 0);
+    REQUIRE(bow == leaf_bow);
+    vocabulary.set_version(5 - backend);
+    DBoW2::BowVector     switched_bow;
+    DBoW2::FeatureVector switched_nodes;
+    vocabulary.transform(file.features, switched_bow, switched_nodes, 4);
+    REQUIRE(switched_bow == bow);
+    REQUIRE(switched_nodes == nodes);
 }
 
 TEST_CASE("DBoW backends preserve word IDs, feature nodes, scores and runtime switching", "[dbow]")

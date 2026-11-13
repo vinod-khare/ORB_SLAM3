@@ -2,20 +2,21 @@
 
 #include <DBow3/Vocabulary.h>
 
-void write_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type, int descriptor_size)
+void write_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type, int descriptor_size, int levels)
 {
     class fixture_vocabulary : public DBoW3::Vocabulary
     {
       public:
-        fixture_vocabulary(int scoring, int weighting, int descriptor_type, int descriptor_size)
+        fixture_vocabulary(int scoring, int weighting, int descriptor_type, int descriptor_size, int levels)
         {
             m_k         = 2;
-            m_L         = 6;
+            m_L         = levels;
             m_scoring   = static_cast<DBoW3::ScoringType>(scoring);
             m_weighting = static_cast<DBoW3::WeightingType>(weighting);
             createScoringObject();
-            m_nodes.resize(127);
-            for (unsigned int id = 1; id < 127; ++id)
+            const auto first_leaf = (1u << levels) - 1;
+            m_nodes.resize((1u << (levels + 1)) - 1);
+            for (unsigned int id = 1; id < m_nodes.size(); ++id)
             {
                 auto &node  = m_nodes[id];
                 node.id     = id;
@@ -28,13 +29,13 @@ void write_vocabulary_fixture(const std::string &filename, int scoring, int weig
                 }
                 node.descriptor.convertTo(node.descriptor, descriptor_type);
                 node.weight = 0.25 * (id % 4 + 1);
-                if (id >= 63)
+                if (id >= first_leaf)
                 {
-                    node.word_id = id - 63;
+                    node.word_id = id - first_leaf;
                     m_words.push_back(&node);
                 }
             }
         }
     };
-    fixture_vocabulary(scoring, weighting, descriptor_type, descriptor_size).save(filename, true);
+    fixture_vocabulary(scoring, weighting, descriptor_type, descriptor_size, levels).save(filename, true);
 }

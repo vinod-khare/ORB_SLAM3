@@ -1,6 +1,6 @@
+#include "settings.h"
 #include "system.h"
 #include "tracking.h"
-#include "settings.h"
 
 #include <chrono>
 #include <filesystem>
@@ -12,7 +12,7 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include <yaml-cpp/yaml.h>
 
-void write_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type, int descriptor_size);
+void write_vocabulary_fixture(const std::string &filename, int scoring, int weighting, int descriptor_type, int descriptor_size, int levels = 6);
 
 namespace
 {

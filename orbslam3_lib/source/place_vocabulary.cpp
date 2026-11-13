@@ -19,6 +19,7 @@
 #include "dbow2_vocabulary.h"
 #include "dbow3_vocabulary.h"
 
+#include <algorithm>
 #include <mutex>
 #include <stdexcept>
 
@@ -92,6 +93,9 @@ void place_vocabulary::transform(const std::vector<cv::Mat> &features, DBoW2::Bo
     const std::shared_lock lock(_mutex);
     const int              expected_type = _version == 2 ? _dbow2->descriptor_type() : _dbow3->descriptor_type();
     const int              expected_size = _version == 2 ? _dbow2->descriptor_size() : _dbow3->descriptor_size();
+    const int              depth         = _version == 2 ? _dbow2->getDepthLevels() : _dbow3->parameters()[1];
+    // Keep matching nodes below the root for vocabularies shallower than ORB's six levels.
+    levels_up = std::min(levels_up, std::max(0, depth - 2));
     bow.clear();
     nodes.clear();
     for (const auto &feature : features)
