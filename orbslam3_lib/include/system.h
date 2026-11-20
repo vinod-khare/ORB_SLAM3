@@ -51,12 +51,12 @@ class system
   public:
     // Input sensor
     using sensor_type                          = ORB_SLAM3::sensor_type;
-    static constexpr sensor_type monocular     = ORB_SLAM3::monocular;
-    static constexpr sensor_type stereo        = ORB_SLAM3::stereo;
-    static constexpr sensor_type rgbd          = ORB_SLAM3::rgbd;
-    static constexpr sensor_type imu_monocular = ORB_SLAM3::imu_monocular;
-    static constexpr sensor_type imu_stereo    = ORB_SLAM3::imu_stereo;
-    static constexpr sensor_type imu_rgbd      = ORB_SLAM3::imu_rgbd;
+    static constexpr auto monocular     = ORB_SLAM3::monocular;
+    static constexpr auto stereo        = ORB_SLAM3::stereo;
+    static constexpr auto rgbd          = ORB_SLAM3::rgbd;
+    static constexpr auto imu_monocular = ORB_SLAM3::imu_monocular;
+    static constexpr auto imu_stereo    = ORB_SLAM3::imu_stereo;
+    static constexpr auto imu_rgbd      = ORB_SLAM3::imu_rgbd;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -67,25 +67,25 @@ class system
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Returns the camera pose (empty if tracking fails).
-    Sophus::SE3f track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<imu::point> &vImuMeas = vector<imu::point>(), string filename = "");
+    Sophus::SE3f track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<imu::point> &vImuMeas = vector<imu::point>(), const string& filename = "");
 
     // Process the given rgbd frame. Depthmap must be registered to the RGB frame.
     // Input image: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Input depthmap: Float (CV_32F).
     // Returns the camera pose (empty if tracking fails).
-    Sophus::SE3f track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, const vector<imu::point> &vImuMeas = vector<imu::point>(), string filename = "");
+    Sophus::SE3f track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, const vector<imu::point> &vImuMeas = vector<imu::point>(), const string& filename = "");
 
     // Proccess the given monocular frame and optionally imu data
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Returns the camera pose (empty if tracking fails).
-    Sophus::SE3f track_monocular(const cv::Mat &im, const double &timestamp, const vector<imu::point> &vImuMeas = vector<imu::point>(), string filename = "");
+    Sophus::SE3f track_monocular(const cv::Mat &im, const double &timestamp, const vector<imu::point> &vImuMeas = vector<imu::point>(), const string& filename = "");
 
     /** Supply original BGR images for display and map colors on the next tracking call. */
-    void set_next_frame_color(const cv::Mat &color_image, const cv::Mat &color_image_right = {});
+    void set_next_frame_color(const cv::Mat &color_image, const cv::Mat &color_image_right = {}) const;
     bool can_precompute_optical_flow_pyramid() const;
-    void set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid);
+    void set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid) const;
     int  dbow_version() const;
-    void set_dbow_version(int version);
+    void set_dbow_version(int version) const;
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void activate_localization_mode();
@@ -94,7 +94,7 @@ class system
 
     // Returns true if there have been a big map change (loop closure, global BA)
     // since last call to this function
-    bool map_changed();
+    bool map_changed() const;
 
     // reset the system (clear Atlas or the active map)
     void reset();
@@ -110,19 +110,19 @@ class system
     // Only for stereo and RGB-D. This method does not work for monocular.
     // Call first shutdown()
     // See format details at: http://vision.in.tum.de/data/datasets/rgbd-dataset
-    void save_trajectory_tum(const string &filename);
+    void save_trajectory_tum(const string &filename) const;
 
     // Save keyframe poses in the TUM RGB-D dataset format.
     // This method works for all sensor input.
     // Call first shutdown()
     // See format details at: http://vision.in.tum.de/data/datasets/rgbd-dataset
-    void save_key_frame_trajectory_tum(const string &filename);
+    void save_key_frame_trajectory_tum(const string &filename) const;
 
-    void save_trajectory_euroc(const string &filename);
-    void save_key_frame_trajectory_euroc(const string &filename);
+    void save_trajectory_euroc(const string &filename) const;
+    void save_key_frame_trajectory_euroc(const string &filename) const;
 
-    void save_trajectory_euroc(const string &filename, map *pMap);
-    void save_key_frame_trajectory_euroc(const string &filename, map *pMap);
+    void save_trajectory_euroc(const string &filename, map *pMap) const;
+    void save_key_frame_trajectory_euroc(const string &filename, map *pMap) const;
 
     // Export a COLMAP-compatible sparse model (cameras.txt, images.txt, points3D.txt)
     // plus a debug CSV (poses_debug.csv) into strDir.
@@ -134,16 +134,16 @@ class system
     // If multiple maps exist, files are suffixed with _map<id>.
     // Example filename "pointcloud.ply" -> pointcloud_map0.ply, pointcloud_map1.ply
     // Call after shutdown().
-    void save_point_cloud_ply(const string &filename);
+    void save_point_cloud_ply(const string &filename) const;
 
     // Save data used for initialization debug
-    void save_debug_data(const int &iniIdx);
+    void save_debug_data(const int &iniIdx) const;
 
     // Save camera trajectory in the KITTI dataset format.
     // Only for stereo and RGB-D. This method does not work for monocular.
     // Call first shutdown()
     // See format details at: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
-    void save_trajectory_kitti(const string &filename);
+    void save_trajectory_kitti(const string &filename) const;
 
     // TODO: Save/Load functions
     // SaveMap(const string &filename);
@@ -156,16 +156,16 @@ class system
     std::vector<keypoint>    get_tracked_keypoints_undistorted();
 
     // For debugging
-    double get_time_from_imu_init();
-    bool   is_lost();
-    bool   is_finished();
+    double get_time_from_imu_init() const;
+    bool   is_lost() const;
+    bool   is_finished() const;
 
-    void change_dataset();
+    void change_dataset() const;
 
-    float     get_image_scale();
-    atlas    *get_atlas() const;
-    tracking *get_tracker() const;
-    float     get_camera_frame_rate() const;
+    float      get_image_scale() const;
+    atlas    * get_atlas() const;
+    tracking * get_tracker() const;
+    float      get_camera_frame_rate() const;
 
     /** Effective feature selections after resolving YAML, overrides, and defaults. */
     std::string keypoint_detector_name() const;
@@ -230,7 +230,7 @@ class system
     bool _shutdown;
 
     // Tracking state
-    int                      _tracking_state;
+    int                      _tracking_state{};
     std::vector<map_point *> _tracked_map_points;
     std::vector<keypoint>    _tracked_keypoints_undistorted;
     std::mutex               _state_mutex;

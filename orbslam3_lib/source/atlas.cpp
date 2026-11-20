@@ -30,7 +30,7 @@ atlas::atlas(int initial_key_frame_id) : _last_init_kf_id_map(initial_key_frame_
 
 atlas::~atlas()
 {
-    for (map *map : _owned_maps)
+    for (const auto map : _owned_maps)
     {
         delete map;
     }
@@ -92,13 +92,13 @@ unsigned long int atlas::get_last_init_kf_id()
 
 void atlas::add_key_frame(key_frame *key_frame)
 {
-    map *map = key_frame->get_map();
+    const auto map = key_frame->get_map();
     map->add_key_frame(key_frame);
 }
 
 void atlas::add_map_point(map_point *map_point)
 {
-    map *map = map_point->get_map();
+    const auto map = map_point->get_map();
     map->add_map_point(map_point);
 }
 
@@ -154,7 +154,7 @@ std::vector<map *> atlas::get_all_maps()
 {
     std::lock_guard<std::mutex> lock(_mutex);
     std::vector<map *>          maps(_maps.begin(), _maps.end());
-    std::sort(maps.begin(), maps.end(), [](map *left, map *right) { return left->get_id() < right->get_id(); });
+    std::sort(maps.begin(), maps.end(), [](const map *left, const map *right) { return left->get_id() < right->get_id(); });
     return maps;
 }
 
@@ -233,7 +233,7 @@ long unsigned int atlas::get_num_lived_key_frames()
 {
     std::lock_guard<std::mutex> lock(_mutex);
     long unsigned int           num = 0;
-    for (map *map : _maps)
+    for (const auto map : _maps)
     {
         num += map->get_all_key_frames().size();
     }
@@ -245,7 +245,7 @@ long unsigned int atlas::get_num_lived_map_points()
 {
     std::lock_guard<std::mutex> lock(_mutex);
     long unsigned int           num = 0;
-    for (map *map : _maps)
+    for (const auto map : _maps)
     {
         num += map->get_all_map_points().size();
     }
@@ -257,11 +257,11 @@ std::map<long unsigned int, key_frame *> atlas::get_atlas_key_frames()
 {
     std::lock_guard<std::mutex>             lock(_mutex);
     std::map<long unsigned int, key_frame *> key_frames_by_id;
-    for (map *map : _maps)
+    for (const auto map : _maps)
     {
-        std::vector<key_frame *> key_frames = map->get_all_key_frames();
+        auto key_frames = map->get_all_key_frames();
 
-        for (key_frame *key_frame : key_frames)
+        for (const auto key_frame : key_frames)
         {
             key_frames_by_id[key_frame->id] = key_frame;
         }

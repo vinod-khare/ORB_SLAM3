@@ -21,8 +21,6 @@
 #include "CameraModels/geometric_camera.h"
 #include "g2o_compat.h"
 
-#include <memory>
-
 #include <Eigen/Geometry>
 #include <g2o/core/base_unary_edge.h>
 #include <g2o/types/sim3/sim3.h>
@@ -42,15 +40,15 @@ class edge_se3_project_xyz_only_pose : public g2o::BaseUnaryEdge<2, Eigen::Vecto
 
     void computeError()
     {
-        const g2o::VertexSE3Expmap *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
-        Eigen::Vector2d             obs(_measurement);
+        const auto v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
+        const auto obs(_measurement);
         _error = obs - camera.project(v1->estimate().map(point_world));
     }
 
-    bool is_depth_positive()
+    bool is_depth_positive() const
     {
-        const g2o::VertexSE3Expmap *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
-        return (v1->estimate().map(point_world))(2) > 0.0;
+        const auto v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
+        return v1->estimate().map(point_world)(2) > 0.0;
     }
 
     virtual void linearizeOplus();
@@ -72,15 +70,15 @@ class edge_se3_project_xyz_only_pose_to_body : public g2o::BaseUnaryEdge<2, Eige
 
     void computeError()
     {
-        const g2o::VertexSE3Expmap *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
-        Eigen::Vector2d             obs(_measurement);
+        const auto v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
+        const auto obs(_measurement);
         _error = obs - camera.project((right_from_left * v1->estimate()).map(point_world));
     }
 
-    bool is_depth_positive()
+    bool is_depth_positive() const
     {
-        const g2o::VertexSE3Expmap *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
-        return ((right_from_left * v1->estimate()).map(point_world))(2) > 0.0;
+        const auto v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[0]);
+        return (right_from_left * v1->estimate()).map(point_world)(2) > 0.0;
     }
 
     virtual void linearizeOplus();
@@ -104,17 +102,17 @@ class edge_se3_project_xyz : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o:
 
     void computeError()
     {
-        const g2o::VertexSE3Expmap   *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
-        const g2o::VertexSBAPointXYZ *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
-        Eigen::Vector2d               obs(_measurement);
+        const auto                   v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
+        const auto v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+        const auto obs(_measurement);
         _error = obs - camera.project(v1->estimate().map(v2->estimate()));
     }
 
-    bool is_depth_positive()
+    bool is_depth_positive() const
     {
-        const g2o::VertexSE3Expmap   *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
-        const g2o::VertexSBAPointXYZ *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
-        return ((v1->estimate().map(v2->estimate()))(2) > 0.0);
+        const auto                   v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
+        const auto v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+        return v1->estimate().map(v2->estimate())(2) > 0.0;
     }
 
     virtual void linearizeOplus();
@@ -135,17 +133,17 @@ class edge_se3_project_xyz_to_body : public g2o::BaseBinaryEdge<2, Eigen::Vector
 
     void computeError()
     {
-        const g2o::VertexSE3Expmap   *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
-        const g2o::VertexSBAPointXYZ *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
-        Eigen::Vector2d               obs(_measurement);
+        const auto                   v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
+        const auto v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+        const auto obs(_measurement);
         _error = obs - camera.project((right_from_left * v1->estimate()).map(v2->estimate()));
     }
 
-    bool is_depth_positive()
+    bool is_depth_positive() const
     {
-        const g2o::VertexSE3Expmap   *v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
-        const g2o::VertexSBAPointXYZ *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
-        return ((right_from_left * v1->estimate()).map(v2->estimate()))(2) > 0.0;
+        const auto                   v1 = static_cast<const g2o::VertexSE3Expmap *>(_vertices[1]);
+        const auto v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+        return (right_from_left * v1->estimate()).map(v2->estimate())(2) > 0.0;
     }
 
     virtual void linearizeOplus();
@@ -173,7 +171,7 @@ class vertex_sim3_expmap : public g2o::BaseVertex<7, g2o::Sim3>
             update[6] = 0;
         }
 
-        g2o::Sim3 s(update);
+        const g2o::Sim3 s(update);
         setEstimate(s * estimate());
     }
 
@@ -192,10 +190,10 @@ class edge_sim3_project_xyz : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o
 
     void computeError()
     {
-        const ORB_SLAM3::vertex_sim3_expmap *v1 = static_cast<const ORB_SLAM3::vertex_sim3_expmap *>(_vertices[1]);
-        const g2o::VertexSBAPointXYZ        *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+        const auto                   v1 = static_cast<const ORB_SLAM3::vertex_sim3_expmap *>(_vertices[1]);
+        const auto v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
 
-        Eigen::Vector2d obs(_measurement);
+        const auto obs(_measurement);
         _error = obs - v1->cameras[0]->project(v1->estimate().map(v2->estimate()));
     }
 };
@@ -210,11 +208,11 @@ class edge_inverse_sim3_project_xyz : public g2o::BaseBinaryEdge<2, Eigen::Vecto
 
     void computeError()
     {
-        const ORB_SLAM3::vertex_sim3_expmap *v1 = static_cast<const ORB_SLAM3::vertex_sim3_expmap *>(_vertices[1]);
-        const g2o::VertexSBAPointXYZ        *v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+        const auto                   v1 = static_cast<const ORB_SLAM3::vertex_sim3_expmap *>(_vertices[1]);
+        const auto v2 = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
 
-        Eigen::Vector2d obs(_measurement);
-        _error = obs - v1->cameras[0]->project((v1->estimate().inverse().map(v2->estimate())));
+        const auto obs(_measurement);
+        _error = obs - v1->cameras[0]->project(v1->estimate().inverse().map(v2->estimate()));
     }
 };
 

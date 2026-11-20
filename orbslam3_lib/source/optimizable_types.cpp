@@ -22,7 +22,7 @@ namespace ORB_SLAM3
 {
 bool edge_se3_project_xyz_only_pose::read(std::istream &is)
 {
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         is >> _measurement[i];
     }
@@ -34,14 +34,14 @@ bool edge_se3_project_xyz_only_pose::read(std::istream &is)
 bool edge_se3_project_xyz_only_pose::write(std::ostream &os) const
 {
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         os << measurement()[i] << " ";
     }
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
-        for (int j = i; j < 2; j++)
+        for (auto j = i; j < 2; j++)
         {
             os << " " << information()(i, j);
         }
@@ -51,12 +51,12 @@ bool edge_se3_project_xyz_only_pose::write(std::ostream &os) const
 
 void edge_se3_project_xyz_only_pose::linearizeOplus()
 {
-    g2o::VertexSE3Expmap *vi        = static_cast<g2o::VertexSE3Expmap *>(_vertices[0]);
-    Eigen::Vector3d       xyz_trans = vi->estimate().map(point_world);
+    const auto vi        = static_cast<g2o::VertexSE3Expmap *>(_vertices[0]);
+    auto xyz_trans = vi->estimate().map(point_world);
 
-    double x = xyz_trans[0];
-    double y = xyz_trans[1];
-    double z = xyz_trans[2];
+    const auto x = xyz_trans[0];
+    const auto y = xyz_trans[1];
+    const auto z = xyz_trans[2];
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;
@@ -66,7 +66,7 @@ void edge_se3_project_xyz_only_pose::linearizeOplus()
 
 bool edge_se3_project_xyz_only_pose_to_body::read(std::istream &is)
 {
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         is >> _measurement[i];
     }
@@ -78,14 +78,14 @@ bool edge_se3_project_xyz_only_pose_to_body::read(std::istream &is)
 bool edge_se3_project_xyz_only_pose_to_body::write(std::ostream &os) const
 {
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         os << measurement()[i] << " ";
     }
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
-        for (int j = i; j < 2; j++)
+        for (auto j = i; j < 2; j++)
         {
             os << " " << information()(i, j);
         }
@@ -95,14 +95,14 @@ bool edge_se3_project_xyz_only_pose_to_body::write(std::ostream &os) const
 
 void edge_se3_project_xyz_only_pose_to_body::linearizeOplus()
 {
-    g2o::VertexSE3Expmap *vi = static_cast<g2o::VertexSE3Expmap *>(_vertices[0]);
-    g2o::SE3Quat          T_lw(vi->estimate());
-    Eigen::Vector3d       X_l = T_lw.map(point_world);
-    Eigen::Vector3d       X_r = right_from_left.map(T_lw.map(point_world));
+    const auto vi = static_cast<g2o::VertexSE3Expmap *>(_vertices[0]);
+    const auto T_lw(vi->estimate());
+    auto X_l = T_lw.map(point_world);
+    const auto X_r = right_from_left.map(T_lw.map(point_world));
 
-    double x_w = X_l[0];
-    double y_w = X_l[1];
-    double z_w = X_l[2];
+    const auto x_w = X_l[0];
+    const auto y_w = X_l[1];
+    const auto z_w = X_l[2];
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z_w, -y_w, 1.f, 0.f, 0.f, -z_w, 0.f, x_w, 0.f, 1.f, 0.f, y_w, -x_w, 0.f, 0.f, 0.f, 1.f;
@@ -114,7 +114,7 @@ edge_se3_project_xyz::edge_se3_project_xyz(geometric_camera &camera) : BaseBinar
 
 bool edge_se3_project_xyz::read(std::istream &is)
 {
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         is >> _measurement[i];
     }
@@ -126,14 +126,14 @@ bool edge_se3_project_xyz::read(std::istream &is)
 bool edge_se3_project_xyz::write(std::ostream &os) const
 {
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         os << measurement()[i] << " ";
     }
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
-        for (int j = i; j < 2; j++)
+        for (auto j = i; j < 2; j++)
         {
             os << " " << information()(i, j);
         }
@@ -143,15 +143,15 @@ bool edge_se3_project_xyz::write(std::ostream &os) const
 
 void edge_se3_project_xyz::linearizeOplus()
 {
-    g2o::VertexSE3Expmap   *vj = static_cast<g2o::VertexSE3Expmap *>(_vertices[1]);
-    g2o::SE3Quat            T(vj->estimate());
-    g2o::VertexSBAPointXYZ *vi        = static_cast<g2o::VertexSBAPointXYZ *>(_vertices[0]);
-    Eigen::Vector3d         xyz       = vi->estimate();
-    Eigen::Vector3d         xyz_trans = T.map(xyz);
+    const auto vj = static_cast<g2o::VertexSE3Expmap *>(_vertices[1]);
+    const auto T(vj->estimate());
+    const auto vi        = static_cast<g2o::VertexSBAPointXYZ *>(_vertices[0]);
+    const auto xyz       = vi->estimate();
+    auto xyz_trans = T.map(xyz);
 
-    double x = xyz_trans[0];
-    double y = xyz_trans[1];
-    double z = xyz_trans[2];
+    const auto x = xyz_trans[0];
+    const auto y = xyz_trans[1];
+    const auto z = xyz_trans[2];
 
     // Materialize: `auto` would keep an Eigen expression referencing a destroyed temporary.
     const Eigen::Matrix<double, 2, 3> project_jacobian = -camera.project_jacobian(xyz_trans);
@@ -168,7 +168,7 @@ edge_se3_project_xyz_to_body::edge_se3_project_xyz_to_body(geometric_camera &cam
 
 bool edge_se3_project_xyz_to_body::read(std::istream &is)
 {
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         is >> _measurement[i];
     }
@@ -180,14 +180,14 @@ bool edge_se3_project_xyz_to_body::read(std::istream &is)
 bool edge_se3_project_xyz_to_body::write(std::ostream &os) const
 {
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         os << measurement()[i] << " ";
     }
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
-        for (int j = i; j < 2; j++)
+        for (auto j = i; j < 2; j++)
         {
             os << " " << information()(i, j);
         }
@@ -197,19 +197,19 @@ bool edge_se3_project_xyz_to_body::write(std::ostream &os) const
 
 void edge_se3_project_xyz_to_body::linearizeOplus()
 {
-    g2o::VertexSE3Expmap   *vj = static_cast<g2o::VertexSE3Expmap *>(_vertices[1]);
-    g2o::SE3Quat            T_lw(vj->estimate());
-    g2o::SE3Quat            T_rw = right_from_left * T_lw;
-    g2o::VertexSBAPointXYZ *vi   = static_cast<g2o::VertexSBAPointXYZ *>(_vertices[0]);
-    Eigen::Vector3d         X_w  = vi->estimate();
-    Eigen::Vector3d         X_l  = T_lw.map(X_w);
-    Eigen::Vector3d         X_r  = right_from_left.map(T_lw.map(X_w));
+    const auto vj = static_cast<g2o::VertexSE3Expmap *>(_vertices[1]);
+    const auto T_lw(vj->estimate());
+    const auto T_rw = right_from_left * T_lw;
+    const auto vi   = static_cast<g2o::VertexSBAPointXYZ *>(_vertices[0]);
+    const auto X_w  = vi->estimate();
+    auto X_l  = T_lw.map(X_w);
+    const auto X_r  = right_from_left.map(T_lw.map(X_w));
 
     _jacobianOplusXi = -camera.project_jacobian(X_r) * T_rw.rotation().toRotationMatrix();
 
-    double x = X_l[0];
-    double y = X_l[1];
-    double z = X_l[2];
+    const auto x = X_l[0];
+    const auto y = X_l[1];
+    const auto z = X_l[2];
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
     SE3deriv << 0.f, z, -y, 1.f, 0.f, 0.f, -z, 0.f, x, 0.f, 1.f, 0.f, y, -x, 0.f, 0.f, 0.f, 1.f;
@@ -226,13 +226,13 @@ vertex_sim3_expmap::vertex_sim3_expmap(camera_view cameras) : BaseVertex<7, g2o:
 bool vertex_sim3_expmap::read(std::istream &is)
 {
     g2o::Vector7d cam2world;
-    for (int i = 0; i < 6; i++)
+    for (auto i = 0; i < 6; i++)
     {
         is >> cam2world[i];
     }
     is >> cam2world[6];
 
-    for (int observation_index = 0; observation_index < 2; ++observation_index)
+    for (auto observation_index = 0; observation_index < 2; ++observation_index)
     {
         for (size_t parameter_index = 0; parameter_index < cameras[0]->size(); ++parameter_index)
         {
@@ -250,14 +250,14 @@ bool vertex_sim3_expmap::read(std::istream &is)
 
 bool vertex_sim3_expmap::write(std::ostream &os) const
 {
-    g2o::Sim3     cam2world(estimate().inverse());
-    g2o::Vector7d lv = cam2world.log();
-    for (int i = 0; i < 7; i++)
+    const auto cam2world(estimate().inverse());
+    auto lv = cam2world.log();
+    for (auto i = 0; i < 7; i++)
     {
         os << lv[i] << " ";
     }
 
-    for (int observation_index = 0; observation_index < 2; ++observation_index)
+    for (auto observation_index = 0; observation_index < 2; ++observation_index)
     {
         for (size_t parameter_index = 0; parameter_index < cameras[0]->size(); ++parameter_index)
         {
@@ -272,7 +272,7 @@ edge_sim3_project_xyz::edge_sim3_project_xyz() : g2o::BaseBinaryEdge<2, Eigen::V
 
 bool edge_sim3_project_xyz::read(std::istream &is)
 {
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         is >> _measurement[i];
     }
@@ -284,14 +284,14 @@ bool edge_sim3_project_xyz::read(std::istream &is)
 
 bool edge_sim3_project_xyz::write(std::ostream &os) const
 {
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         os << _measurement[i] << " ";
     }
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
-        for (int j = i; j < 2; j++)
+        for (auto j = i; j < 2; j++)
         {
             os << " " << information()(i, j);
         }
@@ -303,7 +303,7 @@ edge_inverse_sim3_project_xyz::edge_inverse_sim3_project_xyz() : g2o::BaseBinary
 
 bool edge_inverse_sim3_project_xyz::read(std::istream &is)
 {
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         is >> _measurement[i];
     }
@@ -315,14 +315,14 @@ bool edge_inverse_sim3_project_xyz::read(std::istream &is)
 
 bool edge_inverse_sim3_project_xyz::write(std::ostream &os) const
 {
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
         os << _measurement[i] << " ";
     }
 
-    for (int i = 0; i < 2; i++)
+    for (auto i = 0; i < 2; i++)
     {
-        for (int j = i; j < 2; j++)
+        for (auto j = i; j < 2; j++)
         {
             os << " " << information()(i, j);
         }

@@ -28,7 +28,6 @@
 #include "place_vocabulary.h"
 
 #include <map>
-#include <memory>
 #include <mutex>
 
 #include <DBoW2/BowVector.h>
@@ -113,7 +112,7 @@ class key_frame
 
     // KeyPoint functions
     std::vector<size_t> get_features_in_area(const float &x, const float &y, const float &r, const bool bRight = false) const;
-    bool                unproject_stereo(int i, Eigen::Vector3f &x3D, geometric_camera &camera);
+    bool                unproject_stereo(int i, Eigen::Vector3f &x3D, const geometric_camera &camera);
 
     // Image
     bool is_in_image(const float &x, const float &y) const;
@@ -131,7 +130,7 @@ class key_frame
 
     static bool compare_weight(int a, int b) { return a > b; }
 
-    static bool compare_id(key_frame *pKF1, key_frame *pKF2) { return pKF1->id < pKF2->id; }
+    static bool compare_id(const key_frame *pKF1, const key_frame *pKF2) { return pKF1->id < pKF2->id; }
 
     map *get_map();
     void update_map(map *pMap);
@@ -143,8 +142,8 @@ class key_frame
 
     imu::bias get_imu_bias();
 
-    bool project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v, geometric_camera &camera);
-    bool project_point_undistort(map_point *pMP, cv::Point2f &kp, float &u, float &v, geometric_camera &camera);
+    bool project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v, const geometric_camera &camera);
+    bool project_point_undistort(map_point *pMP, cv::Point2f &kp, float &u, float &v, const geometric_camera &camera);
 
     void set_key_frame_database(key_frame_database *pKFDB);
 
@@ -336,11 +335,11 @@ class key_frame
     Eigen::Matrix<float, 3, 3> get_right_rotation(const geometric_camera &camera);
     Eigen::Vector3f            get_right_translation(const geometric_camera &camera);
 
-    void print_point_distribution()
+    void print_point_distribution() const
     {
-        int       left = 0, right = 0;
-        const int Nlim = is_fisheye_stereo ? static_cast<int>(keypoints.size()) : feature_count;
-        for (int i = 0; i < feature_count; i++)
+        auto left = 0, right = 0;
+        const auto Nlim = is_fisheye_stereo ? static_cast<int>(keypoints.size()) : feature_count;
+        for (auto i = 0; i < feature_count; i++)
         {
             if (map_points[i])
             {

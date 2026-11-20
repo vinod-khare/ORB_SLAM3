@@ -110,7 +110,7 @@ void map::erase_key_frame(key_frame *pKF)
     {
         if (pKF->id == lowest_id_key_frame->id)
         {
-            vector<key_frame *> vpKFs = vector<key_frame *>(key_frames.begin(), key_frames.end());
+            auto vpKFs = vector<key_frame *>(key_frames.begin(), key_frames.end());
             sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
             lowest_id_key_frame = vpKFs[0];
         }
@@ -172,7 +172,7 @@ vector<map_point *> map::get_reference_map_points()
     return reference_map_points;
 }
 
-long unsigned int map::get_id() { return id; }
+long unsigned int map::get_id() const { return id; }
 long unsigned int map::get_initial_key_frame_id()
 {
     unique_lock<mutex> lock(map_mutex);
@@ -191,7 +191,7 @@ long unsigned int map::get_max_key_frame_id()
     return max_key_frame_id;
 }
 
-key_frame *map::get_origin_key_frame() { return initial_key_frame; }
+key_frame *map::get_origin_key_frame() const { return initial_key_frame; }
 
 void map::set_current_map() { in_use = true; }
 
@@ -199,9 +199,9 @@ void map::set_stored_map() { in_use = false; }
 
 void map::clear()
 {
-    for (set<key_frame *>::iterator sit = key_frames.begin(), send = key_frames.end(); sit != send; sit++)
+    for (auto sit = key_frames.begin(), send = key_frames.end(); sit != send; sit++)
     {
-        key_frame *pKF = *sit;
+        const auto pKF = *sit;
         pKF->update_map(static_cast<map *>(NULL));
     }
 
@@ -215,30 +215,30 @@ void map::clear()
     imu_ba2 = false;
 }
 
-bool map::is_in_use() { return in_use; }
+bool map::is_in_use() const { return in_use; }
 
 void map::set_bad() { bad = true; }
 
-bool map::is_bad() { return bad; }
+bool map::is_bad() const { return bad; }
 
 void map::apply_scaled_rotation(const geometric_camera &camera, const Sophus::SE3f &T, const float s, const bool bScaledVel)
 {
     unique_lock<mutex> lock(map_mutex);
 
     // Body position (IMU) of first keyframe is fixed to (0,0,0)
-    Sophus::SE3f    Tyw = T;
-    Eigen::Matrix3f Ryw = Tyw.rotationMatrix();
-    Eigen::Vector3f tyw = Tyw.translation();
+    auto Tyw = T;
+    const auto Ryw = Tyw.rotationMatrix();
+    const auto tyw = Tyw.translation();
 
-    for (set<key_frame *>::iterator sit = key_frames.begin(); sit != key_frames.end(); sit++)
+    for (auto sit = key_frames.begin(); sit != key_frames.end(); sit++)
     {
-        key_frame   *pKF   = *sit;
-        Sophus::SE3f Twc   = pKF->get_pose_inverse();
+        const auto pKF   = *sit;
+        auto Twc   = pKF->get_pose_inverse();
         Twc.translation() *= s;
-        Sophus::SE3f Tyc   = Tyw * Twc;
-        Sophus::SE3f Tcy   = Tyc.inverse();
+        auto Tyc   = Tyw * Twc;
+        auto Tcy   = Tyc.inverse();
         pKF->set_pose(Tcy);
-        Eigen::Vector3f Vw = pKF->get_velocity();
+        auto Vw = pKF->get_velocity();
         if (!bScaledVel)
         {
             pKF->set_velocity(Ryw * Vw);
@@ -248,9 +248,9 @@ void map::apply_scaled_rotation(const geometric_camera &camera, const Sophus::SE
             pKF->set_velocity(Ryw * Vw * s);
         }
     }
-    for (set<map_point *>::iterator sit = map_points.begin(); sit != map_points.end(); sit++)
+    for (auto sit = map_points.begin(); sit != map_points.end(); sit++)
     {
-        map_point *pMP = *sit;
+        const auto pMP = *sit;
         pMP->set_world_position(s * Ryw * pMP->get_world_position() + tyw);
         pMP->update_normal_and_depth(camera);
     }

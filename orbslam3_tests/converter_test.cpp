@@ -11,9 +11,9 @@ TEST_CASE("Converter preserves matrix dimensions and floating-point values", "[c
     REQUIRE(converted.rows == 2);
     REQUIRE(converted.cols == 3);
     REQUIRE(converted.type() == CV_32F);
-    for (int row = 0; row < converted.rows; ++row)
+    for (auto row = 0; row < converted.rows; ++row)
     {
-        for (int column = 0; column < converted.cols; ++column)
+        for (auto column = 0; column < converted.cols; ++column)
         {
             REQUIRE(converted.at<float>(row, column) == Catch::Approx(matrix(row, column)));
         }
@@ -28,7 +28,7 @@ TEST_CASE("Converter preserves matrix dimensions and floating-point values", "[c
 
 TEST_CASE("Converter preserves rigid and scaled pose representations", "[converter]")
 {
-    const Eigen::Matrix3d rotation = Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    const auto rotation = Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitZ()).toRotationMatrix();
     const Eigen::Vector3d translation(1.0, -2.0, 3.0);
     const auto            matrix = ORB_SLAM3::converter::to_cv_se3(rotation, translation);
     const auto            pose   = ORB_SLAM3::converter::to_sophus(matrix);
@@ -48,7 +48,7 @@ TEST_CASE("Converter preserves rigid and scaled pose representations", "[convert
 
 TEST_CASE("Converter preserves vector and rotation representations", "[converter]")
 {
-    const cv::Mat vector = cv::Mat(cv::Vec3f(1.f, -2.f, 3.f));
+    const auto vector = cv::Mat(cv::Vec3f(1.f, -2.f, 3.f));
     REQUIRE(ORB_SLAM3::converter::to_vector3d(vector).isApprox(Eigen::Vector3d(1, -2, 3)));
     REQUIRE(ORB_SLAM3::converter::to_vector3f(vector).isApprox(Eigen::Vector3f(1, -2, 3)));
     REQUIRE(ORB_SLAM3::converter::to_vector3d(cv::Point3f(1, -2, 3)).isApprox(Eigen::Vector3d(1, -2, 3)));

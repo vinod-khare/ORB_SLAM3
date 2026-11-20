@@ -25,7 +25,6 @@
 #include <iomanip>
 #include <mutex>
 
-#include <opencv2/core/core.hpp>
 #include <opencv2/features2d.hpp>
 
 namespace ORB_SLAM3
@@ -106,7 +105,7 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
                 cv::line(im, pt1, pt2, standardColor);
             }
         }
-        for (vector<pair<cv::Point2f, cv::Point2f>>::iterator it = vTracks.begin(); it != vTracks.end(); it++)
+        for (auto it = vTracks.begin(); it != vTracks.end(); it++)
         {
             cv::Point2f pt1, pt2;
             if (image_scale != 1.f)
@@ -128,7 +127,7 @@ cv::Mat frame_drawer::draw_frame(float image_scale)
         _tracked_odometry_count = 0;
         vector<cv::KeyPoint> map_keys, vo_keys;
         int                  n = current_keys.size();
-        for (int i = 0; i < n; i++)
+        for (auto i = 0; i < n; i++)
         {
             auto *map_point = frame->map_points[i];
             if (map_point && !frame->outliers[i])
@@ -265,7 +264,7 @@ cv::Mat frame_drawer::draw_right_frame(float image_scale)
     return imWithInfo;
 }
 
-void frame_drawer::draw_text_info(cv::Mat &image, int state, cv::Mat &image_with_info)
+void frame_drawer::draw_text_info(cv::Mat &image, int state, cv::Mat &image_with_info) const
 {
     stringstream s;
     if (state == tracking::NO_IMAGES_YET)
@@ -286,7 +285,7 @@ void frame_drawer::draw_text_info(cv::Mat &image, int state, cv::Mat &image_with
         {
             s << "LOCALIZATION | ";
         }
-        int nMaps = _atlas.count_maps();
+        auto nMaps = _atlas.count_maps();
         int nKFs  = _atlas.key_frames_in_map();
         int nMPs  = _atlas.map_points_in_map();
         s << "Maps: " << nMaps << ", KFs: " << nKFs << ", MPs: " << nMPs << ", Matches: " << _tracked_count;
@@ -310,12 +309,12 @@ void frame_drawer::draw_text_info(cv::Mat &image, int state, cv::Mat &image_with
         s_fps << std::fixed << std::setprecision(1) << get_tracking_fps() << " FPS";
     }
 
-    int      baseline = 0;
-    cv::Size textSize = cv::getTextSize(s.str(), cv::FONT_HERSHEY_PLAIN, 1, 1, &baseline);
+    auto baseline = 0;
+    auto textSize = cv::getTextSize(s.str(), cv::FONT_HERSHEY_PLAIN, 1, 1, &baseline);
 
-    const int lineHeight   = textSize.height + 10;
-    const int nLines       = s_fps.str().empty() ? 1 : 2;
-    const int bannerHeight = nLines * lineHeight;
+    const auto lineHeight   = textSize.height + 10;
+    const auto nLines       = s_fps.str().empty() ? 1 : 2;
+    const auto bannerHeight = nLines * lineHeight;
 
     image_with_info = cv::Mat(image.rows + bannerHeight, image.cols, image.type());
     image.copyTo(image_with_info.rowRange(0, image.rows).colRange(0, image.cols));
@@ -327,7 +326,7 @@ void frame_drawer::draw_text_info(cv::Mat &image, int state, cv::Mat &image_with
     }
 }
 
-float frame_drawer::get_tracking_fps() { return _tracking_fps.load(); }
+float frame_drawer::get_tracking_fps() const { return _tracking_fps.load(); }
 
 void frame_drawer::update_tracking_fps()
 {
@@ -335,14 +334,14 @@ void frame_drawer::update_tracking_fps()
 
     if (_has_last_frame_time)
     {
-        const float dt = std::chrono::duration<float>(now - _last_frame_time).count();
+        const auto dt = std::chrono::duration<float>(now - _last_frame_time).count();
         if (dt > 0.f)
         {
-            const float instant_fps = 1.f / dt;
+            const auto instant_fps = 1.f / dt;
             // Exponential smoothing to keep the displayed value readable.
-            const float alpha        = 0.1f;
-            const float previous_fps = _tracking_fps.load();
-            _tracking_fps            = (previous_fps > 0.f) ? (alpha * instant_fps + (1.f - alpha) * previous_fps) : instant_fps;
+            constexpr auto alpha        = 0.1f;
+            const auto previous_fps = _tracking_fps.load();
+            _tracking_fps            = previous_fps > 0.f ? alpha * instant_fps + (1.f - alpha) * previous_fps : instant_fps;
         }
     }
     _last_frame_time     = now;
@@ -353,7 +352,7 @@ bool frame_drawer::update(tracking &tracker)
 {
     update_tracking_fps();
 
-    unique_lock<mutex> lock(_mutex, std::try_to_lock);
+    const unique_lock<mutex> lock(_mutex, std::try_to_lock);
     if (!lock.owns_lock() || !_update_requested.exchange(false))
     {
         return false;

@@ -21,7 +21,6 @@
 #include "CameraModels/kannala_brandt8.h"
 #include "CameraModels/pinhole.h"
 
-#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -86,7 +85,7 @@ Sophus::SE3f read_transform(const YAML::Node &transform, const std::string &name
     Eigen::Matrix4d matrix;
     for (std::size_t row = 0; row < 4; ++row)
     {
-        const std::vector<double> values = read_values<double>(transform[row], name, 4, calibration_path);
+        const auto values = read_values<double>(transform[row], name, 4, calibration_path);
         for (std::size_t column = 0; column < 4; ++column)
         {
             matrix(static_cast<Eigen::Index>(row), static_cast<Eigen::Index>(column)) = values[column];
@@ -103,15 +102,15 @@ Sophus::SE3f read_transform(const YAML::Node &transform, const std::string &name
 
 kalibr_camera read_kalibr_camera(const YAML::Node &calibration, const std::string &name, const std::filesystem::path &calibration_path)
 {
-    const YAML::Node camera = calibration[name];
+    const auto camera = calibration[name];
 
     if (!camera || !camera.IsMap())
     {
         throw std::runtime_error("Camera " + name + " not found in calibration file: " + calibration_path.string());
     }
 
-    const std::string camera_model     = camera["camera_model"].as<std::string>("");
-    const std::string distortion_model = camera["distortion_model"].as<std::string>("none");
+    const auto camera_model     = camera["camera_model"].as<std::string>("");
+    const auto distortion_model = camera["distortion_model"].as<std::string>("none");
 
     if (camera_model != "pinhole")
     {
@@ -126,7 +125,7 @@ kalibr_camera read_kalibr_camera(const YAML::Node &calibration, const std::strin
     if (distortion_model == "equidistant")
     {
         result.type                   = ORB_SLAM3::settings::kannala_brandt;
-        const std::vector<float> k1k4 = read_values<float>(camera["distortion_coeffs"], name + ".distortion_coeffs", 4, calibration_path);
+        const auto k1k4 = read_values<float>(camera["distortion_coeffs"], name + ".distortion_coeffs", 4, calibration_path);
         result.parameters.insert(result.parameters.end(), k1k4.begin(), k1k4.end());
     }
     else if (distortion_model == "radtan")
@@ -163,7 +162,7 @@ namespace ORB_SLAM3
 
 template <> float settings::read_parameter<float>(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required)
 {
-    cv::FileNode node = fSettings[name];
+    const auto node = fSettings[name];
     if (node.empty())
     {
         if (required)
@@ -192,7 +191,7 @@ template <> float settings::read_parameter<float>(cv::FileStorage &fSettings, co
 
 template <> int settings::read_parameter<int>(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required)
 {
-    cv::FileNode node = fSettings[name];
+    const auto node = fSettings[name];
     if (node.empty())
     {
         if (required)
@@ -221,7 +220,7 @@ template <> int settings::read_parameter<int>(cv::FileStorage &fSettings, const 
 
 template <> string settings::read_parameter<string>(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required)
 {
-    cv::FileNode node = fSettings[name];
+    const auto node = fSettings[name];
     if (node.empty())
     {
         if (required)
@@ -250,7 +249,7 @@ template <> string settings::read_parameter<string>(cv::FileStorage &fSettings, 
 
 template <> cv::Mat settings::read_parameter<cv::Mat>(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required)
 {
-    cv::FileNode node = fSettings[name];
+    const auto node = fSettings[name];
     if (node.empty())
     {
         if (required)
@@ -294,7 +293,7 @@ settings::settings(const std::string &config_file, const sensor_type sensor, con
         spdlog::info("Loading settings from {}", config_file);
     }
 
-    const cv::FileNode calibration = fSettings["data"]["calibration"];
+    const auto calibration = fSettings["data"]["calibration"];
     if (!calibration.isMap() || !calibration["file"].isString())
     {
         throw std::runtime_error("Settings entry data.calibration.file (Kalibr camchain YAML) is required in " + config_file);
@@ -356,8 +355,8 @@ settings::settings(const std::string &config_file, const sensor_type sensor, con
 
 void settings::read_cameras(cv::FileStorage &settings)
 {
-    const YAML::Node    calibration = load_calibration(_calibration_file);
-    const kalibr_camera camera1     = read_kalibr_camera(calibration, "cam0", _calibration_file);
+    const auto calibration = load_calibration(_calibration_file);
+    const auto camera1     = read_kalibr_camera(calibration, "cam0", _calibration_file);
 
     _camera_type         = camera1.type;
     _original_image_size = camera1.resolution;
@@ -375,7 +374,7 @@ void settings::read_cameras(cv::FileStorage &settings)
         return;
     }
 
-    const kalibr_camera camera2 = read_kalibr_camera(calibration, "cam1", _calibration_file);
+    const auto camera2 = read_kalibr_camera(calibration, "cam1", _calibration_file);
 
     if (camera2.type != _camera_type || camera2.resolution != _original_image_size)
     {
@@ -395,11 +394,11 @@ void settings::read_cameras(cv::FileStorage &settings)
         bool       found;
         const auto read_overlap = [&](const std::string &name, const int default_value)
         {
-            const int value = read_parameter<int>(settings, name, found, false);
+            const auto value = read_parameter<int>(settings, name, found, false);
             return found ? value : default_value;
         };
 
-        const int last_column                                     = _original_image_size.width - 1;
+        const auto last_column                                     = _original_image_size.width - 1;
         static_cast<kannala_brandt8 &>(*_cameras[0]).lapping_area = {read_overlap("Camera1.overlappingBegin", 0), read_overlap("Camera1.overlappingEnd", last_column)};
         static_cast<kannala_brandt8 &>(*_cameras[1]).lapping_area = {read_overlap("Camera2.overlappingBegin", 0), read_overlap("Camera2.overlappingEnd", last_column)};
     }
@@ -417,7 +416,7 @@ void settings::read_image_info(cv::FileStorage &fSettings)
 {
     bool found;
     _new_image_size = _original_image_size;
-    int newHeigh    = read_parameter<int>(fSettings, "Camera.newHeight", found, false);
+    const auto newHeigh    = read_parameter<int>(fSettings, "Camera.newHeight", found, false);
     if (found)
     {
         _need_to_resize_left   = true;
@@ -426,7 +425,7 @@ void settings::read_image_info(cv::FileStorage &fSettings)
         if (!_need_to_rectify)
         {
             // Update calibration
-            float scaleRowFactor = (float)_new_image_size.height / (float)_original_image_size.height;
+            const auto scaleRowFactor = (float)_new_image_size.height / (float)_original_image_size.height;
             _cameras[0]->set_parameter(_cameras[0]->get_parameter(1) * scaleRowFactor, 1);
             _cameras[0]->set_parameter(_cameras[0]->get_parameter(3) * scaleRowFactor, 3);
 
@@ -438,7 +437,7 @@ void settings::read_image_info(cv::FileStorage &fSettings)
         }
     }
 
-    int newWidth = read_parameter<int>(fSettings, "Camera.newWidth", found, false);
+    const auto newWidth = read_parameter<int>(fSettings, "Camera.newWidth", found, false);
     if (found)
     {
         _need_to_resize_left  = true;
@@ -447,7 +446,7 @@ void settings::read_image_info(cv::FileStorage &fSettings)
         if (!_need_to_rectify)
         {
             // Update calibration
-            float scaleColFactor = (float)_new_image_size.width / (float)_original_image_size.width;
+            const auto scaleColFactor = (float)_new_image_size.width / (float)_original_image_size.width;
             _cameras[0]->set_parameter(_cameras[0]->get_parameter(0) * scaleColFactor, 0);
             _cameras[0]->set_parameter(_cameras[0]->get_parameter(2) * scaleColFactor, 2);
 
@@ -633,13 +632,13 @@ void settings::read_features(cv::FileStorage &fSettings, const std::string &conf
                  magic_enum::enum_name(_keypoint_descriptor),
                  magic_enum::enum_name(_descriptor_matcher));
 
-    const cv::FileNode tracking_node = fSettings["tracking"];
+    const auto tracking_node = fSettings["tracking"];
     if (!tracking_node.empty() && !tracking_node.isMap())
     {
         throw std::runtime_error("Settings entry tracking must be a map");
     }
-    const cv::FileNode optical_flow_node = tracking_node["use_optical_flow"];
-    int                use_optical_flow  = 0;
+    const auto optical_flow_node = tracking_node["use_optical_flow"];
+    auto use_optical_flow  = 0;
 
     if (!optical_flow_node.empty())
     {
@@ -667,16 +666,16 @@ void settings::read_other_parameters(cv::FileStorage &fSettings)
 void settings::precompute_rectification_maps()
 {
     // Precompute rectification maps, new calibrations, ...
-    cv::Mat K1 = _cameras[0]->to_k();
+    auto K1 = _cameras[0]->to_k();
     K1.convertTo(K1, CV_64F);
-    cv::Mat K2 = _cameras[1]->to_k();
+    auto K2 = _cameras[1]->to_k();
     K2.convertTo(K2, CV_64F);
 
     cv::Mat cvTlr;
     cv::eigen2cv(_left_to_right_pose.inverse().matrix3x4(), cvTlr);
-    cv::Mat R12 = cvTlr.rowRange(0, 3).colRange(0, 3);
+    auto R12 = cvTlr.rowRange(0, 3).colRange(0, 3);
     R12.convertTo(R12, CV_64F);
-    cv::Mat t12 = cvTlr.rowRange(0, 3).col(3);
+    auto t12 = cvTlr.rowRange(0, 3).col(3);
     t12.convertTo(t12, CV_64F);
 
     cv::Mat R_r1_u1, R_r2_u2;
@@ -736,7 +735,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
     if (!settings._camera_1_distortion.empty())
     {
         output << "\t-Camera 1 distortion parameters: [ ";
-        for (float d : settings._camera_1_distortion)
+        for (const auto d : settings._camera_1_distortion)
         {
             output << " " << d;
         }
@@ -764,7 +763,7 @@ ostream &operator<<(std::ostream &output, const settings &settings)
         if (!settings._camera_2_distortion.empty())
         {
             output << "\t-Camera 1 distortion parameters: [ ";
-            for (float d : settings._camera_2_distortion)
+            for (const auto d : settings._camera_2_distortion)
             {
                 output << " " << d;
             }
@@ -814,8 +813,8 @@ ostream &operator<<(std::ostream &output, const settings &settings)
 
         if (settings._camera_type == settings::kannala_brandt)
         {
-            auto vOverlapping1 = static_cast<kannala_brandt8 &>(*settings._cameras[0]).lapping_area;
-            auto vOverlapping2 = static_cast<kannala_brandt8 &>(*settings._cameras[1]).lapping_area;
+            const auto vOverlapping1 = static_cast<kannala_brandt8 &>(*settings._cameras[0]).lapping_area;
+            const auto vOverlapping2 = static_cast<kannala_brandt8 &>(*settings._cameras[1]).lapping_area;
             output << "\t-Camera 1 overlapping area: [ " << vOverlapping1[0] << " , " << vOverlapping1[1] << " ]" << endl;
             output << "\t-Camera 2 overlapping area: [ " << vOverlapping2[0] << " , " << vOverlapping2[1] << " ]" << endl;
         }

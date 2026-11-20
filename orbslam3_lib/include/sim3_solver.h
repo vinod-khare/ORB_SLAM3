@@ -21,7 +21,6 @@
 
 #include "key_frame.h"
 
-#include <memory>
 #include <vector>
 
 #include <opencv2/opencv.hpp>
@@ -50,7 +49,7 @@ class sim3_solver
     Eigen::Matrix4f get_estimated_transformation();
     Eigen::Matrix3f get_estimated_rotation();
     Eigen::Vector3f get_estimated_translation();
-    float           get_estimated_scale();
+    float           get_estimated_scale() const;
 
   protected:
     void compute_centroid(Eigen::Matrix3f &points, Eigen::Matrix3f &centered_points, Eigen::Vector3f &centroid);

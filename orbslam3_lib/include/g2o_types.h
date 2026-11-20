@@ -24,10 +24,6 @@
 #include <key_frame.h>
 #include <math.h>
 
-#include <memory>
-
-#include <opencv2/core/core.hpp>
-
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -76,8 +72,8 @@ class imu_cam_pose
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     imu_cam_pose() {}
     imu_cam_pose(key_frame *pKF, camera_view cameras);
-    imu_cam_pose(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration);
-    imu_cam_pose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF, camera_view cameras);
+    imu_cam_pose(const frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration);
+    imu_cam_pose(Eigen::Matrix3d &_Rwc, const Eigen::Vector3d &_twc, key_frame *pKF, camera_view cameras);
 
     void set_parameters(const std::vector<Eigen::Matrix3d> &_Rcw,
                         const std::vector<Eigen::Vector3d> &_tcw,
@@ -118,7 +114,7 @@ class inverse_depth_point
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     inverse_depth_point() {}
-    inverse_depth_point(double _rho, double _u, double _v, geometric_camera &camera);
+    inverse_depth_point(double _rho, double _u, double _v, const geometric_camera &camera);
 
     void update(const double *pu);
 
@@ -141,7 +137,7 @@ class vertex_pose : public g2o::BaseVertex<6, imu_cam_pose>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_pose(key_frame *pKF, camera_view cameras) { setEstimate(imu_cam_pose(pKF, cameras)); }
-    vertex_pose(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) { setEstimate(imu_cam_pose(pF, cameras, imu_calibration)); }
+    vertex_pose(const frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) { setEstimate(imu_cam_pose(pF, cameras, imu_calibration)); }
 
     virtual bool read(std::istream &is);
     virtual bool write(std::ostream &os) const;
@@ -161,8 +157,8 @@ class vertex_pose_4dof : public g2o::BaseVertex<4, imu_cam_pose>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_pose_4dof(key_frame *pKF, camera_view cameras) { setEstimate(imu_cam_pose(pKF, cameras)); }
-    vertex_pose_4dof(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) { setEstimate(imu_cam_pose(pF, cameras, imu_calibration)); }
-    vertex_pose_4dof(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF, camera_view cameras) { setEstimate(imu_cam_pose(_Rwc, _twc, pKF, cameras)); }
+    vertex_pose_4dof(const frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) { setEstimate(imu_cam_pose(pF, cameras, imu_calibration)); }
+    vertex_pose_4dof(Eigen::Matrix3d &_Rwc, const Eigen::Vector3d &_twc, key_frame *pKF, camera_view cameras) { setEstimate(imu_cam_pose(_Rwc, _twc, pKF, cameras)); }
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -189,7 +185,7 @@ class vertex_velocity : public g2o::BaseVertex<3, Eigen::Vector3d>
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_velocity() {}
     vertex_velocity(key_frame *pKF);
-    vertex_velocity(frame *pF);
+    vertex_velocity(const frame *pF);
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -210,7 +206,7 @@ class vertex_gyro_bias : public g2o::BaseVertex<3, Eigen::Vector3d>
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_gyro_bias() {}
     vertex_gyro_bias(key_frame *pKF);
-    vertex_gyro_bias(frame *pF);
+    vertex_gyro_bias(const frame *pF);
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -231,7 +227,7 @@ class vertex_acc_bias : public g2o::BaseVertex<3, Eigen::Vector3d>
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_acc_bias() {}
     vertex_acc_bias(key_frame *pKF);
-    vertex_acc_bias(frame *pF);
+    vertex_acc_bias(const frame *pF);
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -252,7 +248,7 @@ class gravity_direction
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     gravity_direction() {}
-    gravity_direction(Eigen::Matrix3d pRwg) : rotation_world_gravity(pRwg) {}
+    gravity_direction(const Eigen::Matrix3d& pRwg) : rotation_world_gravity(pRwg) {}
 
     void update(const double *pu) { rotation_world_gravity = rotation_world_gravity * exp_so3(pu[0], pu[1], 0.0); }
 
@@ -267,7 +263,7 @@ class vertex_gravity_direction : public g2o::BaseVertex<2, gravity_direction>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_gravity_direction() {}
-    vertex_gravity_direction(Eigen::Matrix3d pRwg) { setEstimate(gravity_direction(pRwg)); }
+    vertex_gravity_direction(const Eigen::Matrix3d& pRwg) { setEstimate(gravity_direction(pRwg)); }
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -303,7 +299,7 @@ class vertex_inverse_depth : public g2o::BaseVertex<1, inverse_depth_point>
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     vertex_inverse_depth() {}
-    vertex_inverse_depth(double invDepth, double u, double v, geometric_camera &camera) { setEstimate(inverse_depth_point(invDepth, u, v, camera)); }
+    vertex_inverse_depth(double invDepth, double u, double v, const geometric_camera &camera) { setEstimate(inverse_depth_point(invDepth, u, v, camera)); }
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -329,18 +325,18 @@ class edge_mono : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAP
 
     void computeError()
     {
-        const g2o::VertexSBAPointXYZ *VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
-        const vertex_pose            *VPose  = static_cast<const vertex_pose *>(_vertices[1]);
-        const Eigen::Vector2d         obs(_measurement);
+        const auto                  VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+        const auto VPose  = static_cast<const vertex_pose *>(_vertices[1]);
+        const auto obs(_measurement);
         _error = obs - VPose->estimate().project(VPoint->estimate(), cam_idx);
     }
 
     virtual void linearizeOplus();
 
-    bool is_depth_positive()
+    bool is_depth_positive() const
     {
-        const g2o::VertexSBAPointXYZ *VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
-        const vertex_pose            *VPose  = static_cast<const vertex_pose *>(_vertices[1]);
+        const auto        VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+        const auto VPose  = static_cast<const vertex_pose *>(_vertices[1]);
         return VPose->estimate().is_depth_positive(VPoint->estimate(), cam_idx);
     }
 
@@ -378,16 +374,16 @@ class edge_mono_only_pose : public g2o::BaseUnaryEdge<2, Eigen::Vector2d, vertex
 
     void computeError()
     {
-        const vertex_pose    *VPose = static_cast<const vertex_pose *>(_vertices[0]);
-        const Eigen::Vector2d obs(_measurement);
+        const auto VPose = static_cast<const vertex_pose *>(_vertices[0]);
+        const auto obs(_measurement);
         _error = obs - VPose->estimate().project(point_world, cam_idx);
     }
 
     virtual void linearizeOplus();
 
-    bool is_depth_positive()
+    bool is_depth_positive() const
     {
-        const vertex_pose *VPose = static_cast<const vertex_pose *>(_vertices[0]);
+        const auto VPose = static_cast<const vertex_pose *>(_vertices[0]);
         return VPose->estimate().is_depth_positive(point_world, cam_idx);
     }
 
@@ -414,9 +410,9 @@ class edge_stereo : public g2o::BaseBinaryEdge<3, Eigen::Vector3d, g2o::VertexSB
 
     void computeError()
     {
-        const g2o::VertexSBAPointXYZ *VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
-        const vertex_pose            *VPose  = static_cast<const vertex_pose *>(_vertices[1]);
-        const Eigen::Vector3d         obs(_measurement);
+        const auto                  VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+        const auto VPose  = static_cast<const vertex_pose *>(_vertices[1]);
+        const auto obs(_measurement);
         _error = obs - VPose->estimate().project_stereo(VPoint->estimate(), cam_idx);
     }
 
@@ -456,8 +452,8 @@ class edge_stereo_only_pose : public g2o::BaseUnaryEdge<3, Eigen::Vector3d, vert
 
     void computeError()
     {
-        const vertex_pose    *VPose = static_cast<const vertex_pose *>(_vertices[0]);
-        const Eigen::Vector3d obs(_measurement);
+        const auto VPose = static_cast<const vertex_pose *>(_vertices[0]);
+        const auto obs(_measurement);
         _error = obs - VPose->estimate().project_stereo(point_world, cam_idx);
     }
 
@@ -637,9 +633,9 @@ class edge_gyro_rw : public g2o::BaseBinaryEdge<3, Eigen::Vector3d, vertex_gyro_
 
     void computeError()
     {
-        const vertex_gyro_bias *VG1 = static_cast<const vertex_gyro_bias *>(_vertices[0]);
-        const vertex_gyro_bias *VG2 = static_cast<const vertex_gyro_bias *>(_vertices[1]);
-        _error                      = VG2->estimate() - VG1->estimate();
+        const auto             VG1 = static_cast<const vertex_gyro_bias *>(_vertices[0]);
+        const auto VG2 = static_cast<const vertex_gyro_bias *>(_vertices[1]);
+        _error               = VG2->estimate() - VG1->estimate();
     }
 
     virtual void linearizeOplus()
@@ -676,9 +672,9 @@ class edge_acc_rw : public g2o::BaseBinaryEdge<3, Eigen::Vector3d, vertex_acc_bi
 
     void computeError()
     {
-        const vertex_acc_bias *VA1 = static_cast<const vertex_acc_bias *>(_vertices[0]);
-        const vertex_acc_bias *VA2 = static_cast<const vertex_acc_bias *>(_vertices[1]);
-        _error                     = VA2->estimate() - VA1->estimate();
+        const auto            VA1 = static_cast<const vertex_acc_bias *>(_vertices[0]);
+        const auto VA2 = static_cast<const vertex_acc_bias *>(_vertices[1]);
+        _error              = VA2->estimate() - VA1->estimate();
     }
 
     virtual void linearizeOplus()
@@ -712,9 +708,9 @@ class constraint_pose_imu
         : rotation_world_body(Rwb_), translation_world_body(twb_), vwb(vwb_), bg(bg_), ba(ba_), information_matrix(H_)
     {
         information_matrix = (information_matrix + information_matrix) / 2;
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 15, 15>> es(information_matrix);
-        Eigen::Matrix<double, 15, 1>                                 eigs = es.eigenvalues();
-        for (int i = 0; i < 15; i++)
+        const Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 15, 15>> es(information_matrix);
+        auto eigs = es.eigenvalues();
+        for (auto i = 0; i < 15; i++)
         {
             if (eigs[i] < 1e-12)
             {
@@ -736,7 +732,7 @@ class edge_prior_pose_imu : public g2o::BaseMultiEdge<15, vector_15d>
 {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    edge_prior_pose_imu(constraint_pose_imu *c);
+    edge_prior_pose_imu(const constraint_pose_imu *c);
 
     virtual bool read(std::istream &is) { return false; }
     virtual bool write(std::ostream &os) const { return false; }
@@ -784,7 +780,7 @@ class edge_prior_acc : public g2o::BaseUnaryEdge<3, Eigen::Vector3d, vertex_acc_
 
     void computeError()
     {
-        const vertex_acc_bias *VA = static_cast<const vertex_acc_bias *>(_vertices[0]);
+        const auto VA = static_cast<const vertex_acc_bias *>(_vertices[0]);
         _error                    = bprior - VA->estimate();
     }
     virtual void linearizeOplus();
@@ -810,7 +806,7 @@ class edge_prior_gyro : public g2o::BaseUnaryEdge<3, Eigen::Vector3d, vertex_gyr
 
     void computeError()
     {
-        const vertex_gyro_bias *VG = static_cast<const vertex_gyro_bias *>(_vertices[0]);
+        const auto VG = static_cast<const vertex_gyro_bias *>(_vertices[0]);
         _error                     = bprior - VG->estimate();
     }
     virtual void linearizeOplus();
@@ -841,8 +837,8 @@ class edge_4dof : public g2o::BaseBinaryEdge<6, vector_6d, vertex_pose_4dof, ver
 
     void computeError()
     {
-        const vertex_pose_4dof *VPi = static_cast<const vertex_pose_4dof *>(_vertices[0]);
-        const vertex_pose_4dof *VPj = static_cast<const vertex_pose_4dof *>(_vertices[1]);
+        const auto             VPi = static_cast<const vertex_pose_4dof *>(_vertices[0]);
+        const auto VPj = static_cast<const vertex_pose_4dof *>(_vertices[1]);
         _error << log_so3(VPi->estimate().rotation_camera_world[0] * VPj->estimate().rotation_camera_world[0].transpose() * relative_rotation.transpose()),
             VPi->estimate().rotation_camera_world[0] * (-VPj->estimate().rotation_camera_world[0].transpose() * VPj->estimate().translation_camera_world[0]) +
                 VPi->estimate().translation_camera_world[0] - relative_translation;
