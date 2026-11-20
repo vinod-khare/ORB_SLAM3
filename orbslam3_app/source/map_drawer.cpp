@@ -38,7 +38,6 @@
 #include <vtkWindowToImageFilter.h>
 
 #include <algorithm>
-#include <cmath>
 #include <set>
 
 #include <vtkMatrix4x4.h>
@@ -116,7 +115,7 @@ void map_drawer::follow_camera(bool top_view)
     _follow_pose = pose;
 }
 
-void map_drawer::navigate(float horizontal, float vertical, float zoom, bool pan)
+void map_drawer::navigate(float horizontal, float vertical, float zoom, bool pan) const
 {
     if (!_renderer)
     {
@@ -283,7 +282,7 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
                     continue;
                 }
                 const auto            group    = reference_set.contains(point) ? 1u : 0u;
-                const Eigen::Vector3f position = point->get_world_position();
+                const auto position = point->get_world_position();
                 const auto            index    = points[group]->InsertNextPoint(position.x(), position.y(), position.z());
                 cells[group]->InsertNextCell(1, &index);
                 const auto color = point->color();
@@ -367,9 +366,9 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
         if (!_ground_truth_actor->GetUserMatrix())
         {
             vtkNew<vtkMatrix4x4> transform;
-            for (int row = 0; row < 4; ++row)
+            for (auto row = 0; row < 4; ++row)
             {
-                for (int column = 0; column < 4; ++column)
+                for (auto column = 0; column < 4; ++column)
                 {
                     transform->SetElement(row, column, (*_ground_truth_alignment)(row, column));
                 }
@@ -428,7 +427,7 @@ cv::Mat map_drawer::render(int width, int height, const std::array<bool, 7> &lay
         actor->GetProperty()->LightingOff();
         actor->GetProperty()->SetColor(colors[group][0], colors[group][1], colors[group][2]);
         actor->GetProperty()->SetPointSize(_settings.point_size);
-        actor->GetProperty()->SetLineWidth(group == 7 ? _settings.camera_line_width : (group == 5 || group == 6 ? _settings.graph_line_width : _settings.key_frame_line_width));
+        actor->GetProperty()->SetLineWidth(group == 7 ? _settings.camera_line_width : group == 5 || group == 6 ? _settings.graph_line_width : _settings.key_frame_line_width);
         _renderer->AddActor(actor);
     }
     _renderer->ResetCameraClippingRange();

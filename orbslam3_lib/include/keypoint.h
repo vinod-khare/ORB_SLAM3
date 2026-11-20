@@ -54,7 +54,7 @@ inline std::vector<cv::KeyPoint> to_cv_keypoints(const std::vector<keypoint> &ke
 inline cv::Mat descriptor_matrix(const std::vector<keypoint> &keypoints, std::size_t offset = 0)
 {
     cv::Mat descriptors;
-    for (std::size_t index = offset; index < keypoints.size(); ++index)
+    for (auto index = offset; index < keypoints.size(); ++index)
     {
         if (!keypoints[index].descriptor.empty())
         {

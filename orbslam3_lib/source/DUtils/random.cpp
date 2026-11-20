@@ -44,8 +44,8 @@ void DUtils::random::seed_rand_once(int seed)
 
 int DUtils::random::random_int(int min, int max)
 {
-    const int range = max - min + 1;
-    return static_cast<int>((static_cast<double>(rand()) / (static_cast<double>(RAND_MAX) + 1.0)) * range) + min;
+    const auto range = max - min + 1;
+    return static_cast<int>(static_cast<double>(rand()) / (static_cast<double>(RAND_MAX) + 1.0) * range) + min;
 }
 
 DUtils::random::unrepeated_randomizer::unrepeated_randomizer(int min, int max)
@@ -73,8 +73,8 @@ int DUtils::random::unrepeated_randomizer::get()
     }
 
     random::seed_rand_once();
-    const int index = random::random_int(0, static_cast<int>(_values.size()) - 1);
-    const int value = _values[index];
+    const auto index = random::random_int(0, static_cast<int>(_values.size()) - 1);
+    const auto value = _values[index];
     _values[index]  = _values.back();
     _values.pop_back();
     return value;
@@ -82,9 +82,9 @@ int DUtils::random::unrepeated_randomizer::get()
 
 void DUtils::random::unrepeated_randomizer::create_values()
 {
-    const int count = _max - _min + 1;
+    const auto count = _max - _min + 1;
     _values.resize(count);
-    for (int index = 0; index < count; ++index)
+    for (auto index = 0; index < count; ++index)
     {
         _values[index] = _min + index;
     }

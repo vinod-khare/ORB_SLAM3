@@ -26,7 +26,6 @@
 
 #include <list>
 #include <mutex>
-#include <set>
 #include <vector>
 
 namespace ORB_SLAM3
@@ -49,7 +48,7 @@ class key_frame_database
     void erase(key_frame *pKF);
 
     void clear();
-    void clear_map(map *pMap);
+    void clear_map(const map *pMap);
 
     // Loop Detection(DEPRECATED)
     std::vector<key_frame *> detect_loop_candidates(key_frame *pKF, float minScore);

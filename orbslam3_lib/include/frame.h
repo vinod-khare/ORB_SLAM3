@@ -88,7 +88,7 @@ class frame
     void set_pose(const Sophus::SE3<float> &Tcw);
 
     // Set IMU velocity
-    void set_velocity(Eigen::Vector3f Vw);
+    void set_velocity(const Eigen::Vector3f& Vw);
 
     Eigen::Vector3f get_velocity() const;
 
@@ -96,7 +96,7 @@ class frame
     void set_imu_pose_velocity(const Eigen::Matrix3f &Rwb, const Eigen::Vector3f &twb, const Eigen::Vector3f &Vwb, const imu::calib &imu_calibration);
 
     Eigen::Matrix<float, 3, 1> get_imu_position(const imu::calib &imu_calibration) const;
-    Eigen::Matrix<float, 3, 3> get_imu_rotation(const imu::calib &imu_calibration);
+    Eigen::Matrix<float, 3, 3> get_imu_rotation(const imu::calib &imu_calibration) const;
 
     void set_new_bias(const imu::bias &b);
 
@@ -104,10 +104,10 @@ class frame
     // and fill variables of the map_point to be used by the tracking
     bool is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_vector &cameras);
 
-    Eigen::Vector3f in_reference_coordinates(Eigen::Vector3f pCw);
+    Eigen::Vector3f in_reference_coordinates(const Eigen::Vector3f& pCw) const;
 
     // Compute the cell of a keypoint (return false if outside the grid)
-    bool position_in_grid(const cv::Point2f &position, int &posX, int &posY);
+    bool position_in_grid(const cv::Point2f &position, int &posX, int &posY) const;
 
     vector<size_t> get_features_in_area(const float &x, const float &y, const float &r, const int minLevel = -1, const int maxLevel = -1, const bool bRight = false) const;
 
@@ -116,10 +116,10 @@ class frame
     void compute_stereo_matches(geometric_camera &camera, const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid);
 
     // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
-    void compute_stereo_from_rgbd(const cv::Mat &imDepth, geometric_camera &camera);
+    void compute_stereo_from_rgbd(const cv::Mat &imDepth, const geometric_camera &camera);
 
     // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
-    bool unproject_stereo(const int &i, Eigen::Vector3f &x3D, geometric_camera &camera);
+    bool unproject_stereo(const int &i, Eigen::Vector3f &x3D, const geometric_camera &camera) const;
 
     constraint_pose_imu *imu_constraint;
 
@@ -297,15 +297,15 @@ class frame
 
     bool is_in_frustum_checks(map_point *pMP, float viewingCosLimit, const camera_vector &cameras, bool bRight = false);
 
-    Eigen::Vector3f unproject_stereo_fisheye(const int &i);
+    Eigen::Vector3f unproject_stereo_fisheye(const int &i) const;
 
     cv::Mat left_image, right_image;
 
     void print_point_distribution()
     {
-        int       left = 0, right = 0;
-        const int Nlim = is_fisheye_stereo ? static_cast<int>(keypoints.size()) : feature_count;
-        for (int i = 0; i < feature_count; i++)
+        auto left = 0, right = 0;
+        const auto Nlim = is_fisheye_stereo ? static_cast<int>(keypoints.size()) : feature_count;
+        for (auto i = 0; i < feature_count; i++)
         {
             if (map_points[i] && !outliers[i])
             {

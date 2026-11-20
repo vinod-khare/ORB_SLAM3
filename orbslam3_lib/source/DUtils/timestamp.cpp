@@ -10,7 +10,6 @@
 
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -50,7 +49,7 @@ void timestamp::set_to_current_time()
 
 void timestamp::set_time(const std::string &time)
 {
-    const std::string::size_type point = time.find('.');
+    const auto point = time.find('.');
     if (point == std::string::npos)
     {
         _seconds      = std::stoul(time);
@@ -58,7 +57,7 @@ void timestamp::set_time(const std::string &time)
         return;
     }
 
-    const std::string microseconds  = time.substr(point + 1, 6);
+    const auto microseconds  = time.substr(point + 1, 6);
     _seconds                        = std::stoul(time.substr(0, point));
     _microseconds                   = std::stoul(microseconds);
     _microseconds                  *= static_cast<unsigned long>(std::pow(10.0, 6.0 - microseconds.length()));
@@ -150,7 +149,7 @@ bool timestamp::operator==(const timestamp &timestamp) const { return _seconds =
 std::string timestamp::format(bool machine_friendly) const
 {
     struct tm    time_parts;
-    const time_t time = static_cast<time_t>(get_float_time());
+    const auto time = static_cast<time_t>(get_float_time());
 #ifdef _WIN32
     localtime_s(&time_parts, &time);
 #else
@@ -164,18 +163,18 @@ std::string timestamp::format(bool machine_friendly) const
 
 std::string timestamp::format(double seconds)
 {
-    const int days           = static_cast<int>(seconds / (24.0 * 3600.0));
+    const auto days           = static_cast<int>(seconds / (24.0 * 3600.0));
     seconds                 -= days * 24.0 * 3600.0;
-    const int hours          = static_cast<int>(seconds / 3600.0);
+    const auto hours          = static_cast<int>(seconds / 3600.0);
     seconds                 -= hours * 3600.0;
-    const int minutes        = static_cast<int>(seconds / 60.0);
+    const auto minutes        = static_cast<int>(seconds / 60.0);
     seconds                 -= minutes * 60.0;
-    const int whole_seconds  = static_cast<int>(seconds);
-    const int microseconds   = static_cast<int>((seconds - whole_seconds) * 1e6);
+    const auto whole_seconds  = static_cast<int>(seconds);
+    const auto microseconds   = static_cast<int>((seconds - whole_seconds) * 1e6);
 
     std::ostringstream stream;
     stream.fill('0');
-    bool include_hours = days > 0;
+    auto include_hours = days > 0;
     if (include_hours)
     {
         stream << days << "d ";
@@ -185,7 +184,7 @@ std::string timestamp::format(double seconds)
     {
         stream << std::setw(2) << hours << ':';
     }
-    const bool include_minutes = include_hours || minutes > 0;
+    const auto include_minutes = include_hours || minutes > 0;
     if (include_minutes)
     {
         stream << std::setw(2) << minutes << ':' << std::setw(2);

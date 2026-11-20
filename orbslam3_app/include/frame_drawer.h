@@ -28,9 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include <opencv2/core/core.hpp>
-#include <opencv2/features2d/features2d.hpp>
-
 namespace ORB_SLAM3
 {
 
@@ -50,12 +47,12 @@ class frame_drawer
     cv::Mat draw_right_frame(float image_scale = 1.f);
 
     // Smoothed rate at which frames are processed by the tracker.
-    float get_tracking_fps();
+    float get_tracking_fps() const;
 
     bool _both;
 
   protected:
-    void draw_text_info(cv::Mat &image, int state, cv::Mat &image_with_info);
+    void draw_text_info(cv::Mat &image, int state, cv::Mat &image_with_info) const;
 
     // Info of the frame to be drawn
     std::shared_ptr<const frame> _current_frame;

@@ -52,7 +52,7 @@ viewer_settings read_viewer_settings(const std::string &settings_file, const std
 void read_viewer_settings(viewer_settings &settings, const YAML::Node &root, const std::string &settings_file)
 {
     const auto image_view_scale = root["Viewer.imageViewScale"];
-    float      scale            = 1.0f;
+    auto scale            = 1.0f;
     if (image_view_scale)
     {
         if (!image_view_scale.IsScalar())

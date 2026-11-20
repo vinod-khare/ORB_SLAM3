@@ -55,21 +55,21 @@ class map
     long unsigned int map_point_count();
     long unsigned     key_frame_count();
 
-    long unsigned int get_id();
+    long unsigned int get_id() const;
 
     long unsigned int get_initial_key_frame_id();
     void              set_initial_key_frame_id(long unsigned int initKFif);
     long unsigned int get_max_key_frame_id();
 
-    key_frame *get_origin_key_frame();
+    key_frame *get_origin_key_frame() const;
 
     void set_current_map();
     void set_stored_map();
 
-    bool is_in_use();
+    bool is_in_use() const;
 
     void set_bad();
-    bool is_bad();
+    bool is_bad() const;
 
     void clear();
 
@@ -108,8 +108,8 @@ class map
     bool failed;
 
     // Size of the thumbnail (always in power of 2)
-    static const int thumb_width  = 512;
-    static const int thumb_height = 512;
+    static constexpr auto thumb_width  = 512;
+    static constexpr auto thumb_height = 512;
 
     static long unsigned int next_id;
 

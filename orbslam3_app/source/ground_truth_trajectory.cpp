@@ -33,7 +33,7 @@ ground_truth_trajectory::ground_truth_trajectory(const std::string &path, const 
         {
             continue;
         }
-        const bool            csv = line.find(',') != std::string::npos;
+        const auto csv = line.find(',') != std::string::npos;
         std::array<double, 8> values{};
         std::istringstream    row(line);
         try
@@ -75,7 +75,7 @@ ground_truth_trajectory::ground_truth_trajectory(const std::string &path, const 
                 throw std::runtime_error("mixed TUM and CSV formats");
             }
             _body_frame                    = csv;
-            Eigen::Quaterniond orientation = csv ? Eigen::Quaterniond(values[4], values[5], values[6], values[7]) : Eigen::Quaterniond(values[7], values[4], values[5], values[6]);
+            auto orientation = csv ? Eigen::Quaterniond(values[4], values[5], values[6], values[7]) : Eigen::Quaterniond(values[7], values[4], values[5], values[6]);
             if (orientation.norm() < 1e-12)
             {
                 throw std::runtime_error("zero quaternion");
@@ -156,7 +156,7 @@ std::optional<Eigen::Matrix4d> ground_truth_trajectory::alignment(const trajecto
     {
         return std::nullopt;
     }
-    const Eigen::Matrix4d transform = Eigen::umeyama(source, destination, correct_scale);
+    const auto transform = Eigen::umeyama(source, destination, correct_scale);
     if (!transform.allFinite() || transform.topLeftCorner<3, 3>().determinant() <= 1e-12)
     {
         return std::nullopt;

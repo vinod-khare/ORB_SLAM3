@@ -24,7 +24,6 @@
 #include <opencv2/core/core.hpp>
 
 #include <Eigen/Core>
-#include <sophus/se3.hpp>
 #include <spdlog/spdlog.h>
 
 namespace ORB_SLAM3
@@ -56,17 +55,17 @@ class geometric_tools
 
     template <int ROWS_T_, int COLS_T_> static bool check_matrices(const cv::Mat &cv_matrix, const Eigen::Matrix<float, ROWS_T_, COLS_T_> &eigen_matrix)
     {
-        const float epsilon = 1e-3;
+        constexpr float epsilon = 1e-3;
         if (ROWS_T_ != cv_matrix.rows || COLS_T_ != cv_matrix.cols)
         {
             spdlog::error("OpenCV matrix has the wrong dimensions");
             return false;
         }
-        for (int i = 0; i < ROWS_T_; i++)
+        for (auto i = 0; i < ROWS_T_; i++)
         {
-            for (int j = 0; j < COLS_T_; j++)
+            for (auto j = 0; j < COLS_T_; j++)
             {
-                if ((cv_matrix.at<float>(i, j) > (eigen_matrix(i, j) + epsilon)) || (cv_matrix.at<float>(i, j) < (eigen_matrix(i, j) - epsilon)))
+                if (cv_matrix.at<float>(i, j) > eigen_matrix(i, j) + epsilon || cv_matrix.at<float>(i, j) < eigen_matrix(i, j) - epsilon)
                 {
                     std::ostringstream matrix_output;
                     matrix_output << "OpenCV matrix:\n" << cv_matrix << "\nEigen matrix:\n" << eigen_matrix;
@@ -81,12 +80,12 @@ class geometric_tools
     template <typename VALUE_T_, int ROWS_T_, int COLS_T_>
     static bool check_matrices(const Eigen::Matrix<VALUE_T_, ROWS_T_, COLS_T_> &eigen_matrix1, const Eigen::Matrix<VALUE_T_, ROWS_T_, COLS_T_> &eigen_matrix2)
     {
-        const float epsilon = 1e-3;
-        for (int i = 0; i < ROWS_T_; i++)
+        constexpr float epsilon = 1e-3;
+        for (auto i = 0; i < ROWS_T_; i++)
         {
-            for (int j = 0; j < COLS_T_; j++)
+            for (auto j = 0; j < COLS_T_; j++)
             {
-                if ((eigen_matrix1(i, j) > (eigen_matrix2(i, j) + epsilon)) || (eigen_matrix1(i, j) < (eigen_matrix2(i, j) - epsilon)))
+                if (eigen_matrix1(i, j) > eigen_matrix2(i, j) + epsilon || eigen_matrix1(i, j) < eigen_matrix2(i, j) - epsilon)
                 {
                     std::ostringstream matrix_output;
                     matrix_output << "Eigen matrix 1:\n" << eigen_matrix1 << "\nEigen matrix 2:\n" << eigen_matrix2;

@@ -91,9 +91,9 @@ int place_vocabulary::descriptor_size() const
 void place_vocabulary::transform(const std::vector<cv::Mat> &features, DBoW2::BowVector &bow, DBoW2::FeatureVector &nodes, int levels_up) const
 {
     const std::shared_lock lock(_mutex);
-    const int              expected_type = _version == 2 ? _dbow2->descriptor_type() : _dbow3->descriptor_type();
-    const int              expected_size = _version == 2 ? _dbow2->descriptor_size() : _dbow3->descriptor_size();
-    const int              depth         = _version == 2 ? _dbow2->getDepthLevels() : _dbow3->parameters()[1];
+    const auto expected_type = _version == 2 ? _dbow2->descriptor_type() : _dbow3->descriptor_type();
+    const auto expected_size = _version == 2 ? _dbow2->descriptor_size() : _dbow3->descriptor_size();
+    const auto depth         = _version == 2 ? _dbow2->getDepthLevels() : _dbow3->parameters()[1];
     // Keep matching nodes below the root for vocabularies shallower than ORB's six levels.
     levels_up = std::min(levels_up, std::max(0, depth - 2));
     bow.clear();

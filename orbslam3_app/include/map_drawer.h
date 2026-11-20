@@ -30,8 +30,6 @@
 #include <utility>
 #include <vector>
 
-#include <opencv2/core.hpp>
-
 class vtkRenderer;
 class vtkActor;
 class vtkPoints;
@@ -54,7 +52,7 @@ class map_drawer
     cv::Mat      render(int width, int height, const std::array<bool, 7> &layers);
     void         reset_view(bool top_view);
     void         follow_camera(bool top_view);
-    void         navigate(float horizontal, float vertical, float zoom, bool pan);
+    void         navigate(float horizontal, float vertical, float zoom, bool pan) const;
     void         release();
 
   private:

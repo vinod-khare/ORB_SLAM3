@@ -19,7 +19,6 @@
 #include "system.h"
 
 #include "atlas.h"
-#include "converter.h"
 #include "key_frame_database.h"
 #include "local_mapping.h"
 #include "loop_closing.h"
@@ -27,14 +26,11 @@
 #include "settings.h"
 #include "tracking.h"
 
-#include <cmath>
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
 #include <thread>
-
-#include <opencv2/imgcodecs.hpp>
 
 #include <magic_enum/magic_enum.hpp>
 #include <spdlog/spdlog.h>
@@ -106,12 +102,12 @@ system::system(const string &vocabulary_file, std::unique_ptr<settings> settings
 
     // Initialize the Local Mapping thread and launch
     _local_mapper                      = std::make_unique<local_mapping>(_statistics,
-                                                    _settings->cameras(),
-                                                    this,
-                                                    _atlas.get(),
-                                                    _sensor == monocular || _sensor == imu_monocular,
-                                                    _sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd,
-                                                    sequence);
+                                                                         _settings->cameras(),
+                                                                         this,
+                                                                         _atlas.get(),
+                                                                         _sensor == monocular || _sensor == imu_monocular,
+                                                                         _sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd,
+                                                                         sequence);
     _local_mapper->initial_frame       = initial_frame;
     _local_mapper->far_point_threshold = _settings->far_point_threshold();
     if (_local_mapper->far_point_threshold != 0)
@@ -153,7 +149,7 @@ system::system(const string &vocabulary_file, std::unique_ptr<settings> settings
 system::~system() { stop_workers(); }
 
 int  system::dbow_version() const { return _vocabulary->version(); }
-void system::set_dbow_version(int version) { _vocabulary->set_version(version); }
+void system::set_dbow_version(int version) const { _vocabulary->set_version(version); }
 
 void system::record_frame_statistics(double preprocessing_ms, double frontend_ms)
 {
@@ -198,7 +194,7 @@ void system::record_frame_statistics(double preprocessing_ms, double frontend_ms
 
 void system::register_frame_filename_for_export(const string &filename)
 {
-    const size_t pose_count = _tracker->relative_frame_poses.size();
+    const auto pose_count = _tracker->relative_frame_poses.size();
 
     // Handle tracker resets/restarts: trim stale filenames.
     while (_frame_filenames.size() > pose_count)
@@ -213,7 +209,7 @@ void system::register_frame_filename_for_export(const string &filename)
     }
 }
 
-Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<imu::point> &vImuMeas, string filename)
+Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<imu::point> &vImuMeas, const string& filename)
 {
     if (_sensor != stereo && _sensor != imu_stereo)
     {
@@ -224,10 +220,10 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
     cv::Mat imLeftToFeed, imRightToFeed;
     if (_settings->need_to_rectify())
     {
-        cv::Mat M1l = _settings->left_rectification_map_x();
-        cv::Mat M2l = _settings->left_rectification_map_y();
-        cv::Mat M1r = _settings->right_rectification_map_x();
-        cv::Mat M2r = _settings->right_rectification_map_y();
+        auto M1l = _settings->left_rectification_map_x();
+        auto M2l = _settings->left_rectification_map_y();
+        auto M1r = _settings->right_rectification_map_x();
+        auto M2r = _settings->right_rectification_map_y();
 
         cv::remap(imLeft, imLeftToFeed, M1l, M2l, cv::INTER_LINEAR);
         cv::remap(imRight, imRightToFeed, M1r, M2r, cv::INTER_LINEAR);
@@ -285,13 +281,13 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
 
     if (_sensor == system::imu_stereo)
     {
-        for (size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
+        for (const auto & vImuMea : vImuMeas)
         {
-            _tracker->grab_imu_data(vImuMeas[i_imu]);
+            _tracker->grab_imu_data(vImuMea);
         }
     }
 
-    Sophus::SE3f Tcw = _tracker->grab_image_stereo(imLeftToFeed, imRightToFeed, timestamp, filename);
+    auto Tcw = _tracker->grab_image_stereo(imLeftToFeed, imRightToFeed, timestamp, filename);
     register_frame_filename_for_export(filename);
 
     unique_lock<mutex> lock2(_state_mutex);
@@ -302,7 +298,7 @@ Sophus::SE3f system::track_stereo(const cv::Mat &imLeft, const cv::Mat &imRight,
     return Tcw;
 }
 
-Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, const vector<imu::point> &vImuMeas, string filename)
+Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, const vector<imu::point> &vImuMeas, const string& filename)
 {
     if (_sensor != rgbd && _sensor != imu_rgbd)
     {
@@ -310,8 +306,8 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
         exit(-1);
     }
 
-    cv::Mat imToFeed      = im.clone();
-    cv::Mat imDepthToFeed = depthmap.clone();
+    auto imToFeed      = im.clone();
+    auto imDepthToFeed = depthmap.clone();
     if (_settings->need_to_resize())
     {
         cv::Mat resizedIm;
@@ -363,13 +359,13 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
 
     if (_sensor == system::imu_rgbd)
     {
-        for (size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
+        for (const auto & vImuMea : vImuMeas)
         {
-            _tracker->grab_imu_data(vImuMeas[i_imu]);
+            _tracker->grab_imu_data(vImuMea);
         }
     }
 
-    Sophus::SE3f Tcw = _tracker->grab_image_rgbd(imToFeed, imDepthToFeed, timestamp, filename);
+    auto Tcw = _tracker->grab_image_rgbd(imToFeed, imDepthToFeed, timestamp, filename);
     register_frame_filename_for_export(filename);
 
     unique_lock<mutex> lock2(_state_mutex);
@@ -379,7 +375,7 @@ Sophus::SE3f system::track_rgbd(const cv::Mat &im, const cv::Mat &depthmap, cons
     return Tcw;
 }
 
-void system::set_next_frame_color(const cv::Mat &color_image, const cv::Mat &color_image_right)
+void system::set_next_frame_color(const cv::Mat &color_image, const cv::Mat &color_image_right) const
 {
     const auto prepare_color = [this](const cv::Mat &image, bool right)
     {
@@ -412,12 +408,12 @@ void system::set_next_frame_color(const cv::Mat &color_image, const cv::Mat &col
 
 bool system::can_precompute_optical_flow_pyramid() const
 {
-    const bool is_stereo = _sensor == stereo || _sensor == imu_stereo;
-    const bool is_mono   = _sensor == monocular || _sensor == imu_monocular;
+    const auto is_stereo = _sensor == stereo || _sensor == imu_stereo;
+    const auto is_mono   = _sensor == monocular || _sensor == imu_monocular;
     return _settings->use_optical_flow() && (is_stereo || is_mono) && !_settings->need_to_resize() && (!is_stereo || !_settings->need_to_rectify());
 }
 
-void system::set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid)
+void system::set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid) const
 {
     if (!can_precompute_optical_flow_pyramid())
     {
@@ -426,14 +422,14 @@ void system::set_next_optical_flow_pyramid(std::vector<cv::Mat> pyramid)
     _tracker->next_optical_flow_pyramid = std::move(pyramid);
 }
 
-Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp, const vector<imu::point> &vImuMeas, string filename)
+Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp, const vector<imu::point> &vImuMeas, const string& filename)
 {
 
     {
         unique_lock<mutex> lock(_reset_mutex);
         if (_shutdown)
         {
-            return Sophus::SE3f();
+            return {};
         }
     }
 
@@ -443,7 +439,7 @@ Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp,
         exit(-1);
     }
 
-    cv::Mat imToFeed = im.clone();
+    auto imToFeed = im.clone();
     if (_settings->need_to_resize())
     {
         cv::Mat resizedIm;
@@ -494,13 +490,13 @@ Sophus::SE3f system::track_monocular(const cv::Mat &im, const double &timestamp,
 
     if (_sensor == system::imu_monocular)
     {
-        for (size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
+        for (const auto & vImuMea : vImuMeas)
         {
-            _tracker->grab_imu_data(vImuMeas[i_imu]);
+            _tracker->grab_imu_data(vImuMea);
         }
     }
 
-    Sophus::SE3f Tcw = _tracker->grab_image_monocular(imToFeed, timestamp, filename);
+    auto Tcw = _tracker->grab_image_monocular(imToFeed, timestamp, filename);
     register_frame_filename_for_export(filename);
 
     unique_lock<mutex> lock2(_state_mutex);
@@ -523,10 +519,10 @@ void system::deactivate_localization_mode()
     _localization_mode_deactivation_requested = true;
 }
 
-bool system::map_changed()
+bool system::map_changed() const
 {
-    static int n    = 0;
-    int        curn = _atlas->get_last_big_change_index();
+    static auto n    = 0;
+    const auto curn = _atlas->get_last_big_change_index();
     if (n < curn)
     {
         n = curn;
@@ -589,7 +585,7 @@ bool system::is_shut_down()
     return _shutdown;
 }
 
-void system::save_trajectory_tum(const string &filename)
+void system::save_trajectory_tum(const string &filename) const
 {
     spdlog::info("Saving camera trajectory to {}", filename);
     if (_sensor == monocular)
@@ -598,12 +594,12 @@ void system::save_trajectory_tum(const string &filename)
         return;
     }
 
-    vector<key_frame *> vpKFs = _atlas->get_all_key_frames();
-    sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
+    auto vpKFs = _atlas->get_all_key_frames();
+    ranges::sort(vpKFs, key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
-    Sophus::SE3f Two = vpKFs[0]->get_pose_inverse();
+    auto Two = vpKFs[0]->get_pose_inverse();
 
     ofstream f;
     f.open(filename.c_str());
@@ -615,17 +611,17 @@ void system::save_trajectory_tum(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                 lT   = _tracker->frame_times.begin();
-    list<bool>::iterator                   lbL  = _tracker->lost_frames.begin();
-    for (list<Sophus::SE3f>::iterator lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
+    auto lRit = _tracker->reference_key_frames.begin();
+    auto lT   = _tracker->frame_times.begin();
+    auto lbL  = _tracker->lost_frames.begin();
+    for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
         if (*lbL)
         {
             continue;
         }
 
-        key_frame *pKF = *lRit;
+        auto pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -638,22 +634,22 @@ void system::save_trajectory_tum(const string &filename)
 
         Trw = Trw * pKF->get_pose() * Two;
 
-        Sophus::SE3f Tcw = (*lit) * Trw;
-        Sophus::SE3f Twc = Tcw.inverse();
+        auto Tcw = *lit * Trw;
+        auto Twc = Tcw.inverse();
 
-        Eigen::Vector3f    twc = Twc.translation();
-        Eigen::Quaternionf q   = Twc.unit_quaternion();
+        auto twc = Twc.translation();
+        auto q   = Twc.unit_quaternion();
 
         f << setprecision(6) << *lT << " " << setprecision(9) << twc(0) << " " << twc(1) << " " << twc(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
     }
     f.close();
 }
 
-void system::save_key_frame_trajectory_tum(const string &filename)
+void system::save_key_frame_trajectory_tum(const string &filename) const
 {
     spdlog::info("Saving keyframe trajectory to {}", filename);
 
-    vector<key_frame *> vpKFs = _atlas->get_all_key_frames();
+    auto vpKFs = _atlas->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -662,34 +658,32 @@ void system::save_key_frame_trajectory_tum(const string &filename)
     f.open(filename.c_str());
     f << fixed;
 
-    for (size_t i = 0; i < vpKFs.size(); i++)
+    for (const auto pKF : vpKFs)
     {
-        key_frame *pKF = vpKFs[i];
-
         if (pKF->is_bad())
         {
             continue;
         }
 
-        Sophus::SE3f       Twc = pKF->get_pose_inverse();
-        Eigen::Quaternionf q   = Twc.unit_quaternion();
-        Eigen::Vector3f    t   = Twc.translation();
+        auto Twc = pKF->get_pose_inverse();
+        auto q   = Twc.unit_quaternion();
+        auto t   = Twc.translation();
         f << setprecision(6) << pKF->timestamp << setprecision(7) << " " << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
     }
 
     f.close();
 }
 
-void system::save_trajectory_euroc(const string &filename)
+void system::save_trajectory_euroc(const string &filename) const
 {
 
     spdlog::info("Saving trajectory to {}", filename);
 
-    vector<map *> vpMaps     = _atlas->get_all_maps();
+    auto vpMaps     = _atlas->get_all_maps();
     size_t        numMaxKFs  = 0;
     map          *pBiggerMap = nullptr;
     spdlog::debug("There are {} maps in the atlas", vpMaps.size());
-    for (map *pMap : vpMaps)
+    for (auto pMap : vpMaps)
     {
         spdlog::debug("Map {} has {} keyframes", pMap->get_id(), pMap->get_all_key_frames().size());
         if (pMap->get_all_key_frames().size() > numMaxKFs)
@@ -705,7 +699,7 @@ void system::save_trajectory_euroc(const string &filename)
         return;
     }
 
-    vector<key_frame *> vpKFs = pBiggerMap->get_all_key_frames();
+    auto vpKFs = pBiggerMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -730,9 +724,9 @@ void system::save_trajectory_euroc(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                 lT   = _tracker->frame_times.begin();
-    list<bool>::iterator                   lbL  = _tracker->lost_frames.begin();
+    auto lRit = _tracker->reference_key_frames.begin();
+    auto lT   = _tracker->frame_times.begin();
+    auto lbL  = _tracker->lost_frames.begin();
 
     for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
@@ -741,7 +735,7 @@ void system::save_trajectory_euroc(const string &filename)
             continue;
         }
 
-        key_frame *pKF = *lRit;
+        auto pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -766,29 +760,29 @@ void system::save_trajectory_euroc(const string &filename)
 
         if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
-            Sophus::SE3f       Twb = (pKF->imu_calibration.body_to_camera * (*lit) * Trw).inverse();
-            Eigen::Quaternionf q   = Twb.unit_quaternion();
-            Eigen::Vector3f    twb = Twb.translation();
-            f << setprecision(6) << 1e9 * (*lT) << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            auto Twb = (pKF->imu_calibration.body_to_camera * *lit * Trw).inverse();
+            auto q   = Twb.unit_quaternion();
+            auto twb = Twb.translation();
+            f << setprecision(6) << 1e9 * *lT << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
         }
         else
         {
-            Sophus::SE3f       Twc = ((*lit) * Trw).inverse();
-            Eigen::Quaternionf q   = Twc.unit_quaternion();
-            Eigen::Vector3f    twc = Twc.translation();
-            f << setprecision(6) << 1e9 * (*lT) << " " << setprecision(9) << twc(0) << " " << twc(1) << " " << twc(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            auto Twc = (*lit * Trw).inverse();
+            auto q   = Twc.unit_quaternion();
+            auto twc = Twc.translation();
+            f << setprecision(6) << 1e9 * *lT << " " << setprecision(9) << twc(0) << " " << twc(1) << " " << twc(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
         }
     }
     f.close();
     spdlog::info("Finished saving trajectory to {}", filename);
 }
 
-void system::save_trajectory_euroc(const string &filename, map *pMap)
+void system::save_trajectory_euroc(const string &filename, map *pMap) const
 {
 
     spdlog::info("Saving trajectory of map {} to {}", pMap->get_id(), filename);
 
-    vector<key_frame *> vpKFs = pMap->get_all_key_frames();
+    auto vpKFs = pMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -813,9 +807,9 @@ void system::save_trajectory_euroc(const string &filename, map *pMap)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                 lT   = _tracker->frame_times.begin();
-    list<bool>::iterator                   lbL  = _tracker->lost_frames.begin();
+    auto lRit = _tracker->reference_key_frames.begin();
+    auto lT   = _tracker->frame_times.begin();
+    auto lbL  = _tracker->lost_frames.begin();
 
     for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++, lbL++)
     {
@@ -824,7 +818,7 @@ void system::save_trajectory_euroc(const string &filename, map *pMap)
             continue;
         }
 
-        key_frame *pKF = *lRit;
+        auto pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -849,31 +843,31 @@ void system::save_trajectory_euroc(const string &filename, map *pMap)
 
         if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
-            Sophus::SE3f       Twb = (pKF->imu_calibration.body_to_camera * (*lit) * Trw).inverse();
-            Eigen::Quaternionf q   = Twb.unit_quaternion();
-            Eigen::Vector3f    twb = Twb.translation();
-            f << setprecision(6) << 1e9 * (*lT) << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            auto Twb = (pKF->imu_calibration.body_to_camera * *lit * Trw).inverse();
+            auto q   = Twb.unit_quaternion();
+            auto twb = Twb.translation();
+            f << setprecision(6) << 1e9 * *lT << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
         }
         else
         {
-            Sophus::SE3f       Twc = ((*lit) * Trw).inverse();
-            Eigen::Quaternionf q   = Twc.unit_quaternion();
-            Eigen::Vector3f    twc = Twc.translation();
-            f << setprecision(6) << 1e9 * (*lT) << " " << setprecision(9) << twc(0) << " " << twc(1) << " " << twc(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            auto Twc = (*lit * Trw).inverse();
+            auto q   = Twc.unit_quaternion();
+            auto twc = Twc.translation();
+            f << setprecision(6) << 1e9 * *lT << " " << setprecision(9) << twc(0) << " " << twc(1) << " " << twc(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
         }
     }
     f.close();
     spdlog::info("Finished saving trajectory to {}", filename);
 }
 
-void system::save_key_frame_trajectory_euroc(const string &filename)
+void system::save_key_frame_trajectory_euroc(const string &filename) const
 {
     spdlog::info("Saving keyframe trajectory to {}", filename);
 
-    vector<map *> vpMaps     = _atlas->get_all_maps();
+    auto vpMaps     = _atlas->get_all_maps();
     map          *pBiggerMap = nullptr;
     size_t        numMaxKFs  = 0;
-    for (map *pMap : vpMaps)
+    for (auto pMap : vpMaps)
     {
         if (pMap && pMap->get_all_key_frames().size() > numMaxKFs)
         {
@@ -888,7 +882,7 @@ void system::save_key_frame_trajectory_euroc(const string &filename)
         return;
     }
 
-    vector<key_frame *> vpKFs = pBiggerMap->get_all_key_frames();
+    auto vpKFs = pBiggerMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -897,27 +891,26 @@ void system::save_key_frame_trajectory_euroc(const string &filename)
     f.open(filename.c_str());
     f << fixed;
 
-    for (size_t i = 0; i < vpKFs.size(); i++)
+    for (const auto pKF : vpKFs)
     {
-        key_frame *pKF = vpKFs[i];
-
         if (!pKF || pKF->is_bad())
         {
             continue;
         }
+
         if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
-            Sophus::SE3f       Twb = pKF->get_imu_pose();
-            Eigen::Quaternionf q   = Twb.unit_quaternion();
-            Eigen::Vector3f    twb = Twb.translation();
+            auto Twb = pKF->get_imu_pose();
+            auto q   = Twb.unit_quaternion();
+            auto twb = Twb.translation();
             f << setprecision(6) << 1e9 * pKF->timestamp << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
               << endl;
         }
         else
         {
-            Sophus::SE3f       Twc = pKF->get_pose_inverse();
-            Eigen::Quaternionf q   = Twc.unit_quaternion();
-            Eigen::Vector3f    t   = Twc.translation();
+            auto Twc = pKF->get_pose_inverse();
+            auto q   = Twc.unit_quaternion();
+            auto t   = Twc.translation();
             f << setprecision(6) << 1e9 * pKF->timestamp << " " << setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
               << endl;
         }
@@ -925,11 +918,11 @@ void system::save_key_frame_trajectory_euroc(const string &filename)
     f.close();
 }
 
-void system::save_key_frame_trajectory_euroc(const string &filename, map *pMap)
+void system::save_key_frame_trajectory_euroc(const string &filename, map *pMap) const
 {
     spdlog::info("Saving keyframe trajectory of map {} to {}", pMap->get_id(), filename);
 
-    vector<key_frame *> vpKFs = pMap->get_all_key_frames();
+    auto vpKFs = pMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -938,31 +931,31 @@ void system::save_key_frame_trajectory_euroc(const string &filename, map *pMap)
     f.open(filename.c_str());
     f << fixed;
 
-    for (size_t i = 0; i < vpKFs.size(); i++)
+    for (const auto pKF : vpKFs)
     {
-        key_frame *pKF = vpKFs[i];
-
         if (!pKF || pKF->is_bad())
         {
             continue;
         }
+
         if (_sensor == imu_monocular || _sensor == imu_stereo || _sensor == imu_rgbd)
         {
-            Sophus::SE3f       Twb = pKF->get_imu_pose();
-            Eigen::Quaternionf q   = Twb.unit_quaternion();
-            Eigen::Vector3f    twb = Twb.translation();
+            auto Twb = pKF->get_imu_pose();
+            auto q   = Twb.unit_quaternion();
+            auto twb = Twb.translation();
             f << setprecision(6) << 1e9 * pKF->timestamp << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
               << endl;
         }
         else
         {
-            Sophus::SE3f       Twc = pKF->get_pose_inverse();
-            Eigen::Quaternionf q   = Twc.unit_quaternion();
-            Eigen::Vector3f    t   = Twc.translation();
+            auto Twc = pKF->get_pose_inverse();
+            auto q   = Twc.unit_quaternion();
+            auto t   = Twc.translation();
             f << setprecision(6) << 1e9 * pKF->timestamp << " " << setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w()
               << endl;
         }
     }
+
     f.close();
 }
 
@@ -973,10 +966,10 @@ void system::save_colmap(const string &strDir)
     spdlog::debug("📁 [save_colmap] Output directory: " + strDir);
 
     // Locate the largest map (same logic as save_trajectory_euroc)
-    vector<map *> vpMaps     = _atlas->get_all_maps();
+    auto vpMaps     = _atlas->get_all_maps();
     map          *pBiggerMap = nullptr;
-    int           numMaxKFs  = 0;
-    for (map *pMap : vpMaps)
+    auto numMaxKFs  = 0;
+    for (auto pMap : vpMaps)
     {
         if ((int)pMap->get_all_key_frames().size() > numMaxKFs)
         {
@@ -992,10 +985,10 @@ void system::save_colmap(const string &strDir)
 
     std::filesystem::create_directories(strDir);
 
-    vector<key_frame *> vpKFs = pBiggerMap->get_all_key_frames();
+    auto vpKFs = pBiggerMap->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
     // World origin anchored at the first KF (monocular)
-    Sophus::SE3f Twb = vpKFs[0]->get_pose_inverse();
+    auto Twb = vpKFs[0]->get_pose_inverse();
 
     // ------------------------------------------------------------------
     // cameras.txt
@@ -1009,8 +1002,8 @@ void system::save_colmap(const string &strDir)
         fc << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
         fc << "# Number of cameras: 1\n";
 
-        int         width  = _settings->new_image_size().width;
-        int         height = _settings->new_image_size().height;
+        auto width  = _settings->new_image_size().width;
+        auto height = _settings->new_image_size().height;
         const auto &cam    = _settings->cameras()[0];
 
         if (cam)
@@ -1076,25 +1069,25 @@ void system::save_colmap(const string &strDir)
     fcsv << "# COLMAP conversion: Tcw = Twc.inverse(); use qw qx qy qz and Tcw.translation()\n";
     fcsv << "image_name,timestamp,tx,ty,tz,qx,qy,qz,qw,pose_convention\n";
 
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                 lT   = _tracker->frame_times.begin();
-    list<bool>::iterator                   lbL  = _tracker->lost_frames.begin();
-    list<string>::iterator                 lF   = _frame_filenames.begin();
+    auto lRit = _tracker->reference_key_frames.begin();
+    auto lT   = _tracker->frame_times.begin();
+    auto lbL  = _tracker->lost_frames.begin();
+    auto lF   = _frame_filenames.begin();
 
-    int          image_id = 1;
-    int          dropped  = 0;
-    int          exported = 0;
-    Sophus::SE3f last_Tcw = Sophus::SE3f(); // Identity for first frame if needed
+    auto image_id = 1;
+    auto dropped  = 0;
+    auto exported = 0;
+    auto last_Tcw = Sophus::SE3f(); // Identity for first frame if needed
 
     for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; ++lit, ++lRit, ++lT, ++lbL)
     {
         // Always try to export this frame
         Sophus::SE3f Tcw;
-        bool         has_pose = false;
+        auto has_pose = false;
 
         if (!*lbL && *lRit)
         {
-            key_frame   *pKF = *lRit;
+            auto pKF = *lRit;
             Sophus::SE3f Trw;
             while (pKF->is_bad())
             {
@@ -1104,7 +1097,7 @@ void system::save_colmap(const string &strDir)
             if (pKF && pKF->get_map() == pBiggerMap)
             {
                 Trw      = Trw * pKF->get_pose() * Twb;
-                Tcw      = (*lit) * Trw; // world-to-camera
+                Tcw      = *lit * Trw; // world-to-camera
                 last_Tcw = Tcw;
                 has_pose = true;
             }
@@ -1120,7 +1113,7 @@ void system::save_colmap(const string &strDir)
             ++dropped;
         }
 
-        Sophus::SE3f Twc = Tcw.inverse(); // camera-to-world
+        auto Twc = Tcw.inverse(); // camera-to-world
 
         // Recover image filename from stored path (basename only)
         string img_name;
@@ -1131,7 +1124,7 @@ void system::save_colmap(const string &strDir)
         else
         {
             // Fallback: reconstruct TUM-VI style name from timestamp (nanoseconds)
-            long long ns = llround(*lT * 1e9);
+            auto ns = llround(*lT * 1e9);
             img_name     = to_string(ns) + ".png";
         }
         if (lF != _frame_filenames.end())
@@ -1140,15 +1133,15 @@ void system::save_colmap(const string &strDir)
         }
 
         // --- COLMAP images.txt row (world-to-camera, qw qx qy qz) ---
-        Eigen::Quaternionf q_cw = Tcw.unit_quaternion();
-        Eigen::Vector3f    t_cw = Tcw.translation();
+        auto q_cw = Tcw.unit_quaternion();
+        auto t_cw = Tcw.translation();
         fi << image_id << " " << q_cw.w() << " " << q_cw.x() << " " << q_cw.y() << " " << q_cw.z() << " " << t_cw(0) << " " << t_cw(1) << " " << t_cw(2) << " "
            << "1 " << img_name << "\n";
         fi << "\n"; // empty 2D-point observations line
 
         // --- debug CSV row (camera-to-world / Twc) ---
-        Eigen::Quaternionf q_wc = Twc.unit_quaternion();
-        Eigen::Vector3f    t_wc = Twc.translation();
+        auto q_wc = Twc.unit_quaternion();
+        auto t_wc = Twc.translation();
         fcsv << img_name << "," << *lT << "," << t_wc(0) << "," << t_wc(1) << "," << t_wc(2) << "," << q_wc.x() << "," << q_wc.y() << "," << q_wc.z() << "," << q_wc.w()
              << ",camera_to_world\n";
 
@@ -1170,15 +1163,15 @@ void system::save_colmap(const string &strDir)
     spdlog::debug("📄 [save_colmap] " + strDir + "/poses_debug.csv (Twc, qx qy qz qw)");
 }
 
-void system::save_point_cloud_ply(const string &filename)
+void system::save_point_cloud_ply(const string &filename) const
 {
     spdlog::debug("");
     spdlog::debug("☁️  [save_point_cloud_ply] Exporting map points to PLY");
 
     std::filesystem::path base_path(filename);
-    std::filesystem::path out_dir = base_path.parent_path();
-    std::string           stem    = base_path.stem().string();
-    std::string           ext     = base_path.extension().string();
+    auto out_dir = base_path.parent_path();
+    auto stem    = base_path.stem().string();
+    auto ext     = base_path.extension().string();
 
     if (stem.empty())
     {
@@ -1194,10 +1187,10 @@ void system::save_point_cloud_ply(const string &filename)
         std::filesystem::create_directories(out_dir);
     }
 
-    vector<map *> vpMapsAll = _atlas->get_all_maps();
+    auto vpMapsAll = _atlas->get_all_maps();
     vector<map *> vpMaps;
     vpMaps.reserve(vpMapsAll.size());
-    for (map *pMap : vpMapsAll)
+    for (auto pMap : vpMapsAll)
     {
         if (pMap && !pMap->is_bad())
         {
@@ -1211,22 +1204,22 @@ void system::save_point_cloud_ply(const string &filename)
         return;
     }
 
-    const bool multi_map = vpMaps.size() > 1;
-    for (map *pMap : vpMaps)
+    const auto multi_map = vpMaps.size() > 1;
+    for (auto pMap : vpMaps)
     {
         std::filesystem::path out_file;
         if (multi_map)
         {
             std::ostringstream oss;
             oss << stem << "_map" << pMap->get_id() << ext;
-            out_file = out_dir.empty() ? std::filesystem::path(oss.str()) : (out_dir / oss.str());
+            out_file = out_dir.empty() ? std::filesystem::path(oss.str()) : out_dir / oss.str();
         }
         else
         {
-            out_file = out_dir.empty() ? std::filesystem::path(stem + ext) : (out_dir / (stem + ext));
+            out_file = out_dir.empty() ? std::filesystem::path(stem + ext) : out_dir / (stem + ext);
         }
 
-        vector<map_point *> vpMPs = pMap->get_all_map_points();
+        auto vpMPs = pMap->get_all_map_points();
         struct ColoredPoint
         {
             Eigen::Vector3f pos;
@@ -1238,14 +1231,14 @@ void system::save_point_cloud_ply(const string &filename)
         vector<ColoredPoint> points;
         points.reserve(vpMPs.size());
 
-        for (map_point *pMP : vpMPs)
+        for (auto pMP : vpMPs)
         {
             if (!pMP || pMP->is_bad())
             {
                 continue;
             }
 
-            Eigen::Vector3f P = pMP->get_world_position();
+            auto P = pMP->get_world_position();
             if (!std::isfinite(P.x()) || !std::isfinite(P.y()) || !std::isfinite(P.z()))
             {
                 continue;
@@ -1276,7 +1269,7 @@ void system::save_point_cloud_ply(const string &filename)
         fply << "end_header\n";
 
         fply << std::fixed << std::setprecision(6);
-        for (const ColoredPoint &point : points)
+        for (const auto& point : points)
         {
             fply << point.pos.x() << " " << point.pos.y() << " " << point.pos.z() << " " << static_cast<int>(point.r) << " " << static_cast<int>(point.g) << " " << static_cast<int>(point.b)
                  << "\n";
@@ -1290,7 +1283,7 @@ void system::save_point_cloud_ply(const string &filename)
     }
 }
 
-void system::save_trajectory_kitti(const string &filename)
+void system::save_trajectory_kitti(const string &filename) const
 {
     spdlog::info("Saving camera trajectory to {}", filename);
     if (_sensor == monocular)
@@ -1299,12 +1292,12 @@ void system::save_trajectory_kitti(const string &filename)
         return;
     }
 
-    vector<key_frame *> vpKFs = _atlas->get_all_key_frames();
+    auto vpKFs = _atlas->get_all_key_frames();
     sort(vpKFs.begin(), vpKFs.end(), key_frame::compare_id);
 
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
-    Sophus::SE3f Tow = vpKFs[0]->get_pose_inverse();
+    auto Tow = vpKFs[0]->get_pose_inverse();
 
     ofstream f;
     f.open(filename.c_str());
@@ -1316,11 +1309,11 @@ void system::save_trajectory_kitti(const string &filename)
 
     // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
     // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::key_frame *>::iterator lRit = _tracker->reference_key_frames.begin();
-    list<double>::iterator                 lT   = _tracker->frame_times.begin();
-    for (list<Sophus::SE3f>::iterator lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++)
+    auto lRit = _tracker->reference_key_frames.begin();
+    auto lT   = _tracker->frame_times.begin();
+    for (auto lit = _tracker->relative_frame_poses.begin(), lend = _tracker->relative_frame_poses.end(); lit != lend; lit++, lRit++, lT++)
     {
-        ORB_SLAM3::key_frame *pKF = *lRit;
+        auto pKF = *lRit;
 
         Sophus::SE3f Trw;
 
@@ -1337,10 +1330,10 @@ void system::save_trajectory_kitti(const string &filename)
 
         Trw = Trw * pKF->get_pose() * Tow;
 
-        Sophus::SE3f    Tcw = (*lit) * Trw;
-        Sophus::SE3f    Twc = Tcw.inverse();
-        Eigen::Matrix3f Rwc = Twc.rotationMatrix();
-        Eigen::Vector3f twc = Twc.translation();
+        auto Tcw = *lit * Trw;
+        auto Twc = Tcw.inverse();
+        auto Rwc = Twc.rotationMatrix();
+        auto twc = Twc.translation();
 
         f << setprecision(9) << Rwc(0, 0) << " " << Rwc(0, 1) << " " << Rwc(0, 2) << " " << twc(0) << " " << Rwc(1, 0) << " " << Rwc(1, 1) << " " << Rwc(1, 2) << " " << twc(1) << " "
           << Rwc(2, 0) << " " << Rwc(2, 1) << " " << Rwc(2, 2) << " " << twc(2) << endl;
@@ -1348,7 +1341,7 @@ void system::save_trajectory_kitti(const string &filename)
     f.close();
 }
 
-void system::save_debug_data(const int &initIdx)
+void system::save_debug_data(const int &initIdx) const
 {
     // 0. Save initialization trajectory
     save_trajectory_euroc("init_FrameTrajectoy_" + to_string(_local_mapper->initialization_section) + "_" + to_string(initIdx) + ".txt");
@@ -1384,9 +1377,9 @@ void system::save_debug_data(const int &initIdx)
     // 5. Save covariance matrix
     f.open("init_CovMatrix_" + to_string(_local_mapper->initialization_section) + "_" + to_string(initIdx) + ".txt", ios_base::app);
     f << fixed;
-    for (int i = 0; i < _local_mapper->inertial_covariance.rows(); i++)
+    for (auto i = 0; i < _local_mapper->inertial_covariance.rows(); i++)
     {
-        for (int j = 0; j < _local_mapper->inertial_covariance.cols(); j++)
+        for (auto j = 0; j < _local_mapper->inertial_covariance.cols(); j++)
         {
             if (j != 0)
             {
@@ -1428,10 +1421,10 @@ vector<keypoint> system::get_tracked_keypoints_undistorted()
     return keypoints;
 }
 
-double system::get_time_from_imu_init()
+double system::get_time_from_imu_init() const
 {
-    double aux = _local_mapper->get_current_key_frame_time() - _local_mapper->first_timestamp;
-    if ((aux > 0.) && _atlas->is_imu_initialized())
+    const auto aux = _local_mapper->get_current_key_frame_time() - _local_mapper->first_timestamp;
+    if (aux > 0. && _atlas->is_imu_initialized())
     {
         return _local_mapper->get_current_key_frame_time() - _local_mapper->first_timestamp;
     }
@@ -1441,7 +1434,7 @@ double system::get_time_from_imu_init()
     }
 }
 
-bool system::is_lost()
+bool system::is_lost() const
 {
     if (!_atlas->is_imu_initialized())
     {
@@ -1449,7 +1442,7 @@ bool system::is_lost()
     }
     else
     {
-        if ((_tracker->state == tracking::LOST)) //||(_tracker->state==tracking::RECENTLY_LOST))
+        if (_tracker->state == tracking::LOST) //||(_tracker->state==tracking::RECENTLY_LOST))
         {
             return true;
         }
@@ -1460,9 +1453,9 @@ bool system::is_lost()
     }
 }
 
-bool system::is_finished() { return (get_time_from_imu_init() > 0.1); }
+bool system::is_finished() const { return get_time_from_imu_init() > 0.1; }
 
-void system::change_dataset()
+void system::change_dataset() const
 {
     if (_atlas->get_current_map()->key_frame_count() < 12)
     {
@@ -1476,7 +1469,7 @@ void system::change_dataset()
     _tracker->new_dataset();
 }
 
-float system::get_image_scale() { return _tracker->get_image_scale(); }
+float system::get_image_scale() const { return _tracker->get_image_scale(); }
 
 atlas *system::get_atlas() const { return _atlas.get(); }
 

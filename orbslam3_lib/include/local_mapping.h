@@ -75,9 +75,9 @@ class local_mapping
         return new_key_frames.size();
     }
 
-    bool       is_initializing();
-    double     get_current_key_frame_time();
-    key_frame *get_current_key_frame();
+    bool        is_initializing() const;
+    double      get_current_key_frame_time() const;
+    key_frame * get_current_key_frame() const;
 
     std::mutex imu_initialization_mutex;
 
@@ -119,8 +119,8 @@ class local_mapping
     void create_new_map_points();
 
     void cull_map_points();
-    void search_in_neighbors();
-    void cull_key_frames();
+    void search_in_neighbors() const;
+    void cull_key_frames() const;
 
     system *owner_system;
 

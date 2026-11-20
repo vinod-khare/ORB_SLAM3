@@ -25,8 +25,6 @@
 #include <opencv2/core/core.hpp>
 
 #include <Eigen/Core>
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
 #include <sophus/se3.hpp>
 #include <spdlog/spdlog.h>
 
@@ -35,8 +33,7 @@ namespace ORB_SLAM3
 
 namespace imu
 {
-
-const float gravity_value = 9.81;
+    constexpr float gravity_value = 9.81;
 
 // IMU measurement (gyro, accelerometer and timestamp)
 class point
@@ -67,7 +64,7 @@ class bias
         : bax(b_acc_x), bay(b_acc_y), baz(b_acc_z), bwx(b_ang_vel_x), bwy(b_ang_vel_y), bwz(b_ang_vel_z)
     {
     }
-    void                 copy_from(bias &source_bias);
+    void                 copy_from(const bias &source_bias);
     friend std::ostream &operator<<(std::ostream &out, const bias &source_bias);
 
   public:
@@ -119,7 +116,7 @@ class preintegrated
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     preintegrated(const bias &original_bias, const calib &calibration);
-    preintegrated(preintegrated *previous_preintegration);
+    preintegrated(const preintegrated *previous_preintegration);
     preintegrated() {}
     ~preintegrated() {}
 

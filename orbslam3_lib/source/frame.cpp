@@ -19,7 +19,6 @@
 #include "frame.h"
 
 #include "CameraModels/kannala_brandt8.h"
-#include "converter.h"
 #include "descriptor_matcher.h"
 #include "g2o_types.h"
 #include "geometric_camera.h"
@@ -28,7 +27,6 @@
 
 #include <array>
 #include <chrono>
-#include <cmath>
 
 #include <spdlog/spdlog.h>
 
@@ -70,9 +68,9 @@ frame::frame(const frame &frame)
     extraction_ms       = frame.extraction_ms;
     stereo_matching_ms  = frame.stereo_matching_ms;
     optical_flow_ms     = frame.optical_flow_ms;
-    for (int i = 0; i < FRAME_GRID_COLS; i++)
+    for (auto i = 0; i < FRAME_GRID_COLS; i++)
     {
-        for (int j = 0; j < FRAME_GRID_ROWS; j++)
+        for (auto j = 0; j < FRAME_GRID_ROWS; j++)
         {
             grid[i][j] = frame.grid[i][j];
             if (frame.is_fisheye_stereo)
@@ -98,10 +96,10 @@ frame::frame(const frame &frame)
 
 std::array<unsigned char, 3> frame::keypoint_color(int index) const
 {
-    const bool  right     = is_fisheye_stereo && index >= static_cast<int>(keypoints.size());
+    const auto right     = is_fisheye_stereo && index >= static_cast<int>(keypoints.size());
     const auto &image     = right ? color_image_right : color_image;
     const auto &keys      = right ? right_keypoints : keypoints;
-    const int   key_index = right ? index - static_cast<int>(keypoints.size()) : index;
+    const auto key_index = right ? index - static_cast<int>(keypoints.size()) : index;
     if (image.empty() || image.depth() != CV_8U || key_index < 0 || static_cast<std::size_t>(key_index) >= keys.size())
     {
         return {255, 255, 255};
@@ -111,8 +109,8 @@ std::array<unsigned char, 3> frame::keypoint_color(int index) const
     {
         return {255, 255, 255};
     }
-    const int   column = std::min(cvRound(position.x), image.cols - 1);
-    const int   row    = std::min(cvRound(position.y), image.rows - 1);
+    const auto column = std::min(cvRound(position.x), image.cols - 1);
+    const auto row    = std::min(cvRound(position.y), image.rows - 1);
     const auto *pixel  = image.ptr<unsigned char>(row) + column * image.channels();
     if (image.channels() == 1)
     {
@@ -208,9 +206,9 @@ void frame::set_tracked_features(geometric_camera &camera, std::vector<keypoint>
     {
         _undistort_keypoints(camera);
     }
-    for (int x = 0; x < FRAME_GRID_COLS; ++x)
+    for (auto x = 0; x < FRAME_GRID_COLS; ++x)
     {
-        for (int y = 0; y < FRAME_GRID_ROWS; ++y)
+        for (auto y = 0; y < FRAME_GRID_ROWS; ++y)
         {
             grid[x][y].clear();
             right_grid[x][y].clear();
@@ -226,9 +224,9 @@ void frame::initialize_features(const cv::Mat &left, const camera_vector &camera
     feature_vector.clear();
     projected_points.clear();
     matched_in_image.clear();
-    for (int x = 0; x < FRAME_GRID_COLS; ++x)
+    for (auto x = 0; x < FRAME_GRID_COLS; ++x)
     {
-        for (int y = 0; y < FRAME_GRID_ROWS; ++y)
+        for (auto y = 0; y < FRAME_GRID_ROWS; ++y)
         {
             grid[x][y].clear();
             right_grid[x][y].clear();
@@ -296,7 +294,7 @@ bool frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inlier
     }
 
     std::array<bool, 16> occupied{};
-    int                  inliers = 0;
+    auto inliers = 0;
 
     for (std::size_t index = 0; index < map_points.size(); ++index)
     {
@@ -312,8 +310,8 @@ bool frame::reliable_flow_inliers(const cv::Size &image_size, int minimum_inlier
             continue;
         }
 
-        const int x = static_cast<int>(point.x * 4 / image_size.width);
-        const int y = static_cast<int>(point.y * 4 / image_size.height);
+        const auto x = static_cast<int>(point.x * 4 / image_size.width);
+        const auto y = static_cast<int>(point.y * 4 / image_size.height);
 
         occupied[static_cast<std::size_t>(y * 4 + x)] = true;
 
@@ -344,9 +342,9 @@ frame::frame(double timestamp, place_vocabulary *vocabulary, float depth_thresho
 void frame::_assign_features_to_grid()
 {
     // Fill matrix with points
-    const int nCells = FRAME_GRID_COLS * FRAME_GRID_ROWS;
+    constexpr auto nCells = FRAME_GRID_COLS * FRAME_GRID_ROWS;
 
-    int nReserve = 0.5f * feature_count / (nCells);
+    const int nReserve = 0.5f * feature_count / nCells;
 
     for (unsigned int i = 0; i < FRAME_GRID_COLS; i++)
     {
@@ -360,9 +358,9 @@ void frame::_assign_features_to_grid()
         }
     }
 
-    for (int i = 0; i < feature_count; i++)
+    for (auto i = 0; i < feature_count; i++)
     {
-        const auto &kp = (!is_fisheye_stereo || std::cmp_less(i, keypoints.size())) ? keypoints[i] : right_keypoints[i - static_cast<int>(keypoints.size())];
+        const auto &kp = !is_fisheye_stereo || std::cmp_less(i, keypoints.size()) ? keypoints[i] : right_keypoints[i - static_cast<int>(keypoints.size())];
 
         int nGridPosX, nGridPosY;
         if (position_in_grid(kp.pt_undistorted, nGridPosX, nGridPosY))
@@ -399,7 +397,7 @@ void frame::set_new_bias(const imu::bias &b)
     }
 }
 
-void frame::set_velocity(Eigen::Vector3f Vwb)
+void frame::set_velocity(const Eigen::Vector3f& Vwb)
 {
     _world_velocity = Vwb;
     _has_velocity   = true;
@@ -412,8 +410,8 @@ void frame::set_imu_pose_velocity(const Eigen::Matrix3f &Rwb, const Eigen::Vecto
     _world_velocity = Vwb;
     _has_velocity   = true;
 
-    Sophus::SE3f Twb(Rwb, twb);
-    Sophus::SE3f Tbw = Twb.inverse();
+    const Sophus::SE3f Twb(Rwb, twb);
+    const auto Tbw = Twb.inverse();
 
     _camera_from_world = imu_calibration.camera_to_body * Tbw;
 
@@ -424,7 +422,7 @@ void frame::set_imu_pose_velocity(const Eigen::Matrix3f &Rwb, const Eigen::Vecto
 
 void frame::update_pose_matrices()
 {
-    Sophus::SE3<float> Twc       = _camera_from_world.inverse();
+    auto Twc       = _camera_from_world.inverse();
     _world_from_camera_rotation  = Twc.rotationMatrix();
     _camera_origin               = Twc.translation();
     _world_to_camera_rotation    = _camera_from_world.rotationMatrix();
@@ -436,7 +434,7 @@ Eigen::Matrix<float, 3, 1> frame::get_imu_position(const imu::calib &imu_calibra
     return _world_from_camera_rotation * imu_calibration.camera_to_body.translation() + _camera_origin;
 }
 
-Eigen::Matrix<float, 3, 3> frame::get_imu_rotation(const imu::calib &imu_calibration) { return _world_from_camera_rotation * imu_calibration.camera_to_body.rotationMatrix(); }
+Eigen::Matrix<float, 3, 3> frame::get_imu_rotation(const imu::calib &imu_calibration) const { return _world_from_camera_rotation * imu_calibration.camera_to_body.rotationMatrix(); }
 
 bool frame::is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_vector &cameras)
 {
@@ -447,21 +445,21 @@ bool frame::is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_ve
         pMP->track_projection_y = -1;
 
         // 3D in absolute coordinates
-        Eigen::Matrix<float, 3, 1> P = pMP->get_world_position();
+        const auto P = pMP->get_world_position();
 
         // 3D in camera coordinates
         const Eigen::Matrix<float, 3, 1> Pc      = _world_to_camera_rotation * P + _world_to_camera_translation;
-        const float                      Pc_dist = Pc.norm();
+        const auto Pc_dist = Pc.norm();
 
         // Check positive depth
-        const float &PcZ  = Pc(2);
-        const float  invz = 1.0f / PcZ;
+        const auto& PcZ  = Pc(2);
+        const auto invz = 1.0f / PcZ;
         if (PcZ < 0.0f)
         {
             return false;
         }
 
-        const Eigen::Vector2f uv = cameras[0]->project(Pc);
+        const auto uv = cameras[0]->project(Pc);
 
         if (uv(0) < min_x || uv(0) > max_x)
         {
@@ -476,10 +474,10 @@ bool frame::is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_ve
         pMP->track_projection_y = uv(1);
 
         // Check distance is in the scale invariance region of the map_point
-        const float           maxDistance = pMP->get_max_distance_invariance();
-        const float           minDistance = pMP->get_min_distance_invariance();
+        const auto maxDistance = pMP->get_max_distance_invariance();
+        const auto minDistance = pMP->get_min_distance_invariance();
         const Eigen::Vector3f PO          = P - _camera_origin;
-        const float           dist        = PO.norm();
+        const auto dist        = PO.norm();
 
         if (dist < minDistance || dist > maxDistance)
         {
@@ -487,9 +485,9 @@ bool frame::is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_ve
         }
 
         // Check viewing angle
-        Eigen::Vector3f Pn = pMP->get_normal();
+        const auto Pn = pMP->get_normal();
 
-        const float viewCos = PO.dot(Pn) / dist;
+        const auto viewCos = PO.dot(Pn) / dist;
 
         if (viewCos < viewingCosLimit)
         {
@@ -497,7 +495,7 @@ bool frame::is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_ve
         }
 
         // Predict scale in the image
-        const int nPredictedLevel = pMP->predict_scale(dist, this);
+        const auto nPredictedLevel = pMP->predict_scale(dist, this);
 
         // Data used by the tracking
         pMP->track_in_view            = true;
@@ -526,47 +524,47 @@ bool frame::is_in_frustum(map_point *pMP, float viewingCosLimit, const camera_ve
     }
 }
 
-Eigen::Vector3f frame::in_reference_coordinates(Eigen::Vector3f pCw) { return _world_to_camera_rotation * pCw + _world_to_camera_translation; }
+Eigen::Vector3f frame::in_reference_coordinates(const Eigen::Vector3f& pCw) const { return _world_to_camera_rotation * pCw + _world_to_camera_translation; }
 
 vector<size_t> frame::get_features_in_area(const float &x, const float &y, const float &r, const int minLevel, const int maxLevel, const bool bRight) const
 {
     vector<size_t> vIndices;
     vIndices.reserve(feature_count);
 
-    float factorX = r;
-    float factorY = r;
+    const auto factorX = r;
+    const auto factorY = r;
 
-    const int nMinCellX = max(0, (int)floor((x - min_x - factorX) * grid_element_width_inverse));
+    const auto nMinCellX = max(0, (int)floor((x - min_x - factorX) * grid_element_width_inverse));
     if (nMinCellX >= FRAME_GRID_COLS)
     {
         return vIndices;
     }
 
-    const int nMaxCellX = min((int)FRAME_GRID_COLS - 1, (int)ceil((x - min_x + factorX) * grid_element_width_inverse));
+    const auto nMaxCellX = min((int)FRAME_GRID_COLS - 1, (int)ceil((x - min_x + factorX) * grid_element_width_inverse));
     if (nMaxCellX < 0)
     {
         return vIndices;
     }
 
-    const int nMinCellY = max(0, (int)floor((y - min_y - factorY) * grid_element_height_inverse));
+    const auto nMinCellY = max(0, (int)floor((y - min_y - factorY) * grid_element_height_inverse));
     if (nMinCellY >= FRAME_GRID_ROWS)
     {
         return vIndices;
     }
 
-    const int nMaxCellY = min((int)FRAME_GRID_ROWS - 1, (int)ceil((y - min_y + factorY) * grid_element_height_inverse));
+    const auto nMaxCellY = min((int)FRAME_GRID_ROWS - 1, (int)ceil((y - min_y + factorY) * grid_element_height_inverse));
     if (nMaxCellY < 0)
     {
         return vIndices;
     }
 
-    const bool bCheckLevels = (minLevel > 0) || (maxLevel >= 0);
+    const auto bCheckLevels = minLevel > 0 || maxLevel >= 0;
 
-    for (int ix = nMinCellX; ix <= nMaxCellX; ix++)
+    for (auto ix = nMinCellX; ix <= nMaxCellX; ix++)
     {
-        for (int iy = nMinCellY; iy <= nMaxCellY; iy++)
+        for (auto iy = nMinCellY; iy <= nMaxCellY; iy++)
         {
-            const vector<size_t> vCell = (!bRight) ? grid[ix][iy] : right_grid[ix][iy];
+            const auto vCell = !bRight ? grid[ix][iy] : right_grid[ix][iy];
             if (vCell.empty())
             {
                 continue;
@@ -574,7 +572,7 @@ vector<size_t> frame::get_features_in_area(const float &x, const float &y, const
 
             for (size_t j = 0, jend = vCell.size(); j < jend; j++)
             {
-                const auto &kpUn = (!is_fisheye_stereo || !bRight) ? keypoints[vCell[j]] : right_keypoints[vCell[j]];
+                const auto &kpUn = !is_fisheye_stereo || !bRight ? keypoints[vCell[j]] : right_keypoints[vCell[j]];
                 if (bCheckLevels)
                 {
                     if (kpUn.octave < minLevel)
@@ -590,8 +588,8 @@ vector<size_t> frame::get_features_in_area(const float &x, const float &y, const
                     }
                 }
 
-                const float distx = kpUn.pt_undistorted.x - x;
-                const float disty = kpUn.pt_undistorted.y - y;
+                const auto distx = kpUn.pt_undistorted.x - x;
+                const auto disty = kpUn.pt_undistorted.y - y;
 
                 if (fabs(distx) < factorX && fabs(disty) < factorY)
                 {
@@ -604,7 +602,7 @@ vector<size_t> frame::get_features_in_area(const float &x, const float &y, const
     return vIndices;
 }
 
-bool frame::position_in_grid(const cv::Point2f &position, int &posX, int &posY)
+bool frame::position_in_grid(const cv::Point2f &position, int &posX, int &posY) const
 {
     posX = round((position.x - min_x) * grid_element_width_inverse);
     posY = round((position.y - min_y) * grid_element_height_inverse);
@@ -644,7 +642,7 @@ void frame::_undistort_keypoints(geometric_camera &camera)
     // Fill matrix with points
     cv::Mat mat(feature_count, 2, CV_32F);
 
-    for (int i = 0; i < feature_count; i++)
+    for (auto i = 0; i < feature_count; i++)
     {
         mat.at<float>(i, 0) = keypoints[i].pt.x;
         mat.at<float>(i, 1) = keypoints[i].pt.y;
@@ -656,7 +654,7 @@ void frame::_undistort_keypoints(geometric_camera &camera)
     cv::undistortPoints(mat, mat, calibration_matrix, distortion_coefficients, cv::Mat(), calibration_matrix);
     mat = mat.reshape(1);
 
-    for (int i = 0; i < feature_count; i++)
+    for (auto i = 0; i < feature_count; i++)
     {
         keypoints[i].pt_undistorted.x = mat.at<float>(i, 0);
         keypoints[i].pt_undistorted.y = mat.at<float>(i, 1);
@@ -700,64 +698,64 @@ void frame::_compute_image_bounds(const cv::Mat &imLeft, geometric_camera &camer
 
 void frame::compute_stereo_matches(geometric_camera &camera, const std::vector<cv::Mat> &left_pyramid, const std::vector<cv::Mat> &right_pyramid)
 {
-    const float baseline    = camera.baseline();
-    const float baseline_fx = camera.baseline_fx();
+    const auto baseline    = camera.baseline();
+    const auto baseline_fx = camera.baseline_fx();
     right_coordinates = vector<float>(feature_count, -1.0f);
     depths            = vector<float>(feature_count, -1.0f);
 
-    const int descriptor_threshold = (descriptor_matcher::high_distance_threshold + descriptor_matcher::low_distance_threshold) / 2;
+    const auto descriptor_threshold = (descriptor_matcher::high_distance_threshold + descriptor_matcher::low_distance_threshold) / 2;
 
-    const int nRows = left_pyramid[0].rows;
+    const auto nRows = left_pyramid[0].rows;
 
     // Assign keypoints to row table
     vector<vector<size_t>> vRowIndices(nRows, vector<size_t>());
 
-    for (int i = 0; i < nRows; i++)
+    for (auto i = 0; i < nRows; i++)
     {
         vRowIndices[i].reserve(200);
     }
 
     const int Nr = right_keypoints.size();
 
-    for (int iR = 0; iR < Nr; iR++)
+    for (auto iR = 0; iR < Nr; iR++)
     {
-        const cv::KeyPoint &kp   = right_keypoints[iR];
-        const float        &kpY  = kp.pt.y;
-        const float         r    = 2.0f * scale_factors[right_keypoints[iR].octave];
-        const int           maxr = ceil(kpY + r);
-        const int           minr = floor(kpY - r);
+        const cv::KeyPoint & kp   = right_keypoints[iR];
+        const auto& kpY  = kp.pt.y;
+        const auto r    = 2.0f * scale_factors[right_keypoints[iR].octave];
+        const int            maxr = ceil(kpY + r);
+        const int            minr = floor(kpY - r);
 
-        for (int yi = minr; yi <= maxr; yi++)
+        for (auto yi = minr; yi <= maxr; yi++)
         {
             vRowIndices[yi].push_back(iR);
         }
     }
 
     // Set limits for search
-    const float minZ = baseline;
-    const float minD = 0;
-    const float maxD = baseline_fx / minZ;
+    const auto      minZ = baseline;
+    constexpr float minD = 0;
+    const auto      maxD = baseline_fx / minZ;
 
     // For each left keypoint search a match in the right image
     vector<pair<int, int>> vDistIdx;
     vDistIdx.reserve(feature_count);
 
-    for (int iL = 0; iL < feature_count; iL++)
+    for (auto iL = 0; iL < feature_count; iL++)
     {
-        const cv::KeyPoint &kpL    = keypoints[iL];
-        const int          &levelL = kpL.octave;
-        const float        &vL     = kpL.pt.y;
-        const float        &uL     = kpL.pt.x;
+        const cv::KeyPoint & kpL    = keypoints[iL];
+        const auto&          levelL = kpL.octave;
+        const auto&          vL     = kpL.pt.y;
+        const auto& uL     = kpL.pt.x;
 
-        const vector<size_t> &vCandidates = vRowIndices[vL];
+        const auto& vCandidates = vRowIndices[vL];
 
         if (vCandidates.empty())
         {
             continue;
         }
 
-        const float minU = uL - maxD;
-        const float maxU = uL - minD;
+        const auto minU = uL - maxD;
+        const auto maxU = uL - minD;
 
         if (maxU < 0)
         {
@@ -767,7 +765,7 @@ void frame::compute_stereo_matches(geometric_camera &camera, const std::vector<c
         float  bestDist = descriptor_matcher::high_distance_threshold;
         size_t bestIdxR = 0;
 
-        const cv::Mat &dL = keypoints[iL].descriptor;
+        const auto& dL = keypoints[iL].descriptor;
 
         // Compare descriptor to right keypoints
         const auto ranked_candidates = descriptor_matcher::rank_candidates(dL, right_keypoints, vCandidates);
@@ -780,12 +778,12 @@ void frame::compute_stereo_matches(geometric_camera &camera, const std::vector<c
                 continue;
             }
 
-            const float &uR = kpR.pt.x;
+            const auto& uR = kpR.pt.x;
 
             if (uR >= minU && uR <= maxU)
             {
-                const cv::Mat &dR   = right_keypoints[iR].descriptor;
-                const float    dist = descriptor_matcher::descriptor_distance(dL, dR);
+                const auto& dR   = right_keypoints[iR].descriptor;
+                const auto dist = descriptor_matcher::descriptor_distance(dL, dR);
 
                 if (dist < bestDist)
                 {
@@ -799,32 +797,32 @@ void frame::compute_stereo_matches(geometric_camera &camera, const std::vector<c
         if (bestDist < descriptor_threshold)
         {
             // coordinates in image pyramid at keypoint scale
-            const float uR0         = right_keypoints[bestIdxR].pt.x;
-            const float scaleFactor = inverse_scale_factors[kpL.octave];
-            const float scaleduL    = round(kpL.pt.x * scaleFactor);
-            const float scaledvL    = round(kpL.pt.y * scaleFactor);
-            const float scaleduR0   = round(uR0 * scaleFactor);
+            const auto uR0         = right_keypoints[bestIdxR].pt.x;
+            const auto scaleFactor = inverse_scale_factors[kpL.octave];
+            const auto scaleduL    = round(kpL.pt.x * scaleFactor);
+            const auto scaledvL    = round(kpL.pt.y * scaleFactor);
+            const auto scaleduR0   = round(uR0 * scaleFactor);
 
             // sliding window search
-            const int w  = 5;
-            cv::Mat   IL = left_pyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduL - w, scaleduL + w + 1);
+            constexpr auto w  = 5;
+            auto IL = left_pyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduL - w, scaleduL + w + 1);
 
-            float         bestDist = INT_MAX;
-            int           bestincR = 0;
-            const int     L        = 5;
-            vector<float> vDists;
+            float          bestDist = INT_MAX;
+            auto           bestincR = 0;
+            constexpr auto L        = 5;
+            vector<float>  vDists;
             vDists.resize(2 * L + 1);
 
-            const float iniu = scaleduR0 + L - w;
-            const float endu = scaleduR0 + L + w + 1;
+            const auto iniu = scaleduR0 + L - w;
+            const auto endu = scaleduR0 + L + w + 1;
             if (iniu < 0 || endu >= right_pyramid[kpL.octave].cols)
             {
                 continue;
             }
 
-            for (int incR = -L; incR <= +L; incR++)
+            for (auto incR = -L; incR <= +L; incR++)
             {
-                cv::Mat IR = right_pyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduR0 + incR - w, scaleduR0 + incR + w + 1);
+                auto IR = right_pyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduR0 + incR - w, scaleduR0 + incR + w + 1);
 
                 float dist = cv::norm(IL, IR, cv::NORM_L1);
                 if (dist < bestDist)
@@ -842,11 +840,11 @@ void frame::compute_stereo_matches(geometric_camera &camera, const std::vector<c
             }
 
             // Sub-pixel match (Parabola fitting)
-            const float dist1 = vDists[L + bestincR - 1];
-            const float dist2 = vDists[L + bestincR];
-            const float dist3 = vDists[L + bestincR + 1];
+            const auto dist1 = vDists[L + bestincR - 1];
+            const auto dist2 = vDists[L + bestincR];
+            const auto dist3 = vDists[L + bestincR + 1];
 
-            const float deltaR = (dist1 - dist3) / (2.0f * (dist1 + dist3 - 2.0f * dist2));
+            const auto deltaR = (dist1 - dist3) / (2.0f * (dist1 + dist3 - 2.0f * dist2));
 
             if (deltaR < -1 || deltaR > 1)
             {
@@ -854,9 +852,9 @@ void frame::compute_stereo_matches(geometric_camera &camera, const std::vector<c
             }
 
             // Re-scaled coordinate
-            float bestuR = scale_factors[kpL.octave] * ((float)scaleduR0 + (float)bestincR + deltaR);
+            auto bestuR = scale_factors[kpL.octave] * ((float)scaleduR0 + (float)bestincR + deltaR);
 
-            float disparity = (uL - bestuR);
+            auto disparity = uL - bestuR;
 
             if (disparity >= minD && disparity < maxD)
             {
@@ -874,7 +872,7 @@ void frame::compute_stereo_matches(geometric_camera &camera, const std::vector<c
 
     sort(vDistIdx.begin(), vDistIdx.end());
     const float median = vDistIdx[vDistIdx.size() / 2].first;
-    const float thDist = 1.5f * 1.4f * median;
+    const auto thDist = 1.5f * 1.4f * median;
 
     for (int i = vDistIdx.size() - 1; i >= 0; i--)
     {
@@ -890,19 +888,19 @@ void frame::compute_stereo_matches(geometric_camera &camera, const std::vector<c
     }
 }
 
-void frame::compute_stereo_from_rgbd(const cv::Mat &imDepth, geometric_camera &camera)
+void frame::compute_stereo_from_rgbd(const cv::Mat &imDepth, const geometric_camera &camera)
 {
     right_coordinates = vector<float>(feature_count, -1);
     depths            = vector<float>(feature_count, -1);
 
-    for (int i = 0; i < feature_count; i++)
+    for (auto i = 0; i < feature_count; i++)
     {
         const auto &kp = keypoints[i];
 
-        const float &v = kp.pt.y;
-        const float &u = kp.pt.x;
+        const auto&   v = kp.pt.y;
+        const auto& u = kp.pt.x;
 
-        const float d = imDepth.at<float>(v, u);
+        const auto d = imDepth.at<float>(v, u);
 
         if (d > 0)
         {
@@ -912,16 +910,16 @@ void frame::compute_stereo_from_rgbd(const cv::Mat &imDepth, geometric_camera &c
     }
 }
 
-bool frame::unproject_stereo(const int &i, Eigen::Vector3f &x3D, geometric_camera &camera)
+bool frame::unproject_stereo(const int &i, Eigen::Vector3f &x3D, const geometric_camera &camera) const
 {
-    const float z = depths[i];
+    const auto z = depths[i];
     if (z > 0)
     {
-        const float     u = keypoints[i].pt_undistorted.x;
-        const float     v = keypoints[i].pt_undistorted.y;
-        const float     x = (u - camera.get_parameter(2)) * z / camera.get_parameter(0);
-        const float     y = (v - camera.get_parameter(3)) * z / camera.get_parameter(1);
-        Eigen::Vector3f x3Dc(x, y, z);
+        const auto u = keypoints[i].pt_undistorted.x;
+        const auto v = keypoints[i].pt_undistorted.y;
+        const auto x = (u - camera.get_parameter(2)) * z / camera.get_parameter(0);
+        const auto y = (v - camera.get_parameter(3)) * z / camera.get_parameter(1);
+        const Eigen::Vector3f x3Dc(x, y, z);
         x3D = _world_from_camera_rotation * x3Dc + _camera_origin;
         return true;
     }
@@ -945,8 +943,8 @@ void frame::set_integrated()
 
 void frame::compute_stereo_fisheye_matches(const camera_vector &cameras)
 {
-    cv::Mat stereoDescLeft  = descriptor_matrix(keypoints, mono_left);
-    cv::Mat stereoDescRight = descriptor_matrix(right_keypoints, mono_right);
+    const auto stereoDescLeft  = descriptor_matrix(keypoints, mono_left);
+    const auto stereoDescRight = descriptor_matrix(right_keypoints, mono_right);
 
     left_to_right_matches = vector<int>(keypoints.size(), -1);
     right_to_left_matches = vector<int>(right_keypoints.size(), -1);
@@ -964,7 +962,7 @@ void frame::compute_stereo_fisheye_matches(const camera_vector &cameras)
         cv::Range(0, static_cast<int>(matches.size())),
         [&](const cv::Range &range)
         {
-            for (int index = range.start; index < range.end; ++index)
+            for (auto index = range.start; index < range.end; ++index)
             {
                 const auto &neighbors = matches[index];
                 if (neighbors.size() < 2 || !(neighbors[0].distance < neighbors[1].distance * 0.7))
@@ -1011,15 +1009,15 @@ void frame::compute_stereo_fisheye_matches(const camera_vector &cameras)
 bool frame::is_in_frustum_checks(map_point *pMP, float viewingCosLimit, const camera_vector &cameras, bool bRight)
 {
     // 3D in absolute coordinates
-    Eigen::Vector3f P = pMP->get_world_position();
+    const auto P = pMP->get_world_position();
 
     Eigen::Matrix3f mR;
     Eigen::Vector3f mt, twc;
     if (bRight)
     {
         const auto      right_to_left = cameras[0]->left_to_right_pose().inverse();
-        Eigen::Matrix3f Rrl           = right_to_left.rotationMatrix();
-        Eigen::Vector3f trl           = right_to_left.translation();
+        const auto Rrl           = right_to_left.rotationMatrix();
+        const auto trl           = right_to_left.translation();
         mR                  = Rrl * _world_to_camera_rotation;
         mt                  = Rrl * _world_to_camera_translation + trl;
         twc                           = _world_from_camera_rotation * cameras[0]->left_to_right_pose().translation() + _camera_origin;
@@ -1032,9 +1030,9 @@ bool frame::is_in_frustum_checks(map_point *pMP, float viewingCosLimit, const ca
     }
 
     // 3D in camera coordinates
-    Eigen::Vector3f Pc      = mR * P + mt;
-    const float     Pc_dist = Pc.norm();
-    const float    &PcZ     = Pc(2);
+    Eigen::Vector3f  Pc      = mR * P + mt;
+    const auto       Pc_dist = Pc.norm();
+    const auto& PcZ     = Pc(2);
 
     // Check positive depth
     if (PcZ < 0.0f)
@@ -1056,10 +1054,10 @@ bool frame::is_in_frustum_checks(map_point *pMP, float viewingCosLimit, const ca
     }
 
     // Check distance is in the scale invariance region of the map_point
-    const float           maxDistance = pMP->get_max_distance_invariance();
-    const float           minDistance = pMP->get_min_distance_invariance();
+    const auto maxDistance = pMP->get_max_distance_invariance();
+    const auto minDistance = pMP->get_min_distance_invariance();
     const Eigen::Vector3f PO          = P - twc;
-    const float           dist        = PO.norm();
+    const auto dist        = PO.norm();
 
     if (dist < minDistance || dist > maxDistance)
     {
@@ -1067,9 +1065,9 @@ bool frame::is_in_frustum_checks(map_point *pMP, float viewingCosLimit, const ca
     }
 
     // Check viewing angle
-    Eigen::Vector3f Pn = pMP->get_normal();
+    const auto Pn = pMP->get_normal();
 
-    const float viewCos = PO.dot(Pn) / dist;
+    const auto viewCos = PO.dot(Pn) / dist;
 
     if (viewCos < viewingCosLimit)
     {
@@ -1077,7 +1075,7 @@ bool frame::is_in_frustum_checks(map_point *pMP, float viewingCosLimit, const ca
     }
 
     // Predict scale in the image
-    const int nPredictedLevel = pMP->predict_scale(dist, this);
+    const auto nPredictedLevel = pMP->predict_scale(dist, this);
 
     if (bRight)
     {
@@ -1099,6 +1097,6 @@ bool frame::is_in_frustum_checks(map_point *pMP, float viewingCosLimit, const ca
     return true;
 }
 
-Eigen::Vector3f frame::unproject_stereo_fisheye(const int &i) { return _world_from_camera_rotation * stereo_3d_points[i] + _camera_origin; }
+Eigen::Vector3f frame::unproject_stereo_fisheye(const int &i) const { return _world_from_camera_rotation * stereo_3d_points[i] + _camera_origin; }
 
 } // namespace ORB_SLAM3

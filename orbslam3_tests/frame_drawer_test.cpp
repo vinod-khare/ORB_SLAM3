@@ -9,8 +9,6 @@
 #include <memory>
 #include <type_traits>
 
-#include <opencv2/imgproc.hpp>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
@@ -59,9 +57,9 @@ class frame_drawer_fixture : public ORB_SLAM3::frame_drawer
 
 TEST_CASE("Frame drawer renders tracked keypoint sizes and orientations in both camera views", "[frame_drawer]")
 {
-    const bool  right       = GENERATE(false, true);
-    const float image_scale = GENERATE(0.5f, 1.f, 2.f);
-    const int   image_type  = GENERATE(CV_8UC1, CV_8UC3);
+    const auto right       = GENERATE(false, true);
+    const auto image_scale = GENERATE(0.5f, 1.f, 2.f);
+    const auto image_type  = GENERATE(CV_8UC1, CV_8UC3);
     CAPTURE(right, image_scale, image_type);
 
     ORB_SLAM3::atlas                atlas(0);
@@ -80,7 +78,7 @@ TEST_CASE("Frame drawer renders tracked keypoint sizes and orientations in both 
     cv::drawKeypoints(expected, std::vector<cv::KeyPoint>{scaled_keys[0], scaled_keys[3]}, expected, cv::Scalar(0, 255, 0), flags);
     cv::drawKeypoints(expected, std::vector<cv::KeyPoint>{scaled_keys[1]}, expected, cv::Scalar(255, 0, 0), flags);
 
-    for (int repeat = 0; repeat < 2; ++repeat)
+    for (auto repeat = 0; repeat < 2; ++repeat)
     {
         const auto rendered = right ? drawer.draw_right_frame(image_scale) : drawer.draw_frame(image_scale);
         REQUIRE(rendered.cols == expected.cols);
@@ -99,7 +97,7 @@ TEST_CASE("Off-screen map rendering survives pane resizing and navigation", "[.v
     ORB_SLAM3::atlas                 atlas(0);
     const ORB_SLAM3::viewer_settings settings{0.05f, 1.f, 1.f, 2.f, 0.08f, 3.f, 0.f, -0.7f, -1.8f, 500.f, 1.f};
     ORB_SLAM3::map_drawer            drawer(atlas, settings);
-    const std::array<bool, 7>        layers{true, true, true, true, false, false, false};
+    constexpr std::array<bool, 7>    layers{true, true, true, true, false, false, false};
     const auto                       first = drawer.render(640, 480, layers);
     REQUIRE(first.size() == cv::Size(640, 480));
     REQUIRE(first.type() == CV_8UC3);
@@ -132,7 +130,7 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     frame.set_pose(Sophus::SE3f{});
     frame.dataset     = 0;
     frame.color_image = cv::Mat(128, 128, CV_8UC3, cv::Scalar(0, 0, 0));
-    for (int index = 0; index < 2; ++index)
+    for (auto index = 0; index < 2; ++index)
     {
         const auto &position                                                      = frame.keypoints[index].pt;
         frame.color_image.at<cv::Vec3b>(cvRound(position.y), cvRound(position.x)) = index == 0 ? cv::Vec3b(0, 0, 255) : cv::Vec3b(255, 0, 0);
@@ -147,7 +145,7 @@ TEST_CASE("Map viewer renders sampled RGB for ordinary and reference points", "[
     map.set_reference_map_points({&blue});
     const ORB_SLAM3::viewer_settings settings{0.05f, 1.f, 1.f, 12.f, 0.08f, 3.f, 0.f, 0.f, -1.8f, 500.f, 1.f};
     ORB_SLAM3::map_drawer            drawer(atlas, settings);
-    const std::array<bool, 7>        layers{true, false, false, false, false, false, false};
+    constexpr std::array<bool, 7>    layers{true, false, false, false, false, false, false};
     const auto                       image = drawer.render(640, 480, layers);
     cv::Mat                          red_mask;
     cv::Mat                          blue_mask;

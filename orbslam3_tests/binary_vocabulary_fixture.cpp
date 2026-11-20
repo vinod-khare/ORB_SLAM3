@@ -3,7 +3,6 @@
 #if ORB_SLAM3_HAS_DBOW3
 #include <DBow3/Vocabulary.h>
 #else
-#include <cstdint>
 #include <fstream>
 
 #include <opencv2/core.hpp>
@@ -76,7 +75,7 @@ void write_vocabulary_fixture(const std::string &filename, int scoring, int weig
         write(descriptor_size);
         write(1);
         write(descriptor_type);
-        for (int column = 0; column < descriptor_size; ++column)
+        for (auto column = 0; column < descriptor_size; ++column)
         {
             const auto value = static_cast<unsigned char>((id * 37 + column * 13) % 256);
             if (descriptor_type == CV_8U)
@@ -90,7 +89,7 @@ void write_vocabulary_fixture(const std::string &filename, int scoring, int weig
         }
     }
     write(nodes - first_leaf);
-    for (unsigned int id = first_leaf; id < nodes; ++id)
+    for (auto id = first_leaf; id < nodes; ++id)
     {
         write(id - first_leaf);
         write(id);

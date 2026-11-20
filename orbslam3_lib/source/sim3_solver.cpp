@@ -22,7 +22,6 @@
 #include "descriptor_matcher.h"
 #include "key_frame.h"
 
-#include <cmath>
 #include <limits>
 #include <sstream>
 #include <vector>
@@ -42,7 +41,7 @@ sim3_solver::sim3_solver(geometric_camera          &camera,
                          vector<key_frame *>        matched_key_frames)
     : iterations(0), best_inlier_count(0), fix_scale(fixed_scale), _camera(camera)
 {
-    bool bDifferentKFs = false;
+    auto bDifferentKFs = false;
     if (matched_key_frames.empty())
     {
         bDifferentKFs      = true;
@@ -52,7 +51,7 @@ sim3_solver::sim3_solver(geometric_camera          &camera,
     key_frame_1 = first_key_frame;
     key_frame_2 = second_key_frame;
 
-    vector<map_point *> vpKeyFrameMP1 = first_key_frame->get_map_point_matches();
+    const auto vpKeyFrameMP1 = first_key_frame->get_map_point_matches();
 
     initial_match_count = matched_map_points.size();
 
@@ -63,22 +62,22 @@ sim3_solver::sim3_solver(geometric_camera          &camera,
     camera_points_1.reserve(initial_match_count);
     camera_points_2.reserve(initial_match_count);
 
-    Eigen::Matrix3f Rcw1 = first_key_frame->get_rotation();
-    Eigen::Vector3f tcw1 = first_key_frame->get_translation();
-    Eigen::Matrix3f Rcw2 = second_key_frame->get_rotation();
-    Eigen::Vector3f tcw2 = second_key_frame->get_translation();
+    const auto Rcw1 = first_key_frame->get_rotation();
+    const auto tcw1 = first_key_frame->get_translation();
+    const auto Rcw2 = second_key_frame->get_rotation();
+    const auto tcw2 = second_key_frame->get_translation();
 
     all_indices.reserve(initial_match_count);
 
     size_t idx = 0;
 
-    key_frame *pKFm = second_key_frame; // Default variable
-    for (int i1 = 0; i1 < initial_match_count; i1++)
+    auto pKFm = second_key_frame; // Default variable
+    for (auto i1 = 0; i1 < initial_match_count; i1++)
     {
         if (matched_map_points[i1])
         {
-            map_point *pMP1 = vpKeyFrameMP1[i1];
-            map_point *pMP2 = matched_map_points[i1];
+            auto pMP1 = vpKeyFrameMP1[i1];
+            auto pMP2 = matched_map_points[i1];
 
             if (!pMP1)
             {
@@ -95,8 +94,8 @@ sim3_solver::sim3_solver(geometric_camera          &camera,
                 pKFm = matched_key_frames[i1];
             }
 
-            int indexKF1 = get<0>(pMP1->get_index_in_key_frame(first_key_frame));
-            int indexKF2 = get<0>(pMP2->get_index_in_key_frame(pKFm));
+            const auto indexKF1 = get<0>(pMP1->get_index_in_key_frame(first_key_frame));
+            const auto indexKF2 = get<0>(pMP2->get_index_in_key_frame(pKFm));
 
             if (indexKF1 < 0 || indexKF2 < 0)
             {
@@ -106,8 +105,8 @@ sim3_solver::sim3_solver(geometric_camera          &camera,
             const auto &kp1 = first_key_frame->keypoints[indexKF1];
             const auto &kp2 = pKFm->keypoints[indexKF2];
 
-            const float sigmaSquare1 = first_key_frame->level_sigma_squared[kp1.octave];
-            const float sigmaSquare2 = pKFm->level_sigma_squared[kp2.octave];
+            const auto sigmaSquare1 = first_key_frame->level_sigma_squared[kp1.octave];
+            const auto sigmaSquare2 = pKFm->level_sigma_squared[kp2.octave];
 
             max_error_1.push_back(9.210 * sigmaSquare1);
             max_error_2.push_back(9.210 * sigmaSquare2);
@@ -116,10 +115,10 @@ sim3_solver::sim3_solver(geometric_camera          &camera,
             map_points_2.push_back(pMP2);
             matched_indices_1.push_back(i1);
 
-            Eigen::Vector3f X3D1w = pMP1->get_world_position();
+            auto X3D1w = pMP1->get_world_position();
             camera_points_1.push_back(Rcw1 * X3D1w + tcw1);
 
-            Eigen::Vector3f X3D2w = pMP2->get_world_position();
+            auto X3D2w = pMP2->get_world_position();
             camera_points_2.push_back(Rcw2 * X3D2w + tcw2);
 
             all_indices.push_back(idx);
@@ -144,7 +143,7 @@ void sim3_solver::set_ransac_parameters(double probability, int minimum_inliers,
     current_inliers.resize(number_of_correspondences);
 
     // Adjust Parameters according to number of correspondences
-    float epsilon = (float)ransac_min_inliers / number_of_correspondences;
+    const auto epsilon = (float)ransac_min_inliers / number_of_correspondences;
 
     // Set RANSAC iterations according to probability, epsilon, and max iterations
     int iteration_limit;
@@ -180,7 +179,7 @@ Eigen::Matrix4f sim3_solver::iterate(int iteration_limit, bool &no_more_iteratio
     Eigen::Matrix3f P3Dc1i;
     Eigen::Matrix3f P3Dc2i;
 
-    int nCurrentIterations = 0;
+    auto nCurrentIterations = 0;
     while (iterations < ransac_max_iterations && nCurrentIterations < iteration_limit)
     {
         nCurrentIterations++;
@@ -191,9 +190,9 @@ Eigen::Matrix4f sim3_solver::iterate(int iteration_limit, bool &no_more_iteratio
         // Get min set of points
         for (short i = 0; i < 3; ++i)
         {
-            int randi = DUtils::random::random_int(0, vAvailableIndices.size() - 1);
+            const auto randi = DUtils::random::random_int(0, vAvailableIndices.size() - 1);
 
-            int idx = vAvailableIndices[randi];
+            const int idx = vAvailableIndices[randi];
 
             P3Dc1i.col(i) = camera_points_1[idx];
             P3Dc2i.col(i) = camera_points_2[idx];
@@ -221,7 +220,7 @@ Eigen::Matrix4f sim3_solver::iterate(int iteration_limit, bool &no_more_iteratio
             if (current_inlier_count > ransac_min_inliers)
             {
                 inlier_count = current_inlier_count;
-                for (int i = 0; i < number_of_correspondences; i++)
+                for (auto i = 0; i < number_of_correspondences; i++)
                 {
                     if (current_inliers[i])
                     {
@@ -259,7 +258,7 @@ Eigen::Matrix4f sim3_solver::iterate(int iteration_limit, bool &no_more_iteratio
     Eigen::Matrix3f P3Dc1i;
     Eigen::Matrix3f P3Dc2i;
 
-    int nCurrentIterations = 0;
+    auto nCurrentIterations = 0;
 
     Eigen::Matrix4f bestSim3;
 
@@ -273,9 +272,9 @@ Eigen::Matrix4f sim3_solver::iterate(int iteration_limit, bool &no_more_iteratio
         // Get min set of points
         for (short i = 0; i < 3; ++i)
         {
-            int randi = DUtils::random::random_int(0, vAvailableIndices.size() - 1);
+            const auto randi = DUtils::random::random_int(0, vAvailableIndices.size() - 1);
 
-            int idx = vAvailableIndices[randi];
+            const int idx = vAvailableIndices[randi];
 
             P3Dc1i.col(i) = camera_points_1[idx];
             P3Dc2i.col(i) = camera_points_2[idx];
@@ -303,7 +302,7 @@ Eigen::Matrix4f sim3_solver::iterate(int iteration_limit, bool &no_more_iteratio
             if (current_inlier_count > ransac_min_inliers)
             {
                 inlier_count = current_inlier_count;
-                for (int i = 0; i < number_of_correspondences; i++)
+                for (auto i = 0; i < number_of_correspondences; i++)
                 {
                     if (current_inliers[i])
                     {
@@ -338,7 +337,7 @@ void sim3_solver::compute_centroid(Eigen::Matrix3f &points, Eigen::Matrix3f &cen
 {
     centroid = points.rowwise().sum();
     centroid = centroid / points.cols();
-    for (int i = 0; i < points.cols(); i++)
+    for (auto i = 0; i < points.cols(); i++)
     {
         centered_points.col(i) = points.col(i) - centroid;
     }
@@ -393,7 +392,7 @@ bool sim3_solver::compute_sim3(Eigen::Matrix3f &points_1, Eigen::Matrix3f &point
 
     // Building R from the quaternion directly avoids 0/0 in the angle-axis form for identity rotations.
     Eigen::Quaternionf q(evec(0, maxIndex), evec(1, maxIndex), evec(2, maxIndex), evec(3, maxIndex));
-    const float        q_norm = q.norm();
+    const auto q_norm = q.norm();
     if (!std::isfinite(q_norm) || q_norm < std::numeric_limits<float>::epsilon())
     {
         return false;
@@ -408,7 +407,7 @@ bool sim3_solver::compute_sim3(Eigen::Matrix3f &points_1, Eigen::Matrix3f &point
 
     if (!fix_scale)
     {
-        double cvnom = converter::to_cv_mat(Pr1).dot(converter::to_cv_mat(P3));
+        auto cvnom = converter::to_cv_mat(Pr1).dot(converter::to_cv_mat(P3));
         double nom   = (Pr1.array() * P3.array()).sum();
         if (abs(nom - cvnom) > 1e-3)
         {
@@ -446,7 +445,7 @@ bool sim3_solver::compute_sim3(Eigen::Matrix3f &points_1, Eigen::Matrix3f &point
 
     // Step 8.2 T21
     transformation_21.setIdentity();
-    Eigen::Matrix3f sRinv = (1.0 / scale_12) * rotation_12.transpose();
+    Eigen::Matrix3f sRinv = 1.0 / scale_12 * rotation_12.transpose();
 
     transformation_21.block<3, 3>(0, 0) = sRinv;
 
@@ -468,8 +467,8 @@ void sim3_solver::check_inliers()
         Eigen::Vector2f dist1 = points_1_image_1[i] - vP2im1[i];
         Eigen::Vector2f dist2 = vP1im2[i] - points_2_image_2[i];
 
-        const float err1 = dist1.dot(dist1);
-        const float err2 = dist2.dot(dist2);
+        const auto err1 = dist1.dot(dist1);
+        const auto err2 = dist2.dot(dist2);
 
         if (err1 < max_error_1[i] && err2 < max_error_2[i])
         {
@@ -489,12 +488,12 @@ Eigen::Matrix3f sim3_solver::get_estimated_rotation() { return best_rotation; }
 
 Eigen::Vector3f sim3_solver::get_estimated_translation() { return best_translation; }
 
-float sim3_solver::get_estimated_scale() { return best_scale; }
+float sim3_solver::get_estimated_scale() const { return best_scale; }
 
 void sim3_solver::project(const vector<Eigen::Vector3f> &world_points, vector<Eigen::Vector2f> &image_points, Eigen::Matrix4f camera_from_world, geometric_camera &camera)
 {
-    Eigen::Matrix3f Rcw = camera_from_world.block<3, 3>(0, 0);
-    Eigen::Vector3f tcw = camera_from_world.block<3, 1>(0, 3);
+    const Eigen::Matrix3f Rcw = camera_from_world.block<3, 3>(0, 0);
+    const Eigen::Vector3f tcw = camera_from_world.block<3, 1>(0, 3);
 
     image_points.clear();
     image_points.reserve(world_points.size());
@@ -502,7 +501,7 @@ void sim3_solver::project(const vector<Eigen::Vector3f> &world_points, vector<Ei
     for (size_t i = 0, iend = world_points.size(); i < iend; i++)
     {
         Eigen::Vector3f P3Dc = Rcw * world_points[i] + tcw;
-        Eigen::Vector2f pt2D = camera.project(P3Dc);
+        auto pt2D = camera.project(P3Dc);
         image_points.push_back(pt2D);
     }
 }
@@ -514,7 +513,7 @@ void sim3_solver::from_camera_to_image(const vector<Eigen::Vector3f> &camera_poi
 
     for (size_t i = 0, iend = camera_points.size(); i < iend; i++)
     {
-        Eigen::Vector2f pt2D = camera.project(camera_points[i]);
+        auto pt2D = camera.project(camera_points[i]);
         image_points.push_back(pt2D);
     }
 }

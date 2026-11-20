@@ -23,7 +23,6 @@
 #include "frame.h"
 #include "geometric_camera.h"
 #include "imu_types.h"
-#include "key_frame_database.h"
 #include "keypoint_extractor.h"
 #include "local_mapping.h"
 #include "loop_closing.h"
@@ -36,10 +35,6 @@
 #include <memory>
 #include <mutex>
 #include <unordered_set>
-#include <utility>
-
-#include <opencv2/core/core.hpp>
-#include <opencv2/features2d/features2d.hpp>
 
 namespace ORB_SLAM3
 {
@@ -66,9 +61,9 @@ class tracking
     ~tracking();
 
     // Preprocess the input and call Track(). Extract features and performs stereo matching.
-    Sophus::SE3f grab_image_stereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp, string filename);
-    Sophus::SE3f grab_image_rgbd(const cv::Mat &imRGB, const cv::Mat &imD, const double &timestamp, string filename);
-    Sophus::SE3f grab_image_monocular(const cv::Mat &im, const double &timestamp, string filename);
+    Sophus::SE3f grab_image_stereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp, const string& filename);
+    Sophus::SE3f grab_image_rgbd(const cv::Mat &imRGB, const cv::Mat &imD, const double &timestamp, const string& filename);
+    Sophus::SE3f grab_image_monocular(const cv::Mat &im, const double &timestamp, const string& filename);
 
     /** Extract current-image keypoints/descriptors and supply feature data to a frame. */
     static void
@@ -86,20 +81,20 @@ class tracking
     void inform_only_tracking(const bool &flag);
 
     void       update_frame_imu(const float s, const imu::bias &b, key_frame *pCurrentKeyFrame);
-    key_frame *get_last_key_frame() { return last_key_frame; }
+    key_frame *get_last_key_frame() const { return last_key_frame; }
 
     void create_map_in_atlas();
 
     //--
     void new_dataset();
-    int  get_number_dataset();
-    int  get_matches_inliers();
+    int  get_number_dataset() const;
+    int  get_matches_inliers() const;
 
     // DEBUG
-    void save_sub_trajectory(string strNameFile_frames, string strNameFile_kf, string strFolder = "");
-    void save_sub_trajectory(string strNameFile_frames, string strNameFile_kf, map *pMap);
+    void save_sub_trajectory(const string& strNameFile_frames, string strNameFile_kf, const string& strFolder = "") const;
+    void save_sub_trajectory(const string& strNameFile_frames, const string& strNameFile_kf, map *pMap) const;
 
-    float get_image_scale();
+    float get_image_scale() const;
     void  report_flow_statistics() const;
 
 #ifdef REGISTER_LOOP

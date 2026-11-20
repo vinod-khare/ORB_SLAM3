@@ -18,7 +18,6 @@
 
 #include "local_mapping.h"
 
-#include "converter.h"
 #include "descriptor_matcher.h"
 #include "geometric_tools.h"
 #include "loop_closing.h"
@@ -82,11 +81,11 @@ void local_mapping::run()
                 search_in_neighbors();
             }
 
-            [[maybe_unused]] bool b_doneLBA      = false;
-            int                   num_FixedKF_BA = 0;
-            int                   num_OptKF_BA   = 0;
-            int                   num_MPs_BA     = 0;
-            int                   num_edges_BA   = 0;
+            [[maybe_unused]] auto b_doneLBA      = false;
+            auto num_FixedKF_BA = 0;
+            auto num_OptKF_BA   = 0;
+            auto num_MPs_BA     = 0;
+            auto num_edges_BA   = 0;
 
             if (!check_new_key_frames() && !stop_requested())
             {
@@ -95,7 +94,7 @@ void local_mapping::run()
 
                     if (inertial && current_key_frame->get_map()->is_imu_initialized())
                     {
-                        float dist = (current_key_frame->previous_key_frame->get_camera_center() - current_key_frame->get_camera_center()).norm() +
+                        const auto dist = (current_key_frame->previous_key_frame->get_camera_center() - current_key_frame->get_camera_center()).norm() +
                                      (current_key_frame->previous_key_frame->previous_key_frame->get_camera_center() - current_key_frame->previous_key_frame->get_camera_center()).norm();
 
                         if (dist > 0.05)
@@ -104,7 +103,7 @@ void local_mapping::run()
                         }
                         if (!current_key_frame->get_map()->get_inertial_ba2())
                         {
-                            if ((initialization_elapsed_time < 10.f) && (dist < 0.02))
+                            if (initialization_elapsed_time < 10.f && dist < 0.02)
                             {
                                 spdlog::warn("Not enough motion for initialization; resetting active map");
                                 unique_lock<mutex> lock(reset_mutex);
@@ -114,7 +113,7 @@ void local_mapping::run()
                             }
                         }
 
-                        bool bLarge = ((tracker->get_matches_inliers() > 75) && monocular) || ((tracker->get_matches_inliers() > 100) && !monocular);
+                        const auto bLarge = (tracker->get_matches_inliers() > 75 && monocular) || (tracker->get_matches_inliers() > 100 && !monocular);
                         optimizer::local_inertial_ba(_cameras,
                                                      current_key_frame,
                                                      &bundle_adjustment_aborted,
@@ -151,7 +150,7 @@ void local_mapping::run()
                 // Check redundant local Keyframes
                 cull_key_frames();
 
-                if ((initialization_elapsed_time < 50.0f) && inertial)
+                if (initialization_elapsed_time < 50.0f && inertial)
                 {
                     if (current_key_frame->get_map()->is_imu_initialized() && tracker->state == tracking::OK) // Enter here everytime local-mapping is called
                     {
@@ -193,7 +192,7 @@ void local_mapping::run()
                         }
 
                         // scale refinement
-                        if (((owner_atlas->key_frames_in_map()) <= 200) &&
+                        if (owner_atlas->key_frames_in_map() <= 200 &&
                             ((initialization_elapsed_time > 25.0f && initialization_elapsed_time < 25.5f) || (initialization_elapsed_time > 35.0f && initialization_elapsed_time < 35.5f) ||
                              (initialization_elapsed_time > 45.0f && initialization_elapsed_time < 45.5f) || (initialization_elapsed_time > 55.0f && initialization_elapsed_time < 55.5f) ||
                              (initialization_elapsed_time > 65.0f && initialization_elapsed_time < 65.5f) || (initialization_elapsed_time > 75.0f && initialization_elapsed_time < 75.5f)))
@@ -248,7 +247,7 @@ void local_mapping::insert_key_frame(key_frame *pKF)
 bool local_mapping::check_new_key_frames()
 {
     unique_lock<mutex> lock(new_key_frames_mutex);
-    return (!new_key_frames.empty());
+    return !new_key_frames.empty();
 }
 
 void local_mapping::process_new_key_frame()
@@ -263,11 +262,11 @@ void local_mapping::process_new_key_frame()
     current_key_frame->compute_bow();
 
     // Associate MapPoints to the new keyframe and update normal and descriptor
-    const vector<map_point *> vpMapPointMatches = current_key_frame->get_map_point_matches();
+    const auto vpMapPointMatches = current_key_frame->get_map_point_matches();
 
     for (size_t i = 0; i < vpMapPointMatches.size(); i++)
     {
-        map_point *pMP = vpMapPointMatches[i];
+        auto pMP = vpMapPointMatches[i];
         if (pMP)
         {
             if (!pMP->is_bad())
@@ -304,8 +303,8 @@ void local_mapping::empty_queue()
 void local_mapping::cull_map_points()
 {
     // Check Recent Added MapPoints
-    list<map_point *>::iterator lit          = recently_added_map_points.begin();
-    const unsigned long int     nCurrentKFid = current_key_frame->id;
+    auto lit          = recently_added_map_points.begin();
+    const auto nCurrentKFid = current_key_frame->id;
 
     int nThObs;
     if (monocular)
@@ -316,13 +315,13 @@ void local_mapping::cull_map_points()
     {
         nThObs = 3;
     }
-    const int cnThObs = nThObs;
+    const auto cnThObs = nThObs;
 
     int borrar = recently_added_map_points.size();
 
     while (lit != recently_added_map_points.end())
     {
-        map_point *pMP = *lit;
+        const auto pMP = *lit;
 
         if (pMP->is_bad())
         {
@@ -333,12 +332,12 @@ void local_mapping::cull_map_points()
             pMP->set_bad_flag();
             lit = recently_added_map_points.erase(lit);
         }
-        else if (((int)nCurrentKFid - (int)pMP->first_key_frame_id) >= 2 && pMP->get_observation_count() <= cnThObs)
+        else if ((int)nCurrentKFid - (int)pMP->first_key_frame_id >= 2 && pMP->get_observation_count() <= cnThObs)
         {
             pMP->set_bad_flag();
             lit = recently_added_map_points.erase(lit);
         }
-        else if (((int)nCurrentKFid - (int)pMP->first_key_frame_id) >= 3)
+        else if ((int)nCurrentKFid - (int)pMP->first_key_frame_id >= 3)
         {
             lit = recently_added_map_points.erase(lit);
         }
@@ -353,21 +352,21 @@ void local_mapping::cull_map_points()
 void local_mapping::create_new_map_points()
 {
     // Retrieve neighbor keyframes in covisibility graph
-    int nn = 10;
+    auto nn = 10;
     // For stereo inertial case
     if (monocular)
     {
         nn = 30;
     }
-    vector<key_frame *> vpNeighKFs = current_key_frame->get_best_covisibility_key_frames(nn);
+    auto vpNeighKFs = current_key_frame->get_best_covisibility_key_frames(nn);
 
     if (inertial)
     {
-        key_frame *pKF   = current_key_frame;
-        int        count = 0;
-        while ((vpNeighKFs.size() <= gsl::narrow_cast<size_t>(nn)) && (pKF->previous_key_frame) && (count++ < nn))
+        auto pKF   = current_key_frame;
+        auto count = 0;
+        while (vpNeighKFs.size() <= gsl::narrow_cast<size_t>(nn) && pKF->previous_key_frame && count++ < nn)
         {
-            vector<key_frame *>::iterator it = std::find(vpNeighKFs.begin(), vpNeighKFs.end(), pKF->previous_key_frame);
+            auto it = std::find(vpNeighKFs.begin(), vpNeighKFs.end(), pKF->previous_key_frame);
             if (it == vpNeighKFs.end())
             {
                 vpNeighKFs.push_back(pKF->previous_key_frame);
@@ -376,27 +375,27 @@ void local_mapping::create_new_map_points()
         }
     }
 
-    float th = 0.6f;
+    auto th = 0.6f;
 
     descriptor_matcher matcher(th, false);
 
-    Sophus::SE3<float>         sophTcw1 = current_key_frame->get_pose();
-    Eigen::Matrix<float, 3, 4> eigTcw1  = sophTcw1.matrix3x4();
+    auto sophTcw1 = current_key_frame->get_pose();
+    auto eigTcw1  = sophTcw1.matrix3x4();
     Eigen::Matrix<float, 3, 3> Rcw1     = eigTcw1.block<3, 3>(0, 0);
     Eigen::Matrix<float, 3, 3> Rwc1     = Rcw1.transpose();
-    Eigen::Vector3f            tcw1     = sophTcw1.translation();
-    Eigen::Vector3f            Ow1      = current_key_frame->get_camera_center();
+    auto tcw1     = sophTcw1.translation();
+    auto Ow1      = current_key_frame->get_camera_center();
 
-    const float fx1 = _cameras[0]->get_parameter(0);
-    const float fy1 = _cameras[0]->get_parameter(1);
-    const float cx1 = _cameras[0]->get_parameter(2);
-    const float cy1 = _cameras[0]->get_parameter(3);
+    const auto fx1 = _cameras[0]->get_parameter(0);
+    const auto fy1 = _cameras[0]->get_parameter(1);
+    const auto cx1 = _cameras[0]->get_parameter(2);
+    const auto cy1 = _cameras[0]->get_parameter(3);
 
-    const float ratioFactor         = 1.5f * current_key_frame->scale_factor;
-    int         countStereo         = 0;
-    int         countStereoGoodProj = 0;
-    int         countStereoAttempt  = 0;
-    int         totalStereoPts      = 0;
+    const auto ratioFactor         = 1.5f * current_key_frame->scale_factor;
+    auto countStereo         = 0;
+    auto countStereoGoodProj = 0;
+    auto countStereoAttempt  = 0;
+    auto totalStereoPts      = 0;
     // Search matches with epipolar restriction and triangulate
     for (size_t i = 0; i < vpNeighKFs.size(); i++)
     {
@@ -405,15 +404,15 @@ void local_mapping::create_new_map_points()
             return;
         }
 
-        key_frame *pKF2 = vpNeighKFs[i];
+        auto pKF2 = vpNeighKFs[i];
 
         size_t camera_index1 = 0;
         size_t camera_index2 = 0;
 
         // Check first that baseline is not too short
-        Eigen::Vector3f Ow2       = pKF2->get_camera_center();
+        auto Ow2       = pKF2->get_camera_center();
         Eigen::Vector3f vBaseline = Ow2 - Ow1;
-        const float     baseline  = vBaseline.norm();
+        const auto baseline  = vBaseline.norm();
 
         if (!monocular)
         {
@@ -424,8 +423,8 @@ void local_mapping::create_new_map_points()
         }
         else
         {
-            const float medianDepthKF2     = pKF2->compute_scene_median_depth(2);
-            const float ratioBaselineDepth = baseline / medianDepthKF2;
+            const auto medianDepthKF2     = pKF2->compute_scene_median_depth(2);
+            const auto ratioBaselineDepth = baseline / medianDepthKF2;
 
             if (ratioBaselineDepth < 0.01)
             {
@@ -435,42 +434,42 @@ void local_mapping::create_new_map_points()
 
         // Search matches that fullfil epipolar constraint
         vector<pair<size_t, size_t>> vMatchedIndices;
-        bool                         bCoarse = inertial && tracker->state == tracking::RECENTLY_LOST && current_key_frame->get_map()->get_inertial_ba2();
+        auto bCoarse = inertial && tracker->state == tracking::RECENTLY_LOST && current_key_frame->get_map()->get_inertial_ba2();
 
         matcher.search_for_triangulation(_cameras, current_key_frame, pKF2, vMatchedIndices, false, bCoarse);
 
-        Sophus::SE3<float>         sophTcw2 = pKF2->get_pose();
-        Eigen::Matrix<float, 3, 4> eigTcw2  = sophTcw2.matrix3x4();
+        auto sophTcw2 = pKF2->get_pose();
+        auto eigTcw2  = sophTcw2.matrix3x4();
         Eigen::Matrix<float, 3, 3> Rcw2     = eigTcw2.block<3, 3>(0, 0);
         Eigen::Matrix<float, 3, 3> Rwc2     = Rcw2.transpose();
-        Eigen::Vector3f            tcw2     = sophTcw2.translation();
+        auto tcw2     = sophTcw2.translation();
 
-        const float fx2 = _cameras[0]->get_parameter(0);
-        const float fy2 = _cameras[0]->get_parameter(1);
-        const float cx2 = _cameras[0]->get_parameter(2);
-        const float cy2 = _cameras[0]->get_parameter(3);
+        const auto fx2 = _cameras[0]->get_parameter(0);
+        const auto fy2 = _cameras[0]->get_parameter(1);
+        const auto cx2 = _cameras[0]->get_parameter(2);
+        const auto cy2 = _cameras[0]->get_parameter(3);
 
         // Triangulate each match
         const int nmatches = vMatchedIndices.size();
-        for (int ikp = 0; ikp < nmatches; ikp++)
+        for (auto ikp = 0; ikp < nmatches; ikp++)
         {
             const int &idx1 = vMatchedIndices[ikp].first;
             const int &idx2 = vMatchedIndices[ikp].second;
 
-            const auto &kp1      = ((!current_key_frame->is_fisheye_stereo)                      ? current_key_frame->keypoints[idx1]
-                                    : (std::cmp_less(idx1, current_key_frame->keypoints.size())) ? current_key_frame->keypoints[idx1]
-                                                                                                 : current_key_frame->right_keypoints[idx1 - current_key_frame->keypoints.size()]);
-            const float kp1_ur   = current_key_frame->right_coordinates[idx1];
-            bool        bStereo1 = (!current_key_frame->is_fisheye_stereo && kp1_ur >= 0);
-            const bool  bRight1  = current_key_frame->is_fisheye_stereo && std::cmp_greater_equal(idx1, current_key_frame->keypoints.size());
+            const auto &kp1      = !current_key_frame->is_fisheye_stereo                      ? current_key_frame->keypoints[idx1]
+                                       : std::cmp_less(idx1, current_key_frame->keypoints.size()) ? current_key_frame->keypoints[idx1]
+                                       : current_key_frame->right_keypoints[idx1 - current_key_frame->keypoints.size()];
+            const auto kp1_ur   = current_key_frame->right_coordinates[idx1];
+            auto bStereo1 = !current_key_frame->is_fisheye_stereo && kp1_ur >= 0;
+            const auto bRight1  = current_key_frame->is_fisheye_stereo && std::cmp_greater_equal(idx1, current_key_frame->keypoints.size());
 
-            const auto &kp2 = ((!pKF2->is_fisheye_stereo)                    ? pKF2->keypoints[idx2]
-                               : std::cmp_less(idx2, pKF2->keypoints.size()) ? pKF2->keypoints[idx2]
-                                                                             : pKF2->right_keypoints[idx2 - pKF2->keypoints.size()]);
+            const auto &kp2 = !pKF2->is_fisheye_stereo                    ? pKF2->keypoints[idx2]
+                                  : std::cmp_less(idx2, pKF2->keypoints.size()) ? pKF2->keypoints[idx2]
+                                  : pKF2->right_keypoints[idx2 - pKF2->keypoints.size()];
 
-            const float kp2_ur   = pKF2->right_coordinates[idx2];
-            bool        bStereo2 = (!pKF2->is_fisheye_stereo && kp2_ur >= 0);
-            const bool  bRight2  = pKF2->is_fisheye_stereo && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
+            const auto kp2_ur   = pKF2->right_coordinates[idx2];
+            auto bStereo2 = !pKF2->is_fisheye_stereo && kp2_ur >= 0;
+            const auto bRight2  = pKF2->is_fisheye_stereo && std::cmp_greater_equal(idx2, pKF2->keypoints.size());
 
             if (current_key_frame->is_fisheye_stereo && pKF2->is_fisheye_stereo)
             {
@@ -530,16 +529,16 @@ void local_mapping::create_new_map_points()
             }
 
             // Check parallax between rays
-            Eigen::Vector3f xn1 = _cameras[camera_index1]->unproject_eigen(kp1.pt_undistorted);
-            Eigen::Vector3f xn2 = _cameras[camera_index2]->unproject_eigen(kp2.pt_undistorted);
+            auto xn1 = _cameras[camera_index1]->unproject_eigen(kp1.pt_undistorted);
+            auto xn2 = _cameras[camera_index2]->unproject_eigen(kp2.pt_undistorted);
 
             Eigen::Vector3f ray1            = Rwc1 * xn1;
             Eigen::Vector3f ray2            = Rwc2 * xn2;
-            const float     cosParallaxRays = ray1.dot(ray2) / (ray1.norm() * ray2.norm());
+            const auto cosParallaxRays = ray1.dot(ray2) / (ray1.norm() * ray2.norm());
 
-            float cosParallaxStereo  = cosParallaxRays + 1;
-            float cosParallaxStereo1 = cosParallaxStereo;
-            float cosParallaxStereo2 = cosParallaxStereo;
+            auto cosParallaxStereo  = cosParallaxRays + 1;
+            auto cosParallaxStereo1 = cosParallaxStereo;
+            auto cosParallaxStereo2 = cosParallaxStereo;
 
             if (bStereo1)
             {
@@ -559,8 +558,8 @@ void local_mapping::create_new_map_points()
 
             Eigen::Vector3f x3D;
 
-            bool goodProj     = false;
-            bool bPointStereo = false;
+            auto goodProj     = false;
+            auto bPointStereo = false;
             if (cosParallaxRays < cosParallaxStereo && cosParallaxRays > 0 && (bStereo1 || bStereo2 || (cosParallaxRays < 0.9996 && inertial) || (cosParallaxRays < 0.9998 && !inertial)))
             {
                 goodProj = geometric_tools::triangulate(xn1, xn2, eigTcw1, eigTcw2, x3D);
@@ -597,73 +596,73 @@ void local_mapping::create_new_map_points()
             }
 
             // Check triangulation in front of cameras
-            float z1 = Rcw1.row(2).dot(x3D) + tcw1(2);
+            auto z1 = Rcw1.row(2).dot(x3D) + tcw1(2);
             if (z1 <= 0)
             {
                 continue;
             }
 
-            float z2 = Rcw2.row(2).dot(x3D) + tcw2(2);
+            auto z2 = Rcw2.row(2).dot(x3D) + tcw2(2);
             if (z2 <= 0)
             {
                 continue;
             }
 
             // Check reprojection error in first keyframe
-            const float &sigmaSquare1 = current_key_frame->level_sigma_squared[kp1.octave];
-            const float  x1           = Rcw1.row(0).dot(x3D) + tcw1(0);
-            const float  y1           = Rcw1.row(1).dot(x3D) + tcw1(1);
-            const float  invz1        = 1.0 / z1;
+            const auto& sigmaSquare1 = current_key_frame->level_sigma_squared[kp1.octave];
+            const auto x1           = Rcw1.row(0).dot(x3D) + tcw1(0);
+            const auto y1           = Rcw1.row(1).dot(x3D) + tcw1(1);
+            const float   invz1        = 1.0 / z1;
 
             if (!bStereo1)
             {
-                cv::Point2f uv1   = _cameras[camera_index1]->project(cv::Point3f(x1, y1, z1));
-                float       errX1 = uv1.x - kp1.pt_undistorted.x;
-                float       errY1 = uv1.y - kp1.pt_undistorted.y;
+                auto uv1   = _cameras[camera_index1]->project(cv::Point3f(x1, y1, z1));
+                auto errX1 = uv1.x - kp1.pt_undistorted.x;
+                auto errY1 = uv1.y - kp1.pt_undistorted.y;
 
-                if ((errX1 * errX1 + errY1 * errY1) > 5.991 * sigmaSquare1)
+                if (errX1 * errX1 + errY1 * errY1 > 5.991 * sigmaSquare1)
                 {
                     continue;
                 }
             }
             else
             {
-                float u1      = fx1 * x1 * invz1 + cx1;
-                float u1_r    = u1 - _cameras[0]->baseline_fx() * invz1;
-                float v1      = fy1 * y1 * invz1 + cy1;
-                float errX1   = u1 - kp1.pt_undistorted.x;
-                float errY1   = v1 - kp1.pt_undistorted.y;
-                float errX1_r = u1_r - kp1_ur;
-                if ((errX1 * errX1 + errY1 * errY1 + errX1_r * errX1_r) > 7.8 * sigmaSquare1)
+                auto u1      = fx1 * x1 * invz1 + cx1;
+                auto u1_r    = u1 - _cameras[0]->baseline_fx() * invz1;
+                auto v1      = fy1 * y1 * invz1 + cy1;
+                auto errX1   = u1 - kp1.pt_undistorted.x;
+                auto errY1   = v1 - kp1.pt_undistorted.y;
+                auto errX1_r = u1_r - kp1_ur;
+                if (errX1 * errX1 + errY1 * errY1 + errX1_r * errX1_r > 7.8 * sigmaSquare1)
                 {
                     continue;
                 }
             }
 
             // Check reprojection error in second keyframe
-            const float sigmaSquare2 = pKF2->level_sigma_squared[kp2.octave];
-            const float x2           = Rcw2.row(0).dot(x3D) + tcw2(0);
-            const float y2           = Rcw2.row(1).dot(x3D) + tcw2(1);
+            const auto sigmaSquare2 = pKF2->level_sigma_squared[kp2.octave];
+            const auto x2           = Rcw2.row(0).dot(x3D) + tcw2(0);
+            const auto y2           = Rcw2.row(1).dot(x3D) + tcw2(1);
             const float invz2        = 1.0 / z2;
             if (!bStereo2)
             {
-                cv::Point2f uv2   = _cameras[camera_index2]->project(cv::Point3f(x2, y2, z2));
-                float       errX2 = uv2.x - kp2.pt_undistorted.x;
-                float       errY2 = uv2.y - kp2.pt_undistorted.y;
-                if ((errX2 * errX2 + errY2 * errY2) > 5.991 * sigmaSquare2)
+                auto uv2   = _cameras[camera_index2]->project(cv::Point3f(x2, y2, z2));
+                auto errX2 = uv2.x - kp2.pt_undistorted.x;
+                auto errY2 = uv2.y - kp2.pt_undistorted.y;
+                if (errX2 * errX2 + errY2 * errY2 > 5.991 * sigmaSquare2)
                 {
                     continue;
                 }
             }
             else
             {
-                float u2      = fx2 * x2 * invz2 + cx2;
-                float u2_r    = u2 - _cameras[0]->baseline_fx() * invz2;
-                float v2      = fy2 * y2 * invz2 + cy2;
-                float errX2   = u2 - kp2.pt_undistorted.x;
-                float errY2   = v2 - kp2.pt_undistorted.y;
-                float errX2_r = u2_r - kp2_ur;
-                if ((errX2 * errX2 + errY2 * errY2 + errX2_r * errX2_r) > 7.8 * sigmaSquare2)
+                auto u2      = fx2 * x2 * invz2 + cx2;
+                auto u2_r    = u2 - _cameras[0]->baseline_fx() * invz2;
+                auto v2      = fy2 * y2 * invz2 + cy2;
+                auto errX2   = u2 - kp2.pt_undistorted.x;
+                auto errY2   = v2 - kp2.pt_undistorted.y;
+                auto errX2_r = u2_r - kp2_ur;
+                if (errX2 * errX2 + errY2 * errY2 + errX2_r * errX2_r > 7.8 * sigmaSquare2)
                 {
                     continue;
                 }
@@ -671,10 +670,10 @@ void local_mapping::create_new_map_points()
 
             // Check scale consistency
             Eigen::Vector3f normal1 = x3D - Ow1;
-            float           dist1   = normal1.norm();
+            auto dist1   = normal1.norm();
 
             Eigen::Vector3f normal2 = x3D - Ow2;
-            float           dist2   = normal2.norm();
+            auto dist2   = normal2.norm();
 
             if (dist1 == 0 || dist2 == 0)
             {
@@ -686,8 +685,8 @@ void local_mapping::create_new_map_points()
                 continue;
             }
 
-            const float ratioDist   = dist2 / dist1;
-            const float ratioOctave = current_key_frame->scale_factors[kp1.octave] / pKF2->scale_factors[kp2.octave];
+            const auto ratioDist   = dist2 / dist1;
+            const auto ratioOctave = current_key_frame->scale_factors[kp1.octave] / pKF2->scale_factors[kp2.octave];
 
             if (ratioDist * ratioFactor < ratioOctave || ratioDist > ratioOctave * ratioFactor)
             {
@@ -695,7 +694,7 @@ void local_mapping::create_new_map_points()
             }
 
             // Triangulation is succesfull
-            map_point *pMP = new map_point(x3D, current_key_frame, owner_atlas->get_current_map());
+            auto pMP = new map_point(x3D, current_key_frame, owner_atlas->get_current_map());
             if (bPointStereo)
             {
                 countStereo++;
@@ -717,19 +716,19 @@ void local_mapping::create_new_map_points()
     }
 }
 
-void local_mapping::search_in_neighbors()
+void local_mapping::search_in_neighbors() const
 {
     // Retrieve neighbor keyframes
-    int nn = 10;
+    auto nn = 10;
     if (monocular)
     {
         nn = 30;
     }
-    const vector<key_frame *> vpNeighKFs = current_key_frame->get_best_covisibility_key_frames(nn);
+    const auto vpNeighKFs = current_key_frame->get_best_covisibility_key_frames(nn);
     vector<key_frame *>       vpTargetKFs;
-    for (vector<key_frame *>::const_iterator vit = vpNeighKFs.begin(), vend = vpNeighKFs.end(); vit != vend; vit++)
+    for (auto vit = vpNeighKFs.begin(), vend = vpNeighKFs.end(); vit != vend; vit++)
     {
-        key_frame *pKFi = *vit;
+        auto pKFi = *vit;
         if (pKFi->is_bad() || pKFi->fuse_target_key_frame_id == current_key_frame->id)
         {
             continue;
@@ -742,10 +741,10 @@ void local_mapping::search_in_neighbors()
     // Extend to some second neighbors if abort is not requested
     for (int i = 0, imax = vpTargetKFs.size(); i < imax; i++)
     {
-        const vector<key_frame *> vpSecondNeighKFs = vpTargetKFs[i]->get_best_covisibility_key_frames(20);
-        for (vector<key_frame *>::const_iterator vit2 = vpSecondNeighKFs.begin(), vend2 = vpSecondNeighKFs.end(); vit2 != vend2; vit2++)
+        const auto vpSecondNeighKFs = vpTargetKFs[i]->get_best_covisibility_key_frames(20);
+        for (auto vit2 = vpSecondNeighKFs.begin(), vend2 = vpSecondNeighKFs.end(); vit2 != vend2; vit2++)
         {
-            key_frame *pKFi2 = *vit2;
+            auto pKFi2 = *vit2;
             if (pKFi2->is_bad() || pKFi2->fuse_target_key_frame_id == current_key_frame->id || pKFi2->id == current_key_frame->id)
             {
                 continue;
@@ -762,7 +761,7 @@ void local_mapping::search_in_neighbors()
     // Extend to temporal neighbors
     if (inertial)
     {
-        key_frame *pKFi = current_key_frame->previous_key_frame;
+        auto pKFi = current_key_frame->previous_key_frame;
         while (vpTargetKFs.size() < 20 && pKFi)
         {
             if (pKFi->is_bad() || pKFi->fuse_target_key_frame_id == current_key_frame->id)
@@ -778,10 +777,10 @@ void local_mapping::search_in_neighbors()
 
     // Search matches by projection from current KF in target KFs
     descriptor_matcher  matcher;
-    vector<map_point *> vpMapPointMatches = current_key_frame->get_map_point_matches();
-    for (vector<key_frame *>::iterator vit = vpTargetKFs.begin(), vend = vpTargetKFs.end(); vit != vend; vit++)
+    auto vpMapPointMatches = current_key_frame->get_map_point_matches();
+    for (auto vit = vpTargetKFs.begin(), vend = vpTargetKFs.end(); vit != vend; vit++)
     {
-        key_frame *pKFi = *vit;
+        const auto pKFi = *vit;
 
         matcher.fuse(_cameras, pKFi, vpMapPointMatches);
         if (pKFi->is_fisheye_stereo)
@@ -799,15 +798,15 @@ void local_mapping::search_in_neighbors()
     vector<map_point *> vpFuseCandidates;
     vpFuseCandidates.reserve(vpTargetKFs.size() * vpMapPointMatches.size());
 
-    for (vector<key_frame *>::iterator vitKF = vpTargetKFs.begin(), vendKF = vpTargetKFs.end(); vitKF != vendKF; vitKF++)
+    for (auto vitKF = vpTargetKFs.begin(), vendKF = vpTargetKFs.end(); vitKF != vendKF; vitKF++)
     {
-        key_frame *pKFi = *vitKF;
+        const auto pKFi = *vitKF;
 
-        vector<map_point *> vpMapPointsKFi = pKFi->get_map_point_matches();
+        auto vpMapPointsKFi = pKFi->get_map_point_matches();
 
-        for (vector<map_point *>::iterator vitMP = vpMapPointsKFi.begin(), vendMP = vpMapPointsKFi.end(); vitMP != vendMP; vitMP++)
+        for (auto vitMP = vpMapPointsKFi.begin(), vendMP = vpMapPointsKFi.end(); vitMP != vendMP; vitMP++)
         {
-            map_point *pMP = *vitMP;
+            auto pMP = *vitMP;
             if (!pMP)
             {
                 continue;
@@ -831,7 +830,7 @@ void local_mapping::search_in_neighbors()
     vpMapPointMatches = current_key_frame->get_map_point_matches();
     for (size_t i = 0, iend = vpMapPointMatches.size(); i < iend; i++)
     {
-        map_point *pMP = vpMapPointMatches[i];
+        const auto pMP = vpMapPointMatches[i];
         if (pMP)
         {
             if (!pMP->is_bad())
@@ -889,7 +888,7 @@ void local_mapping::release()
     }
     stopped             = false;
     stop_requested_flag = false;
-    for (list<key_frame *>::iterator lit = new_key_frames.begin(), lend = new_key_frames.end(); lit != lend; lit++)
+    for (auto lit = new_key_frames.begin(), lend = new_key_frames.end(); lit != lend; lit++)
     {
         delete *lit;
     }
@@ -926,15 +925,15 @@ bool local_mapping::set_not_stop(bool flag)
 
 void local_mapping::interrupt_bundle_adjustment() { bundle_adjustment_aborted = true; }
 
-void local_mapping::cull_key_frames()
+void local_mapping::cull_key_frames() const
 {
     // Check redundant keyframes (only local keyframes)
     // A keyframe is considered redundant if the 90% of the MapPoints it sees, are seen
     // in at least other 3 keyframes (in the same or finer scale)
     // We only consider close stereo points
-    const int Nd = 21;
+    constexpr auto Nd = 21;
     current_key_frame->update_best_covisibles();
-    vector<key_frame *> vpLocalKeyFrames = current_key_frame->get_vector_covisible_key_frames();
+    auto vpLocalKeyFrames = current_key_frame->get_vector_covisible_key_frames();
 
     float redundant_th;
     if (!inertial)
@@ -950,15 +949,15 @@ void local_mapping::cull_key_frames()
         redundant_th = 0.5;
     }
 
-    const bool bInitImu = owner_atlas->is_imu_initialized();
-    int        count    = 0;
+    const auto bInitImu = owner_atlas->is_imu_initialized();
+    auto count    = 0;
 
     // Compoute last KF from optimizable window:
     unsigned int last_ID = 0;
     if (inertial)
     {
-        int        count  = 0;
-        key_frame *aux_KF = current_key_frame;
+        auto count  = 0;
+        auto aux_KF = current_key_frame;
         while (count < Nd && aux_KF->previous_key_frame)
         {
             aux_KF = aux_KF->previous_key_frame;
@@ -967,24 +966,24 @@ void local_mapping::cull_key_frames()
         last_ID = aux_KF->id;
     }
 
-    for (vector<key_frame *>::iterator vit = vpLocalKeyFrames.begin(), vend = vpLocalKeyFrames.end(); vit != vend; vit++)
+    for (auto vit = vpLocalKeyFrames.begin(), vend = vpLocalKeyFrames.end(); vit != vend; vit++)
     {
         count++;
-        key_frame *pKF = *vit;
+        const auto pKF = *vit;
 
-        if ((pKF->id == pKF->get_map()->get_initial_key_frame_id()) || pKF->is_bad())
+        if (pKF->id == pKF->get_map()->get_initial_key_frame_id() || pKF->is_bad())
         {
             continue;
         }
-        const vector<map_point *> vpMapPoints = pKF->get_map_point_matches();
+        const auto vpMapPoints = pKF->get_map_point_matches();
 
-        int       nObs                   = 3;
-        const int thObs                  = nObs;
-        int       nRedundantObservations = 0;
-        int       nMPs                   = 0;
+        const auto nObs                   = 3;
+        const auto thObs                  = nObs;
+        auto nRedundantObservations = 0;
+        auto nMPs                   = 0;
         for (size_t i = 0, iend = vpMapPoints.size(); i < iend; i++)
         {
-            map_point *pMP = vpMapPoints[i];
+            const auto pMP = vpMapPoints[i];
             if (pMP)
             {
                 if (!pMP->is_bad())
@@ -1000,21 +999,21 @@ void local_mapping::cull_key_frames()
                     nMPs++;
                     if (pMP->get_observation_count() > thObs)
                     {
-                        const int                                   &scaleLevel   = (!pKF->is_fisheye_stereo)                 ? pKF->keypoints[i].octave
-                                                                                    : std::cmp_less(i, pKF->keypoints.size()) ? pKF->keypoints[i].octave
-                                                                                                                              : pKF->right_keypoints[i - pKF->keypoints.size()].octave;
-                        const std::map<key_frame *, tuple<int, int>> observations = pMP->get_observations();
-                        int                                          nObs         = 0;
-                        for (std::map<key_frame *, tuple<int, int>>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+                        const auto& scaleLevel   = !pKF->is_fisheye_stereo                 ? pKF->keypoints[i].octave
+                                                                                         : std::cmp_less(i, pKF->keypoints.size()) ? pKF->keypoints[i].octave
+                                                                                         : pKF->right_keypoints[i - pKF->keypoints.size()].octave;
+                        const auto observations = pMP->get_observations();
+                        auto nObs         = 0;
+                        for (auto mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
                         {
-                            key_frame *pKFi = mit->first;
+                            const auto pKFi = mit->first;
                             if (pKFi == pKF)
                             {
                                 continue;
                             }
-                            tuple<int, int> indexes   = mit->second;
-                            int             leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
-                            int             scaleLeveli = -1;
+                            auto indexes   = mit->second;
+                            auto leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
+                            auto scaleLeveli = -1;
                             if (!pKFi->is_fisheye_stereo)
                             {
                                 scaleLeveli = pKFi->keypoints[leftIndex].octave;
@@ -1027,8 +1026,8 @@ void local_mapping::cull_key_frames()
                                 }
                                 if (rightIndex != -1)
                                 {
-                                    int rightLevel = pKFi->right_keypoints[rightIndex - pKFi->keypoints.size()].octave;
-                                    scaleLeveli    = (scaleLeveli == -1 || scaleLeveli > rightLevel) ? rightLevel : scaleLeveli;
+                                    auto rightLevel = pKFi->right_keypoints[rightIndex - pKFi->keypoints.size()].octave;
+                                    scaleLeveli    = scaleLeveli == -1 || scaleLeveli > rightLevel ? rightLevel : scaleLeveli;
                                 }
                             }
 
@@ -1059,7 +1058,7 @@ void local_mapping::cull_key_frames()
                     continue;
                 }
 
-                if (pKF->id > (current_key_frame->id - 2))
+                if (pKF->id > current_key_frame->id - 2)
                 {
                     continue;
                 }
@@ -1068,7 +1067,7 @@ void local_mapping::cull_key_frames()
                 {
                     const float t = pKF->next_key_frame->timestamp - pKF->previous_key_frame->timestamp;
 
-                    if ((bInitImu && (pKF->id < last_ID) && t < 3.) || (t < 0.5))
+                    if ((bInitImu && pKF->id < last_ID && t < 3.) || t < 0.5)
                     {
                         pKF->next_key_frame->imu_preintegrated->merge_previous(pKF->imu_preintegrated);
                         pKF->next_key_frame->previous_key_frame = pKF->previous_key_frame;
@@ -1077,7 +1076,7 @@ void local_mapping::cull_key_frames()
                         pKF->previous_key_frame                 = NULL;
                         pKF->set_bad_flag();
                     }
-                    else if (!current_key_frame->get_map()->get_inertial_ba2() && ((pKF->get_imu_position() - pKF->previous_key_frame->get_imu_position()).norm() < 0.02) && (t < 3))
+                    else if (!current_key_frame->get_map()->get_inertial_ba2() && (pKF->get_imu_position() - pKF->previous_key_frame->get_imu_position()).norm() < 0.02 && t < 3)
                     {
                         pKF->next_key_frame->imu_preintegrated->merge_previous(pKF->imu_preintegrated);
                         pKF->next_key_frame->previous_key_frame = pKF->previous_key_frame;
@@ -1149,7 +1148,7 @@ void local_mapping::request_reset_active_map(map *pMap)
 
 void local_mapping::reset_if_requested()
 {
-    bool executed_reset = false;
+    auto executed_reset = false;
     {
         unique_lock<mutex> lock(reset_mutex);
         if (reset_requested)
@@ -1250,7 +1249,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
 
     // Retrieve all keyframe in temporal order
     list<key_frame *> lpKF;
-    key_frame        *pKF = current_key_frame;
+    auto pKF = current_key_frame;
     while (pKF->previous_key_frame)
     {
         lpKF.push_front(pKF);
@@ -1288,7 +1287,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
         Eigen::Matrix3f Rwg;
         Eigen::Vector3f dirG;
         dirG.setZero();
-        for (vector<key_frame *>::iterator itKF = vpKF.begin(); itKF != vpKF.end(); itKF++)
+        for (auto itKF = vpKF.begin(); itKF != vpKF.end(); itKF++)
         {
             if (!(*itKF)->imu_preintegrated)
             {
@@ -1307,10 +1306,10 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
 
         dirG = dirG / dirG.norm();
         Eigen::Vector3f gI(0.0f, 0.0f, -1.0f);
-        Eigen::Vector3f v           = gI.cross(dirG);
-        const float     nv          = v.norm();
-        const float     cosg        = gI.dot(dirG);
-        const float     ang         = acos(cosg);
+        auto v           = gI.cross(dirG);
+        const auto nv          = v.norm();
+        const auto cosg        = gI.dot(dirG);
+        const auto ang         = acos(cosg);
         Eigen::Vector3f vzg         = v * ang / nv;
         Rwg                         = Sophus::SO3f::exp(vzg).matrix();
         imu_world_rotation          = Rwg.cast<double>();
@@ -1340,7 +1339,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
     // Before this line we are not changing the map
     {
         unique_lock<mutex> lock(owner_atlas->get_current_map()->map_update_mutex);
-        if ((fabs(scale - 1.f) > 0.00001) || !monocular)
+        if (fabs(scale - 1.f) > 0.00001 || !monocular)
         {
             Sophus::SE3f Twg(imu_world_rotation.cast<float>().transpose(), Eigen::Vector3f::Zero());
             owner_atlas->get_current_map()->apply_scaled_rotation(*_cameras[0], Twg, scale, true);
@@ -1350,9 +1349,9 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
         // Check if initialization OK
         if (!owner_atlas->is_imu_initialized())
         {
-            for (int i = 0; i < N; i++)
+            for (auto i = 0; i < N; i++)
             {
-                key_frame *pKF2 = vpKF[i];
+                auto pKF2 = vpKF[i];
                 pKF2->has_imu   = true;
             }
         }
@@ -1383,7 +1382,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
     // Get Map Mutex
     unique_lock<mutex> lock(owner_atlas->get_current_map()->map_update_mutex);
 
-    unsigned long GBAid = current_key_frame->id;
+    auto GBAid = current_key_frame->id;
 
     // Process keyframes in the queue
     while (check_new_key_frames())
@@ -1398,12 +1397,12 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
 
     while (!lpKFtoCheck.empty())
     {
-        key_frame             *pKF     = lpKFtoCheck.front();
-        const set<key_frame *> sChilds = pKF->get_children();
-        Sophus::SE3f           Twc     = pKF->get_pose_inverse();
-        for (set<key_frame *>::const_iterator sit = sChilds.begin(); sit != sChilds.end(); sit++)
+        auto pKF     = lpKFtoCheck.front();
+        const auto sChilds = pKF->get_children();
+        auto Twc     = pKF->get_pose_inverse();
+        for (auto sit = sChilds.begin(); sit != sChilds.end(); sit++)
         {
-            key_frame *pChild = *sit;
+            auto pChild = *sit;
             if (!pChild || pChild->is_bad())
             {
                 continue;
@@ -1411,10 +1410,10 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
 
             if (pChild->global_ba_key_frame_id != GBAid)
             {
-                Sophus::SE3f Tchildc          = pChild->get_pose() * Twc;
+                auto Tchildc          = pChild->get_pose() * Twc;
                 pChild->camera_pose_global_ba = Tchildc * pKF->camera_pose_global_ba;
 
-                Sophus::SO3f Rcor = pChild->camera_pose_global_ba.so3().inverse() * pChild->get_pose().so3();
+                auto Rcor = pChild->camera_pose_global_ba.so3().inverse() * pChild->get_pose().so3();
                 if (pChild->is_velocity_set())
                 {
                     pChild->velocity_world_global_ba = Rcor * pChild->get_velocity();
@@ -1448,11 +1447,11 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
     }
 
     // Correct MapPoints
-    const vector<map_point *> vpMPs = owner_atlas->get_current_map()->get_all_map_points();
+    const auto vpMPs = owner_atlas->get_current_map()->get_all_map_points();
 
     for (size_t i = 0; i < vpMPs.size(); i++)
     {
-        map_point *pMP = vpMPs[i];
+        auto pMP = vpMPs[i];
 
         if (pMP->is_bad())
         {
@@ -1467,7 +1466,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
         else
         {
             // Update according to the correction of its reference keyframe
-            key_frame *pRefKF = pMP->get_reference_key_frame();
+            auto pRefKF = pMP->get_reference_key_frame();
 
             if (pRefKF->global_ba_key_frame_id != GBAid)
             {
@@ -1475,7 +1474,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
             }
 
             // Map to non-corrected camera
-            Eigen::Vector3f Xc = pRefKF->camera_pose_before_global_ba * pMP->get_world_position();
+            auto Xc = pRefKF->camera_pose_before_global_ba * pMP->get_world_position();
 
             // Backproject using corrected camera
             pMP->set_world_position(pRefKF->get_pose_inverse() * Xc);
@@ -1487,7 +1486,7 @@ void local_mapping::initialize_imu(float priorG, float priorA, bool bFIBA)
     key_frame_count = vpKF.size();
     initialization_index++;
 
-    for (list<key_frame *>::iterator lit = new_key_frames.begin(), lend = new_key_frames.end(); lit != lend; lit++)
+    for (auto lit = new_key_frames.begin(), lend = new_key_frames.end(); lit != lend; lit++)
     {
         (*lit)->set_bad_flag();
         delete *lit;
@@ -1513,7 +1512,7 @@ void local_mapping::refine_scale()
 
     // Retrieve all keyframes in temporal order
     list<key_frame *> lpKF;
-    key_frame        *pKF = current_key_frame;
+    auto pKF = current_key_frame;
     while (pKF->previous_key_frame)
     {
         lpKF.push_front(pKF);
@@ -1544,14 +1543,14 @@ void local_mapping::refine_scale()
     Sophus::SO3d so3wg(imu_world_rotation);
     // Before this line we are not changing the map
     unique_lock<mutex> lock(owner_atlas->get_current_map()->map_update_mutex);
-    if ((fabs(scale - 1.f) > 0.002) || !monocular)
+    if (fabs(scale - 1.f) > 0.002 || !monocular)
     {
-        Sophus::SE3f Tgw(imu_world_rotation.cast<float>().transpose(), Eigen::Vector3f::Zero());
+        const Sophus::SE3f Tgw(imu_world_rotation.cast<float>().transpose(), Eigen::Vector3f::Zero());
         owner_atlas->get_current_map()->apply_scaled_rotation(*_cameras[0], Tgw, scale, true);
         tracker->update_frame_imu(scale, current_key_frame->get_imu_bias(), current_key_frame);
     }
 
-    for (list<key_frame *>::iterator lit = new_key_frames.begin(), lend = new_key_frames.end(); lit != lend; lit++)
+    for (auto lit = new_key_frames.begin(), lend = new_key_frames.end(); lit != lend; lit++)
     {
         (*lit)->set_bad_flag();
         delete *lit;
@@ -1564,9 +1563,9 @@ void local_mapping::refine_scale()
     return;
 }
 
-bool local_mapping::is_initializing() { return initializing; }
+bool local_mapping::is_initializing() const { return initializing; }
 
-double local_mapping::get_current_key_frame_time()
+double local_mapping::get_current_key_frame_time() const
 {
 
     if (current_key_frame)
@@ -1579,6 +1578,6 @@ double local_mapping::get_current_key_frame_time()
     }
 }
 
-key_frame *local_mapping::get_current_key_frame() { return current_key_frame; }
+key_frame *local_mapping::get_current_key_frame() const { return current_key_frame; }
 
 } // namespace ORB_SLAM3

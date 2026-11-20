@@ -36,21 +36,21 @@ class kannala_brandt8 : public geometric_camera
         id   = next_id++;
         type = cam_fisheye;
     }
-    kannala_brandt8(const std::vector<float> _vParameters) : geometric_camera(_vParameters), lapping_area(2, 0), _precision(1e-6), _two_view_reconstruction(nullptr)
+    kannala_brandt8(const std::vector<float>& _vParameters) : geometric_camera(_vParameters), lapping_area(2, 0), _precision(1e-6), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 8);
         id   = next_id++;
         type = cam_fisheye;
     }
 
-    kannala_brandt8(const std::vector<float> _vParameters, const float precision_value)
+    kannala_brandt8(const std::vector<float>& _vParameters, const float precision_value)
         : geometric_camera(_vParameters), lapping_area(2, 0), _precision(precision_value), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 8);
         id   = next_id++;
         type = cam_fisheye;
     }
-    kannala_brandt8(kannala_brandt8 *pKannala) : geometric_camera(*pKannala), lapping_area(2, 0), _precision(pKannala->_precision), _two_view_reconstruction(nullptr)
+    kannala_brandt8(const kannala_brandt8 *pKannala) : geometric_camera(*pKannala), lapping_area(2, 0), _precision(pKannala->_precision), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 8);
         id   = next_id++;
@@ -105,9 +105,9 @@ class kannala_brandt8 : public geometric_camera
     friend std::ostream &operator<<(std::ostream &os, const kannala_brandt8 &kb);
     friend std::istream &operator>>(std::istream &is, kannala_brandt8 &kb);
 
-    float get_precision() { return _precision; }
+    float get_precision() const { return _precision; }
 
-    bool is_equal(geometric_camera &pCam);
+    bool is_equal(geometric_camera &pCam) const;
 
   private:
     const float _precision;

@@ -76,12 +76,12 @@ TEST_CASE("Ground truth aligns interpolated poses and optionally corrects scale"
     const ground_truth_file file;
     file.write("1 0 0 0 0 0 0 1\n2 1 0 0 0 0 0 1\n3 0 1 0 0 0 0 1\n4 1 1 0 0 0 0 1\n");
     const ORB_SLAM3::ground_truth_trajectory trajectory(file.path.string());
-    const Eigen::Matrix3d                    rotation = Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    const auto rotation = Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ()).toRotationMatrix();
     const Eigen::Vector3d                    translation(3, 4, 5);
-    for (const double scale : {1.0, 2.5})
+    for (const auto scale : {1.0, 2.5})
     {
         ORB_SLAM3::trajectory_samples estimate;
-        for (const double timestamp : {1.2, 1.6, 2.3, 2.8, 3.7})
+        for (const auto timestamp : {1.2, 1.6, 2.3, 2.8, 3.7})
         {
             const auto pose = trajectory.pose_at(timestamp);
             REQUIRE(pose.has_value());
@@ -168,7 +168,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
     random.fill(image, cv::RNG::UNIFORM, 0, 256);
     const ORB_SLAM3::ground_truth_trajectory           trajectory(file.path.string());
     std::vector<std::unique_ptr<ORB_SLAM3::key_frame>> keyframes;
-    for (const double timestamp : {1.25, 2.25, 3.25})
+    for (const auto timestamp : {1.25, 2.25, 3.25})
     {
         ORB_SLAM3::frame frame(timestamp, nullptr, 40);
         ORB_SLAM3::tracking::extract_features(frame, extractor, image, cameras);
@@ -197,7 +197,7 @@ TEST_CASE("Map view ground-truth layer renders and toggles independently", "[.vi
         map->erase_key_frame(keyframe.get());
     }
     REQUIRE(cv::norm(visible, drawer.render(640, 480, layers), cv::NORM_INF) == 0);
-    for (const double timestamp : {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0})
+    for (const auto timestamp : {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0})
     {
         drawer.set_current_camera_pose(trajectory.pose_at(timestamp)->cast<float>().inverse());
     }

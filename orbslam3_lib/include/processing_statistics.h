@@ -89,7 +89,7 @@ class processing_statistics
         _snapshot = {};
     }
 
-    void record_frame(frame_sample sample, clock::time_point completed = clock::now())
+    void record_frame(const frame_sample& sample, clock::time_point completed = clock::now())
     {
         const std::lock_guard lock(_mutex);
         _snapshot.frame = sample;

@@ -77,7 +77,7 @@ TEST_CASE("Viewer snapshots remain coherent across playback and UI threads", "[v
 
 TEST_CASE("Viewer reports camera-to-world ZYX orientation in degrees", "[viewer_statistics]")
 {
-    const float sign = GENERATE(-1.f, 1.f);
+    const auto sign = GENERATE(-1.f, 1.f);
     const auto  rotation =
         Eigen::AngleAxisf(sign * 0.7f, Eigen::Vector3f::UnitZ()) * Eigen::AngleAxisf(sign * 0.3f, Eigen::Vector3f::UnitY()) * Eigen::AngleAxisf(sign * 0.2f, Eigen::Vector3f::UnitX());
     const Sophus::SE3f camera_to_world{

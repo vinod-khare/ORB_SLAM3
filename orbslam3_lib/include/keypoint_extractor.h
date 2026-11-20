@@ -46,9 +46,9 @@ class keypoint_extractor
     // Mask is ignored in the current implementation.
     int operator()(cv::InputArray _image, cv::InputArray _mask, std::vector<keypoint> &_keypoints, cv::OutputArray _descriptors, std::vector<int> &vLappingArea);
 
-    int inline get_levels() { return level_count; }
+    int inline get_levels() const { return level_count; }
 
-    float inline get_scale_factor() { return scale_factor; }
+    float inline get_scale_factor() const { return scale_factor; }
 
     std::vector<float> inline get_scale_factors() { return scale_factors; }
 
@@ -65,10 +65,10 @@ class keypoint_extractor
     std::vector<cv::Mat> image_pyramid;
 
   protected:
-    void compute_pyramid(cv::Mat image);
-    void compute_keypoints(std::vector<std::vector<cv::KeyPoint>> &allKeypoints, std::vector<std::vector<cv::KeyPoint>> &display_keypoints);
+    void compute_pyramid(const cv::Mat& image);
+    void compute_keypoints(std::vector<std::vector<cv::KeyPoint>> &allKeypoints, std::vector<std::vector<cv::KeyPoint>> &display_keypoints) const;
     std::vector<cv::KeyPoint>
-    distribute_keypoints(const std::vector<cv::KeyPoint> &vToDistributeKeys, const int &minX, const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
+    distribute_keypoints(const std::vector<cv::KeyPoint> &vToDistributeKeys, const int &minX, const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level) const;
 
     int    feature_count;
     double scale_factor;
@@ -87,7 +87,7 @@ class keypoint_extractor
 
   private:
     void detect_corners_in_cell(const cv::Mat &cell, std::vector<cv::KeyPoint> &keypoints, int threshold) const;
-    void detect_keypoints(int level, int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints);
+    void detect_keypoints(int level, int min_x, int max_x, int min_y, int max_y, std::vector<cv::KeyPoint> &keypoints) const;
 
     keypoint_detector_type   _detector_type;
     cv::Ptr<cv::Feature2D>   _detector;

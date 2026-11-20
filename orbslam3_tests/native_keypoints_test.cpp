@@ -119,8 +119,8 @@ TEST_CASE("Keypoints expose undistorted coordinates without changing image coord
 TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometry", "[undistorted_keypoints]")
 {
     const auto               distortion_coefficient = GENERATE(0.f, -0.1f);
-    const cv::Mat            calibration            = cv::Mat(cv::Matx33f(200, 0, 128, 0, 200, 128, 0, 0, 1));
-    const cv::Mat            distortion             = cv::Mat(cv::Vec4f(distortion_coefficient, 0, 0, 0));
+    const auto calibration            = cv::Mat(cv::Matx33f(200, 0, 128, 0, 200, 128, 0, 0, 1));
+    const auto distortion             = cv::Mat(cv::Vec4f(distortion_coefficient, 0, 0, 0));
     const cv::Mat            image                  = cv::Mat::zeros(256, 256, CV_8U);
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 128, 128}));
@@ -157,7 +157,7 @@ TEST_CASE("Frames and keyframes use embedded undistorted coordinates for geometr
 
     ORB_SLAM3::map         map;
     ORB_SLAM3::key_frame   keyframe(frame, &map, nullptr);
-    const ORB_SLAM3::frame copied(frame);
+    const auto copied(frame);
     REQUIRE(keyframe.keypoints.front().pt == key.pt);
     REQUIRE(keyframe.keypoints.front().pt_undistorted == frame.keypoints.front().pt_undistorted);
     REQUIRE(copied.keypoints.front().pt_undistorted == frame.keypoints.front().pt_undistorted);
@@ -184,7 +184,7 @@ TEST_CASE("Initialization matching filters using tracking rather than native ori
     ORB_SLAM3::frame         first(0.0, nullptr, 40);
     ORB_SLAM3::frame         second(1.0, nullptr, 40);
     std::vector<cv::Point2f> positions;
-    for (int index = 0; index < 12; ++index)
+    for (auto index = 0; index < 12; ++index)
     {
         const cv::Point2f   position(30.f + 20.f * (index % 4), 30.f + 20.f * (index / 4));
         ORB_SLAM3::keypoint key(cv::KeyPoint(position, 7.f, -1.f), 0.f);
@@ -211,7 +211,7 @@ TEST_CASE("Frames use the camera supplied for each operation", "[camera_calibrat
     second_camera.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 200, 60, 60}));
     first_camera[0]->set_baseline(0.1f);
     second_camera[0]->set_baseline(0.2f);
-    cv::Mat distortion = cv::Mat(cv::Vec4f(-0.2f, 0, 0, 0));
+    auto distortion = cv::Mat(cv::Vec4f(-0.2f, 0, 0, 0));
     second_camera[0]->set_distortion_coefficients(distortion);
     distortion.setTo(0);
     REQUIRE_THROWS(second_camera[0]->set_distortion_coefficients(cv::Mat::zeros(3, 1, CV_32F)));
@@ -268,8 +268,8 @@ TEST_CASE("Keyframe geometry uses explicitly supplied cameras", "[camera_calibra
     cameras.clear();
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{200, 250, 60, 70}));
     cameras[0]->set_baseline(0.2f);
-    const int     coefficient_count = GENERATE(4, 5);
-    const cv::Mat distortion        = cv::Mat(cv::Vec<float, 5>(-0.1f, 0.02f, 0.003f, -0.004f, 0.01f));
+    const auto coefficient_count = GENERATE(4, 5);
+    const auto distortion        = cv::Mat(cv::Vec<float, 5>(-0.1f, 0.02f, 0.003f, -0.004f, 0.01f));
     cameras[0]->set_distortion_coefficients(distortion.rowRange(0, coefficient_count));
 
     Eigen::Vector3f unprojected;
@@ -340,7 +340,7 @@ TEST_CASE("Keyframe stereo poses read camera extrinsics", "[camera_calibration]"
     ORB_SLAM3::kannala_brandt8 camera(std::vector<float>{100, 100, 80, 80, 0, 0, 0, 0});
     const Sophus::SE3f         extrinsics(Sophus::SO3f::exp(Eigen::Vector3f(-0.1f, 0.1f, 0)), Eigen::Vector3f(0.2f, 0.01f, 0));
     camera.set_left_to_right_pose(extrinsics);
-    const Sophus::SE3f right_pose = extrinsics.inverse() * pose;
+    const auto right_pose = extrinsics.inverse() * pose;
     REQUIRE(keyframe.get_relative_pose_tlr(camera).matrix().isApprox(extrinsics.matrix()));
     REQUIRE(keyframe.get_relative_pose_trl(camera).matrix().isApprox(extrinsics.inverse().matrix()));
     REQUIRE(keyframe.get_right_pose(camera).matrix().isApprox(right_pose.matrix()));
@@ -349,7 +349,7 @@ TEST_CASE("Keyframe stereo poses read camera extrinsics", "[camera_calibration]"
     REQUIRE(keyframe.get_right_rotation(camera).isApprox(right_pose.rotationMatrix()));
     REQUIRE(keyframe.get_right_translation(camera).isApprox(right_pose.translation()));
 
-    const Eigen::Vector3f world_point = pose.inverse() * Eigen::Vector3f(0.2f, 0.3f, 2.f);
+    const auto world_point = pose.inverse() * Eigen::Vector3f(0.2f, 0.3f, 2.f);
     ORB_SLAM3::map_point  point(world_point, &keyframe, &map);
     point.add_observation(&keyframe, 1);
     REQUIRE(point.get_observation_count() == 1);
@@ -362,22 +362,22 @@ TEST_CASE("Map point colors sample original pixels in RGB order", "[point_color]
     ORB_SLAM3::frame frame;
     frame.keypoints                             = {cv::KeyPoint(1.f, 1.f, 1.f), cv::KeyPoint(-1.f, 0.f, 1.f), cv::KeyPoint(2.9f, 2.9f, 1.f)};
     frame.keypoints.front().pt_undistorted      = cv::Point2f(0.f, 0.f);
-    const int channels                          = GENERATE(1, 3, 4);
+    const auto channels                          = GENERATE(1, 3, 4);
     frame.color_image                           = cv::Mat(3, 3, CV_MAKETYPE(CV_8U, channels), cv::Scalar(10, 20, 30, 40));
-    const std::array<unsigned char, 3> expected = channels == 1 ? std::array<unsigned char, 3>{10, 10, 10} : std::array<unsigned char, 3>{30, 20, 10};
+    const auto expected = channels == 1 ? std::array<unsigned char, 3>{10, 10, 10} : std::array<unsigned char, 3>{30, 20, 10};
     REQUIRE(frame.keypoint_color(0) == expected);
     REQUIRE(frame.keypoint_color(2) == expected);
-    const std::array<unsigned char, 3> white{255, 255, 255};
+    constexpr std::array<unsigned char, 3> white{255, 255, 255};
     REQUIRE(frame.keypoint_color(-1) == white);
     REQUIRE(frame.keypoint_color(1) == white);
     REQUIRE(frame.keypoint_color(3) == white);
     frame.color_is_rgb                     = true;
-    const std::array<unsigned char, 3> rgb = channels == 1 ? expected : std::array<unsigned char, 3>{10, 20, 30};
+    const auto rgb = channels == 1 ? expected : std::array<unsigned char, 3>{10, 20, 30};
     REQUIRE(frame.keypoint_color(0) == rgb);
     frame.is_fisheye_stereo = true;
     frame.right_keypoints   = {cv::KeyPoint(0.f, 0.f, 1.f)};
     frame.color_image_right = cv::Mat(1, 1, CV_8UC1, cv::Scalar(70));
-    const std::array<unsigned char, 3> gray{70, 70, 70};
+    constexpr std::array<unsigned char, 3> gray{70, 70, 70};
     REQUIRE(frame.keypoint_color(3) == gray);
     frame.color_image.release();
     REQUIRE(frame.keypoint_color(0) == white);
@@ -397,7 +397,7 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     REQUIRE(frame.extraction_ms > 0);
     REQUIRE(frame.stereo_matching_ms >= 0);
     frame.optical_flow_ms = 2.0;
-    const ORB_SLAM3::frame copied(frame);
+    const auto copied(frame);
     REQUIRE(copied.extraction_ms == frame.extraction_ms);
     REQUIRE(copied.stereo_matching_ms == frame.stereo_matching_ms);
     REQUIRE(copied.optical_flow_ms == frame.optical_flow_ms);
@@ -414,10 +414,10 @@ TEST_CASE("Map points retain their first observation color", "[point_color]")
     ORB_SLAM3::key_frame colored_keyframe(frame, &map, nullptr);
     REQUIRE_FALSE(colored_keyframe.is_fisheye_stereo);
     REQUIRE(colored_keyframe.keypoints[0].color == frame.keypoint_color(0));
-    const std::array<unsigned char, 3> second_color{10, 40, 220};
+    constexpr std::array<unsigned char, 3> second_color{10, 40, 220};
     REQUIRE(colored_keyframe.keypoints[1].color == second_color);
-    ORB_SLAM3::map_point               point;
-    const std::array<unsigned char, 3> white{255, 255, 255};
+    ORB_SLAM3::map_point                   point;
+    constexpr std::array<unsigned char, 3> white{255, 255, 255};
     REQUIRE(point.color() == white);
     point.add_observation(&colored_keyframe, 0);
     REQUIRE(point.color() == colored_keyframe.keypoints[0].color);
@@ -456,7 +456,7 @@ TEST_CASE("Keypoints retain native detector metadata and separate tracking orien
     std::vector<int>                 overlap{100, 200};
     std::vector<ORB_SLAM3::keypoint> tracking_keys;
     cv::Mat                          descriptors;
-    const int                        mono_count = extractor(image, cv::noArray(), tracking_keys, descriptors, overlap);
+    const auto mono_count = extractor(image, cv::noArray(), tracking_keys, descriptors, overlap);
     REQUIRE_FALSE(tracking_keys.empty());
     REQUIRE(descriptors.rows == static_cast<int>(tracking_keys.size()));
     REQUIRE(descriptors.cols == 32);
@@ -466,7 +466,7 @@ TEST_CASE("Keypoints retain native detector metadata and separate tracking orien
 
     auto       raw_detector = reference_detector(type);
     const auto scales       = extractor.get_scale_factors();
-    for (int level = 0; level < extractor.get_levels(); ++level)
+    for (auto level = 0; level < extractor.get_levels(); ++level)
     {
         std::vector<cv::KeyPoint> raw_keys;
         raw_detector->detect(extractor.image_pyramid[level], raw_keys);
@@ -480,7 +480,7 @@ TEST_CASE("Keypoints retain native detector metadata and separate tracking orien
             const auto &native = tracking_key;
             REQUIRE(tracking_key.tracking_angle >= 0);
             REQUIRE(tracking_key.tracking_angle < 360);
-            const bool in_overlap = native.pt.x >= overlap[0] && native.pt.x <= overlap[1];
+            const auto in_overlap = native.pt.x >= overlap[0] && native.pt.x <= overlap[1];
             REQUIRE(in_overlap == (index >= static_cast<std::size_t>(mono_count)));
             if (type == detector::fast || type == detector::agast)
             {

@@ -11,8 +11,6 @@
 #include <sstream>
 #include <type_traits>
 
-#include <opencv2/calib3d.hpp>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
@@ -41,12 +39,12 @@ template <typename Camera> void check_pnp_with_outliers(Camera &camera)
     std::vector<cv::Point3f> world_points;
     std::vector<cv::Point2f> image_points;
     std::vector<float>       max_errors;
-    Eigen::Matrix3f          rotation = Eigen::AngleAxisf(0.08f, Eigen::Vector3f::UnitY()).toRotationMatrix();
+    auto rotation = Eigen::AngleAxisf(0.08f, Eigen::Vector3f::UnitY()).toRotationMatrix();
     const Eigen::Vector3f    translation(0.2f, -0.1f, 0.3f);
 
-    for (int i = 0; i < 40; ++i)
+    for (auto i = 0; i < 40; ++i)
     {
-        const Eigen::Vector3f point((i % 5 - 2) * 0.35f, (i / 5 - 3) * 0.22f, 3.0f + (i % 7) * 0.25f);
+        const Eigen::Vector3f point((i % 5 - 2) * 0.35f, (i / 5 - 3) * 0.22f, 3.0f + i % 7 * 0.25f);
         const Eigen::Vector3f camera_point = rotation * point + translation;
         const Eigen::Vector2f projected    = camera.project(camera_point);
         world_points.emplace_back(point.x(), point.y(), point.z());
@@ -54,7 +52,7 @@ template <typename Camera> void check_pnp_with_outliers(Camera &camera)
         max_errors.push_back(4.0f);
     }
 
-    for (int i = 0; i < 10; ++i)
+    for (auto i = 0; i < 10; ++i)
     {
         image_points[i].x += 80.0f;
         image_points[i].y -= 55.0f;
@@ -111,7 +109,7 @@ TEST_CASE("Optimizer edges bind their camera reference at construction", "[camer
     static_assert(!std::is_default_constructible_v<ORB_SLAM3::edge_se3_project_xyz>);
     ORB_SLAM3::camera_vector cameras;
     cameras.push_back(std::make_unique<ORB_SLAM3::pinhole>(std::vector<float>{500, 510, 320, 240}));
-    ORB_SLAM3::edge_se3_project_xyz_only_pose edge(*cameras[0]);
+    const ORB_SLAM3::edge_se3_project_xyz_only_pose edge(*cameras[0]);
     REQUIRE(&edge.camera == cameras[0].get());
     const Eigen::Vector3f point(0, 0, 1);
     REQUIRE(edge.camera.project(point).isApprox(Eigen::Vector2f(320, 240)));
@@ -119,9 +117,9 @@ TEST_CASE("Optimizer edges bind their camera reference at construction", "[camer
 
 TEST_CASE("Inertial camera poses update only their modeled stereo observations", "[camera_rig]")
 {
-    const bool               fisheye = GENERATE(false, true);
+    const auto fisheye = GENERATE(false, true);
     ORB_SLAM3::camera_vector cameras;
-    for (int camera_index = 0; camera_index < 2; ++camera_index)
+    for (auto camera_index = 0; camera_index < 2; ++camera_index)
     {
         if (fisheye)
         {
@@ -136,9 +134,9 @@ TEST_CASE("Inertial camera poses update only their modeled stereo observations",
     frame.set_pose(Sophus::SE3f{});
     frame.set_velocity(Eigen::Vector3f::Zero());
     cameras[0]->set_baseline(20.0f / 500.0f);
-    ORB_SLAM3::imu::calib       calibration(Sophus::SE3f{}, 1, 1, 1, 1);
-    ORB_SLAM3::imu_cam_pose     pose(&frame, cameras, calibration);
-    const std::array<double, 6> update{};
+    ORB_SLAM3::imu::calib           calibration(Sophus::SE3f{}, 1, 1, 1, 1);
+    ORB_SLAM3::imu_cam_pose         pose(&frame, cameras, calibration);
+    constexpr std::array<double, 6> update{};
     pose.update(update.data());
     pose.update_world_reference(update.data());
     REQUIRE(pose.cameras.data() == cameras.data());

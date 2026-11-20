@@ -152,8 +152,8 @@ bool two_view_reconstruction::reconstruct_model(
         translations = {translation, translation, -translation, -translation};
     }
 
-    int   best_good        = 0;
-    int   second_best_good = 0;
+    auto best_good        = 0;
+    auto second_best_good = 0;
     float best_parallax    = 0;
 
     Sophus::SE3f             best_pose;

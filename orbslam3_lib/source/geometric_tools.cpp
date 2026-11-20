@@ -43,8 +43,8 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
         return false;
     }
 
-    const bool is_fisheye      = camera.get_type() == geometric_camera::cam_fisheye;
-    double     max_pixel_error = 0.0;
+    const auto is_fisheye      = camera.get_type() == geometric_camera::cam_fisheye;
+    auto max_pixel_error = 0.0;
     for (size_t i = 0; i < image_points.size(); ++i)
     {
         if (max_errors[i] <= 0.0f)
@@ -54,7 +54,7 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
         max_pixel_error = std::max(max_pixel_error, static_cast<double>(max_errors[i]));
     }
 
-    cv::Mat camera_matrix = cv::Mat(cv::Matx33d(camera.get_parameter(0), 0.0, camera.get_parameter(2), 0.0, camera.get_parameter(1), camera.get_parameter(3), 0.0, 0.0, 1.0));
+    auto camera_matrix = cv::Mat(cv::Matx33d(camera.get_parameter(0), 0.0, camera.get_parameter(2), 0.0, camera.get_parameter(1), camera.get_parameter(3), 0.0, 0.0, 1.0));
     cv::Mat distortion_coefficients;
     if (is_fisheye)
     {
@@ -64,11 +64,11 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
     cv::Mat          rotation_vector;
     cv::Mat          translation_vector;
     std::vector<int> ransac_inliers;
-    const double     reprojection_threshold = std::sqrt(max_pixel_error);
+    const auto reprojection_threshold = std::sqrt(max_pixel_error);
 
     try
     {
-        bool solved = false;
+        auto solved = false;
 #if CV_VERSION_MAJOR > 4 || (CV_VERSION_MAJOR == 4 && CV_VERSION_MINOR >= 12)
         if (is_fisheye)
         {
@@ -131,7 +131,7 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
         refine_world_points.reserve(ransac_inliers.size());
         refine_image_points.reserve(ransac_inliers.size());
 
-        for (const int index : ransac_inliers)
+        for (const auto index : ransac_inliers)
         {
             refine_world_points.push_back(world_points[index]);
             refine_image_points.push_back(image_points[index]);
@@ -153,9 +153,9 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
 
         Eigen::Matrix4f candidate_pose = Eigen::Matrix4f::Identity();
 
-        for (int row = 0; row < 3; ++row)
+        for (auto row = 0; row < 3; ++row)
         {
-            for (int col = 0; col < 3; ++col)
+            for (auto col = 0; col < 3; ++col)
             {
                 candidate_pose(row, col) = rotation.at<float>(row, col);
             }
@@ -166,7 +166,7 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
         const auto classify_inliers = [&](std::vector<bool> &mask)
         {
             mask.assign(world_points.size(), false);
-            int count = 0;
+            auto count = 0;
 
             for (size_t i = 0; i < world_points.size(); ++i)
             {
@@ -178,7 +178,7 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
                     continue;
                 }
 
-                const Eigen::Vector2f projected = camera.project(camera_point);
+                const auto projected = camera.project(camera_point);
                 const Eigen::Vector2f observed(image_points[i].x, image_points[i].y);
 
                 if ((projected - observed).squaredNorm() < max_errors[i])
@@ -221,9 +221,9 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
         rotation.convertTo(rotation, CV_32F);
         translation_vector.convertTo(translation_vector, CV_32F);
 
-        for (int row = 0; row < 3; ++row)
+        for (auto row = 0; row < 3; ++row)
         {
-            for (int col = 0; col < 3; ++col)
+            for (auto col = 0; col < 3; ++col)
             {
                 candidate_pose(row, col) = rotation.at<float>(row, col);
             }
@@ -248,21 +248,21 @@ bool geometric_tools::solve_pnp_ransac(const std::vector<cv::Point3f> &world_poi
 
 Eigen::Matrix3f geometric_tools::compute_f12(key_frame *&key_frame1, key_frame *&key_frame2, geometric_camera &camera1, geometric_camera &camera2)
 {
-    Sophus::SE3<float>                    camera1_from_world      = key_frame1->get_pose();
-    Sophus::Matrix3<float>                rotation1_from_world    = camera1_from_world.rotationMatrix();
-    Sophus::SE3<float>::TranslationMember translation1_from_world = camera1_from_world.translation();
+    auto camera1_from_world      = key_frame1->get_pose();
+    const auto rotation1_from_world    = camera1_from_world.rotationMatrix();
+    const auto translation1_from_world = camera1_from_world.translation();
 
-    Sophus::SE3<float>                    camera2_from_world      = key_frame2->get_pose();
-    Sophus::Matrix3<float>                rotation2_from_world    = camera2_from_world.rotationMatrix();
-    Sophus::SE3<float>::TranslationMember translation2_from_world = camera2_from_world.translation();
+    auto camera2_from_world      = key_frame2->get_pose();
+    auto rotation2_from_world    = camera2_from_world.rotationMatrix();
+    const auto translation2_from_world = camera2_from_world.translation();
 
-    Sophus::Matrix3<float> rotation1_from_camera2    = rotation1_from_world * rotation2_from_world.transpose();
-    Eigen::Vector3f        translation1_from_camera2 = -rotation1_from_camera2 * translation2_from_world + translation1_from_world;
+    const Sophus::Matrix3<float> rotation1_from_camera2    = rotation1_from_world * rotation2_from_world.transpose();
+    const Eigen::Vector3f        translation1_from_camera2 = -rotation1_from_camera2 * translation2_from_world + translation1_from_world;
 
-    Eigen::Matrix3f translation_skew = Sophus::SO3f::hat(translation1_from_camera2);
+    const auto translation_skew = Sophus::SO3f::hat(translation1_from_camera2);
 
-    const Eigen::Matrix3f calibration1 = camera1.to_k_eigen();
-    const Eigen::Matrix3f calibration2 = camera2.to_k_eigen();
+    const auto calibration1 = camera1.to_k_eigen();
+    const auto calibration2 = camera2.to_k_eigen();
 
     return calibration1.transpose().inverse() * translation_skew * rotation1_from_camera2 * calibration2.inverse();
 }
@@ -276,7 +276,7 @@ bool geometric_tools::triangulate(
     system.block<1, 4>(2, 0) = x_c2(0) * camera2_from_world.block<1, 4>(2, 0) - camera2_from_world.block<1, 4>(0, 0);
     system.block<1, 4>(3, 0) = x_c2(1) * camera2_from_world.block<1, 4>(2, 0) - camera2_from_world.block<1, 4>(1, 0);
 
-    Eigen::JacobiSVD<Eigen::Matrix4f> svd(system, Eigen::ComputeFullV);
+    const Eigen::JacobiSVD<Eigen::Matrix4f> svd(system, Eigen::ComputeFullV);
 
     Eigen::Vector4f homogeneous_point = svd.matrixV().col(3);
 

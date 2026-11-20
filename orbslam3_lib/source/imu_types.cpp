@@ -26,12 +26,11 @@ namespace ORB_SLAM3
 
 namespace imu
 {
-
-const float eps = 1e-4;
+    constexpr float eps = 1e-4;
 
 Eigen::Matrix3f normalize_rotation(const Eigen::Matrix3f &R)
 {
-    Eigen::JacobiSVD<Eigen::Matrix3f> svd(R, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    const Eigen::JacobiSVD<Eigen::Matrix3f> svd(R, Eigen::ComputeFullU | Eigen::ComputeFullV);
     return svd.matrixU() * svd.matrixV().transpose();
 }
 
@@ -39,11 +38,11 @@ Eigen::Matrix3f right_jacobian_so3(const float &x, const float &y, const float &
 {
     Eigen::Matrix3f I;
     I.setIdentity();
-    const float     d2 = x * x + y * y + z * z;
-    const float     d  = sqrt(d2);
+    const auto d2 = x * x + y * y + z * z;
+    const auto d  = sqrt(d2);
     Eigen::Vector3f v;
     v << x, y, z;
-    Eigen::Matrix3f W = Sophus::SO3f::hat(v);
+    const auto W = Sophus::SO3f::hat(v);
     if (d < eps)
     {
         return I;
@@ -60,11 +59,11 @@ Eigen::Matrix3f inverse_right_jacobian_so3(const float &x, const float &y, const
 {
     Eigen::Matrix3f I;
     I.setIdentity();
-    const float     d2 = x * x + y * y + z * z;
-    const float     d  = sqrt(d2);
+    const auto d2 = x * x + y * y + z * z;
+    const auto d  = sqrt(d2);
     Eigen::Vector3f v;
     v << x, y, z;
-    Eigen::Matrix3f W = Sophus::SO3f::hat(v);
+    const auto W = Sophus::SO3f::hat(v);
 
     if (d < eps)
     {
@@ -80,16 +79,16 @@ Eigen::Matrix3f inverse_right_jacobian_so3(const Eigen::Vector3f &v) { return in
 
 integrated_rotation::integrated_rotation(const Eigen::Vector3f &angular_velocity, const bias &imu_bias, const float &time)
 {
-    const float x = (angular_velocity(0) - imu_bias.bwx) * time;
-    const float y = (angular_velocity(1) - imu_bias.bwy) * time;
-    const float z = (angular_velocity(2) - imu_bias.bwz) * time;
+    const auto x = (angular_velocity(0) - imu_bias.bwx) * time;
+    const auto y = (angular_velocity(1) - imu_bias.bwy) * time;
+    const auto z = (angular_velocity(2) - imu_bias.bwz) * time;
 
-    const float d2 = x * x + y * y + z * z;
-    const float d  = sqrt(d2);
+    const auto d2 = x * x + y * y + z * z;
+    const auto d  = sqrt(d2);
 
     Eigen::Vector3f v;
     v << x, y, z;
-    Eigen::Matrix3f W = Sophus::SO3f::hat(v);
+    const auto W = Sophus::SO3f::hat(v);
     if (d < eps)
     {
         delta_rotation = Eigen::Matrix3f::Identity() + W;
@@ -110,7 +109,7 @@ preintegrated::preintegrated(const bias &bias_value, const calib &calibration)
 }
 
 // Copy constructor
-preintegrated::preintegrated(preintegrated *previous_preintegration)
+preintegrated::preintegrated(const preintegrated *previous_preintegration)
     : delta_time(previous_preintegration->delta_time), covariance(previous_preintegration->covariance), information(previous_preintegration->information),
       noise_covariance(previous_preintegration->noise_covariance), noise_random_walk_covariance(previous_preintegration->noise_random_walk_covariance),
       original_bias(previous_preintegration->original_bias), delta_rotation(previous_preintegration->delta_rotation), delta_velocity(previous_preintegration->delta_velocity),
@@ -169,7 +168,7 @@ void preintegrated::initialize(const bias &bias_value)
 void preintegrated::reintegrate()
 {
     std::unique_lock<std::mutex>  lock(_mutex);
-    const std::vector<integrable> aux = _measurements;
+    const auto aux = _measurements;
     initialize(_updated_bias);
     for (size_t i = 0; i < aux.size(); i++)
     {
@@ -203,7 +202,7 @@ void preintegrated::integrate_new_measurement(const Eigen::Vector3f &acceleratio
     delta_velocity = delta_velocity + delta_rotation * acc * time_step;
 
     // Compute velocity and position parts of matrices A and B (rely on non-updated delta rotation)
-    Eigen::Matrix<float, 3, 3> Wacc = Sophus::SO3f::hat(acc);
+    const auto Wacc = Sophus::SO3f::hat(acc);
 
     A.block<3, 3>(3, 0) = -delta_rotation * time_step * Wacc;
     A.block<3, 3>(6, 0) = -0.5f * delta_rotation * time_step * time_step * Wacc;
@@ -253,8 +252,8 @@ void preintegrated::merge_previous(preintegrated *previous_preintegration)
     bav.bay = _updated_bias.bay;
     bav.baz = _updated_bias.baz;
 
-    const std::vector<integrable> aux1 = previous_preintegration->_measurements;
-    const std::vector<integrable> aux2 = _measurements;
+    const auto aux1 = previous_preintegration->_measurements;
+    const auto aux2 = _measurements;
 
     initialize(bav);
     for (size_t i = 0; i < aux1.size(); i++)
@@ -371,7 +370,7 @@ Eigen::Matrix<float, 6, 1> preintegrated::get_delta_bias()
     return _bias_difference;
 }
 
-void bias::copy_from(bias &original_bias)
+void bias::copy_from(const bias &original_bias)
 {
     bax = original_bias.bax;
     bay = original_bias.bay;
@@ -420,10 +419,10 @@ std::ostream &operator<<(std::ostream &out, const bias &original_bias)
 void calib::set(const Sophus::SE3<float> &body_to_camera_pose, const float &ng, const float &na, const float &ngw, const float &naw)
 {
     is_set           = true;
-    const float ng2  = ng * ng;
-    const float na2  = na * na;
-    const float ngw2 = ngw * ngw;
-    const float naw2 = naw * naw;
+    const auto ng2  = ng * ng;
+    const auto na2  = na * na;
+    const auto ngw2 = ngw * ngw;
+    const auto naw2 = naw * naw;
 
     // Sophus/Eigen
     body_to_camera = body_to_camera_pose;
