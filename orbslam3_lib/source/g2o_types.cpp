@@ -72,7 +72,7 @@ imu_cam_pose::imu_cam_pose(key_frame *pKF, camera_view cameras) : cameras(camera
     rotation_delta.setIdentity();
 }
 
-imu_cam_pose::imu_cam_pose(frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) : cameras(cameras), its(0)
+imu_cam_pose::imu_cam_pose(const frame *pF, const camera_vector &cameras, const imu::calib &imu_calibration) : cameras(cameras), its(0)
 {
     // Load IMU pose
     translation_world_body = pF->get_imu_position(imu_calibration).cast<double>();
@@ -121,7 +121,7 @@ imu_cam_pose::imu_cam_pose(frame *pF, const camera_vector &cameras, const imu::c
     rotation_delta.setIdentity();
 }
 
-imu_cam_pose::imu_cam_pose(Eigen::Matrix3d &_Rwc, Eigen::Vector3d &_twc, key_frame *pKF, camera_view cameras) : cameras(cameras), its(0)
+imu_cam_pose::imu_cam_pose(Eigen::Matrix3d &_Rwc, const Eigen::Vector3d &_twc, key_frame *pKF, camera_view cameras) : cameras(cameras), its(0)
 {
     // This is only for posegrpah, we do not care about multicamera
     translation_camera_world.resize(1);
@@ -170,7 +170,7 @@ void imu_cam_pose::set_parameters(
 
 Eigen::Vector2d imu_cam_pose::project(const Eigen::Vector3d &point_world, int cam_idx) const
 {
-    Eigen::Vector3d Xc = rotation_camera_world[cam_idx] * point_world + translation_camera_world[cam_idx];
+    const Eigen::Vector3d Xc = rotation_camera_world[cam_idx] * point_world + translation_camera_world[cam_idx];
 
     return cameras[cam_idx]->project(Xc);
 }
@@ -179,7 +179,7 @@ Eigen::Vector3d imu_cam_pose::project_stereo(const Eigen::Vector3d &point_world,
 {
     Eigen::Vector3d Pc = rotation_camera_world[cam_idx] * point_world + translation_camera_world[cam_idx];
     Eigen::Vector3d pc;
-    double          invZ = 1 / Pc(2);
+    const auto invZ = 1 / Pc(2);
     pc.head(2)           = cameras[cam_idx]->project(Pc);
     pc(2)                = pc(0) - bf * invZ;
     return pc;
@@ -187,7 +187,7 @@ Eigen::Vector3d imu_cam_pose::project_stereo(const Eigen::Vector3d &point_world,
 
 bool imu_cam_pose::is_depth_positive(const Eigen::Vector3d &point_world, int cam_idx) const
 {
-    return (rotation_camera_world[cam_idx].row(2) * point_world + translation_camera_world[cam_idx](2)) > 0.0;
+    return rotation_camera_world[cam_idx].row(2) * point_world + translation_camera_world[cam_idx](2) > 0.0;
 }
 
 void imu_cam_pose::update(const double *pu)
@@ -225,7 +225,7 @@ void imu_cam_pose::update_world_reference(const double *pu)
     ur << pu[0], pu[1], pu[2];
     ut << pu[3], pu[4], pu[5];
 
-    const Eigen::Matrix3d dR = exp_so3(ur);
+    const auto dR = exp_so3(ur);
     rotation_delta           = dR * rotation_delta;
     rotation_world_body      = rotation_delta * initial_rotation_world_body;
     // Update body pose
@@ -254,7 +254,7 @@ void imu_cam_pose::update_world_reference(const double *pu)
     }
 }
 
-inverse_depth_point::inverse_depth_point(double _rho, double _u, double _v, geometric_camera &camera)
+inverse_depth_point::inverse_depth_point(double _rho, double _u, double _v, const geometric_camera &camera)
     : rho(_rho), u(_u), v(_v), fx(camera.get_parameter(0)), fy(camera.get_parameter(1)), cx(camera.get_parameter(2)), cy(camera.get_parameter(3)), bf(camera.baseline_fx())
 {
 }
@@ -269,28 +269,28 @@ bool vertex_pose::read(std::istream &is)
     std::vector<Eigen::Matrix<double, 3, 1>> translation_body_camera(_estimate.translation_body_camera.size());
 
     const int num_cams = _estimate.rotation_body_camera.size();
-    for (int idx = 0; idx < num_cams; idx++)
+    for (auto idx = 0; idx < num_cams; idx++)
     {
-        for (int i = 0; i < 3; i++)
+        for (auto i = 0; i < 3; i++)
         {
-            for (int j = 0; j < 3; j++)
+            for (auto j = 0; j < 3; j++)
             {
                 is >> rotation_camera_world[idx](i, j);
             }
         }
-        for (int i = 0; i < 3; i++)
+        for (auto i = 0; i < 3; i++)
         {
             is >> translation_camera_world[idx](i);
         }
 
-        for (int i = 0; i < 3; i++)
+        for (auto i = 0; i < 3; i++)
         {
-            for (int j = 0; j < 3; j++)
+            for (auto j = 0; j < 3; j++)
             {
                 is >> rotation_body_camera[idx](i, j);
             }
         }
-        for (int i = 0; i < 3; i++)
+        for (auto i = 0; i < 3; i++)
         {
             is >> translation_body_camera[idx](i);
         }
@@ -315,36 +315,36 @@ bool vertex_pose::read(std::istream &is)
 
 bool vertex_pose::write(std::ostream &os) const
 {
-    std::vector<Eigen::Matrix<double, 3, 3>> rotation_camera_world    = _estimate.rotation_camera_world;
-    std::vector<Eigen::Matrix<double, 3, 1>> translation_camera_world = _estimate.translation_camera_world;
+    auto rotation_camera_world    = _estimate.rotation_camera_world;
+    auto translation_camera_world = _estimate.translation_camera_world;
 
-    std::vector<Eigen::Matrix<double, 3, 3>> rotation_body_camera    = _estimate.rotation_body_camera;
-    std::vector<Eigen::Matrix<double, 3, 1>> translation_body_camera = _estimate.translation_body_camera;
+    auto rotation_body_camera    = _estimate.rotation_body_camera;
+    auto translation_body_camera = _estimate.translation_body_camera;
 
     const int num_cams = translation_camera_world.size();
 
-    for (int idx = 0; idx < num_cams; idx++)
+    for (auto idx = 0; idx < num_cams; idx++)
     {
-        for (int i = 0; i < 3; i++)
+        for (auto i = 0; i < 3; i++)
         {
-            for (int j = 0; j < 3; j++)
+            for (auto j = 0; j < 3; j++)
             {
                 os << rotation_camera_world[idx](i, j) << " ";
             }
         }
-        for (int i = 0; i < 3; i++)
+        for (auto i = 0; i < 3; i++)
         {
             os << translation_camera_world[idx](i) << " ";
         }
 
-        for (int i = 0; i < 3; i++)
+        for (auto i = 0; i < 3; i++)
         {
-            for (int j = 0; j < 3; j++)
+            for (auto j = 0; j < 3; j++)
             {
                 os << rotation_body_camera[idx](i, j) << " ";
             }
         }
-        for (int i = 0; i < 3; i++)
+        for (auto i = 0; i < 3; i++)
         {
             os << translation_body_camera[idx](i) << " ";
         }
@@ -362,22 +362,22 @@ bool vertex_pose::write(std::ostream &os) const
 
 void edge_mono::linearizeOplus()
 {
-    const vertex_pose            *VPose  = static_cast<const vertex_pose *>(_vertices[1]);
-    const g2o::VertexSBAPointXYZ *VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+    const auto                   VPose  = static_cast<const vertex_pose *>(_vertices[1]);
+    const auto VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
 
-    const Eigen::Matrix3d &rotation_camera_world    = VPose->estimate().rotation_camera_world[cam_idx];
-    const Eigen::Vector3d &translation_camera_world = VPose->estimate().translation_camera_world[cam_idx];
-    const Eigen::Vector3d  Xc                       = rotation_camera_world * VPoint->estimate() + translation_camera_world;
-    const Eigen::Vector3d  Xb                       = VPose->estimate().rotation_body_camera[cam_idx] * Xc + VPose->estimate().translation_body_camera[cam_idx];
-    const Eigen::Matrix3d &rotation_camera_body     = VPose->estimate().rotation_camera_body[cam_idx];
+    const auto&             rotation_camera_world    = VPose->estimate().rotation_camera_world[cam_idx];
+    const auto&             translation_camera_world = VPose->estimate().translation_camera_world[cam_idx];
+    const Eigen::Vector3d   Xc                       = rotation_camera_world * VPoint->estimate() + translation_camera_world;
+    const Eigen::Vector3d   Xb                       = VPose->estimate().rotation_body_camera[cam_idx] * Xc + VPose->estimate().translation_body_camera[cam_idx];
+    const auto& rotation_camera_body     = VPose->estimate().rotation_camera_body[cam_idx];
 
-    const Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
+    const auto proj_jac = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
     _jacobianOplusXi                           = -proj_jac * rotation_camera_world;
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
-    double                      x = Xb(0);
-    double                      y = Xb(1);
-    double                      z = Xb(2);
+    const auto x = Xb(0);
+    const auto y = Xb(1);
+    const auto z = Xb(2);
 
     SE3deriv << 0.0, z, -y, 1.0, 0.0, 0.0, -z, 0.0, x, 0.0, 1.0, 0.0, y, -x, 0.0, 0.0, 0.0, 1.0;
 
@@ -386,36 +386,36 @@ void edge_mono::linearizeOplus()
 
 void edge_mono_only_pose::linearizeOplus()
 {
-    const vertex_pose *VPose = static_cast<const vertex_pose *>(_vertices[0]);
+    const auto VPose = static_cast<const vertex_pose *>(_vertices[0]);
 
-    const Eigen::Matrix3d &rotation_camera_world    = VPose->estimate().rotation_camera_world[cam_idx];
-    const Eigen::Vector3d &translation_camera_world = VPose->estimate().translation_camera_world[cam_idx];
-    const Eigen::Vector3d  Xc                       = rotation_camera_world * point_world + translation_camera_world;
-    const Eigen::Vector3d  Xb                       = VPose->estimate().rotation_body_camera[cam_idx] * Xc + VPose->estimate().translation_body_camera[cam_idx];
-    const Eigen::Matrix3d &rotation_camera_body     = VPose->estimate().rotation_camera_body[cam_idx];
+    const auto&             rotation_camera_world    = VPose->estimate().rotation_camera_world[cam_idx];
+    const auto&             translation_camera_world = VPose->estimate().translation_camera_world[cam_idx];
+    const Eigen::Vector3d   Xc                       = rotation_camera_world * point_world + translation_camera_world;
+    const Eigen::Vector3d   Xb                       = VPose->estimate().rotation_body_camera[cam_idx] * Xc + VPose->estimate().translation_body_camera[cam_idx];
+    const auto& rotation_camera_body     = VPose->estimate().rotation_camera_body[cam_idx];
 
-    Eigen::Matrix<double, 2, 3> proj_jac = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
+    const auto proj_jac = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
-    double                      x = Xb(0);
-    double                      y = Xb(1);
-    double                      z = Xb(2);
+    const auto x = Xb(0);
+    const auto y = Xb(1);
+    const auto z = Xb(2);
     SE3deriv << 0.0, z, -y, 1.0, 0.0, 0.0, -z, 0.0, x, 0.0, 1.0, 0.0, y, -x, 0.0, 0.0, 0.0, 1.0;
     _jacobianOplusXi = proj_jac * rotation_camera_body * SE3deriv; // symbol different becasue of update mode
 }
 
 void edge_stereo::linearizeOplus()
 {
-    const vertex_pose            *VPose  = static_cast<const vertex_pose *>(_vertices[1]);
-    const g2o::VertexSBAPointXYZ *VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
+    const auto                   VPose  = static_cast<const vertex_pose *>(_vertices[1]);
+    const auto VPoint = static_cast<const g2o::VertexSBAPointXYZ *>(_vertices[0]);
 
-    const Eigen::Matrix3d &rotation_camera_world    = VPose->estimate().rotation_camera_world[cam_idx];
-    const Eigen::Vector3d &translation_camera_world = VPose->estimate().translation_camera_world[cam_idx];
-    const Eigen::Vector3d  Xc                       = rotation_camera_world * VPoint->estimate() + translation_camera_world;
-    const Eigen::Vector3d  Xb                       = VPose->estimate().rotation_body_camera[cam_idx] * Xc + VPose->estimate().translation_body_camera[cam_idx];
-    const Eigen::Matrix3d &rotation_camera_body     = VPose->estimate().rotation_camera_body[cam_idx];
-    const double           bf                       = VPose->estimate().bf;
-    const double           inv_z2                   = 1.0 / (Xc(2) * Xc(2));
+    const auto&             rotation_camera_world    = VPose->estimate().rotation_camera_world[cam_idx];
+    const auto&             translation_camera_world = VPose->estimate().translation_camera_world[cam_idx];
+    const Eigen::Vector3d   Xc                       = rotation_camera_world * VPoint->estimate() + translation_camera_world;
+    const Eigen::Vector3d   Xb                       = VPose->estimate().rotation_body_camera[cam_idx] * Xc + VPose->estimate().translation_body_camera[cam_idx];
+    const auto& rotation_camera_body     = VPose->estimate().rotation_camera_body[cam_idx];
+    const auto bf                       = VPose->estimate().bf;
+    const auto inv_z2                   = 1.0 / (Xc(2) * Xc(2));
 
     Eigen::Matrix<double, 3, 3> proj_jac;
     proj_jac.block<2, 3>(0, 0)  = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
@@ -425,9 +425,9 @@ void edge_stereo::linearizeOplus()
     _jacobianOplusXi = -proj_jac * rotation_camera_world;
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
-    double                      x = Xb(0);
-    double                      y = Xb(1);
-    double                      z = Xb(2);
+    const auto x = Xb(0);
+    const auto y = Xb(1);
+    const auto z = Xb(2);
 
     SE3deriv << 0.0, z, -y, 1.0, 0.0, 0.0, -z, 0.0, x, 0.0, 1.0, 0.0, y, -x, 0.0, 0.0, 0.0, 1.0;
 
@@ -436,15 +436,15 @@ void edge_stereo::linearizeOplus()
 
 void edge_stereo_only_pose::linearizeOplus()
 {
-    const vertex_pose *VPose = static_cast<const vertex_pose *>(_vertices[0]);
+    const auto VPose = static_cast<const vertex_pose *>(_vertices[0]);
 
-    const Eigen::Matrix3d &rotation_camera_world    = VPose->estimate().rotation_camera_world[cam_idx];
-    const Eigen::Vector3d &translation_camera_world = VPose->estimate().translation_camera_world[cam_idx];
-    const Eigen::Vector3d  Xc                       = rotation_camera_world * point_world + translation_camera_world;
-    const Eigen::Vector3d  Xb                       = VPose->estimate().rotation_body_camera[cam_idx] * Xc + VPose->estimate().translation_body_camera[cam_idx];
-    const Eigen::Matrix3d &rotation_camera_body     = VPose->estimate().rotation_camera_body[cam_idx];
-    const double           bf                       = VPose->estimate().bf;
-    const double           inv_z2                   = 1.0 / (Xc(2) * Xc(2));
+    const auto&             rotation_camera_world    = VPose->estimate().rotation_camera_world[cam_idx];
+    const auto&             translation_camera_world = VPose->estimate().translation_camera_world[cam_idx];
+    const Eigen::Vector3d   Xc                       = rotation_camera_world * point_world + translation_camera_world;
+    const Eigen::Vector3d   Xb                       = VPose->estimate().rotation_body_camera[cam_idx] * Xc + VPose->estimate().translation_body_camera[cam_idx];
+    const auto& rotation_camera_body     = VPose->estimate().rotation_camera_body[cam_idx];
+    const auto bf                       = VPose->estimate().bf;
+    const auto inv_z2                   = 1.0 / (Xc(2) * Xc(2));
 
     Eigen::Matrix<double, 3, 3> proj_jac;
     proj_jac.block<2, 3>(0, 0)  = VPose->estimate().cameras[cam_idx]->project_jacobian(Xc);
@@ -452,20 +452,20 @@ void edge_stereo_only_pose::linearizeOplus()
     proj_jac(2, 2)             += bf * inv_z2;
 
     Eigen::Matrix<double, 3, 6> SE3deriv;
-    double                      x = Xb(0);
-    double                      y = Xb(1);
-    double                      z = Xb(2);
+    const auto x = Xb(0);
+    const auto y = Xb(1);
+    const auto z = Xb(2);
     SE3deriv << 0.0, z, -y, 1.0, 0.0, 0.0, -z, 0.0, x, 0.0, 1.0, 0.0, y, -x, 0.0, 0.0, 0.0, 1.0;
     _jacobianOplusXi = proj_jac * rotation_camera_body * SE3deriv;
 }
 
 vertex_velocity::vertex_velocity(key_frame *pKF) { setEstimate(pKF->get_velocity().cast<double>()); }
 
-vertex_velocity::vertex_velocity(frame *pF) { setEstimate(pF->get_velocity().cast<double>()); }
+vertex_velocity::vertex_velocity(const frame *pF) { setEstimate(pF->get_velocity().cast<double>()); }
 
 vertex_gyro_bias::vertex_gyro_bias(key_frame *pKF) { setEstimate(pKF->get_gyro_bias().cast<double>()); }
 
-vertex_gyro_bias::vertex_gyro_bias(frame *pF)
+vertex_gyro_bias::vertex_gyro_bias(const frame *pF)
 {
     Eigen::Vector3d bg;
     bg << pF->imu_bias.bwx, pF->imu_bias.bwy, pF->imu_bias.bwz;
@@ -474,7 +474,7 @@ vertex_gyro_bias::vertex_gyro_bias(frame *pF)
 
 vertex_acc_bias::vertex_acc_bias(key_frame *pKF) { setEstimate(pKF->get_accelerometer_bias().cast<double>()); }
 
-vertex_acc_bias::vertex_acc_bias(frame *pF)
+vertex_acc_bias::vertex_acc_bias(const frame *pF)
 {
     Eigen::Vector3d ba;
     ba << pF->imu_bias.bax, pF->imu_bias.bay, pF->imu_bias.baz;
@@ -492,9 +492,9 @@ edge_inertial::edge_inertial(imu::preintegrated *pInt)
 
     matrix_9d Info = pInt->covariance.block<9, 9>(0, 0).cast<double>().inverse();
     Info           = (Info + Info.transpose()) / 2;
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 9, 9>> es(Info);
-    Eigen::Matrix<double, 9, 1>                                eigs = es.eigenvalues();
-    for (int i = 0; i < 9; i++)
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 9, 9>> es(Info);
+    auto eigs = es.eigenvalues();
+    for (auto i = 0; i < 9; i++)
     {
         if (eigs[i] < 1e-12)
         {
@@ -508,18 +508,18 @@ edge_inertial::edge_inertial(imu::preintegrated *pInt)
 void edge_inertial::computeError()
 {
     // TODO Maybe reintegrate inertial measurments when difference between linearization point and current estimate is too big
-    const vertex_pose      *VP1 = static_cast<const vertex_pose *>(_vertices[0]);
-    const vertex_velocity  *VV1 = static_cast<const vertex_velocity *>(_vertices[1]);
-    const vertex_gyro_bias *VG1 = static_cast<const vertex_gyro_bias *>(_vertices[2]);
-    const vertex_acc_bias  *VA1 = static_cast<const vertex_acc_bias *>(_vertices[3]);
-    const vertex_pose      *VP2 = static_cast<const vertex_pose *>(_vertices[4]);
-    const vertex_velocity  *VV2 = static_cast<const vertex_velocity *>(_vertices[5]);
-    const imu::bias         b1(VA1->estimate()[0], VA1->estimate()[1], VA1->estimate()[2], VG1->estimate()[0], VG1->estimate()[1], VG1->estimate()[2]);
-    const Eigen::Matrix3d   dR = preintegration->get_delta_rotation(b1).cast<double>();
-    const Eigen::Vector3d   dV = preintegration->get_delta_velocity(b1).cast<double>();
-    const Eigen::Vector3d   dP = preintegration->get_delta_position(b1).cast<double>();
+    const auto                  VP1 = static_cast<const vertex_pose *>(_vertices[0]);
+    const auto                  VV1 = static_cast<const vertex_velocity *>(_vertices[1]);
+    const auto                  VG1 = static_cast<const vertex_gyro_bias *>(_vertices[2]);
+    const auto                  VA1 = static_cast<const vertex_acc_bias *>(_vertices[3]);
+    const auto                  VP2 = static_cast<const vertex_pose *>(_vertices[4]);
+    const auto VV2 = static_cast<const vertex_velocity *>(_vertices[5]);
+    const imu::bias       b1(VA1->estimate()[0], VA1->estimate()[1], VA1->estimate()[2], VG1->estimate()[0], VG1->estimate()[1], VG1->estimate()[2]);
+    const Eigen::Matrix3d dR = preintegration->get_delta_rotation(b1).cast<double>();
+    const Eigen::Vector3d dV = preintegration->get_delta_velocity(b1).cast<double>();
+    const Eigen::Vector3d dP = preintegration->get_delta_position(b1).cast<double>();
 
-    const Eigen::Vector3d er = log_so3(dR.transpose() * VP1->estimate().rotation_world_body.transpose() * VP2->estimate().rotation_world_body);
+    const auto er = log_so3(dR.transpose() * VP1->estimate().rotation_world_body.transpose() * VP2->estimate().rotation_world_body);
     const Eigen::Vector3d ev = VP1->estimate().rotation_world_body.transpose() * (VV2->estimate() - VV1->estimate() - g * dt) - dV;
     const Eigen::Vector3d ep =
         VP1->estimate().rotation_world_body.transpose() * (VP2->estimate().translation_world_body - VP1->estimate().translation_world_body - VV1->estimate() * dt - g * dt * dt / 2) - dP;
@@ -529,25 +529,25 @@ void edge_inertial::computeError()
 
 void edge_inertial::linearizeOplus()
 {
-    const vertex_pose      *VP1 = static_cast<const vertex_pose *>(_vertices[0]);
-    const vertex_velocity  *VV1 = static_cast<const vertex_velocity *>(_vertices[1]);
-    const vertex_gyro_bias *VG1 = static_cast<const vertex_gyro_bias *>(_vertices[2]);
-    const vertex_acc_bias  *VA1 = static_cast<const vertex_acc_bias *>(_vertices[3]);
-    const vertex_pose      *VP2 = static_cast<const vertex_pose *>(_vertices[4]);
-    const vertex_velocity  *VV2 = static_cast<const vertex_velocity *>(_vertices[5]);
-    const imu::bias         b1(VA1->estimate()[0], VA1->estimate()[1], VA1->estimate()[2], VG1->estimate()[0], VG1->estimate()[1], VG1->estimate()[2]);
-    const imu::bias         db = preintegration->get_delta_bias(b1);
-    Eigen::Vector3d         dbg;
+    const auto            VP1 = static_cast<const vertex_pose *>(_vertices[0]);
+    const auto            VV1 = static_cast<const vertex_velocity *>(_vertices[1]);
+    const auto            VG1 = static_cast<const vertex_gyro_bias *>(_vertices[2]);
+    const auto            VA1 = static_cast<const vertex_acc_bias *>(_vertices[3]);
+    const auto            VP2 = static_cast<const vertex_pose *>(_vertices[4]);
+    const auto VV2 = static_cast<const vertex_velocity *>(_vertices[5]);
+    const imu::bias b1(VA1->estimate()[0], VA1->estimate()[1], VA1->estimate()[2], VG1->estimate()[0], VG1->estimate()[1], VG1->estimate()[2]);
+    const auto db = preintegration->get_delta_bias(b1);
+    Eigen::Vector3d dbg;
     dbg << db.bwx, db.bwy, db.bwz;
 
-    const Eigen::Matrix3d Rwb1 = VP1->estimate().rotation_world_body;
+    const auto Rwb1 = VP1->estimate().rotation_world_body;
     const Eigen::Matrix3d Rbw1 = Rwb1.transpose();
-    const Eigen::Matrix3d Rwb2 = VP2->estimate().rotation_world_body;
+    const auto Rwb2 = VP2->estimate().rotation_world_body;
 
     const Eigen::Matrix3d dR    = preintegration->get_delta_rotation(b1).cast<double>();
     const Eigen::Matrix3d eR    = dR.transpose() * Rbw1 * Rwb2;
-    const Eigen::Vector3d er    = log_so3(eR);
-    const Eigen::Matrix3d invJr = inverse_right_jacobian_so3(er);
+    const auto er    = log_so3(eR);
+    const auto invJr = inverse_right_jacobian_so3(er);
 
     // Jacobians wrt Pose 1
     _jacobianOplus[0].setZero();
@@ -598,9 +598,9 @@ edge_inertial_gs::edge_inertial_gs(imu::preintegrated *pInt)
 
     matrix_9d Info = pInt->covariance.block<9, 9>(0, 0).cast<double>().inverse();
     Info           = (Info + Info.transpose()) / 2;
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 9, 9>> es(Info);
-    Eigen::Matrix<double, 9, 1>                                eigs = es.eigenvalues();
-    for (int i = 0; i < 9; i++)
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 9, 9>> es(Info);
+    auto eigs = es.eigenvalues();
+    for (auto i = 0; i < 9; i++)
     {
         if (eigs[i] < 1e-12)
         {
@@ -614,22 +614,22 @@ edge_inertial_gs::edge_inertial_gs(imu::preintegrated *pInt)
 void edge_inertial_gs::computeError()
 {
     // TODO Maybe reintegrate inertial measurments when difference between linearization point and current estimate is too big
-    const vertex_pose              *VP1   = static_cast<const vertex_pose *>(_vertices[0]);
-    const vertex_velocity          *VV1   = static_cast<const vertex_velocity *>(_vertices[1]);
-    const vertex_gyro_bias         *VG    = static_cast<const vertex_gyro_bias *>(_vertices[2]);
-    const vertex_acc_bias          *VA    = static_cast<const vertex_acc_bias *>(_vertices[3]);
-    const vertex_pose              *VP2   = static_cast<const vertex_pose *>(_vertices[4]);
-    const vertex_velocity          *VV2   = static_cast<const vertex_velocity *>(_vertices[5]);
-    const vertex_gravity_direction *VGDir = static_cast<const vertex_gravity_direction *>(_vertices[6]);
-    const vertex_scale             *VS    = static_cast<const vertex_scale *>(_vertices[7]);
-    const imu::bias                 b(VA->estimate()[0], VA->estimate()[1], VA->estimate()[2], VG->estimate()[0], VG->estimate()[1], VG->estimate()[2]);
+    const auto            VP1   = static_cast<const vertex_pose *>(_vertices[0]);
+    const auto            VV1   = static_cast<const vertex_velocity *>(_vertices[1]);
+    const auto            VG    = static_cast<const vertex_gyro_bias *>(_vertices[2]);
+    const auto            VA    = static_cast<const vertex_acc_bias *>(_vertices[3]);
+    const auto            VP2   = static_cast<const vertex_pose *>(_vertices[4]);
+    const auto            VV2   = static_cast<const vertex_velocity *>(_vertices[5]);
+    const auto            VGDir = static_cast<const vertex_gravity_direction *>(_vertices[6]);
+    const auto VS    = static_cast<const vertex_scale *>(_vertices[7]);
+    const imu::bias b(VA->estimate()[0], VA->estimate()[1], VA->estimate()[2], VG->estimate()[0], VG->estimate()[1], VG->estimate()[2]);
     g                        = VGDir->estimate().rotation_world_gravity * gravity_imu;
-    const double          s  = VS->estimate();
+    const auto s  = VS->estimate();
     const Eigen::Matrix3d dR = preintegration->get_delta_rotation(b).cast<double>();
     const Eigen::Vector3d dV = preintegration->get_delta_velocity(b).cast<double>();
     const Eigen::Vector3d dP = preintegration->get_delta_position(b).cast<double>();
 
-    const Eigen::Vector3d er = log_so3(dR.transpose() * VP1->estimate().rotation_world_body.transpose() * VP2->estimate().rotation_world_body);
+    const auto er = log_so3(dR.transpose() * VP1->estimate().rotation_world_body.transpose() * VP2->estimate().rotation_world_body);
     const Eigen::Vector3d ev = VP1->estimate().rotation_world_body.transpose() * (s * (VV2->estimate() - VV1->estimate()) - g * dt) - dV;
     const Eigen::Vector3d ep =
         VP1->estimate().rotation_world_body.transpose() * (s * (VP2->estimate().translation_world_body - VP1->estimate().translation_world_body - VV1->estimate() * dt) - g * dt * dt / 2) - dP;
@@ -639,33 +639,33 @@ void edge_inertial_gs::computeError()
 
 void edge_inertial_gs::linearizeOplus()
 {
-    const vertex_pose              *VP1   = static_cast<const vertex_pose *>(_vertices[0]);
-    const vertex_velocity          *VV1   = static_cast<const vertex_velocity *>(_vertices[1]);
-    const vertex_gyro_bias         *VG    = static_cast<const vertex_gyro_bias *>(_vertices[2]);
-    const vertex_acc_bias          *VA    = static_cast<const vertex_acc_bias *>(_vertices[3]);
-    const vertex_pose              *VP2   = static_cast<const vertex_pose *>(_vertices[4]);
-    const vertex_velocity          *VV2   = static_cast<const vertex_velocity *>(_vertices[5]);
-    const vertex_gravity_direction *VGDir = static_cast<const vertex_gravity_direction *>(_vertices[6]);
-    const vertex_scale             *VS    = static_cast<const vertex_scale *>(_vertices[7]);
-    const imu::bias                 b(VA->estimate()[0], VA->estimate()[1], VA->estimate()[2], VG->estimate()[0], VG->estimate()[1], VG->estimate()[2]);
-    const imu::bias                 db = preintegration->get_delta_bias(b);
+    const auto            VP1   = static_cast<const vertex_pose *>(_vertices[0]);
+    const auto            VV1   = static_cast<const vertex_velocity *>(_vertices[1]);
+    const auto            VG    = static_cast<const vertex_gyro_bias *>(_vertices[2]);
+    const auto            VA    = static_cast<const vertex_acc_bias *>(_vertices[3]);
+    const auto            VP2   = static_cast<const vertex_pose *>(_vertices[4]);
+    const auto            VV2   = static_cast<const vertex_velocity *>(_vertices[5]);
+    const auto            VGDir = static_cast<const vertex_gravity_direction *>(_vertices[6]);
+    const auto VS    = static_cast<const vertex_scale *>(_vertices[7]);
+    const imu::bias b(VA->estimate()[0], VA->estimate()[1], VA->estimate()[2], VG->estimate()[0], VG->estimate()[1], VG->estimate()[2]);
+    const auto db = preintegration->get_delta_bias(b);
 
     Eigen::Vector3d dbg;
     dbg << db.bwx, db.bwy, db.bwz;
 
-    const Eigen::Matrix3d Rwb1                   = VP1->estimate().rotation_world_body;
+    const auto Rwb1                   = VP1->estimate().rotation_world_body;
     const Eigen::Matrix3d Rbw1                   = Rwb1.transpose();
-    const Eigen::Matrix3d Rwb2                   = VP2->estimate().rotation_world_body;
-    const Eigen::Matrix3d rotation_world_gravity = VGDir->estimate().rotation_world_gravity;
+    const auto Rwb2                   = VP2->estimate().rotation_world_body;
+    const auto rotation_world_gravity = VGDir->estimate().rotation_world_gravity;
     Eigen::MatrixXd       Gm                     = Eigen::MatrixXd::Zero(3, 2);
     Gm(0, 1)                                     = -imu::gravity_value;
     Gm(1, 0)                                     = imu::gravity_value;
-    const double          s                      = VS->estimate();
+    const auto s                      = VS->estimate();
     const Eigen::MatrixXd dGdTheta               = rotation_world_gravity * Gm;
     const Eigen::Matrix3d dR                     = preintegration->get_delta_rotation(b).cast<double>();
     const Eigen::Matrix3d eR                     = dR.transpose() * Rbw1 * Rwb2;
-    const Eigen::Vector3d er                     = log_so3(eR);
-    const Eigen::Matrix3d invJr                  = inverse_right_jacobian_so3(er);
+    const auto er                     = log_so3(eR);
+    const auto invJr                  = inverse_right_jacobian_so3(er);
 
     // Jacobians wrt Pose 1
     _jacobianOplus[0].setZero();
@@ -715,7 +715,7 @@ void edge_inertial_gs::linearizeOplus()
     _jacobianOplus[7].block<3, 1>(6, 0) = Rbw1 * (VP2->estimate().translation_world_body - VP1->estimate().translation_world_body - VV1->estimate() * dt);
 }
 
-edge_prior_pose_imu::edge_prior_pose_imu(constraint_pose_imu *c)
+edge_prior_pose_imu::edge_prior_pose_imu(const constraint_pose_imu *c)
 {
     resize(4);
     rotation_world_body    = c->rotation_world_body;
@@ -728,12 +728,12 @@ edge_prior_pose_imu::edge_prior_pose_imu(constraint_pose_imu *c)
 
 void edge_prior_pose_imu::computeError()
 {
-    const vertex_pose      *VP = static_cast<const vertex_pose *>(_vertices[0]);
-    const vertex_velocity  *VV = static_cast<const vertex_velocity *>(_vertices[1]);
-    const vertex_gyro_bias *VG = static_cast<const vertex_gyro_bias *>(_vertices[2]);
-    const vertex_acc_bias  *VA = static_cast<const vertex_acc_bias *>(_vertices[3]);
+    const auto            VP = static_cast<const vertex_pose *>(_vertices[0]);
+    const auto            VV = static_cast<const vertex_velocity *>(_vertices[1]);
+    const auto            VG = static_cast<const vertex_gyro_bias *>(_vertices[2]);
+    const auto VA = static_cast<const vertex_acc_bias *>(_vertices[3]);
 
-    const Eigen::Vector3d er  = log_so3(rotation_world_body.transpose() * VP->estimate().rotation_world_body);
+    const auto er  = log_so3(rotation_world_body.transpose() * VP->estimate().rotation_world_body);
     const Eigen::Vector3d et  = rotation_world_body.transpose() * (VP->estimate().translation_world_body - translation_world_body);
     const Eigen::Vector3d ev  = VV->estimate() - vwb;
     const Eigen::Vector3d ebg = VG->estimate() - bg;
@@ -744,8 +744,8 @@ void edge_prior_pose_imu::computeError()
 
 void edge_prior_pose_imu::linearizeOplus()
 {
-    const vertex_pose    *VP = static_cast<const vertex_pose *>(_vertices[0]);
-    const Eigen::Vector3d er = log_so3(rotation_world_body.transpose() * VP->estimate().rotation_world_body);
+    const auto VP = static_cast<const vertex_pose *>(_vertices[0]);
+    const auto er = log_so3(rotation_world_body.transpose() * VP->estimate().rotation_world_body);
     _jacobianOplus[0].setZero();
     _jacobianOplus[0].block<3, 3>(0, 0) = inverse_right_jacobian_so3(er);
     _jacobianOplus[0].block<3, 3>(3, 3) = rotation_world_body.transpose() * VP->estimate().rotation_world_body;
@@ -774,34 +774,34 @@ Eigen::Matrix3d exp_so3(const Eigen::Vector3d &w) { return exp_so3(w[0], w[1], w
 
 Eigen::Matrix3d exp_so3(const double x, const double y, const double z)
 {
-    const double    d2 = x * x + y * y + z * z;
-    const double    d  = sqrt(d2);
+    const auto d2 = x * x + y * y + z * z;
+    const auto d  = sqrt(d2);
     Eigen::Matrix3d W;
     W << 0.0, -z, y, z, 0.0, -x, -y, x, 0.0;
     if (d < 1e-5)
     {
-        Eigen::Matrix3d res = Eigen::Matrix3d::Identity() + W + 0.5 * W * W;
+        const Eigen::Matrix3d res = Eigen::Matrix3d::Identity() + W + 0.5 * W * W;
         return normalize_rotation(res);
     }
     else
     {
-        Eigen::Matrix3d res = Eigen::Matrix3d::Identity() + W * sin(d) / d + W * W * (1.0 - cos(d)) / d2;
+        const Eigen::Matrix3d res = Eigen::Matrix3d::Identity() + W * sin(d) / d + W * W * (1.0 - cos(d)) / d2;
         return normalize_rotation(res);
     }
 }
 
 Eigen::Vector3d log_so3(const Eigen::Matrix3d &R)
 {
-    const double    tr = R(0, 0) + R(1, 1) + R(2, 2);
+    const auto tr = R(0, 0) + R(1, 1) + R(2, 2);
     Eigen::Vector3d w;
     w << (R(2, 1) - R(1, 2)) / 2, (R(0, 2) - R(2, 0)) / 2, (R(1, 0) - R(0, 1)) / 2;
-    const double costheta = (tr - 1.0) * 0.5f;
+    const auto costheta = (tr - 1.0) * 0.5f;
     if (costheta > 1 || costheta < -1)
     {
         return w;
     }
-    const double theta = acos(costheta);
-    const double s     = sin(theta);
+    const auto theta = acos(costheta);
+    const auto s     = sin(theta);
     if (fabs(s) < 1e-5)
     {
         return w;
@@ -816,8 +816,8 @@ Eigen::Matrix3d inverse_right_jacobian_so3(const Eigen::Vector3d &v) { return in
 
 Eigen::Matrix3d inverse_right_jacobian_so3(const double x, const double y, const double z)
 {
-    const double d2 = x * x + y * y + z * z;
-    const double d  = sqrt(d2);
+    const auto d2 = x * x + y * y + z * z;
+    const auto d  = sqrt(d2);
 
     Eigen::Matrix3d W;
     W << 0.0, -z, y, z, 0.0, -x, -y, x, 0.0;
@@ -835,8 +835,8 @@ Eigen::Matrix3d right_jacobian_so3(const Eigen::Vector3d &v) { return right_jaco
 
 Eigen::Matrix3d right_jacobian_so3(const double x, const double y, const double z)
 {
-    const double d2 = x * x + y * y + z * z;
-    const double d  = sqrt(d2);
+    const auto d2 = x * x + y * y + z * z;
+    const auto d  = sqrt(d2);
 
     Eigen::Matrix3d W;
     W << 0.0, -z, y, z, 0.0, -x, -y, x, 0.0;

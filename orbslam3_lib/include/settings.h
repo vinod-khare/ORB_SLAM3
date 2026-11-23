@@ -27,7 +27,6 @@
 #include "sensor_type.h"
 
 #include <filesystem>
-#include <memory>
 #include <string>
 
 #include <spdlog/spdlog.h>
@@ -65,39 +64,39 @@ class settings
     /*
      * Getter methods
      */
-    camera_model_type    camera_type() { return _camera_type; }
-    const camera_vector &cameras() const { return _cameras; }
-    cv::Mat              camera_1_distortion_coefficients() { return cv::Mat(_camera_1_distortion.size(), 1, CV_32F, _camera_1_distortion.data()); }
-    cv::Mat              camera_2_distortion_coefficients() { return cv::Mat(_camera_2_distortion.size(), 1, CV_32F, _camera_2_distortion.data()); }
+    camera_model_type     camera_type() const { return _camera_type; }
+    const camera_vector & cameras() const { return _cameras; }
+    cv::Mat               camera_1_distortion_coefficients() { return cv::Mat(_camera_1_distortion.size(), 1, CV_32F, _camera_1_distortion.data()); }
+    cv::Mat               camera_2_distortion_coefficients() { return cv::Mat(_camera_2_distortion.size(), 1, CV_32F, _camera_2_distortion.data()); }
 
     Sophus::SE3f left_to_right_pose() { return _left_to_right_pose; }
-    float        baseline_fx() { return _baseline_fx; }
-    float        baseline() { return _baseline; }
-    float        depth_threshold() { return _depth_threshold; }
+    float        baseline_fx() const { return _baseline_fx; }
+    float        baseline() const { return _baseline; }
+    float        depth_threshold() const { return _depth_threshold; }
 
-    bool need_to_undistort() { return _need_to_undistort; }
+    bool need_to_undistort() const { return _need_to_undistort; }
 
-    cv::Size new_image_size() { return _new_image_size; }
-    float    fps() { return _fps; }
-    bool     rgb() { return _rgb; }
-    bool     need_to_resize() { return _need_to_resize_left; }
-    bool     need_to_rectify() { return _need_to_rectify; }
+    cv::Size new_image_size() const { return _new_image_size; }
+    float    fps() const { return _fps; }
+    bool     rgb() const { return _rgb; }
+    bool     need_to_resize() const { return _need_to_resize_left; }
+    bool     need_to_rectify() const { return _need_to_rectify; }
 
-    float        gyroscope_noise() { return _gyroscope_noise; }
-    float        accelerometer_noise() { return _accelerometer_noise; }
-    float        gyroscope_random_walk() { return _gyroscope_random_walk; }
-    float        accelerometer_random_walk() { return _accelerometer_random_walk; }
-    float        imu_frequency() { return _imu_frequency; }
+    float        gyroscope_noise() const { return _gyroscope_noise; }
+    float        accelerometer_noise() const { return _accelerometer_noise; }
+    float        gyroscope_random_walk() const { return _gyroscope_random_walk; }
+    float        accelerometer_random_walk() const { return _accelerometer_random_walk; }
+    float        imu_frequency() const { return _imu_frequency; }
     Sophus::SE3f imu_to_camera_pose() { return _imu_to_camera_pose; }
-    bool         insert_key_frames_when_lost() { return _insert_key_frames_when_lost; }
+    bool         insert_key_frames_when_lost() const { return _insert_key_frames_when_lost; }
 
-    float depth_map_factor() { return _depth_map_factor; }
+    float depth_map_factor() const { return _depth_map_factor; }
 
-    int                      feature_count() { return _feature_count; }
-    int                      level_count() { return _level_count; }
-    float                    initial_fast_threshold() { return _initial_fast_threshold; }
-    float                    minimum_fast_threshold() { return _minimum_fast_threshold; }
-    float                    scale_factor() { return _scale_factor; }
+    int                      feature_count() const { return _feature_count; }
+    int                      level_count() const { return _level_count; }
+    float                    initial_fast_threshold() const { return _initial_fast_threshold; }
+    float                    minimum_fast_threshold() const { return _minimum_fast_threshold; }
+    float                    scale_factor() const { return _scale_factor; }
     keypoint_detector_type   keypoint_detector() const { return _keypoint_detector; }
     keypoint_descriptor_type keypoint_descriptor() const { return _keypoint_descriptor; }
     descriptor_matcher_type  matcher_backend() const { return _descriptor_matcher; }
@@ -106,7 +105,7 @@ class settings
     sensor_type              sensor() const { return _sensor; }
     bool                     loop_closing_enabled() const { return _loop_closing_enabled; }
 
-    float far_point_threshold() { return _far_point_threshold; }
+    float far_point_threshold() const { return _far_point_threshold; }
 
     cv::Mat left_rectification_map_x() { return _left_rectification_map_x; }
     cv::Mat left_rectification_map_y() { return _left_rectification_map_y; }
@@ -116,7 +115,7 @@ class settings
   private:
     template <typename T> T read_parameter(cv::FileStorage &fSettings, const std::string &name, bool &found, const bool required = true)
     {
-        cv::FileNode node = fSettings[name];
+        auto node = fSettings[name];
         if (node.empty())
         {
             if (required)

@@ -30,12 +30,12 @@ namespace ORB_SLAM3
 
 namespace
 {
-std::vector<keypoint> keypoints_with_color(frame &frame, const std::vector<keypoint> &keys, int index_offset)
+std::vector<keypoint> keypoints_with_color(const frame &frame, const std::vector<keypoint> &keys, int index_offset)
 {
     auto colored_keys = keys;
     for (std::size_t index = 0; index < colored_keys.size(); ++index)
     {
-        const int frame_index         = index_offset + static_cast<int>(index);
+        const auto frame_index         = index_offset + static_cast<int>(index);
         colored_keys[index].color     = frame.keypoint_color(frame_index);
         const auto &image             = frame.is_fisheye_stereo && frame_index >= static_cast<int>(frame.keypoints.size()) ? frame.color_image_right : frame.color_image;
         colored_keys[index].has_color = !image.empty();
@@ -66,14 +66,14 @@ key_frame::key_frame(frame &F, map *pMap, key_frame_database *pKFDB, const imu::
     {
         right_grid.resize(grid_columns);
     }
-    for (int i = 0; i < grid_columns; i++)
+    for (auto i = 0; i < grid_columns; i++)
     {
         grid[i].resize(grid_rows);
         if (is_fisheye_stereo)
         {
             right_grid[i].resize(grid_rows);
         }
-        for (int j = 0; j < grid_rows; j++)
+        for (auto j = 0; j < grid_rows; j++)
         {
             grid[i][j] = F.grid[i][j];
             if (is_fisheye_stereo)
@@ -221,7 +221,7 @@ void key_frame::update_best_covisibles()
     unique_lock<mutex>             lock(connections_mutex);
     vector<pair<int, key_frame *>> vPairs;
     vPairs.reserve(connected_key_frame_weights.size());
-    for (std::map<key_frame *, int>::iterator mit = connected_key_frame_weights.begin(), mend = connected_key_frame_weights.end(); mit != mend; mit++)
+    for (auto mit = connected_key_frame_weights.begin(), mend = connected_key_frame_weights.end(); mit != mend; mit++)
     {
         vPairs.push_back(make_pair(mit->second, mit->first));
     }
@@ -246,7 +246,7 @@ set<key_frame *> key_frame::get_connected_key_frames()
 {
     unique_lock<mutex> lock(connections_mutex);
     set<key_frame *>   s;
-    for (std::map<key_frame *, int>::iterator mit = connected_key_frame_weights.begin(); mit != connected_key_frame_weights.end(); mit++)
+    for (auto mit = connected_key_frame_weights.begin(); mit != connected_key_frame_weights.end(); mit++)
     {
         s.insert(mit->first);
     }
@@ -281,7 +281,7 @@ vector<key_frame *> key_frame::get_covisibles_by_weight(const int &w)
         return vector<key_frame *>();
     }
 
-    vector<int>::iterator it = upper_bound(ordered_weights.begin(), ordered_weights.end(), w, key_frame::compare_weight);
+    const auto it = upper_bound(ordered_weights.begin(), ordered_weights.end(), w, key_frame::compare_weight);
 
     if (it == ordered_weights.end() && ordered_weights.back() < w)
     {
@@ -289,7 +289,7 @@ vector<key_frame *> key_frame::get_covisibles_by_weight(const int &w)
     }
     else
     {
-        int n = it - ordered_weights.begin();
+        const int n = it - ordered_weights.begin();
         return vector<key_frame *>(ordered_connected_key_frames.begin(), ordered_connected_key_frames.begin() + n);
     }
 }
@@ -310,7 +310,7 @@ int key_frame::get_weight(key_frame *pKF)
 int key_frame::get_map_point_count()
 {
     unique_lock<mutex> lock(features_mutex);
-    int                numberMPs = 0;
+    auto numberMPs = 0;
     for (size_t i = 0, iend = map_points.size(); i < iend; i++)
     {
         if (!map_points[i])
@@ -337,7 +337,7 @@ void key_frame::erase_map_point_match(const int &idx)
 void key_frame::erase_map_point_match(map_point *pMP)
 {
     const auto indexes   = pMP->get_index_in_key_frame(this);
-    const int  leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
+    const auto leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
     if (leftIndex != -1)
     {
         map_points[leftIndex] = static_cast<map_point *>(NULL);
@@ -360,7 +360,7 @@ set<map_point *> key_frame::get_map_points()
         {
             continue;
         }
-        map_point *pMP = map_points[i];
+        auto pMP = map_points[i];
         if (!pMP->is_bad())
         {
             s.insert(pMP);
@@ -373,11 +373,11 @@ int key_frame::tracked_map_points(const int &minObs)
 {
     unique_lock<mutex> lock(features_mutex);
 
-    int        nPoints   = 0;
-    const bool bCheckObs = minObs > 0;
-    for (int i = 0; i < feature_count; i++)
+    auto nPoints   = 0;
+    const auto bCheckObs = minObs > 0;
+    for (auto i = 0; i < feature_count; i++)
     {
-        map_point *pMP = map_points[i];
+        const auto pMP = map_points[i];
         // TODO: reduce nesting
         if (pMP)
         {
@@ -426,9 +426,9 @@ void key_frame::update_connections(bool upParent)
 
     // For all map points in keyframe check in which other keyframes are they seen
     // Increase counter for those keyframes
-    for (vector<map_point *>::iterator vit = vpMP.begin(), vend = vpMP.end(); vit != vend; vit++)
+    for (auto vit = vpMP.begin(), vend = vpMP.end(); vit != vend; vit++)
     {
-        map_point *pMP = *vit;
+        const auto pMP = *vit;
 
         if (!pMP)
         {
@@ -440,9 +440,9 @@ void key_frame::update_connections(bool upParent)
             continue;
         }
 
-        std::map<key_frame *, tuple<int, int>> observations = pMP->get_observations();
+        auto observations = pMP->get_observations();
 
-        for (std::map<key_frame *, tuple<int, int>>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+        for (auto mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
         {
             if (mit->first->id == id || mit->first->is_bad() || mit->first->get_map() != owner_map)
             {
@@ -460,9 +460,9 @@ void key_frame::update_connections(bool upParent)
 
     // If the counter is greater than threshold add connection
     // In case no keyframe counter is over threshold add the one with maximum counter
-    int        nmax   = 0;
+    auto nmax   = 0;
     key_frame *pKFmax = NULL;
-    int        th     = 15;
+    const auto th     = 15;
 
     vector<pair<int, key_frame *>> vPairs;
     vPairs.reserve(KFcounter.size());
@@ -472,7 +472,7 @@ void key_frame::update_connections(bool upParent)
     }
 
     // TODO: use modern iterators
-    for (std::map<key_frame *, int>::iterator mit = KFcounter.begin(), mend = KFcounter.end(); mit != mend; mit++)
+    for (auto mit = KFcounter.begin(), mend = KFcounter.end(); mit != mend; mit++)
     {
         if (!upParent)
         {
@@ -486,7 +486,7 @@ void key_frame::update_connections(bool upParent)
         if (mit->second >= th)
         {
             vPairs.push_back(make_pair(mit->second, mit->first));
-            (mit->first)->add_connection(this, mit->second);
+            mit->first->add_connection(this, mit->second);
         }
     }
 
@@ -633,7 +633,7 @@ void key_frame::set_bad_flag()
         }
     }
 
-    for (std::map<key_frame *, int>::iterator mit = connected_key_frame_weights.begin(), mend = connected_key_frame_weights.end(); mit != mend; mit++)
+    for (auto mit = connected_key_frame_weights.begin(), mend = connected_key_frame_weights.end(); mit != mend; mit++)
     {
         mit->first->erase_connection(this);
     }
@@ -664,29 +664,29 @@ void key_frame::set_bad_flag()
         // Include that children as new parent candidate for the rest
         while (!child_key_frames.empty())
         {
-            bool bContinue = false;
+            auto bContinue = false;
 
-            int        max = -1;
+            auto max = -1;
             key_frame *pC  = nullptr;
             key_frame *pP  = nullptr;
 
-            for (set<key_frame *>::iterator sit = child_key_frames.begin(), send = child_key_frames.end(); sit != send; sit++)
+            for (auto sit = child_key_frames.begin(), send = child_key_frames.end(); sit != send; sit++)
             {
-                key_frame *pKF = *sit;
+                const auto pKF = *sit;
                 if (pKF->is_bad())
                 {
                     continue;
                 }
 
                 // Check if a parent candidate is connected to the keyframe
-                vector<key_frame *> vpConnected = pKF->get_vector_covisible_key_frames();
+                auto vpConnected = pKF->get_vector_covisible_key_frames();
                 for (size_t i = 0, iend = vpConnected.size(); i < iend; i++)
                 {
-                    for (set<key_frame *>::iterator spcit = sParentCandidates.begin(), spcend = sParentCandidates.end(); spcit != spcend; spcit++)
+                    for (auto spcit = sParentCandidates.begin(), spcend = sParentCandidates.end(); spcit != spcend; spcit++)
                     {
                         if (vpConnected[i]->id == (*spcit)->id)
                         {
-                            int w = pKF->get_weight(vpConnected[i]);
+                            const auto w = pKF->get_weight(vpConnected[i]);
                             if (w > max)
                             {
                                 pC        = pKF;
@@ -714,7 +714,7 @@ void key_frame::set_bad_flag()
         // If a children has no covisibility links with any parent candidate, assign to the original parent of this KF
         if (!child_key_frames.empty())
         {
-            for (set<key_frame *>::iterator sit = child_key_frames.begin(); sit != child_key_frames.end(); sit++)
+            for (auto sit = child_key_frames.begin(); sit != child_key_frames.end(); sit++)
             {
                 (*sit)->change_parent(parent_key_frame);
             }
@@ -740,7 +740,7 @@ bool key_frame::is_bad()
 
 void key_frame::erase_connection(key_frame *pKF)
 {
-    bool bUpdate = false;
+    auto bUpdate = false;
     {
         unique_lock<mutex> lock(connections_mutex);
         if (connected_key_frame_weights.count(pKF))
@@ -761,43 +761,43 @@ vector<size_t> key_frame::get_features_in_area(const float &x, const float &y, c
     vector<size_t> vIndices;
     vIndices.reserve(feature_count);
 
-    float factorX = r;
-    float factorY = r;
+    const auto factorX = r;
+    const auto factorY = r;
 
-    const int nMinCellX = max(0, (int)floor((x - min_x - factorX) * grid_element_width_inverse));
+    const auto nMinCellX = max(0, (int)floor((x - min_x - factorX) * grid_element_width_inverse));
     if (nMinCellX >= grid_columns)
     {
         return vIndices;
     }
 
-    const int nMaxCellX = min((int)grid_columns - 1, (int)ceil((x - min_x + factorX) * grid_element_width_inverse));
+    const auto nMaxCellX = min((int)grid_columns - 1, (int)ceil((x - min_x + factorX) * grid_element_width_inverse));
     if (nMaxCellX < 0)
     {
         return vIndices;
     }
 
-    const int nMinCellY = max(0, (int)floor((y - min_y - factorY) * grid_element_height_inverse));
+    const auto nMinCellY = max(0, (int)floor((y - min_y - factorY) * grid_element_height_inverse));
     if (nMinCellY >= grid_rows)
     {
         return vIndices;
     }
 
-    const int nMaxCellY = min((int)grid_rows - 1, (int)ceil((y - min_y + factorY) * grid_element_height_inverse));
+    const auto nMaxCellY = min((int)grid_rows - 1, (int)ceil((y - min_y + factorY) * grid_element_height_inverse));
     if (nMaxCellY < 0)
     {
         return vIndices;
     }
 
-    for (int ix = nMinCellX; ix <= nMaxCellX; ix++)
+    for (auto ix = nMinCellX; ix <= nMaxCellX; ix++)
     {
-        for (int iy = nMinCellY; iy <= nMaxCellY; iy++)
+        for (auto iy = nMinCellY; iy <= nMaxCellY; iy++)
         {
-            const vector<size_t> vCell = (!bRight) ? grid[ix][iy] : right_grid[ix][iy];
+            const auto vCell = !bRight ? grid[ix][iy] : right_grid[ix][iy];
             for (size_t j = 0, jend = vCell.size(); j < jend; j++)
             {
-                const auto &kpUn  = (!is_fisheye_stereo || !bRight) ? keypoints[vCell[j]] : right_keypoints[vCell[j]];
-                const float distx = kpUn.pt_undistorted.x - x;
-                const float disty = kpUn.pt_undistorted.y - y;
+                const auto & kpUn  = !is_fisheye_stereo || !bRight ? keypoints[vCell[j]] : right_keypoints[vCell[j]];
+                const auto distx = kpUn.pt_undistorted.x - x;
+                const auto disty = kpUn.pt_undistorted.y - y;
 
                 if (fabs(distx) < r && fabs(disty) < r)
                 {
@@ -810,18 +810,18 @@ vector<size_t> key_frame::get_features_in_area(const float &x, const float &y, c
     return vIndices;
 }
 
-bool key_frame::is_in_image(const float &x, const float &y) const { return (x >= min_x && x < max_x && y >= min_y && y < max_y); }
+bool key_frame::is_in_image(const float &x, const float &y) const { return x >= min_x && x < max_x && y >= min_y && y < max_y; }
 
-bool key_frame::unproject_stereo(int i, Eigen::Vector3f &x3D, geometric_camera &camera)
+bool key_frame::unproject_stereo(int i, Eigen::Vector3f &x3D, const geometric_camera &camera)
 {
-    const float z = depths[i];
+    const auto z = depths[i];
     if (z > 0)
     {
-        const float     u = keypoints[i].pt.x;
-        const float     v = keypoints[i].pt.y;
-        const float     x = (u - camera.get_parameter(2)) * z / camera.get_parameter(0);
-        const float     y = (v - camera.get_parameter(3)) * z / camera.get_parameter(1);
-        Eigen::Vector3f x3Dc(x, y, z);
+        const auto u = keypoints[i].pt.x;
+        const auto v = keypoints[i].pt.y;
+        const auto x = (u - camera.get_parameter(2)) * z / camera.get_parameter(0);
+        const auto y = (v - camera.get_parameter(3)) * z / camera.get_parameter(1);
+        const Eigen::Vector3f x3Dc(x, y, z);
 
         unique_lock<mutex> lock(pose_mutex);
         x3D = world_rotation * x3Dc + world_pose.translation();
@@ -853,15 +853,15 @@ float key_frame::compute_scene_median_depth(const int q)
 
     vector<float> vDepths;
     vDepths.reserve(feature_count);
-    Eigen::Matrix<float, 1, 3> Rcw2 = Rcw.row(2);
-    float                      zcw  = tcw(2);
-    for (int i = 0; i < feature_count; i++)
+    const Eigen::Matrix<float, 1, 3> Rcw2 = Rcw.row(2);
+    const auto zcw  = tcw(2);
+    for (auto i = 0; i < feature_count; i++)
     {
         if (map_points[i])
         {
-            map_point      *pMP  = map_points[i];
-            Eigen::Vector3f x3Dw = pMP->get_world_position();
-            float           z    = Rcw2.dot(x3Dw) + zcw;
+            const auto pMP  = map_points[i];
+            auto x3Dw = pMP->get_world_position();
+            auto z    = Rcw2.dot(x3Dw) + zcw;
             vDepths.push_back(z);
         }
     }
@@ -911,22 +911,22 @@ void key_frame::update_map(map *pMap)
     owner_map = pMap;
 }
 
-bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v, geometric_camera &camera)
+bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u, float &v, const geometric_camera &camera)
 {
-    const float fx                      = camera.get_parameter(0);
-    const float fy                      = camera.get_parameter(1);
-    const float cx                      = camera.get_parameter(2);
-    const float cy                      = camera.get_parameter(3);
+    const auto fx                      = camera.get_parameter(0);
+    const auto fy                      = camera.get_parameter(1);
+    const auto cx                      = camera.get_parameter(2);
+    const auto cy                      = camera.get_parameter(3);
     const auto &distortion_coefficients = camera.distortion_coefficients();
 
     // 3D in absolute coordinates
-    Eigen::Vector3f P = pMP->get_world_position();
+    const auto P = pMP->get_world_position();
 
     // 3D in camera coordinates
-    Eigen::Vector3f Pc  = camera_rotation * P + camera_pose.translation();
-    float          &PcX = Pc(0);
-    float          &PcY = Pc(1);
-    float          &PcZ = Pc(2);
+    Eigen::Vector3f  Pc  = camera_rotation * P + camera_pose.translation();
+    const auto&            PcX = Pc(0);
+    const auto&            PcY = Pc(1);
+    auto& PcZ = Pc(2);
 
     // Check positive depth
     if (PcZ < 0.0f)
@@ -936,7 +936,7 @@ bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u,
     }
 
     // Project in image and check it is not outside
-    float invz = 1.0f / PcZ;
+    const auto invz = 1.0f / PcZ;
     u          = fx * PcX * invz + cx;
     v          = fy * PcY * invz + cy;
 
@@ -949,13 +949,13 @@ bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u,
         return false;
     }
 
-    float x  = (u - cx) / fx;
-    float y  = (v - cy) / fy;
-    float r2 = x * x + y * y;
-    float k1 = distortion_coefficients.at<float>(0);
-    float k2 = distortion_coefficients.at<float>(1);
-    float p1 = distortion_coefficients.at<float>(2);
-    float p2 = distortion_coefficients.at<float>(3);
+    const auto x  = (u - cx) / fx;
+    const auto y  = (v - cy) / fy;
+    const auto r2 = x * x + y * y;
+    const auto k1 = distortion_coefficients.at<float>(0);
+    const auto k2 = distortion_coefficients.at<float>(1);
+    const auto p1 = distortion_coefficients.at<float>(2);
+    const auto p2 = distortion_coefficients.at<float>(3);
     float k3 = 0;
     if (distortion_coefficients.total() == 5)
     {
@@ -963,15 +963,15 @@ bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u,
     }
 
     // Radial distorsion
-    float x_distort = x * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
-    float y_distort = y * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
+    auto x_distort = x * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
+    auto y_distort = y * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
 
     // Tangential distorsion
     x_distort = x_distort + (2 * p1 * x * y + p2 * (r2 + 2 * x * x));
     y_distort = y_distort + (p1 * (r2 + 2 * y * y) + 2 * p2 * x * y);
 
-    float u_distort = x_distort * fx + cx;
-    float v_distort = y_distort * fy + cy;
+    const auto u_distort = x_distort * fx + cx;
+    const auto v_distort = y_distort * fy + cy;
 
     u = u_distort;
     v = v_distort;
@@ -981,21 +981,21 @@ bool key_frame::project_point_distort(map_point *pMP, cv::Point2f &kp, float &u,
     return true;
 }
 
-bool key_frame::project_point_undistort(map_point *pMP, cv::Point2f &kp, float &u, float &v, geometric_camera &camera)
+bool key_frame::project_point_undistort(map_point *pMP, cv::Point2f &kp, float &u, float &v, const geometric_camera &camera)
 {
-    const float fx = camera.get_parameter(0);
-    const float fy = camera.get_parameter(1);
-    const float cx = camera.get_parameter(2);
-    const float cy = camera.get_parameter(3);
+    const auto fx = camera.get_parameter(0);
+    const auto fy = camera.get_parameter(1);
+    const auto cx = camera.get_parameter(2);
+    const auto cy = camera.get_parameter(3);
 
     // 3D in absolute coordinates
-    Eigen::Vector3f P = pMP->get_world_position();
+    const auto P = pMP->get_world_position();
 
     // 3D in camera coordinates
-    Eigen::Vector3f Pc  = camera_rotation * P + camera_pose.translation();
-    float          &PcX = Pc(0);
-    float          &PcY = Pc(1);
-    float          &PcZ = Pc(2);
+    Eigen::Vector3f  Pc  = camera_rotation * P + camera_pose.translation();
+    const auto&            PcX = Pc(0);
+    const auto&            PcY = Pc(1);
+    auto& PcZ = Pc(2);
 
     // Check positive depth
     if (PcZ < 0.0f)
@@ -1005,7 +1005,7 @@ bool key_frame::project_point_undistort(map_point *pMP, cv::Point2f &kp, float &
     }
 
     // Project in image and check it is not outside
-    const float invz = 1.0f / PcZ;
+    const auto invz = 1.0f / PcZ;
     u                = fx * PcX * invz + cx;
     v                = fy * PcY * invz + cy;
 

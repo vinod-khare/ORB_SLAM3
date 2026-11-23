@@ -136,8 +136,8 @@ TEST_CASE("Scope timing writes elapsed duration on all exit paths", "[statistics
 TEST_CASE("Processing statistics preserve samples and measure wall-clock throughput", "[statistics]")
 {
     using statistics = ORB_SLAM3::processing_statistics;
-    statistics                          measurements;
-    const statistics::clock::time_point started{};
+    statistics                              measurements;
+    constexpr statistics::clock::time_point started{};
     measurements.start(started);
     REQUIRE(measurements.get_snapshot().frames == 0);
     REQUIRE(measurements.get_snapshot().throughput_fps == 0.0);
@@ -185,12 +185,12 @@ TEST_CASE("Processing statistics safely collect concurrent backend jobs", "[stat
     std::atomic<bool> consistent{true};
     {
         std::vector<std::jthread> workers;
-        for (int worker = 0; worker < 4; ++worker)
+        for (auto worker = 0; worker < 4; ++worker)
         {
             workers.emplace_back(
                 [&measurements, &consistent]
                 {
-                    for (int job = 0; job < 100; ++job)
+                    for (auto job = 0; job < 100; ++job)
                     {
                         measurements.record_backend(statistics::backend_stage::local_mapping, 2.0);
                         const auto sample = measurements.get_snapshot();
@@ -229,7 +229,7 @@ TEST_CASE("Global bundle adjustment shutdown joins its worker before returning",
         void start_job()
         {
             _global_ba_thread = std::jthread(
-                [this](std::stop_token stop)
+                [this](const std::stop_token& stop)
                 {
                     const ORB_SLAM3::processing_statistics::backend_timer timer(_statistics, ORB_SLAM3::processing_statistics::backend_stage::global_bundle_adjustment);
                     std::mutex                                            mutex;
@@ -242,7 +242,7 @@ TEST_CASE("Global bundle adjustment shutdown joins its worker before returning",
     };
 
     ORB_SLAM3::processing_statistics measurements;
-    const bool                       explicit_stop = GENERATE(false, true);
+    const auto explicit_stop = GENERATE(false, true);
     {
         loop_worker worker(measurements);
         worker.start_job();

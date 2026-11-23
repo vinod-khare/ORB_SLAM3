@@ -25,7 +25,6 @@
 #include "sophus/sim3.hpp"
 
 #include <functional>
-#include <memory>
 #include <vector>
 
 #include <opencv2/core/core.hpp>
@@ -52,7 +51,7 @@ class descriptor_matcher
 
     // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
     // Used to track the local map (Tracking)
-    int search_by_projection(frame &F, const std::vector<map_point *> &vpMapPoints, const float th = 3, const bool bFarPoints = false, const float thFarPoints = 50.0f);
+    int search_by_projection(frame &F, const std::vector<map_point *> &vpMapPoints, const float th = 3, const bool bFarPoints = false, const float thFarPoints = 50.0f) const;
 
     // Project MapPoints tracked in last frame into the current frame and search matches.
     // Used to track from previous frame (Tracking)
@@ -85,7 +84,7 @@ class descriptor_matcher
     int search_by_vocabulary(key_frame *pKF1, key_frame *pKF2, std::vector<map_point *> &vpMatches12);
 
     // Matching for the Map Initialization (only used in the monocular case)
-    int search_for_initialization(frame &F1, frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize = 10);
+    int search_for_initialization(const frame &F1, const frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize = 10);
 
     // Matching to triangulate new MapPoints. Check Epipolar Constraint.
     int search_for_triangulation(camera_view cameras, key_frame *pKF1, key_frame *pKF2, std::vector<pair<size_t, size_t>> &vMatchedPairs, const bool bOnlyStereo, const bool bCoarse = false);
@@ -107,8 +106,8 @@ class descriptor_matcher
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   protected:
-    float radius_by_viewing_cos(const float &viewCos);
-    void  compute_three_maxima(std::vector<int> *histo, const int L, int &ind1, int &ind2, int &ind3);
+    static float radius_by_viewing_cos(const float &viewCos);
+    void  compute_three_maxima(const std::vector<int> *histo, const int L, int &ind1, int &ind2, int &ind3);
 
     float _nearest_neighbor_ratio;
     bool  _check_orientation;

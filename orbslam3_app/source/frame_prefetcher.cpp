@@ -31,7 +31,7 @@ void preprocess_image(cv::Mat &image, const cv::Size &size, cv::CLAHE &clahe, bo
 
 frame_prefetcher::frame_prefetcher(folder_reader &reader, bool stereo, bool inertial, float image_scale, bool precompute_optical_flow)
     : _reader(reader), _stereo(stereo), _inertial(inertial), _image_scale(image_scale), _precompute_optical_flow(precompute_optical_flow),
-      _worker([this](std::stop_token stop_token) { run(stop_token); })
+      _worker([this](const std::stop_token& stop_token) { run(stop_token); })
 {
 }
 
@@ -51,7 +51,7 @@ frame_prefetcher::frame frame_prefetcher::read()
         throw std::out_of_range("No more prefetched frames");
     }
 
-    frame result = std::move(_frames.front());
+    auto result = std::move(_frames.front());
 
     _frames.pop_front();
     lock.unlock();
@@ -64,16 +64,16 @@ void frame_prefetcher::run(std::stop_token stop_token)
 {
     try
     {
-        cv::Ptr<cv::CLAHE>                      clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+        auto clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
         std::deque<std::pair<cv::Mat, cv::Mat>> right_images;
         std::optional<cv::Size>                 right_size;
         std::exception_ptr                      right_error;
-        bool                                    right_finished = false;
+        auto right_finished = false;
         std::jthread                            right_worker;
         if (_stereo)
         {
             right_worker = std::jthread(
-                [this, &right_images, &right_size, &right_error, &right_finished](std::stop_token right_stop)
+                [this, &right_images, &right_size, &right_error, &right_finished](const std::stop_token& right_stop)
                 {
                     try
                     {
@@ -89,7 +89,7 @@ void frame_prefetcher::run(std::stop_token stop_token)
                             }
 
                             const auto &filename = _reader.right_image_path(index);
-                            cv::Mat     image    = cv::imread(filename, cv::IMREAD_COLOR);
+                            auto image    = cv::imread(filename, cv::IMREAD_COLOR);
                             if (image.empty())
                             {
                                 throw std::runtime_error("Failed to load image at: " + filename);

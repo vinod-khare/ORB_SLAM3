@@ -26,7 +26,6 @@
 #include <span>
 #include <vector>
 
-#include <Eigen/Geometry>
 #include <sophus/se3.hpp>
 
 namespace ORB_SLAM3
@@ -69,7 +68,7 @@ class geometric_camera
     virtual bool epipolar_constrain(
         geometric_camera &otherCamera, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel, const float unc) = 0;
 
-    float get_parameter(const int i) { return parameters[i]; }
+    float get_parameter(const int i) const { return parameters[i]; }
     void  set_parameter(const float p, const size_t i) { parameters[i] = p; }
 
     const cv::Mat &distortion_coefficients() const { return _distortion_coefficients; }
@@ -80,7 +79,7 @@ class geometric_camera
     }
 
     float baseline() const { return _baseline; }
-    float baseline_fx() { return _baseline * get_parameter(0); }
+    float baseline_fx() const { return _baseline * get_parameter(0); }
     void  set_baseline(float baseline) { _baseline = baseline; }
 
     /** Metric cutoff for close stereo/RGB-D observations (baseline * Stereo.ThDepth). */
@@ -91,7 +90,7 @@ class geometric_camera
     const Sophus::SE3f &left_to_right_pose() const { return _left_to_right_pose; }
     void                set_left_to_right_pose(const Sophus::SE3f &pose) { _left_to_right_pose = pose; }
 
-    size_t size() { return parameters.size(); }
+    size_t size() const { return parameters.size(); }
 
     virtual bool match_and_triangulate(const cv::KeyPoint &kp1,
                                        const cv::KeyPoint &kp2,
@@ -102,12 +101,12 @@ class geometric_camera
                                        const float         sigmaLevel2,
                                        Eigen::Vector3f    &x3Dtriangulated) = 0;
 
-    unsigned int get_id() { return id; }
+    unsigned int get_id() const { return id; }
 
-    unsigned int get_type() { return type; }
+    unsigned int get_type() const { return type; }
 
-    const static unsigned int cam_pinhole = 0;
-    const static unsigned int cam_fisheye = 1;
+    static constexpr unsigned int cam_pinhole = 0;
+    static constexpr unsigned int cam_fisheye = 1;
 
     static long unsigned int next_id;
 

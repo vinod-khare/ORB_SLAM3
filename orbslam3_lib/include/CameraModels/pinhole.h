@@ -36,14 +36,14 @@ class pinhole : public geometric_camera
         id   = next_id++;
         type = cam_pinhole;
     }
-    pinhole(const std::vector<float> _vParameters) : geometric_camera(_vParameters), _two_view_reconstruction(nullptr)
+    pinhole(const std::vector<float>& _vParameters) : geometric_camera(_vParameters), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 4);
         id   = next_id++;
         type = cam_pinhole;
     }
 
-    pinhole(pinhole *pPinhole) : geometric_camera(*pPinhole), _two_view_reconstruction(nullptr)
+    pinhole(const pinhole *pPinhole) : geometric_camera(*pPinhole), _two_view_reconstruction(nullptr)
     {
         assert(parameters.size() == 4);
         id   = next_id++;
@@ -98,7 +98,7 @@ class pinhole : public geometric_camera
     friend std::ostream &operator<<(std::ostream &os, const pinhole &ph);
     friend std::istream &operator>>(std::istream &os, pinhole &ph);
 
-    bool is_equal(geometric_camera &pCam);
+    bool is_equal(const geometric_camera &pCam) const;
 
   private:
     // Parameters vector corresponds to

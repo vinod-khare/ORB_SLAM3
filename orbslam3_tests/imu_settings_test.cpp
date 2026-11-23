@@ -25,7 +25,7 @@ class extraction_tracker : public ORB_SLAM3::tracking
     using tracking::extract_current_features;
     using tracking::tracking;
 
-    ORB_SLAM3::keypoint_extractor &extractor(bool initial) { return initial ? *initial_keypoint_extractor : *left_keypoint_extractor; }
+    ORB_SLAM3::keypoint_extractor &extractor(bool initial) const { return initial ? *initial_keypoint_extractor : *left_keypoint_extractor; }
 };
 
 struct imu_settings
@@ -91,7 +91,7 @@ TEST_CASE("Tracking preserves initialization extraction during deferred recovery
     cv::RNG random(17);
     random.fill(tracker.gray_image, cv::RNG::UNIFORM, 0, 256);
 
-    const bool initial = GENERATE(false, true);
+    const auto initial = GENERATE(false, true);
     tracker.create_frame(1.0, tracker.extractor(initial));
     const auto descriptors = descriptor_matrix(tracker.current_frame.keypoints);
     REQUIRE(descriptors.rows > 0);
@@ -112,7 +112,7 @@ TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shut
 {
     imu_settings files;
     const auto   sensor      = GENERATE(ORB_SLAM3::system::monocular, ORB_SLAM3::system::stereo);
-    const bool   fisheye     = GENERATE(false, true);
+    const auto fisheye     = GENERATE(false, true);
     auto         calibration = YAML::LoadFile((files.directory / "calibration/camchain.yaml").string());
     if (fisheye)
     {
@@ -130,7 +130,7 @@ TEST_CASE("System joins workers on shutdown and destruction", "[statistics][shut
     const auto vocabulary_path = files.directory / "vocabulary.dbow3";
     write_vocabulary_fixture(vocabulary_path.string(), 0, 0, CV_8U, 32);
 
-    const bool        explicit_shutdown = GENERATE(false, true);
+    const auto explicit_shutdown = GENERATE(false, true);
     auto              settings          = std::make_unique<ORB_SLAM3::settings>(files.path.string(), sensor);
     const auto       &cameras           = settings->cameras();
     ORB_SLAM3::system system(vocabulary_path.string(), std::move(settings));
@@ -234,7 +234,7 @@ TEST_CASE("System exposes effective feature names before processing frames", "[s
 TEST_CASE("System uses preconstructed settings without reopening configuration files", "[settings][system]")
 {
     imu_settings files;
-    const int    loop_closing = GENERATE(-1, 0, 1, 2);
+    const auto loop_closing = GENERATE(-1, 0, 1, 2);
     if (loop_closing >= 0)
     {
         files.config["loopClosing"] = loop_closing;

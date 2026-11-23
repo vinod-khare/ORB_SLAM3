@@ -1,7 +1,6 @@
 #include "folder_reader.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -17,9 +16,9 @@ namespace
 {
 double parse_imu_value(const std::string &value, const std::string &imu_path, size_t line_number)
 {
-    const std::string field             = folder_reader::trim(value);
+    const auto field             = folder_reader::trim(value);
     size_t            parsed_characters = 0;
-    double            parsed_value      = 0.0;
+    auto parsed_value      = 0.0;
     try
     {
         parsed_value = std::stod(field, &parsed_characters);
@@ -49,12 +48,12 @@ folder_reader::folder_reader(const settings &reader_settings)
         throw std::invalid_argument("Frame skip and take must be non-negative, and frame stride must be positive");
     }
 
-    const std::string &left_image_path  = reader_settings.left_image_path;
-    const std::string &right_image_path = reader_settings.right_image_path;
-    int                frames_skip      = reader_settings.frames_skip;
-    const int          frames_stride    = reader_settings.frames_stride;
-    const int          frames_take      = reader_settings.frames_take;
-    const std::string &imu_path         = reader_settings.imu_path;
+    const auto&         left_image_path  = reader_settings.left_image_path;
+    const auto&         right_image_path = reader_settings.right_image_path;
+    auto                frames_skip      = reader_settings.frames_skip;
+    const auto          frames_stride    = reader_settings.frames_stride;
+    const auto          frames_take      = reader_settings.frames_take;
+    const auto& imu_path         = reader_settings.imu_path;
 
     std::vector<std::string> allImages;
     std::vector<double>      allTimestamps;
@@ -69,19 +68,19 @@ folder_reader::folder_reader(const settings &reader_settings)
             continue;
         }
 
-        const std::string ext = entry.path().extension().string();
+        const auto ext = entry.path().extension().string();
         if (ext != ".png" && ext != ".jpg" && ext != ".jpeg")
         {
             continue;
         }
 
-        const std::string stem = entry.path().stem().string();
+        const auto stem = entry.path().stem().string();
         if (!is_numeric_stem(stem))
         {
             throw std::runtime_error("Invalid image filename for timestamp inference: " + entry.path().string() + ". Expected numeric nanosecond timestamp in the filename stem.");
         }
 
-        const double timestamp_seconds = std::stod(stem) / 1e9;
+        const auto timestamp_seconds = std::stod(stem) / 1e9;
         parsed.emplace_back(timestamp_seconds, entry.path().string());
     }
 
@@ -98,7 +97,7 @@ folder_reader::folder_reader(const settings &reader_settings)
         frames_skip = static_cast<int>(allImages.size());
     }
 
-    for (int i = frames_skip, count = 0; i < static_cast<int>(allImages.size()); i += frames_stride)
+    for (auto i = frames_skip, count = 0; i < static_cast<int>(allImages.size()); i += frames_stride)
     {
         if (frames_take > 0 && count >= frames_take)
         {
@@ -116,7 +115,7 @@ folder_reader::folder_reader(const settings &reader_settings)
         _right_images.reserve(_images.size());
         for (const auto &left : _images)
         {
-            const std::filesystem::path right = std::filesystem::path(right_image_path) / std::filesystem::path(left).filename();
+            const auto right = std::filesystem::path(right_image_path) / std::filesystem::path(left).filename();
             if (!std::filesystem::is_regular_file(right))
             {
                 throw std::runtime_error("Right stereo image not found for " + left + ": " + right.string());
@@ -160,7 +159,7 @@ folder_reader::folder_reader(const settings &reader_settings)
                 throw std::runtime_error("Invalid IMU CSV row at " + imu_path + ":" + std::to_string(line_number));
             }
 
-            const double timestamp = data[0] / 1e9;
+            const auto timestamp = data[0] / 1e9;
             if (!_imu_measurements.empty() && timestamp < _imu_measurements.back().t)
             {
                 throw std::runtime_error("IMU timestamps are not ordered at " + imu_path + ":" + std::to_string(line_number));
@@ -200,7 +199,7 @@ cv::Mat folder_reader::read_image(size_t idx) const { return read_image_at_path(
 
 cv::Mat folder_reader::read_image_at_path(const std::string &path)
 {
-    cv::Mat image = cv::imread(path, cv::IMREAD_COLOR);
+    auto image = cv::imread(path, cv::IMREAD_COLOR);
     if (image.empty())
     {
         throw std::runtime_error("Failed to load image at: " + path);
@@ -230,9 +229,9 @@ bool folder_reader::is_numeric_stem(const std::string &s)
         return false;
     }
 
-    bool seen_digit = false;
-    bool seen_dot   = false;
-    for (char c : s)
+    auto seen_digit = false;
+    auto seen_dot   = false;
+    for (const auto c : s)
     {
         if (std::isdigit(static_cast<unsigned char>(c)))
         {
@@ -254,12 +253,12 @@ bool folder_reader::is_numeric_stem(const std::string &s)
 
 std::string folder_reader::trim(const std::string &s)
 {
-    const size_t begin = s.find_first_not_of(" \t\r\n");
+    const auto begin = s.find_first_not_of(" \t\r\n");
     if (begin == std::string::npos)
     {
         return {};
     }
 
-    const size_t end = s.find_last_not_of(" \t\r\n");
+    const auto end = s.find_last_not_of(" \t\r\n");
     return s.substr(begin, end - begin + 1);
 }

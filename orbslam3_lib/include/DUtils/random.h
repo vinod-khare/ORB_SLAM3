@@ -44,7 +44,7 @@ class random
             w  = x1 * x1 + x2 * x2;
         } while (w >= static_cast<T>(1) || w == static_cast<T>(0));
 
-        w = std::sqrt((static_cast<T>(-2) * std::log(w)) / w);
+        w = std::sqrt(static_cast<T>(-2) * std::log(w) / w);
         return mean + x1 * w * sigma;
     }
 

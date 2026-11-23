@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <latch>
@@ -35,13 +34,13 @@ struct vocabulary_file
     vocabulary_file(int scoring = 0, int weighting = 0, int descriptor_type = CV_8U, int descriptor_size = 32)
     {
         write_vocabulary_fixture(path.string(), scoring, weighting, descriptor_type, descriptor_size);
-        for (int id = 1; id < 127; ++id)
+        for (auto id = 1; id < 127; ++id)
         {
-            const bool leaf = id >= 63;
+            const auto leaf = id >= 63;
             cv::Mat    descriptor(1, descriptor_size, descriptor_type);
-            for (int column = 0; column < descriptor_size; ++column)
+            for (auto column = 0; column < descriptor_size; ++column)
             {
-                const int value = (id * 37 + column * 13) % 256;
+                const auto value = (id * 37 + column * 13) % 256;
                 if (descriptor_type == CV_8U)
                 {
                     descriptor.at<unsigned char>(0, column) = static_cast<unsigned char>(value);
@@ -65,14 +64,14 @@ TEST_CASE("Text vocabularies are rejected by the binary loader", "[dbow-binary]"
 {
     const vocabulary_file file;
     std::ofstream(file.path) << "2 6 0 0\n";
-    const int backend = GENERATE(DBOW_BACKENDS);
+    const auto backend = GENERATE(DBOW_BACKENDS);
     REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), backend));
 }
 
 TEST_CASE("Missing and empty binary vocabularies are rejected", "[dbow-binary]")
 {
     const vocabulary_file file;
-    const int             backend = GENERATE(DBOW_BACKENDS);
+    const auto backend = GENERATE(DBOW_BACKENDS);
     std::filesystem::resize_file(file.path, 0);
     REQUIRE_THROWS(ORB_SLAM3::place_vocabulary(file.path.string(), backend));
     std::filesystem::remove(file.path);
@@ -90,7 +89,7 @@ TEST_CASE("DBoW2 rejects truncated binary vocabulary payloads", "[dbow-binary]")
 
 TEST_CASE("Place recognition accepts the supported binary and floating-point descriptor formats", "[dbow]")
 {
-    const int                   backend = GENERATE(DBOW_BACKENDS);
+    const auto backend = GENERATE(DBOW_BACKENDS);
     const auto                  format  = GENERATE(std::pair{CV_8U, 32}, std::pair{CV_8U, 64}, std::pair{CV_32F, 64}, std::pair{CV_32F, 128}, std::pair{CV_32F, 200}, std::pair{CV_32F, 120});
     const vocabulary_file       file(0, 0, format.first, format.second);
     ORB_SLAM3::place_vocabulary vocabulary(file.path.string(), backend);
@@ -116,7 +115,7 @@ TEST_CASE("Place recognition accepts the supported binary and floating-point des
 TEST_CASE("Place recognition rejects features that do not match the vocabulary format", "[dbow]")
 {
     const vocabulary_file       file(0, 0, CV_32F, 128);
-    const int                   backend = GENERATE(DBOW_BACKENDS);
+    const auto backend = GENERATE(DBOW_BACKENDS);
     ORB_SLAM3::place_vocabulary vocabulary(file.path.string(), backend);
     DBoW2::BowVector            bow;
     DBoW2::FeatureVector        nodes;
@@ -130,8 +129,8 @@ TEST_CASE("Place recognition rejects features that do not match the vocabulary f
 
 TEST_CASE("Shallow vocabularies retain discriminative feature nodes for matching", "[dbow]")
 {
-    const int             backend = GENERATE(DBOW_BACKENDS);
-    const int             levels  = GENERATE(1, 2, 4, 6);
+    const auto backend = GENERATE(DBOW_BACKENDS);
+    const auto levels  = GENERATE(1, 2, 4, 6);
     const auto            format  = GENERATE(std::pair{CV_8U, 32}, std::pair{CV_32F, 128});
     const vocabulary_file file(0, 0, format.first, format.second);
     write_vocabulary_fixture(file.path.string(), 0, 0, format.first, format.second, levels);
@@ -140,7 +139,7 @@ TEST_CASE("Shallow vocabularies retain discriminative feature nodes for matching
     DBoW2::FeatureVector        nodes;
     vocabulary.transform(file.features, bow, nodes, 4);
     REQUIRE_FALSE(nodes.empty());
-    const int matching_level = std::min(2, levels);
+    const auto matching_level = std::min(2, levels);
     for (const auto &[node, indices] : nodes)
     {
         REQUIRE(node >= (1u << matching_level) - 1);
@@ -202,7 +201,7 @@ TEST_CASE("DBoW backends preserve word IDs, feature nodes, scores and runtime sw
 TEST_CASE("Failed backend switches retain a usable vocabulary", "[dbow]")
 {
     vocabulary_file             file;
-    const int                   initial = GENERATE(DBOW_BACKENDS);
+    const auto initial = GENERATE(DBOW_BACKENDS);
     ORB_SLAM3::place_vocabulary vocabulary(file.path.string(), initial);
     std::filesystem::remove(file.path);
     REQUIRE_THROWS(vocabulary.set_version(5 - initial));
@@ -294,7 +293,7 @@ TEST_CASE("Full ORB binary vocabulary preserves DBoW word and node identities", 
     cv::RNG                     random(42);
     random.fill(descriptors, cv::RNG::UNIFORM, 0, 256);
     std::vector<cv::Mat> features;
-    for (int row = 0; row < descriptors.rows; ++row)
+    for (auto row = 0; row < descriptors.rows; ++row)
     {
         features.push_back(descriptors.row(row));
     }

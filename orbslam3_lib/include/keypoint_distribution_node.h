@@ -5,8 +5,6 @@
 #include <list>
 #include <vector>
 
-#include <opencv2/features2d.hpp>
-
 namespace ORB_SLAM3
 {
 
@@ -15,7 +13,7 @@ class keypoint_distribution_node
   public:
     keypoint_distribution_node() : is_terminal(false) {}
 
-    void divide_node(keypoint_distribution_node &n1, keypoint_distribution_node &n2, keypoint_distribution_node &n3, keypoint_distribution_node &n4);
+    void divide_node(keypoint_distribution_node &n1, keypoint_distribution_node &n2, keypoint_distribution_node &n3, keypoint_distribution_node &n4) const;
 
     std::vector<keypoint>                           keypoints;
     cv::Point2i                                     upper_left;

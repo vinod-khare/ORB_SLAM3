@@ -22,7 +22,6 @@
 #include "atlas.h"
 #include "key_frame.h"
 #include "key_frame_database.h"
-#include "local_mapping.h"
 #include "place_vocabulary.h"
 #include "processing_statistics.h"
 #include "tracking.h"
@@ -96,7 +95,7 @@ class loop_closing
     // Methods to implement the new place recognition algorithm
     bool detect_new_common_regions();
     bool detect_and_refine_sim3_from_last_key_frame(
-        key_frame *pCurrentKF, key_frame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<map_point *> &vpMPs, std::vector<map_point *> &vpMatchedMPs);
+        key_frame *pCurrentKF, key_frame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<map_point *> &vpMPs, std::vector<map_point *> &vpMatchedMPs) const;
     bool detect_common_regions_from_bow(std::vector<key_frame *> &vpBowCand,
                                         key_frame               *&pMatchedKF,
                                         key_frame               *&pLastCurrentKF,
@@ -105,19 +104,19 @@ class loop_closing
                                         std::vector<map_point *> &vpMPs,
                                         std::vector<map_point *> &vpMatchedMPs);
     bool detect_common_regions_from_last_key_frame(
-        key_frame *pCurrentKF, key_frame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<map_point *> &vpMPs, std::vector<map_point *> &vpMatchedMPs);
+        key_frame *pCurrentKF, key_frame *pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches, std::vector<map_point *> &vpMPs, std::vector<map_point *> &vpMatchedMPs) const;
     int find_matches_by_projection(
-        key_frame *pCurrentKF, key_frame *pMatchedKFw, g2o::Sim3 &g2oScw, set<map_point *> &spMatchedMPinOrigin, vector<map_point *> &vpMapPoints, vector<map_point *> &vpMatchedMapPoints);
+        key_frame *pCurrentKF, key_frame *pMatchedKFw, const g2o::Sim3 &g2oScw, set<map_point *> &spMatchedMPinOrigin, vector<map_point *> &vpMapPoints, vector<map_point *> &vpMatchedMapPoints) const;
 
-    void search_and_fuse(const key_frame_and_pose &CorrectedPosesMap, vector<map_point *> &vpMapPoints);
-    void search_and_fuse(const vector<key_frame *> &vConectedKFs, vector<map_point *> &vpMapPoints);
+    void search_and_fuse(const key_frame_and_pose &CorrectedPosesMap, const vector<map_point *> &vpMapPoints) const;
+    void search_and_fuse(const vector<key_frame *> &vConectedKFs, const vector<map_point *> &vpMapPoints) const;
 
     void correct_loop();
 
     void merge_local();
     void merge_local_2();
 
-    void check_observations(set<key_frame *> &spKFsMap1, set<key_frame *> &spKFsMap2);
+    void check_observations(const set<key_frame *> &spKFsMap1, const set<key_frame *> &spKFsMap2);
 
     void       reset_if_requested();
     bool       reset_requested;

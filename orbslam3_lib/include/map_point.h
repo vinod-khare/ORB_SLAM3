@@ -27,8 +27,6 @@
 #include <map>
 #include <mutex>
 
-#include <opencv2/core/core.hpp>
-
 namespace ORB_SLAM3
 {
 
@@ -45,7 +43,7 @@ class map_point
 
     map_point(const Eigen::Vector3f &Pos, key_frame *pRefKF, map *pMap);
     map_point(const double invDepth, cv::Point2f uv_init, key_frame *pRefKF, key_frame *pHostKF, map *pMap);
-    map_point(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const int &idxF, geometric_camera &camera);
+    map_point(const Eigen::Vector3f &Pos, map *pMap, frame *pFrame, const int &idxF, const geometric_camera &camera);
 
     void            set_world_position(const Eigen::Vector3f &Pos);
     Eigen::Vector3f get_world_position();
@@ -74,7 +72,7 @@ class map_point
     void       increase_visible(int n = 1);
     void       increase_found(int n = 1);
     float      get_found_ratio();
-    inline int get_found() { return found; }
+    inline int get_found() const { return found; }
 
     void compute_distinctive_descriptors();
 
@@ -84,8 +82,8 @@ class map_point
 
     float get_min_distance_invariance();
     float get_max_distance_invariance();
-    int   predict_scale(const float &currentDist, key_frame *pKF);
-    int   predict_scale(const float &currentDist, frame *pF);
+    int   predict_scale(const float &currentDist, const key_frame *pKF);
+    int   predict_scale(const float &currentDist, const frame *pF);
 
     map *get_map();
     void update_map(map *pMap);

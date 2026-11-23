@@ -56,7 +56,7 @@ void show_image(const HelloImGui::TextureGpuPtr &texture, bool flipped = false)
         return;
     }
     const auto  available = ImGui::GetContentRegionAvail();
-    const float scale     = std::min(available.x / texture->Width, available.y / texture->Height);
+    const auto scale     = std::min(available.x / texture->Width, available.y / texture->Height);
     if (scale <= 0)
     {
         return;
@@ -69,7 +69,7 @@ void show_image(const HelloImGui::TextureGpuPtr &texture, bool flipped = false)
 
 bool tool_button(const char *icon, const char *tooltip)
 {
-    const bool clicked = ImGui::Button(icon);
+    const auto clicked = ImGui::Button(icon);
     if (ImGui::IsItemHovered())
     {
         ImGui::SetTooltip("%s", tooltip);
@@ -242,11 +242,11 @@ void viewer::run()
         };
 
         std::array<bool, 7>       layers{true, true, true, true, false, _settings.ground_truth_visible, _settings.camera_trajectory_visible};
-        bool                      follow{false};
-        bool                      top_view{false};
-        bool                      localization{false};
-        bool                      step_by_step{false};
-        std::string               logging_pattern = _settings.logging_pattern;
+        auto follow{false};
+        auto top_view{false};
+        auto localization{false};
+        auto step_by_step{false};
+        auto logging_pattern = _settings.logging_pattern;
         HelloImGui::TextureGpuPtr map_texture;
         HelloImGui::TextureGpuPtr left_texture;
         HelloImGui::TextureGpuPtr right_texture;
@@ -294,14 +294,14 @@ void viewer::run()
             [&]
             {
                 ImGui::SeparatorText("Tracking");
-                const bool paused = _paused.load();
+                const auto paused = _paused.load();
                 if (tool_button(paused ? ICON_FA_PLAY : ICON_FA_PAUSE, paused ? "Play" : "Pause"))
                 {
                     _controls.set_step_by_step(false);
                     step_by_step = false;
                     _paused      = !paused;
                 }
-                int dbow_selection = _dbow_version.load() - 2;
+                auto dbow_selection = _dbow_version.load() - 2;
                 if (ImGui::Combo("DBoW version",
                                  &dbow_selection,
                                  "2\0"
@@ -386,7 +386,7 @@ void viewer::run()
                 }
                 if (ImGui::CollapsingHeader("Logging"))
                 {
-                    int logging_level = static_cast<int>(spdlog::get_level());
+                    auto logging_level = static_cast<int>(spdlog::get_level());
                     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     if (ImGui::Combo("##logging_level", &logging_level, "trace\0debug\0info\0warning\0error\0critical\0off\0"))
                     {
@@ -394,7 +394,7 @@ void viewer::run()
                     }
                     ImGui::TextUnformatted("Pattern");
                     ImGui::SetNextItemWidth(std::max(1.f, ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeightWithSpacing()));
-                    const bool apply_pattern = ImGui::InputText("##logging_pattern", &logging_pattern, ImGuiInputTextFlags_EnterReturnsTrue);
+                    const auto apply_pattern = ImGui::InputText("##logging_pattern", &logging_pattern, ImGuiInputTextFlags_EnterReturnsTrue);
                     ImGui::SameLine();
                     if (tool_button(ICON_FA_CHECK, "Apply logging pattern") || apply_pattern)
                     {
@@ -430,7 +430,7 @@ void viewer::run()
                 if (ImGui::IsItemHovered())
                 {
                     const auto &io       = ImGui::GetIO();
-                    const bool  dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left) || ImGui::IsMouseDragging(ImGuiMouseButton_Middle) || ImGui::IsMouseDragging(ImGuiMouseButton_Right);
+                    const auto dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left) || ImGui::IsMouseDragging(ImGuiMouseButton_Middle) || ImGui::IsMouseDragging(ImGuiMouseButton_Right);
                     if (dragging || io.MouseWheel != 0)
                     {
                         follow = false;

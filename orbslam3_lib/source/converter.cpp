@@ -30,7 +30,7 @@ g2o::SE3Quat converter::to_se3_quat(const cv::Mat &transform)
     rotation << transform.at<float>(0, 0), transform.at<float>(0, 1), transform.at<float>(0, 2), transform.at<float>(1, 0), transform.at<float>(1, 1), transform.at<float>(1, 2),
         transform.at<float>(2, 0), transform.at<float>(2, 1), transform.at<float>(2, 2);
 
-    Eigen::Matrix<double, 3, 1> t(transform.at<float>(0, 3), transform.at<float>(1, 3), transform.at<float>(2, 3));
+    const Eigen::Matrix<double, 3, 1> t(transform.at<float>(0, 3), transform.at<float>(1, 3), transform.at<float>(2, 3));
 
     return g2o::SE3Quat(rotation, t);
 }
@@ -39,29 +39,29 @@ g2o::SE3Quat converter::to_se3_quat(const Sophus::SE3f &transform) { return g2o:
 
 cv::Mat converter::to_cv_mat(const g2o::SE3Quat &pose)
 {
-    Eigen::Matrix<double, 4, 4> eigen_matrix = pose.to_homogeneous_matrix();
+    const auto eigen_matrix = pose.to_homogeneous_matrix();
     return to_cv_mat(eigen_matrix);
 }
 
 cv::Mat converter::to_cv_mat(const g2o::Sim3 &similarity)
 {
-    Eigen::Matrix3d rotation    = similarity.rotation().toRotationMatrix();
-    Eigen::Vector3d translation = similarity.translation();
-    double          s           = similarity.scale();
+    const auto rotation    = similarity.rotation().toRotationMatrix();
+    const auto translation = similarity.translation();
+    const auto s           = similarity.scale();
     return to_cv_se3(s * rotation, translation);
 }
 
 cv::Mat converter::to_cv_se3(const Eigen::Matrix<double, 3, 3> &rotation, const Eigen::Matrix<double, 3, 1> &t)
 {
     cv::Mat matrix = cv::Mat::eye(4, 4, CV_32F);
-    for (int i = 0; i < 3; i++)
+    for (auto i = 0; i < 3; i++)
     {
-        for (int j = 0; j < 3; j++)
+        for (auto j = 0; j < 3; j++)
         {
             matrix.at<float>(i, j) = rotation(i, j);
         }
     }
-    for (int i = 0; i < 3; i++)
+    for (auto i = 0; i < 3; i++)
     {
         matrix.at<float>(i, 3) = t(i);
     }
@@ -135,7 +135,7 @@ Eigen::Matrix<float, 4, 4> converter::to_matrix4f(const cv::Mat &matrix)
 
 std::vector<float> converter::to_quaternion(const cv::Mat &matrix)
 {
-    Eigen::Matrix<double, 3, 3> eigen_matrix = to_matrix3d(matrix);
+    const auto eigen_matrix = to_matrix3d(matrix);
     Eigen::Quaterniond          q(eigen_matrix);
 
     std::vector<float> v(4);
@@ -156,8 +156,8 @@ bool converter::is_rotation_matrix(const cv::Mat &rotation)
 {
     cv::Mat transpose;
     cv::transpose(rotation, transpose);
-    cv::Mat should_be_identity = transpose * rotation;
-    cv::Mat identity           = cv::Mat::eye(3, 3, should_be_identity.type());
+    const cv::Mat should_be_identity = transpose * rotation;
+    const cv::Mat identity           = cv::Mat::eye(3, 3, should_be_identity.type());
 
     return cv::norm(identity, should_be_identity) < 1e-6;
 }
@@ -165,9 +165,9 @@ bool converter::is_rotation_matrix(const cv::Mat &rotation)
 std::vector<float> converter::to_euler(const cv::Mat &rotation)
 {
     assert(is_rotation_matrix(rotation));
-    float sy = sqrt(rotation.at<float>(0, 0) * rotation.at<float>(0, 0) + rotation.at<float>(1, 0) * rotation.at<float>(1, 0));
+    const auto sy = sqrt(rotation.at<float>(0, 0) * rotation.at<float>(0, 0) + rotation.at<float>(1, 0) * rotation.at<float>(1, 0));
 
-    bool singular = sy < 1e-6;
+    const auto singular = sy < 1e-6;
 
     float x;
     float y;
@@ -195,10 +195,10 @@ std::vector<float> converter::to_euler(const cv::Mat &rotation)
 
 Sophus::SE3<float> converter::to_sophus(const cv::Mat &transform)
 {
-    Eigen::Matrix<double, 3, 3> eigen_matrix = to_matrix3d(transform.rowRange(0, 3).colRange(0, 3));
-    Eigen::Quaternionf          q(eigen_matrix.cast<float>());
+    const auto eigen_matrix = to_matrix3d(transform.rowRange(0, 3).colRange(0, 3));
+    const Eigen::Quaternionf          q(eigen_matrix.cast<float>());
 
-    Eigen::Matrix<float, 3, 1> t = to_vector3d(transform.rowRange(0, 3).col(3)).cast<float>();
+    const Eigen::Matrix<float, 3, 1> t = to_vector3d(transform.rowRange(0, 3).col(3)).cast<float>();
 
     return Sophus::SE3<float>(q, t);
 }

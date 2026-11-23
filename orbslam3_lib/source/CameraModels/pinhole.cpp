@@ -45,7 +45,7 @@ Eigen::Vector2f pinhole::project(const Eigen::Vector3f &v3D)
 
 Eigen::Vector2f pinhole::project_mat(const cv::Point3f &p3D)
 {
-    cv::Point2f point = this->project(p3D);
+    const auto point = this->project(p3D);
     return Eigen::Vector2f(point.x, point.y);
 }
 
@@ -77,7 +77,7 @@ bool pinhole::reconstruct_with_two_views(const std::vector<cv::KeyPoint> &vKeys1
 {
     if (!_two_view_reconstruction)
     {
-        Eigen::Matrix3f K        = this->to_k_eigen();
+        const auto K        = this->to_k_eigen();
         _two_view_reconstruction = new two_view_reconstruction(K);
     }
 
@@ -86,7 +86,7 @@ bool pinhole::reconstruct_with_two_views(const std::vector<cv::KeyPoint> &vKeys1
 
 cv::Mat pinhole::to_k()
 {
-    cv::Mat K = cv::Mat(cv::Matx33f(parameters[0], 0.f, parameters[2], 0.f, parameters[1], parameters[3], 0.f, 0.f, 1.f));
+    auto K = cv::Mat(cv::Matx33f(parameters[0], 0.f, parameters[2], 0.f, parameters[1], parameters[3], 0.f, 0.f, 1.f));
     return K;
 }
 
@@ -101,26 +101,26 @@ bool pinhole::epipolar_constrain(
     geometric_camera &pCamera2, const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const Eigen::Matrix3f &R12, const Eigen::Vector3f &t12, const float sigmaLevel, const float unc)
 {
     // Compute Fundamental Matrix
-    Eigen::Matrix3f t12x = Sophus::SO3f::hat(t12);
-    Eigen::Matrix3f K1   = this->to_k_eigen();
-    Eigen::Matrix3f K2   = pCamera2.to_k_eigen();
+    const auto t12x = Sophus::SO3f::hat(t12);
+    auto K1   = this->to_k_eigen();
+    const auto K2   = pCamera2.to_k_eigen();
     Eigen::Matrix3f F12  = K1.transpose().inverse() * t12x * R12 * K2.inverse();
 
     // Epipolar line in second image l = x1'F12 = [a b c]
-    const float a = kp1.pt.x * F12(0, 0) + kp1.pt.y * F12(1, 0) + F12(2, 0);
-    const float b = kp1.pt.x * F12(0, 1) + kp1.pt.y * F12(1, 1) + F12(2, 1);
-    const float c = kp1.pt.x * F12(0, 2) + kp1.pt.y * F12(1, 2) + F12(2, 2);
+    const auto a = kp1.pt.x * F12(0, 0) + kp1.pt.y * F12(1, 0) + F12(2, 0);
+    const auto b = kp1.pt.x * F12(0, 1) + kp1.pt.y * F12(1, 1) + F12(2, 1);
+    const auto c = kp1.pt.x * F12(0, 2) + kp1.pt.y * F12(1, 2) + F12(2, 2);
 
-    const float num = a * kp2.pt.x + b * kp2.pt.y + c;
+    const auto num = a * kp2.pt.x + b * kp2.pt.y + c;
 
-    const float den = a * a + b * b;
+    const auto den = a * a + b * b;
 
     if (den == 0)
     {
         return false;
     }
 
-    const float dsqr = num * num / den;
+    const auto dsqr = num * num / den;
 
     return dsqr < 3.84 * unc;
 }
@@ -143,7 +143,7 @@ std::istream &operator>>(std::istream &is, pinhole &ph)
     return is;
 }
 
-bool pinhole::is_equal(geometric_camera &pCam)
+bool pinhole::is_equal(const geometric_camera &pCam) const
 {
     if (pCam.get_type() != geometric_camera::cam_pinhole)
     {
@@ -155,7 +155,7 @@ bool pinhole::is_equal(geometric_camera &pCam)
         return false;
     }
 
-    bool is_same_camera = true;
+    auto is_same_camera = true;
     for (size_t i = 0; i < size(); ++i)
     {
         if (abs(parameters[i] - pCam.get_parameter(i)) > 1e-6)

@@ -13,8 +13,8 @@ TEST_CASE("OpenCV two-view reconstruction recovers planar and nonplanar scenes",
 {
     const auto                            planar      = GENERATE(false, true);
     const auto                            noisy       = GENERATE(false, true);
-    const Eigen::Matrix3f                 calibration = (Eigen::Matrix3f() << 500, 0, 320, 0, 510, 240, 0, 0, 1).finished();
-    const Eigen::Matrix3f                 rotation    = Eigen::AngleAxisf(0.12f, Eigen::Vector3f::UnitY()).toRotationMatrix();
+    const auto calibration = (Eigen::Matrix3f() << 500, 0, 320, 0, 510, 240, 0, 0, 1).finished();
+    const auto rotation    = Eigen::AngleAxisf(0.12f, Eigen::Vector3f::UnitY()).toRotationMatrix();
     const Eigen::Vector3f                 translation(0.7f, -0.15f, 0.05f);
     ORB_SLAM3::two_view_reconstruction    reconstruction(calibration);
     std::mt19937                          random(42);
@@ -25,7 +25,7 @@ TEST_CASE("OpenCV two-view reconstruction recovers planar and nonplanar scenes",
     std::vector<cv::KeyPoint>             keys2(180);
     std::vector<Eigen::Vector3f>          world_points;
     std::vector<int>                      matches;
-    for (int index = 0; index < 180; ++index)
+    for (auto index = 0; index < 180; ++index)
     {
         const auto            x = xy(random);
         const auto            y = xy(random);
@@ -66,7 +66,7 @@ TEST_CASE("OpenCV two-view reconstruction recovers planar and nonplanar scenes",
         }
         const auto           &point = points[index];
         const Eigen::Vector3f point1(point.x, point.y, point.z);
-        const Eigen::Vector3f point2 = pose * point1;
+        const auto point2 = pose * point1;
         REQUIRE(point1.z() > 0);
         REQUIRE(point2.z() > 0);
         const Eigen::Vector3f image1 = calibration * point1;
@@ -86,7 +86,7 @@ TEST_CASE("OpenCV two-view reconstruction recovers planar and nonplanar scenes",
 
 TEST_CASE("Two-view reconstruction rejects inadequate and degenerate geometry", "[two_view]")
 {
-    const Eigen::Matrix3f              calibration = (Eigen::Matrix3f() << 500, 0, 320, 0, 500, 240, 0, 0, 1).finished();
+    const auto calibration = (Eigen::Matrix3f() << 500, 0, 320, 0, 500, 240, 0, 0, 1).finished();
     ORB_SLAM3::two_view_reconstruction reconstruction(calibration);
     Sophus::SE3f                       pose(Eigen::Matrix3f::Identity(), Eigen::Vector3f(1, 2, 3));
     std::vector<cv::Point3f>           points{cv::Point3f(1, 2, 3)};
@@ -109,7 +109,7 @@ TEST_CASE("Two-view reconstruction rejects inadequate and degenerate geometry", 
     }
     SECTION("Collinear points")
     {
-        for (int index = 0; index < 80; ++index)
+        for (auto index = 0; index < 80; ++index)
         {
             keys1.emplace_back(cv::Point2f(index * 3.0f, 240), 1);
             keys2.emplace_back(cv::Point2f(index * 3.0f + 20, 240), 1);
@@ -118,10 +118,10 @@ TEST_CASE("Two-view reconstruction rejects inadequate and degenerate geometry", 
     }
     SECTION("Ambiguous planar motion")
     {
-        const Eigen::Matrix3f                 rotation = Eigen::AngleAxisf(0.12f, Eigen::Vector3f::UnitY()).toRotationMatrix();
+        const auto rotation = Eigen::AngleAxisf(0.12f, Eigen::Vector3f::UnitY()).toRotationMatrix();
         std::mt19937                          random(42);
         std::uniform_real_distribution<float> xy(-1.5f, 1.5f);
-        for (int index = 0; index < 120; ++index)
+        for (auto index = 0; index < 120; ++index)
         {
             const auto            x = xy(random);
             const auto            y = xy(random);
@@ -138,7 +138,7 @@ TEST_CASE("Two-view reconstruction rejects inadequate and degenerate geometry", 
         std::mt19937                          random(42);
         std::uniform_real_distribution<float> xy(-1.5f, 1.5f);
         std::uniform_real_distribution<float> depth(3.0f, 7.0f);
-        for (int index = 0; index < 49; ++index)
+        for (auto index = 0; index < 49; ++index)
         {
             const auto            x = xy(random);
             const auto            y = xy(random);
@@ -153,10 +153,10 @@ TEST_CASE("Two-view reconstruction rejects inadequate and degenerate geometry", 
     SECTION("Pure rotation or low baseline")
     {
         const auto            baseline = GENERATE(0.0f, 1e-4f);
-        const Eigen::Matrix3f rotation = Eigen::AngleAxisf(0.1f, Eigen::Vector3f::UnitY()).toRotationMatrix();
-        for (int index = 0; index < 120; ++index)
+        const auto rotation = Eigen::AngleAxisf(0.1f, Eigen::Vector3f::UnitY()).toRotationMatrix();
+        for (auto index = 0; index < 120; ++index)
         {
-            const Eigen::Vector3f point((index % 12 - 6) * 0.15f, (index / 12 - 5) * 0.15f, 4 + (index % 7) * 0.2f);
+            const Eigen::Vector3f point((index % 12 - 6) * 0.15f, (index / 12 - 5) * 0.15f, 4 + index % 7 * 0.2f);
             const Eigen::Vector3f image1 = calibration * point;
             const Eigen::Vector3f image2 = calibration * (rotation * point + Eigen::Vector3f(baseline, 0, 0));
             keys1.emplace_back(cv::Point2f(image1.x() / image1.z(), image1.y() / image1.z()), 1);

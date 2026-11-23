@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -68,7 +67,7 @@ std::string read_vocabulary_block(std::istream &stream)
     std::array<int, 4096> offsets;
     offsets.fill(-1);
 
-    int           last_hashed = -1;
+    auto last_hashed = -1;
     std::size_t   position{};
     std::uint32_t control{1};
 
@@ -100,7 +99,7 @@ std::string read_vocabulary_block(std::istream &stream)
         {
             control = 0;
 
-            for (int byte = 0; byte < 4; ++byte)
+            for (auto byte = 0; byte < 4; ++byte)
             {
                 control |= take() << (8 * byte);
             }
@@ -165,11 +164,11 @@ void cv_mat_descriptor::meanValue(const std::vector<pDescriptor> &descriptors, T
         {
             CV_Assert(descriptor->type() == CV_8U && descriptor->size() == first.size());
 
-            for (int column = 0; column < first.cols; ++column)
+            for (auto column = 0; column < first.cols; ++column)
             {
                 const auto byte = descriptor->at<unsigned char>(0, column);
 
-                for (int bit = 0; bit < 8; ++bit)
+                for (auto bit = 0; bit < 8; ++bit)
                 {
                     bit_counts[static_cast<std::size_t>(column) * 8 + bit] += (byte >> bit) & 1;
                 }
@@ -179,9 +178,9 @@ void cv_mat_descriptor::meanValue(const std::vector<pDescriptor> &descriptors, T
         auto      *mean_bytes = mean.ptr<unsigned char>();
         const auto threshold  = static_cast<int>((descriptors.size() + 1) / 2);
 
-        for (int column = 0; column < first.cols; ++column)
+        for (auto column = 0; column < first.cols; ++column)
         {
-            for (int bit = 0; bit < 8; ++bit)
+            for (auto bit = 0; bit < 8; ++bit)
             {
                 if (bit_counts[static_cast<std::size_t>(column) * 8 + bit] >= threshold)
                 {
@@ -235,7 +234,7 @@ std::string cv_mat_descriptor::toString(const TDescriptor &descriptor)
 
     if (descriptor.type() == CV_8U)
     {
-        for (int column = 0; column < descriptor.cols; ++column)
+        for (auto column = 0; column < descriptor.cols; ++column)
         {
             stream << static_cast<int>(descriptor.at<unsigned char>(0, column)) << ' ';
         }
@@ -250,7 +249,7 @@ std::string cv_mat_descriptor::toString(const TDescriptor &descriptor)
 
     stream << "cvmat " << descriptor.type() << ' ' << descriptor.cols << ' ' << std::setprecision(std::numeric_limits<float>::max_digits10);
 
-    for (int column = 0; column < descriptor.cols; ++column)
+    for (auto column = 0; column < descriptor.cols; ++column)
     {
         stream << descriptor.at<float>(0, column) << ' ';
     }
@@ -279,7 +278,7 @@ void cv_mat_descriptor::fromString(TDescriptor &descriptor, const std::string &t
 
         descriptor.create(1, columns, type);
 
-        for (int column = 0; column < columns; ++column)
+        for (auto column = 0; column < columns; ++column)
         {
             stream >> descriptor.at<float>(0, column);
         }
@@ -357,7 +356,7 @@ dbow2_vocabulary::dbow2_vocabulary(const std::string &filename)
         }
     }
 
-    std::istream &stream = compressed ? static_cast<std::istream &>(payload) : file;
+    auto& stream = compressed ? static_cast<std::istream &>(payload) : file;
 
     const auto payload_start = stream.tellg();
     stream.seekg(0, std::ios::end);

@@ -20,9 +20,9 @@ struct image_sequence
     {
         std::filesystem::create_directories(directory / "left");
         std::filesystem::create_directories(directory / "right");
-        for (int index = 0; index < 8; ++index)
+        for (auto index = 0; index < 8; ++index)
         {
-            const std::string filename = std::to_string(1000000000LL + index * 50000000LL) + ".png";
+            const auto filename = std::to_string(1000000000LL + index * 50000000LL) + ".png";
             cv::Mat           image(64, 64, CV_8UC3);
             cv::RNG           random(100 + index);
             random.fill(image, cv::RNG::UNIFORM, 0, 256);
@@ -36,7 +36,7 @@ struct image_sequence
             cv::imwrite((directory / "right" / filename).string(), right_image);
         }
         std::ofstream imu(directory / "imu.csv");
-        for (int index = 0; index < 41; ++index)
+        for (auto index = 0; index < 41; ++index)
         {
             imu << 950000000LL + index * 10000000LL << ",1,2,3,4,5,6\n";
         }
@@ -90,10 +90,10 @@ TEST_CASE("Folder reader rejects malformed and non-finite IMU values")
 
 TEST_CASE("Folder reader reports image decoding failures")
 {
-    const bool           stereo = GENERATE(false, true);
-    const image_sequence sequence;
-    folder_reader        reader(sequence.settings(stereo, false));
-    const std::string    filename = "1000000000.png";
+    const auto            stereo = GENERATE(false, true);
+    const image_sequence  sequence;
+    folder_reader         reader(sequence.settings(stereo, false));
+    constexpr std::string filename = "1000000000.png";
     std::filesystem::remove(sequence.directory / (stereo ? "right" : "left") / filename);
 
     if (stereo)
@@ -109,12 +109,12 @@ TEST_CASE("Folder reader reports image decoding failures")
 
 TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
 {
-    const bool           stereo                  = GENERATE(false, true);
-    const bool           inertial                = GENERATE(false, true);
-    const float          image_scale             = GENERATE(1.f, 0.5f);
-    const bool           sampled                 = GENERATE(false, true);
-    const bool           different_right_size    = GENERATE(false, true);
-    const bool           precompute_optical_flow = GENERATE(false, true);
+    const auto stereo                  = GENERATE(false, true);
+    const auto inertial                = GENERATE(false, true);
+    const auto image_scale             = GENERATE(1.f, 0.5f);
+    const auto sampled                 = GENERATE(false, true);
+    const auto different_right_size    = GENERATE(false, true);
+    const auto precompute_optical_flow = GENERATE(false, true);
     const image_sequence sequence(different_right_size);
     auto                 settings = sequence.settings(stereo, inertial);
     if (sampled)
@@ -135,7 +135,7 @@ TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
         REQUIRE(prepared.timestamp == reference.timestamp(index));
         REQUIRE(prepared.preprocessing_ms > 0.0);
 
-        cv::Mat expected_color = reference.read_image(index);
+        auto expected_color = reference.read_image(index);
         if (image_scale != 1.f)
         {
             cv::resize(expected_color, expected_color, cv::Size(32, 32));
@@ -164,7 +164,7 @@ TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
         }
         if (stereo)
         {
-            cv::Mat expected_right = cv::imread(reference.right_image_path(index), cv::IMREAD_COLOR);
+            auto expected_right = cv::imread(reference.right_image_path(index), cv::IMREAD_COLOR);
             if (image_scale != 1.f)
             {
                 cv::resize(expected_right, expected_right, cv::Size(32, 32));
@@ -201,7 +201,7 @@ TEST_CASE("Prefetch preserves frame order, preprocessing and IMU associations")
 
 TEST_CASE("Prefetch propagates decoding errors after preceding frames")
 {
-    const bool           right_failure = GENERATE(false, true);
+    const auto right_failure = GENERATE(false, true);
     const image_sequence sequence;
     folder_reader        reader(sequence.settings(true, false));
     std::filesystem::remove(sequence.directory / (right_failure ? "right" : "left") / "1100000000.png");
@@ -213,7 +213,7 @@ TEST_CASE("Prefetch propagates decoding errors after preceding frames")
 
 TEST_CASE("Prefetch propagates preprocessing errors and stops both workers")
 {
-    const bool           stereo = GENERATE(false, true);
+    const auto stereo = GENERATE(false, true);
     const image_sequence sequence;
     folder_reader        reader(sequence.settings(stereo, false));
     frame_prefetcher     prefetch(reader, stereo, false, 0.f);
@@ -222,9 +222,9 @@ TEST_CASE("Prefetch propagates preprocessing errors and stops both workers")
 
 TEST_CASE("Prefetch joins its worker when the consumer stops early")
 {
-    const bool           stereo = GENERATE(false, true);
+    const auto stereo = GENERATE(false, true);
     const image_sequence sequence;
-    for (int iteration = 0; iteration < 16; ++iteration)
+    for (auto iteration = 0; iteration < 16; ++iteration)
     {
         folder_reader    reader(sequence.settings(stereo, false));
         frame_prefetcher prefetch(reader, stereo, false, 1.f);

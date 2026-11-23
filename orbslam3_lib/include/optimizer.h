@@ -20,24 +20,14 @@
 #define OPTIMIZER_H
 
 #include "frame.h"
-#include "g2o_compat.h"
 #include "key_frame.h"
 #include "loop_closing.h"
-#include "map.h"
 #include "map_point.h"
 
-#include <math.h>
-
 #include <map>
-#include <memory>
 
 #include <g2o/core/block_solver.h>
-#include <g2o/core/optimization_algorithm_gauss_newton.h>
-#include <g2o/core/optimization_algorithm_levenberg.h>
-#include <g2o/core/robust_kernel_impl.h>
-#include <g2o/core/sparse_block_matrix.h>
 #include <g2o/solvers/dense/linear_solver_dense.h>
-#include <g2o/solvers/eigen/linear_solver_eigen.h>
 #include <g2o/types/sim3/types_seven_dof_expmap.h>
 
 namespace ORB_SLAM3
